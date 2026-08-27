@@ -6,7 +6,7 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20iOS%20%7C%20SmartTV-blue)](#-roadmap-v2--beyond)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Repository](https://img.shields.io/badge/Repo-Private-red)](https://github.com)
 [![Release](https://img.shields.io/badge/Release-v1.0.0-purple)](https://github.com)
 
 </div>
@@ -112,6 +112,6 @@ The compiled output will be located in:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🔒 License & Copyright
+Copyright (c) 2026. All rights reserved. 
+This is a proprietary and confidential private software repository. Unauthorized copying, distribution, or modification of this project via any medium is strictly prohibited.
