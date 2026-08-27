@@ -1,0 +1,299 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:goat_player/l10n/app_localizations.dart';
+
+import 'series_detail_modal.dart';
+import 'series_controller.dart';
+import '../dashboard/widgets/continue_watching_rail.dart';
+
+class SeriesGridScreen extends ConsumerStatefulWidget {
+  const SeriesGridScreen({super.key});
+
+  @override
+  ConsumerState<SeriesGridScreen> createState() => _SeriesGridScreenState();
+}
+
+class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
+  String? _selectedCategory;
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  String _sortMode = 'default'; // default, asc, desc
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(seriesControllerProvider).syncSeriesCategories();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Text(l10n.series),
+            const SizedBox(width: 24),
+            Expanded(
+              child: TextField(
+                  controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context)!.searchSeries,
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                    border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            tooltip: AppLocalizations.of(context)!.sortSeries,
+            onSelected: (val) => setState(() => _sortMode = val),
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'default', child: Text(AppLocalizations.of(context)!.defaultAdded)),
+              PopupMenuItem(value: 'asc', child: Text(AppLocalizations.of(context)!.aToZ)),
+              PopupMenuItem(value: 'desc', child: Text(AppLocalizations.of(context)!.zToA)),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth > 800;
+          
+          final hasSearch = _searchQuery.trim().isNotEmpty;
+          final provider = hasSearch 
+              ? seriesSearchProvider(_searchQuery.trim())
+              : (_selectedCategory == null ? null : seriesStreamsProvider(_selectedCategory!));
+
+          final content = provider == null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.video_library, size: 64, color: Colors.white24),
+                      const SizedBox(height: 16),
+                      Text(AppLocalizations.of(context)!.selectCategoryOrSearch, style: const TextStyle(color: Colors.white54)),
+                    ],
+                  ),
+                )
+              : ref.watch(provider).when(
+                  data: (rawStreams) {
+                    var streams = rawStreams;
+                    
+                    // Apply in-memory sorting
+                    if (_sortMode == 'asc') {
+                      streams = List.from(streams)..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                    } else if (_sortMode == 'desc') {
+                      streams = List.from(streams)..sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+                    }
+
+                    if (streams.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                            const SizedBox(height: 16),
+                            Text(AppLocalizations.of(context)!.noSeriesFound, style: const TextStyle(color: Colors.white54)),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        if (_searchQuery.isEmpty)
+                          const ContinueWatchingRail(type: 'series'),
+                        Expanded(
+                          child: GridView.builder(
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: isDesktop ? 200 : 150,
+                              childAspectRatio: 2 / 3,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                            itemCount: streams.length,
+                            itemBuilder: (context, index) {
+                              final stream = streams[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    PageRouteBuilder(
+                                      opaque: false,
+                                      barrierDismissible: true,
+                                      barrierColor: Colors.black87,
+                                      transitionDuration: const Duration(milliseconds: 400),
+                                      reverseTransitionDuration: const Duration(milliseconds: 400),
+                                      pageBuilder: (context, animation, secondaryAnimation) => SeriesDetailModal(
+                                        seriesName: stream.name,
+                                        seriesId: stream.streamId,
+                                        coverUrl: stream.streamIcon,
+                                      ),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(opacity: animation, child: child);
+                                      },
+                                    ),
+                                  );
+                                },
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                                      if (stream.streamIcon != null && stream.streamIcon!.isNotEmpty)
+                                        Hero(
+                                          tag: 'series_${stream.streamId}',
+                                          flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                                            return fromHeroContext.widget;
+                                          },
+                                          child: Image.network(
+                                            stream.streamIcon!, 
+                                            fit: BoxFit.cover,
+                                            cacheWidth: 200,
+                                            errorBuilder: (_,__,___) => const Center(child: Icon(Icons.tv, size: 40, color: Colors.grey)),
+                                          ),
+                                        ),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.bottomCenter,
+                                            end: Alignment.center,
+                                            colors: [
+                                              Colors.black.withAlpha(220),
+                                              Colors.transparent,
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 8,
+                                        left: 8,
+                                        right: 8,
+                                        child: Text(
+                                          stream.name,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, stack) => Center(child: Text('Error: $err')),
+                );
+
+          if (isDesktop) {
+            return Row(
+              children: [
+                Expanded(
+                  flex: 20,
+                  child: ref.watch(seriesCategoriesProvider).when(
+                    data: (categories) {
+                      return ListView.builder(
+                        itemCount: categories.length,
+                        itemBuilder: (context, index) {
+                          final cat = categories[index];
+                          return ListTile(
+                            title: Text(cat.name),
+                            selected: _selectedCategory == cat.categoryId,
+                            selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
+                            onTap: () {
+                              setState(() {
+                                _selectedCategory = cat.categoryId;
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                              ref.read(seriesControllerProvider).syncSeriesStreams(cat.categoryId);
+                            },
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, stack) => Center(child: Text('Error: ')),
+                  ),
+                ),
+                const VerticalDivider(width: 1, thickness: 1),
+                Expanded(flex: 80, child: content),
+              ],
+            );
+          } else {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ref.watch(seriesCategoriesProvider).when(
+                    data: (categories) {
+                      if (categories.isEmpty) return Text(AppLocalizations.of(context)!.noCategoriesAvailable);
+                      
+                      return DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          labelText: 'Category',
+                          suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        isExpanded: true,
+                        value: _selectedCategory,
+                        items: categories.map((cat) {
+                          return DropdownMenuItem(
+                            value: cat.categoryId,
+                            child: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedCategory = val);
+                            ref.read(seriesControllerProvider).syncSeriesStreams(val);
+                          }
+                        },
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (err, stack) => Text('Error: '),
+                  ),
+                ),
+                Expanded(child: content),
+              ],
+            );
+          }
+        },
+      ),
+    );
+  }
+}

@@ -1,0 +1,171 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart' hide Category;
+import '../../main.dart';
+import '../../core/database/app_database.dart';
+import 'package:drift/drift.dart';
+import '../../core/network/xtream_client.dart';
+import '../../core/utils/title_sanitizer.dart';
+
+class SelectedLiveCategory extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? value) => state = value;
+}
+final selectedLiveCategoryProvider = NotifierProvider<SelectedLiveCategory, String?>(SelectedLiveCategory.new);
+
+class SelectedLiveStream extends Notifier<StreamItem?> {
+  @override
+  StreamItem? build() => null;
+  void set(StreamItem? value) => state = value;
+}
+final selectedLiveStreamProvider = NotifierProvider<SelectedLiveStream, StreamItem?>(SelectedLiveStream.new);
+
+class IsLiveFullWidth extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool value) => state = value;
+  void toggle() => state = !state;
+}
+final isLiveFullWidthProvider = NotifierProvider<IsLiveFullWidth, bool>(IsLiveFullWidth.new);
+
+final liveCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return const Stream.empty();
+  
+  final dao = ref.watch(categoryDaoProvider);
+  return dao.watchCategories(account.id, 'live').map((list) {
+    final favoritesCat = Category(
+      id: -1, 
+      accountId: account.id, 
+      categoryId: 'favorites', 
+      name: 'Favorites', 
+      type: 'live'
+    );
+    return [favoritesCat, ...list];
+  });
+});
+
+final liveStreamsProvider = StreamProvider.family.autoDispose<List<StreamItem>, String>((ref, categoryId) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return const Stream.empty();
+  
+  final dao = ref.watch(streamDaoProvider);
+  if (categoryId == 'favorites') {
+    return dao.watchFavoriteStreams(account.id, 'live');
+  }
+  return dao.watchStreamsByCategory(account.id, categoryId);
+});
+
+final liveTvSearchProvider = StreamProvider.family.autoDispose<List<StreamItem>, String>((ref, query) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return const Stream.empty();
+  
+  final dao = ref.watch(streamDaoProvider);
+  return dao.watchStreamsByQuery(account.id, 'live', query);
+});
+
+final liveTvControllerProvider = Provider<LiveTvController>((ref) {
+  return LiveTvController(ref);
+});
+
+class LiveTvController {
+  final Ref _ref;
+  
+  LiveTvController(this._ref);
+
+  Future<void> syncLiveCategories() async {
+    final client = _ref.read(xtreamClientProvider);
+    final account = _ref.read(activeAccountProvider);
+    if (client == null || account == null) return;
+    
+    try {
+      final rawCategories = await client.getLiveCategories();
+      final dao = _ref.read(categoryDaoProvider);
+      
+      final companions = rawCategories.map((c) {
+        return CategoriesCompanion.insert(
+          accountId: account.id,
+          categoryId: c['category_id'].toString(),
+          name: c['category_name'].toString(),
+          type: 'live',
+        );
+      }).toList();
+      
+      await dao.clearCategories(account.id, 'live');
+      await dao.insertCategories(companions);
+    } catch (e) {
+      debugPrint('Failed to sync live categories: $e');
+    }
+  }
+
+  Future<void> syncLiveStreams(String categoryId) async {
+    final client = _ref.read(xtreamClientProvider);
+    final account = _ref.read(activeAccountProvider);
+    if (client == null || account == null) return;
+    
+    try {
+      final rawStreams = await client.getLiveStreams(categoryId: categoryId);
+      final dao = _ref.read(streamDaoProvider);
+      
+      final companions = rawStreams.map((s) {
+        return StreamsCompanion.insert(
+          accountId: account.id,
+          categoryId: s['category_id'].toString(),
+          streamId: s['stream_id'].toString(),
+          epgChannelId: s['epg_channel_id'] != null ? Value(s['epg_channel_id'].toString()) : const Value.absent(),
+          name: TitleSanitizer.sanitizeLiveTvChannel(s['name']?.toString() ?? 'Unknown'),
+          streamType: 'live',
+          streamIcon: s['stream_icon'] != null ? Value(s['stream_icon'].toString()) : const Value.absent(),
+        );
+      }).toList();
+      
+      await dao.clearStreamsByCategory(account.id, categoryId);
+      await dao.insertStreams(companions);
+    } catch (e) {
+      debugPrint('Failed to sync live streams: $e');
+    }
+  }
+
+  Future<void> syncAllLiveStreams() async {
+    final client = _ref.read(xtreamClientProvider);
+    final account = _ref.read(activeAccountProvider);
+    if (client == null || account == null) return;
+    
+    try {
+      debugPrint('Syncing ALL Live streams...');
+      final rawStreams = await client.getLiveStreams();
+      debugPrint('ALL Live streams raw response length: ${rawStreams.length}');
+      
+      final dao = _ref.read(streamDaoProvider);
+      
+      final companions = await compute(_mapLiveStreams, {'accountId': account.id, 'streams': rawStreams});
+      
+      await dao.clearStreamsByType(account.id, 'live');
+      await dao.insertStreams(companions);
+      debugPrint('Finished syncing ALL Live streams.');
+    } catch (e) {
+      debugPrint('Failed to sync all live streams: $e');
+    }
+  }
+}
+
+// Top-level function for compute
+List<StreamsCompanion> _mapLiveStreams(Map<String, dynamic> data) {
+  final int accountId = data['accountId'];
+  final List<dynamic> rawStreams = data['streams'];
+  return rawStreams.map((s) {
+    return StreamsCompanion.insert(
+      accountId: accountId,
+      streamId: s['stream_id']?.toString() ?? 'unknown',
+      epgChannelId: s['epg_channel_id'] != null && s['epg_channel_id'].toString().isNotEmpty 
+          ? Value(s['epg_channel_id'].toString()) 
+          : const Value.absent(),
+      name: TitleSanitizer.sanitize(s['name']?.toString() ?? 'Unknown'),
+      streamType: 'live',
+      categoryId: s['category_id']?.toString() ?? 'unknown',
+      streamIcon: s['stream_icon'] != null && s['stream_icon'].toString().isNotEmpty 
+          ? Value(s['stream_icon'].toString()) 
+          : const Value.absent(),
+    );
+  }).toList();
+}
