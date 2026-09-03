@@ -25,6 +25,8 @@
 - **Multi-Account Support**: Add and manage multiple Xtream Codes / M3U playlists with ease.
 - **Smart Category Browsing**: Searchable category rail with instant search & clear functions.
 - **Interactive EPG Timeline**: Real-time Electronic Program Guide with progress bars, program details, and schedules.
+- **In-Player Slide-Out EPG & Channel Drawer**: Frosted glass sidebar accessible directly inside the player (both Full-Width and Fullscreen modes). Search channels, inspect logos, and view live show progress bars without exiting the stream.
+- **Quick In-Stream Zapping (CH- / CH+)**: Channel flipping buttons and keyboard/remote shortcuts (`ArrowUp` / `ArrowDown` or `PageUp` / `PageDown`) with real-time translucent OSD info banner.
 - **Split-Screen & Full-Width Player**: Seamless toggle between category/channel list browsing and full-width playback.
 - **Favorites / Favoriten**: Pin and manage your top live channels with instant filtering.
 - **Dedicated Volume Controls**: Hover volume slider and quick-mute toggle right next to fullscreen controls.
@@ -118,12 +120,12 @@ The compiled output will be located in:
 
 ## 🗺️ Roadmap & Planned Features
 
-### ⚡ Priority 1: In-Player EPG List & Quick-Zapping
-- [ ] **In-Player Slide-Out EPG & Channel List Drawer**:
+### ⚡ Priority 1: In-Player EPG List & Quick-Zapping (Completed)
+- [x] **In-Player Slide-Out EPG & Channel List Drawer**:
   - Transparent frosted sidebar overlay accessible directly inside the Live TV player (both Full-Width and Fullscreen).
   - Search channels, view logos, and inspect real-time EPG program schedules with live progress bars without leaving the stream.
   - 1-click instant channel tuning directly from the drawer.
-- [ ] **Quick In-Stream Zapping**:
+- [x] **Quick In-Stream Zapping**:
   - In-player Channel Up (`CH +`) / Channel Down (`CH -`) buttons.
   - Keyboard & Remote shortcuts (`PageUp` / `PageDown` or `ArrowUp` / `ArrowDown`) to flip channels instantly.
   - Sleek translucent On-Screen Display (OSD) banner showing channel logo, name, number, and current live show info on each zap.

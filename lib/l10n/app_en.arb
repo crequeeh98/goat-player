@@ -68,5 +68,10 @@
   "fullScreen": "Fullscreen",
   "fullWidth": "Full Width",
   "minimize": "Minimize",
-  "vodPlayback": "VOD Playback"
+  "vodPlayback": "VOD Playback",
+  "epgDrawer": "Channel List & EPG",
+  "nextChannel": "Next Channel",
+  "previousChannel": "Previous Channel",
+  "noProgramInfo": "No program info",
+  "upNext": "Up Next"
 }

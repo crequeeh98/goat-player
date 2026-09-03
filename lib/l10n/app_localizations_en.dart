@@ -216,4 +216,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vodPlayback => 'VOD Playback';
+
+  @override
+  String get epgDrawer => 'Channel List & EPG';
+
+  @override
+  String get nextChannel => 'Next Channel';
+
+  @override
+  String get previousChannel => 'Previous Channel';
+
+  @override
+  String get noProgramInfo => 'No program info';
+
+  @override
+  String get upNext => 'Up Next';
 }

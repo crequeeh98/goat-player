@@ -511,6 +511,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'VOD Playback'**
   String get vodPlayback;
+
+  /// No description provided for @epgDrawer.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel List & EPG'**
+  String get epgDrawer;
+
+  /// No description provided for @nextChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Channel'**
+  String get nextChannel;
+
+  /// No description provided for @previousChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous Channel'**
+  String get previousChannel;
+
+  /// No description provided for @noProgramInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'No program info'**
+  String get noProgramInfo;
+
+  /// No description provided for @upNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Up Next'**
+  String get upNext;
 }
 
 class _AppLocalizationsDelegate

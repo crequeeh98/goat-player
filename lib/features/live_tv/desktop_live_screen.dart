@@ -41,11 +41,50 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     });
   }
 
+  void _playStream(StreamItem stream) {
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+    final cleanName = ChannelNameCleaner.clean(stream.name);
+    final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
+    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.ts';
+    final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+
+    ref.read(playbackControllerProvider.notifier).playLive(
+      title: cleanName,
+      url: url,
+      channelId: epgChannelId,
+    );
+  }
+
+  void _zapNext(List<StreamItem> streams, int currentIndex) {
+    if (streams.isEmpty) return;
+    final nextIndex = currentIndex >= 0 ? (currentIndex + 1) % streams.length : 0;
+    _playStream(streams[nextIndex]);
+  }
+
+  void _zapPrevious(List<StreamItem> streams, int currentIndex) {
+    if (streams.isEmpty) return;
+    final prevIndex = currentIndex >= 0 ? (currentIndex - 1 + streams.length) % streams.length : streams.length - 1;
+    _playStream(streams[prevIndex]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final _isFullWidth = ref.watch(isLiveFullWidthProvider);
     final activePlayback = ref.watch(playbackControllerProvider);
     final currentLive = (activePlayback != null && activePlayback.streamType == StreamType.live) ? activePlayback : null;
+
+    final currentCategoryStreams = _selectedCategory != null
+        ? (ref.watch(liveStreamsProvider(_selectedCategory!)).asData?.value ?? const <StreamItem>[])
+        : const <StreamItem>[];
+
+    final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
+    final currentCatObj = categories.where((c) => c.categoryId == _selectedCategory).firstOrNull;
+    final categoryName = currentCatObj?.name;
+
+    final currentStreamIndex = currentCategoryStreams.indexWhere(
+      (s) => s.streamId == currentLive?.channelId || s.epgChannelId == currentLive?.channelId,
+    );
 
     ref.listen<String?>(selectedLiveCategoryProvider, (prev, next) {
       if (next != null && next != _selectedCategory) {
@@ -193,13 +232,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 },
                               ),
                               selected: currentLive?.streamUrl == url,
-                              onTap: () {
-                                ref.read(playbackControllerProvider.notifier).playLive(
-                                  title: cleanName,
-                                  url: url,
-                                  channelId: stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId,
-                                );
-                              },
+                              onTap: () => _playStream(stream),
                             );
                           },
                         );
@@ -226,6 +259,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           channelId: currentLive.channelId,
                           channelName: currentLive.title,
                           isFullWidth: _isFullWidth,
+                          streams: currentCategoryStreams,
+                          categoryName: categoryName,
+                          onSelectStream: _playStream,
+                          onZapNext: () => _zapNext(currentCategoryStreams, currentStreamIndex),
+                          onZapPrevious: () => _zapPrevious(currentCategoryStreams, currentStreamIndex),
                           onToggleFullWidth: () {
                             ref.read(isLiveFullWidthProvider.notifier).toggle();
                           },

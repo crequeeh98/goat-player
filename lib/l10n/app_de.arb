@@ -68,5 +68,10 @@
   "fullScreen": "Vollbild",
   "fullWidth": "Volle Breite",
   "minimize": "Minimieren",
-  "vodPlayback": "VOD Wiedergabe"
+  "vodPlayback": "VOD Wiedergabe",
+  "epgDrawer": "Senderliste & EPG",
+  "nextChannel": "Nächster Sender",
+  "previousChannel": "Vorheriger Sender",
+  "noProgramInfo": "Keine Programminfo",
+  "upNext": "Danach"
 }
