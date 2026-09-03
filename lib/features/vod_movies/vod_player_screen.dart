@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:goat_player/l10n/app_localizations.dart';
 import 'package:goat_player/core/database/app_database.dart';
 import 'package:goat_player/main.dart';
+
+import 'dart:io' show Platform;
+import '../../core/player/widgets/mobile_gesture_detector.dart';
 
 class VodPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
@@ -39,6 +40,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   bool _isClosing = false;
   bool _canPop = false;
   Timer? _progressTimer;
+  BoxFit _fit = BoxFit.contain;
 
   @override
   void initState() {
@@ -49,6 +51,15 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       configuration: const VideoControllerConfiguration(enableHardwareAcceleration: true),
     );
     
+    // Auto-lock to landscape on mobile devices for cinema experience
+    if (Platform.isAndroid || Platform.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+
     // Auto-play the media
     player.open(Media(widget.streamUrl), play: true);
     
@@ -96,8 +107,36 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     });
   }
 
+  void _cycleFit() {
+    setState(() {
+      if (_fit == BoxFit.contain) {
+        _fit = BoxFit.cover;
+      } else if (_fit == BoxFit.cover) {
+        _fit = BoxFit.fill;
+      } else {
+        _fit = BoxFit.contain;
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Aspect: ${_fit.name.toUpperCase()}'),
+        duration: const Duration(milliseconds: 700),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     _progressTimer?.cancel();
     player.dispose();
     super.dispose();
@@ -135,7 +174,9 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
               children: [
                 MaterialDesktopVideoControlsTheme(
                   normal: MaterialDesktopVideoControlsThemeData(
+                    hideMouseOnControlsRemoval: true,
                     playAndPauseOnTap: true,
+                    toggleFullscreenOnDoublePress: true,
                     keyboardShortcuts: {
                       const SingleActivator(LogicalKeyboardKey.escape): () {
                         if (ModalRoute.of(context)?.isCurrent != true) {
@@ -249,7 +290,9 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     ],
                   ),
                   fullscreen: MaterialDesktopVideoControlsThemeData(
+                    hideMouseOnControlsRemoval: true,
                     playAndPauseOnTap: true,
+                    toggleFullscreenOnDoublePress: true,
                     keyboardShortcuts: {
                       const SingleActivator(LogicalKeyboardKey.escape): () {
                         if (ModalRoute.of(context)?.isCurrent != true) {
@@ -359,13 +402,30 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                         },
                         icon: const Icon(Icons.subtitles, color: Colors.white),
                       ),
+                      if (Platform.isAndroid || Platform.isIOS)
+                        MaterialDesktopCustomButton(
+                          onPressed: _cycleFit,
+                          icon: const Icon(Icons.aspect_ratio, color: Colors.white),
+                        ),
                       const MaterialDesktopFullscreenButton(),
                     ],
                   ),
-                  child: Video(
-                    controller: controller,
-                    controls: MaterialDesktopVideoControls,
-                  ),
+                  child: (Platform.isAndroid || Platform.isIOS)
+                      ? MobileGestureDetector(
+                          player: player,
+                          enableSeek: false,
+                          onDoubleTap: () => toggleFullscreen(context),
+                          child: Video(
+                            controller: controller,
+                            fit: _fit,
+                            controls: MaterialDesktopVideoControls,
+                          ),
+                        )
+                      : Video(
+                          controller: controller,
+                          fit: _fit,
+                          controls: MaterialDesktopVideoControls,
+                        ),
                 ),
               ],
             ),

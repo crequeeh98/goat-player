@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+
+import 'dart:io' show Platform;
 
 class CustomLiveControls extends StatefulWidget {
   final VideoState state;
@@ -10,6 +13,9 @@ class CustomLiveControls extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onSingleTap;
   final VoidCallback? onEnterFullWidth;
+  final VoidCallback? onCycleFit;
+  final BoxFit? currentFit;
+  final VoidCallback? onCatchUpLive;
 
   const CustomLiveControls({
     super.key,
@@ -19,6 +25,9 @@ class CustomLiveControls extends StatefulWidget {
     this.onBack,
     this.onSingleTap,
     this.onEnterFullWidth,
+    this.onCycleFit,
+    this.currentFit,
+    this.onCatchUpLive,
   });
 
   @override
@@ -71,14 +80,42 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
   }
 
   void _togglePlayPause() {
-    widget.state.widget.controller.player.playOrPause();
+    final player = widget.state.widget.controller.player;
+    if (_isPlaying) {
+      player.pause();
+    } else {
+      // Reconnect/flush to real-time live edge
+      if (widget.onCatchUpLive != null) {
+        widget.onCatchUpLive!();
+      } else {
+        player.play();
+      }
+    }
     _startHideTimer();
   }
 
   void _toggleFullscreen(BuildContext context) {
-    if (isFullscreen(context)) {
+    final currentlyFull = isFullscreen(context);
+    if (currentlyFull) {
       if (widget.onEnterFullWidth != null) {
         widget.onEnterFullWidth!();
+      }
+      if (Platform.isAndroid || Platform.isIOS) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    } else {
+      if (Platform.isAndroid || Platform.isIOS) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       }
     }
     toggleFullscreen(context);
@@ -105,6 +142,7 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
         return KeyEventResult.ignored;
       },
       child: MouseRegion(
+        cursor: _showOverlay ? SystemMouseCursors.basic : SystemMouseCursors.none,
         onHover: _onPointerEvent,
         onEnter: _onPointerEvent,
         onExit: (_) {
@@ -164,7 +202,7 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
                           icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
                           onPressed: () {
                             if (isFull) {
-                              toggleFullscreen(context);
+                              _toggleFullscreen(context);
                             }
                             if (widget.onBack != null) {
                               widget.onBack!();
@@ -173,12 +211,21 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
                         ),
                       ),
                       
-                    // TOP RIGHT: Volume
+                    // TOP RIGHT: Volume & Aspect Ratio
                     Positioned(
                       top: 20,
                       right: 20,
                       child: Row(
                         children: [
+                          if (widget.onCycleFit != null && (Platform.isAndroid || Platform.isIOS))
+                            IconButton(
+                              icon: const Icon(Icons.aspect_ratio, color: Colors.white),
+                              tooltip: 'Aspect Ratio',
+                              onPressed: () {
+                                widget.onCycleFit!();
+                                _startHideTimer();
+                              },
+                            ),
                           IconButton(
                             icon: Icon(
                               _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
@@ -186,32 +233,55 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
                             ),
                             onPressed: () {
                               if (_volume > 0) {
+                                setState(() => _volume = 0);
                                 widget.state.widget.controller.player.setVolume(0);
                               } else {
+                                setState(() => _volume = 100);
                                 widget.state.widget.controller.player.setVolume(100);
                               }
                               _startHideTimer();
                             },
                           ),
-                          SizedBox(
-                            width: 100,
-                            child: Slider(
-                              value: _volume,
-                              min: 0,
-                              max: 100,
-                              activeColor: Theme.of(context).colorScheme.primary,
-                              inactiveColor: Colors.white38,
-                              onChanged: (v) {
-                                widget.state.widget.controller.player.setVolume(v);
+                          Listener(
+                            onPointerSignal: (pointerSignal) {
+                              if (pointerSignal is PointerScrollEvent) {
+                                final delta = pointerSignal.scrollDelta.dy;
+                                final newVol = (_volume - (delta > 0 ? 5 : -5)).clamp(0.0, 100.0);
+                                setState(() => _volume = newVol);
+                                widget.state.widget.controller.player.setVolume(newVol);
                                 _startHideTimer();
-                              },
+                              }
+                            },
+                            child: SizedBox(
+                              width: 95,
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  activeTrackColor: Colors.white,
+                                  inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
+                                  thumbColor: Colors.white,
+                                  overlayColor: Colors.white.withValues(alpha: 0.15),
+                                  trackHeight: 3.0,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                                ),
+                                child: Slider(
+                                  value: _volume.clamp(0.0, 100.0),
+                                  min: 0.0,
+                                  max: 100.0,
+                                  onChanged: (v) {
+                                    setState(() => _volume = v);
+                                    widget.state.widget.controller.player.setVolume(v);
+                                    _startHideTimer();
+                                  },
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    // CENTER: Pause/Play Button
+                    // CENTER: Pause/Play Button (unpausing automatically catches up to live edge)
                     Center(
                       child: IconButton(
                         iconSize: 80,
@@ -224,13 +294,13 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
                     // BOTTOM CENTER: Title
                     Positioned(
                       bottom: 40,
-                      left: 100,
-                      right: 100,
+                      left: 80,
+                      right: 80,
                       child: Text(
                         widget.title,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 24,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                           shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
                         ),
@@ -245,7 +315,7 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
                       bottom: 20,
                       right: 20,
                       child: IconButton(
-                        icon: Icon(isFull ? Icons.fullscreen_exit : Icons.fullscreen, color: Colors.white, size: 40),
+                        icon: Icon(isFull ? Icons.fullscreen_exit : Icons.fullscreen, color: Colors.white, size: 36),
                         onPressed: () => _toggleFullscreen(context),
                       ),
                     ),

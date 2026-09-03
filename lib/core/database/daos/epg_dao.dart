@@ -23,6 +23,18 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
         .watch();
   }
 
+  Future<Map<String, EpgProgram>> getCurrentProgramsMap(int accountId) async {
+    final now = DateTime.now();
+    final query = select(epgPrograms)
+      ..where((p) => p.accountId.equals(accountId) & p.startTime.isSmallerOrEqualValue(now) & p.stopTime.isBiggerOrEqualValue(now));
+    final list = await query.get();
+    final map = <String, EpgProgram>{};
+    for (final prog in list) {
+      map[prog.channelId] = prog;
+    }
+    return map;
+  }
+
   Future<void> clearPrograms(int accountId) {
     return (delete(epgPrograms)..where((p) => p.accountId.equals(accountId))).go();
   }

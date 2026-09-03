@@ -13,9 +13,13 @@ class PlayerService {
   late final Player player;
   late final VideoController controller;
 
+  String? _lastOpenedUrl;
+
   PlayerService() {
     player = Player(
-      configuration: const PlayerConfiguration(),
+      configuration: const PlayerConfiguration(
+        bufferSize: 8 * 1024 * 1024, // 8MB buffer for snappy startup
+      ),
     );
     controller = VideoController(
       player,
@@ -23,12 +27,21 @@ class PlayerService {
         enableHardwareAcceleration: true,
       ),
     );
+
+    // Apply low-latency mpv options if supported by platform
+    try {
+      final dynamic platform = player.platform;
+      platform?.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+discardcorrupt');
+      platform?.setProperty('network-timeout', '5');
+      platform?.setProperty('demuxer-readahead-secs', '2');
+    } catch (_) {}
   }
 
   bool _isDisposed = false;
 
   Future<void> open(String url) async {
     if (_isDisposed) return;
+    _lastOpenedUrl = url;
     try {
       await player.open(Media(url), play: true);
       if (!_isDisposed) {
@@ -36,6 +49,15 @@ class PlayerService {
       }
     } catch (e) {
       debugPrint('PlayerService open error: $e');
+    }
+  }
+
+  /// Reloads/flushes the live stream to snap directly to the live broadcast edge
+  Future<void> jumpToLiveEdge() async {
+    if (_lastOpenedUrl != null && !_isDisposed) {
+      await open(_lastOpenedUrl!);
+    } else {
+      await player.play();
     }
   }
 

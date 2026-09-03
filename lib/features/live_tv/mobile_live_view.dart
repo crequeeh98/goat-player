@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 
@@ -80,41 +82,133 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
   }
 }
 
-class MobileLiveChannelsScreen extends ConsumerWidget {
+class MobileLiveChannelsScreen extends ConsumerStatefulWidget {
   final String categoryId;
   final String categoryName;
   
   const MobileLiveChannelsScreen({super.key, required this.categoryId, required this.categoryName});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MobileLiveChannelsScreen> createState() => _MobileLiveChannelsScreenState();
+}
+
+class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScreen> {
+  String _channelSearchQuery = '';
+  bool _isSearching = false;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(categoryName),
+        title: _isSearching
+            ? TextField(
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search channels...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.white70),
+                ),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (val) => setState(() => _channelSearchQuery = val),
+              )
+            : Text(widget.categoryName),
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                if (_isSearching) {
+                  _isSearching = false;
+                  _channelSearchQuery = '';
+                } else {
+                  _isSearching = true;
+                }
+              });
+            },
+          ),
+        ],
       ),
-      body: ref.watch(liveStreamsProvider(categoryId)).when(
-        data: (streams) {
+      body: ref.watch(liveStreamsProvider(widget.categoryId)).when(
+        data: (rawStreams) {
+          var streams = rawStreams;
+          if (_channelSearchQuery.trim().isNotEmpty) {
+            final query = _channelSearchQuery.trim().toLowerCase();
+            streams = streams.where((s) => s.name.toLowerCase().contains(query)).toList();
+          }
+
+          if (streams.isEmpty) {
+            return const Center(child: Text('No channels found'));
+          }
+
+          final currentPrograms = ref.watch(currentProgramsMapProvider).asData?.value ?? const {};
+          final now = DateTime.now();
+
           return ListView.builder(
             itemCount: streams.length,
             itemBuilder: (context, index) {
               final stream = streams[index];
               final account = ref.read(activeAccountProvider);
               final cleanName = ChannelNameCleaner.clean(stream.name);
+              final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+              
+              final currentProgram = epgChannelId != null ? currentPrograms[epgChannelId] : null;
+              String? currentShowTitle;
+              double? showProgress;
+              
+              if (currentProgram != null) {
+                currentShowTitle = currentProgram.title;
+                final totalMinutes = currentProgram.stopTime.difference(currentProgram.startTime).inMinutes;
+                final elapsedMinutes = now.difference(currentProgram.startTime).inMinutes;
+                if (totalMinutes > 0) {
+                  showProgress = (elapsedMinutes / totalMinutes).clamp(0.0, 1.0);
+                }
+              }
+
               return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 leading: ChannelIcon(
                   iconUrl: stream.streamIcon,
                   channelName: cleanName,
                 ),
-                title: Text(cleanName),
+                title: Text(cleanName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: currentShowTitle != null
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 2),
+                          Text(
+                            currentShowTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          ),
+                          if (showProgress != null) ...[
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: showProgress,
+                                minHeight: 3,
+                                backgroundColor: Colors.white12,
+                                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    : null,
+                trailing: const Icon(Icons.play_circle_outline, color: Colors.white70),
                 onTap: () {
-                  final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
+                  final baseUrl = account?.serverUrl.endsWith('/') == true
+                      ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
+                      : account?.serverUrl;
                   final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => MobilePlayerScreen(
                         streamUrl: url,
-                        channelId: stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId,
+                        channelId: epgChannelId,
                         channelName: cleanName,
                       ),
                     ),
@@ -131,7 +225,7 @@ class MobileLiveChannelsScreen extends ConsumerWidget {
   }
 }
 
-class MobilePlayerScreen extends StatelessWidget {
+class MobilePlayerScreen extends StatefulWidget {
   final String streamUrl;
   final String channelName;
   final String? channelId;
@@ -139,32 +233,64 @@ class MobilePlayerScreen extends StatelessWidget {
   const MobilePlayerScreen({super.key, required this.streamUrl, required this.channelName, this.channelId});
 
   @override
+  State<MobilePlayerScreen> createState() => _MobilePlayerScreenState();
+}
+
+class _MobilePlayerScreenState extends State<MobilePlayerScreen> {
+  @override
+  void dispose() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(channelName),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: VideoPreview(
-                streamUrl: streamUrl,
-                channelId: channelId,
-                channelName: channelName,
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (Platform.isAndroid || Platform.isIOS) {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(widget.channelName),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: VideoPreview(
+                  streamUrl: widget.streamUrl,
+                  channelId: widget.channelId,
+                  channelName: widget.channelName,
+                ),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: EpgTimelineWidget(channelId: channelId),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: EpgTimelineWidget(channelId: widget.channelId),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

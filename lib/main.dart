@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,20 +68,23 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   
-  await windowManager.ensureInitialized();
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(1280, 720),
-    center: true,
-    title: 'GOATPlayer',
-  );
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-    // Add a tiny delay to ensure Windows finishes the show animation before maximizing.
-    // This prevents the viewport duplication bug and ensures maximize always works.
-    await Future.delayed(const Duration(milliseconds: 150));
-    await windowManager.maximize();
-  });
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 720),
+      center: true,
+      title: 'GOATPlayer',
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+      // Add a tiny delay to ensure Windows finishes the show animation before maximizing.
+      // This prevents the viewport duplication bug and ensures maximize always works.
+      await Future.delayed(const Duration(milliseconds: 150));
+      await windowManager.maximize();
+    });
+  }
+  
   final prefs = await SharedPreferences.getInstance();
 
   runApp(

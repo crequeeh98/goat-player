@@ -31,11 +31,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   void initState() {
     super.initState();
-    // Fire and forget background sync of entire catalog for global search
+    // Fast initial sync of categories only (keeps UI and SQLite thread snappy)
     Future.microtask(() {
-      ref.read(vodControllerProvider).syncAllVodStreams();
-      ref.read(seriesControllerProvider).syncAllSeriesStreams();
-      ref.read(liveTvControllerProvider).syncAllLiveStreams();
+      ref.read(liveTvControllerProvider).syncLiveCategories();
+      ref.read(vodControllerProvider).syncVodCategories();
+      ref.read(seriesControllerProvider).syncSeriesCategories();
     });
   }
 
@@ -80,23 +80,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               }
             },
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.language),
-            tooltip: AppLocalizations.of(context)!.changeLanguage,
-            onSelected: (value) {
-              ref.read(localeControllerProvider.notifier).setLocale(value);
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'en',
-                child: Text(AppLocalizations.of(context)!.english),
-              ),
-              PopupMenuItem(
-                value: 'de',
-                child: Text(AppLocalizations.of(context)!.german),
-              ),
-            ],
-          ),
           Consumer(
             builder: (context, ref, child) {
               final stageAsync = ref.watch(vpnStageProvider);
@@ -121,24 +104,68 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               );
             },
           ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: AppLocalizations.of(context)!.switchAccount,
-              onPressed: () async {
-                // Safely stop any running Live TV player before unmounting to prevent segfaults
-                final playerService = ref.read(playerServiceProvider);
-                await playerService.player.stop();
-                await Future.delayed(const Duration(milliseconds: 50));
-                
-                ref.read(activeAccountProvider.notifier).set(null);
-                if (context.mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AccountListScreen()),
-                  );
-                }
-              },
-            ),
+          // Dedicated Language Selection Button
+          // Dedicated Language Selection Button
+          Consumer(
+            builder: (context, ref, child) {
+              final currentLocale = ref.watch(localeControllerProvider);
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.language),
+                tooltip: AppLocalizations.of(context)!.changeLanguage,
+                onSelected: (lang) {
+                  ref.read(localeControllerProvider.notifier).setLocale(lang);
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'en',
+                    child: Row(
+                      children: [
+                        _buildUsFlag(),
+                        const SizedBox(width: 12),
+                        Text(AppLocalizations.of(context)!.english),
+                        if (currentLocale.languageCode == 'en') ...[
+                          const Spacer(),
+                          const Icon(Icons.check, size: 16, color: Colors.green),
+                        ],
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'de',
+                    child: Row(
+                      children: [
+                        _buildGermanFlag(),
+                        const SizedBox(width: 12),
+                        Text(AppLocalizations.of(context)!.german),
+                        if (currentLocale.languageCode == 'de') ...[
+                          const Spacer(),
+                          const Icon(Icons.check, size: 16, color: Colors.green),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          // Dedicated Konto Wechseln / Door Logout Button on the far right
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: AppLocalizations.of(context)!.switchAccount,
+            onPressed: () async {
+              final playerService = ref.read(playerServiceProvider);
+              await playerService.player.stop();
+              await Future.delayed(const Duration(milliseconds: 50));
+              
+              ref.read(activeAccountProvider.notifier).set(null);
+              if (context.mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AccountListScreen()),
+                );
+              }
+            },
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -176,16 +203,104 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           }
         },
       ),
-      bottomNavigationBar: (!hideChrome && MediaQuery.of(context).size.width <= 800) ? BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (idx) => setState(() => _selectedIndex = idx),
-        items: [
-          BottomNavigationBarItem(icon: const Icon(Icons.tv), label: AppLocalizations.of(context)!.liveTv),
-          BottomNavigationBarItem(icon: const Icon(Icons.movie), label: AppLocalizations.of(context)!.movies),
-          BottomNavigationBarItem(icon: const Icon(Icons.video_library), label: AppLocalizations.of(context)!.series),
-        ],
-      ) : null,
+      bottomNavigationBar: (!hideChrome && MediaQuery.of(context).size.width <= 800)
+          ? SafeArea(
+              child: BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                onTap: (idx) => setState(() => _selectedIndex = idx),
+                items: [
+                  BottomNavigationBarItem(icon: const Icon(Icons.tv), label: AppLocalizations.of(context)!.liveTv),
+                  BottomNavigationBarItem(icon: const Icon(Icons.movie), label: AppLocalizations.of(context)!.movies),
+                  BottomNavigationBarItem(icon: const Icon(Icons.video_library), label: AppLocalizations.of(context)!.series),
+                ],
+              ),
+            )
+          : null,
     );
   }
+
+  Widget _buildGermanFlag() {
+    return Container(
+      width: 24,
+      height: 15,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: Colors.white24, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          Expanded(child: Container(color: Colors.black)),
+          Expanded(child: Container(color: const Color(0xFFFF0000))),
+          Expanded(child: Container(color: const Color(0xFFFFCC00))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsFlag() {
+    return Container(
+      width: 24,
+      height: 15,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: Colors.white24, width: 0.5),
+      ),
+      child: CustomPaint(
+        size: const Size(24, 15),
+        painter: _UsFlagPainter(),
+      ),
+    );
+  }
+}
+
+class _UsFlagPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stripeHeight = size.height / 13.0;
+    final redPaint = Paint()..color = const Color(0xFFB22234);
+    final whitePaint = Paint()..color = Colors.white;
+
+    // 13 alternating stripes
+    for (int i = 0; i < 13; i++) {
+      final paint = (i % 2 == 0) ? redPaint : whitePaint;
+      canvas.drawRect(
+        Rect.fromLTWH(0, i * stripeHeight, size.width, stripeHeight + 0.1),
+        paint,
+      );
+    }
+
+    // Blue Canton covering top 7 stripes
+    final cantonWidth = size.width * 0.42;
+    final cantonHeight = stripeHeight * 7.0;
+    final bluePaint = Paint()..color = const Color(0xFF3C3B6E);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, cantonWidth, cantonHeight),
+      bluePaint,
+    );
+
+    // Miniature white star points
+    final starPaint = Paint()..color = Colors.white;
+    const rows = 4;
+    const cols = 5;
+    final xStep = cantonWidth / (cols + 1);
+    final yStep = cantonHeight / (rows + 1);
+
+    for (int r = 1; r <= rows; r++) {
+      for (int c = 1; c <= cols; c++) {
+        final xOffset = (r % 2 == 0) ? (xStep * 0.4) : 0.0;
+        if (r % 2 == 0 && c == cols) continue;
+        canvas.drawCircle(
+          Offset(c * xStep - (r % 2 == 0 ? 0 : 0.5) + xOffset, r * yStep),
+          0.7,
+          starPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 

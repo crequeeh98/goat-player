@@ -10,6 +10,13 @@ final epgControllerProvider = Provider<EpgController>((ref) {
   return EpgController(ref);
 });
 
+final currentProgramsMapProvider = FutureProvider.autoDispose<Map<String, EpgProgram>>((ref) async {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return {};
+  final dao = ref.watch(epgDaoProvider);
+  return dao.getCurrentProgramsMap(account.id);
+});
+
 class EpgController {
   final Ref _ref;
   

@@ -186,11 +186,19 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
       backdropUrl = widget.coverUrl;
     }
 
-        return Dialog(
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: isMobile 
+          ? const EdgeInsets.symmetric(horizontal: 8, vertical: 24)
+          : const EdgeInsets.all(16),
       child: Container(
-        width: 600,
+        width: isMobile ? double.infinity : 600,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),

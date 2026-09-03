@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -6,6 +5,9 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../../core/player/player_service.dart';
 import 'epg_timeline.dart';
 import 'custom_live_controls.dart';
+
+import '../../../core/player/widgets/mobile_gesture_detector.dart';
+import 'dart:io' show Platform;
 
 class VideoPreview extends ConsumerStatefulWidget {
   final String streamUrl;
@@ -32,6 +34,8 @@ class VideoPreview extends ConsumerStatefulWidget {
 }
 
 class _VideoPreviewState extends ConsumerState<VideoPreview> {
+  BoxFit _fit = BoxFit.contain;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +50,18 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
     if (oldWidget.streamUrl != widget.streamUrl) {
       ref.read(playerServiceProvider).open(widget.streamUrl);
     }
+  }
+
+  void _cycleFit() {
+    setState(() {
+      if (_fit == BoxFit.contain) {
+        _fit = BoxFit.cover;
+      } else if (_fit == BoxFit.cover) {
+        _fit = BoxFit.fill;
+      } else {
+        _fit = BoxFit.contain;
+      }
+    });
   }
 
   @override
@@ -67,24 +83,38 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
       }
     }
 
+    final video = Video(
+      controller: playerService.controller,
+      fit: _fit,
+      controls: (state) => CustomLiveControls(
+        state: state,
+        title: displayTitle,
+        showBackButton: widget.isFullWidth,
+        onBack: widget.onExitToPreview ?? widget.onToggleFullWidth,
+        onCycleFit: _cycleFit,
+        currentFit: _fit,
+        onSingleTap: () {
+          if (!widget.isFullWidth && widget.onToggleFullWidth != null) {
+            widget.onToggleFullWidth!();
+          }
+        },
+        onEnterFullWidth: widget.onEnsureFullWidth,
+        onCatchUpLive: () {
+          playerService.jumpToLiveEdge();
+        },
+      ),
+    );
+
     return Container(
       color: Colors.black,
       child: Center(
-        child: Video(
-          controller: playerService.controller,
-          controls: (state) => CustomLiveControls(
-            state: state,
-            title: displayTitle,
-            showBackButton: widget.isFullWidth,
-            onBack: widget.onExitToPreview ?? widget.onToggleFullWidth,
-            onSingleTap: () {
-              if (!widget.isFullWidth && widget.onToggleFullWidth != null) {
-                widget.onToggleFullWidth!();
-              }
-            },
-            onEnterFullWidth: widget.onEnsureFullWidth,
-          ),
-        ),
+        child: (Platform.isAndroid || Platform.isIOS)
+            ? MobileGestureDetector(
+                player: playerService.player,
+                enableSeek: false,
+                child: video,
+              )
+            : video,
       ),
     );
   }
