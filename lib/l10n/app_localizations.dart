@@ -481,6 +481,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Episodes'**
   String get episodes;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @fullScreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get fullScreen;
+
+  /// No description provided for @fullWidth.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Width'**
+  String get fullWidth;
+
+  /// No description provided for @minimize.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize'**
+  String get minimize;
+
+  /// No description provided for @vodPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'VOD Playback'**
+  String get vodPlayback;
 }
 
 class _AppLocalizationsDelegate

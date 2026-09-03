@@ -310,13 +310,37 @@ class _CustomLiveControlsState extends State<CustomLiveControls> {
                       ),
                     ),
 
-                    // BOTTOM RIGHT: Fullscreen Toggle
+                    // BOTTOM RIGHT: Volume & Fullscreen Toggle
                     Positioned(
                       bottom: 20,
                       right: 20,
-                      child: IconButton(
-                        icon: Icon(isFull ? Icons.fullscreen_exit : Icons.fullscreen, color: Colors.white, size: 36),
-                        onPressed: () => _toggleFullscreen(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                            tooltip: _volume == 0 ? 'Unmute' : 'Mute',
+                            onPressed: () {
+                              if (_volume > 0) {
+                                setState(() => _volume = 0);
+                                widget.state.widget.controller.player.setVolume(0);
+                              } else {
+                                setState(() => _volume = 100);
+                                widget.state.widget.controller.player.setVolume(100);
+                              }
+                              _startHideTimer();
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(isFull ? Icons.fullscreen_exit : Icons.fullscreen, color: Colors.white, size: 36),
+                            onPressed: () => _toggleFullscreen(context),
+                          ),
+                        ],
                       ),
                     ),
                   ],

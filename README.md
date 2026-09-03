@@ -7,7 +7,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20iOS%20%7C%20SmartTV-blue)](#-roadmap-v2--beyond)
 [![Repository](https://img.shields.io/badge/Repo-Private-red)](https://github.com)
-[![Release](https://img.shields.io/badge/Release-v1.0.0-purple)](https://github.com)
+[![Release](https://img.shields.io/badge/Release-v1.1.0-purple)](https://github.com)
 
 </div>
 
@@ -19,14 +19,15 @@
 
 ---
 
-## ✨ Features (v1.0.0)
+## ✨ Current Features
 
 ### 📺 Live TV & EPG
 - **Multi-Account Support**: Add and manage multiple Xtream Codes / M3U playlists with ease.
 - **Smart Category Browsing**: Searchable category rail with instant search & clear functions.
 - **Interactive EPG Timeline**: Real-time Electronic Program Guide with progress bars, program details, and schedules.
-- **Instant Preview & Full-Width Player**: Smooth channel switching and full-width playback.
-- **Favorites / Favoriten**: Pin and manage your top live channels.
+- **Split-Screen & Full-Width Player**: Seamless toggle between category/channel list browsing and full-width playback.
+- **Favorites / Favoriten**: Pin and manage your top live channels with instant filtering.
+- **Dedicated Volume Controls**: Hover volume slider and quick-mute toggle right next to fullscreen controls.
 
 ### 🎬 Movies & Series (VOD)
 - **Rich Grid Catalogs**: Responsive poster grids with cover art, genres, ratings, and release years.
@@ -34,25 +35,41 @@
 - **Continue Watching Rail**: Automatic playback resume tracking with persistent progress indicators.
 - **Series Season & Episode Browser**: Clean episode modal breakdown with episode thumbnails, synopsis, and quick launch.
 - **Global Master Search**: Search across Live TV, Movies, and TV Shows simultaneously with category filtering.
+- **Seamless Instant Transition**: Non-blocking `pushReplacement` navigation from modals directly into the cinema player with zero stutter or lag.
 
-### ⚡ Player Engine & Controls
+### 🪟 Picture-in-Picture (Floating Mini-Player)
+- **Universal Multi-Tasking**: Seamlessly browse movies, series, or settings while Live TV or VOD streams keep playing in the corner.
+- **Smooth Drag & Reposition**: Click-and-drag the floating player anywhere across your screen.
+- **Native OS Border Resizing**: Interactive diagonal resize grip zones with system cursor (`resizeUpLeft`) and double-tap cycle presets (Small, Medium, Large).
+- **Rich Mini-Player Controls**:
+  - **Center Play/Pause Button**: Instant playback control.
+  - **Interactive Seek Scrubber (VOD)**: Drag or tap along the seek bar to jump directly to any timestamp.
+  - **Live Runtime Display**: Formatted timestamp indicator (`00:15:30 / 01:42:00`).
+  - **Expandable Volume Slider**: Smoothly slides out on hover with tap-to-mute and mouse-wheel support for both Live TV and VOD.
+  - **One-Click Fullscreen Restore**: Instantly return to the full-size player with smooth state preservation.
+- **Mobile Mini-Bar**: Bottom dock mini-player for mobile devices with quick play/pause and close controls.
+
+### ⚡ Player Engine & Cinema Experience
 - **Powered by `libmpv` (MediaKit)**: Hardware-accelerated decoding for HLS (`.m3u8`), MPEG-TS (`.ts`), MKV, MP4, and exotic IPTV stream formats.
+- **Zero-Ghost-Frame Architecture**: Multi-buffered Direct3D protection eliminates the split-second flash of previous streams on channel or movie switches.
+- **Frame-Perfect Audio/Video Synchronization**: Silent buffering pipeline guarantees audio and video reveal in 100% lockstep synchrony.
+- **State-Preserving Minimization**: Pausing or playing before minimizing strictly retains its state in the mini-player without accidental play/pause toggles.
+- **Prominent Center Play/Pause HUD**: Large 76px center Play/Pause button in VOD matching the Live TV experience.
 - **Audio & Subtitle Track Selector**: Switch audio language and subtitle tracks on the fly.
-- **Fullscreen & Shortcut Controls**:
+- **Keyboard Shortcuts**:
   - `Space`: Play / Pause
   - `Left` / `Right` Arrow: Seek backward / forward 10s
   - `Esc`: Instant exit fullscreen
-  - Custom Volume and Position Indicator controls
 
 ### 🌍 Localization & UI
-- **English & German Support**: Dynamic in-app language switcher (`English` / `Deutsch`).
+- **English & German Support**: Dynamic in-app language switcher (`English` / `Deutsch`) with complete translations for player controls and mini-player.
 - **Dark Modern Aesthetic**: Deep purple / slate dark mode with pixel-perfect borders and polished layout.
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-- **Framework**: [Flutter](https://flutter.dev)
+- **Framework**: [Flutter](https://flutter.dev) (3.24+)
 - **State Management**: [Riverpod 2.x](https://riverpod.dev)
 - **Local Database & Cache**: [Drift (SQLite)](https://drift.simonbinder.eu/) + Isolate Parsing
 - **Media Engine**: [MediaKit](https://github.com/media-kit/media-kit) (`libmpv` native backend)
@@ -99,16 +116,41 @@ The compiled output will be located in:
 
 ---
 
-## 🗺️ Roadmap (V2 & Beyond)
+## 🗺️ Roadmap & Planned Features
 
-- [ ] **Category Management**: Hide/show unwanted categories and drag-and-drop category reordering.
-- [ ] **Live TV Quick-Zapping**: In-stream channel switcher (Channel Up/Down) with transparent slide-out EPG drawer.
-- [ ] **Custom Folders**: Create personalized groups (e.g. *Sports, News, 4K*) across multiple provider playlists.
-- [ ] **Multi-Platform Deployment**:
-  - [ ] Android Phone & Tablet
-  - [ ] Amazon Fire TV / Android TV (D-Pad Remote Focus Navigation)
-  - [ ] Samsung Tizen TV & LG webOS Player Abstraction
-  - [ ] macOS & iOS / iPadOS
+### 📋 Phase 1: Smart TV & Remote Experience (Next Up)
+- [ ] **Android TV & Amazon Fire TV Remote (D-Pad) Navigation**:
+  - D-Pad focus traversal on category lists, channel guides, and VOD cards.
+  - Remote channel flipping (Channel Up / Down) with instant in-stream zapping.
+  - Transparent slide-out quick-channel drawer while video plays in the background.
+- [ ] **Physical Android Phone & Tablet Optimization**:
+  - Touch HUD gestures: swipe left/right for seek, swipe left side for brightness, swipe right side for volume.
+  - Automatic landscape lock upon entering cinema mode.
+  - Adaptive touch controls for mobile screens.
+
+### 🌐 Phase 2: Remote Playlist Management & Cloud Sync
+- [ ] **Web-Based Playlist Portal via MAC Address**:
+  - Assign a unique device MAC address / Virtual ID to each GOATPlayer installation.
+  - Web management portal where users can upload and manage Xtream / M3U playlists remotely from any browser.
+  - Instant automatic sync to the client device without manual typing on TV remotes.
+- [ ] **Cloud Profile & Watch Progress Sync**:
+  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop $\leftrightarrow$ Mobile $\leftrightarrow$ TV).
+
+### 🎛️ Phase 3: Advanced Media & Organization
+- [ ] **Category Management**:
+  - Hide/show unwanted categories (e.g. international packages, adult content).
+  - Drag-and-drop category reordering with custom folder organization.
+- [ ] **Multi-Screen / Multi-View**:
+  - Watch 2 or 4 Live TV channels simultaneously in a customizable grid (ideal for live sports).
+- [ ] **Catch-Up TV (Archive)**:
+  - Play past broadcasts directly from the EPG timeline for supported Xtream providers.
+- [ ] **Offline Downloads (Mobile & Desktop)**:
+  - Download VOD movies and episodes for offline viewing on flights or travel.
+
+### 📺 Phase 4: Smart TV Platform Expansion
+- [ ] **Samsung Tizen TV App** (Tizen Web / WebAssembly player engine).
+- [ ] **LG webOS App** (webOS Web App with hardware decoders).
+- [ ] **Apple TV & iOS** (TestFlight & App Store release).
 
 ---
 

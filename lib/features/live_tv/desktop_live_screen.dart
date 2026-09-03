@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../core/database/app_database.dart';
@@ -10,6 +10,7 @@ import 'widgets/channel_icon.dart';
 import 'live_tv_controller.dart';
 import '../dashboard/favorites_provider.dart';
 import '../../core/utils/channel_name_cleaner.dart';
+import '../../core/player/playback_controller.dart';
 import '../../main.dart';
 
 class DesktopLiveScreen extends ConsumerStatefulWidget {
@@ -21,9 +22,6 @@ class DesktopLiveScreen extends ConsumerStatefulWidget {
 
 class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   String? _selectedCategory;
-  String? _selectedStreamUrl;
-  String? _selectedStreamId;
-  String? _selectedStreamName;
   String _searchQuery = '';
   final _searchController = TextEditingController();
   final GlobalKey _videoPreviewKey = GlobalKey();
@@ -46,6 +44,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   Widget build(BuildContext context) {
     final _isFullWidth = ref.watch(isLiveFullWidthProvider);
+    final activePlayback = ref.watch(playbackControllerProvider);
+    final currentLive = (activePlayback != null && activePlayback.streamType == StreamType.live) ? activePlayback : null;
 
     ref.listen<String?>(selectedLiveCategoryProvider, (prev, next) {
       if (next != null && next != _selectedCategory) {
@@ -56,21 +56,16 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     });
 
     ref.listen<StreamItem?>(selectedLiveStreamProvider, (prev, next) {
-      if (next == null) {
-        setState(() {
-          _selectedStreamUrl = null;
-          _selectedStreamId = null;
-          _selectedStreamName = null;
-        });
-      } else if (next.streamId != _selectedStreamId) {
+      if (next != null) {
         final account = ref.read(activeAccountProvider);
         if (account == null) return;
         final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-        setState(() {
-          _selectedStreamUrl = '$baseUrl/live/${account.username}/${account.password}/${next.streamId}.ts';
-          _selectedStreamId = next.streamId;
-          _selectedStreamName = next.name;
-        });
+        final url = '$baseUrl/live/${account.username}/${account.password}/${next.streamId}.ts';
+        ref.read(playbackControllerProvider.notifier).playLive(
+          title: next.name,
+          url: url,
+          channelId: next.streamId,
+        );
       }
     });
 
@@ -197,13 +192,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   );
                                 },
                               ),
-                              selected: _selectedStreamUrl == url,
+                              selected: currentLive?.streamUrl == url,
                               onTap: () {
-                                setState(() {
-                                  _selectedStreamUrl = url;
-                                  _selectedStreamId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
-                                  _selectedStreamName = cleanName;
-                                });
+                                ref.read(playbackControllerProvider.notifier).playLive(
+                                  title: cleanName,
+                                  url: url,
+                                  channelId: stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId,
+                                );
                               },
                             );
                           },
@@ -224,12 +219,12 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
               children: [
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
-                  child: _selectedStreamUrl != null
+                  child: currentLive != null
                       ? VideoPreview(
                           key: _videoPreviewKey,
-                          streamUrl: _selectedStreamUrl!,
-                          channelId: _selectedStreamId,
-                          channelName: _selectedStreamName,
+                          streamUrl: currentLive.streamUrl,
+                          channelId: currentLive.channelId,
+                          channelName: currentLive.title,
                           isFullWidth: _isFullWidth,
                           onToggleFullWidth: () {
                             ref.read(isLiveFullWidthProvider.notifier).toggle();
@@ -273,7 +268,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         const SizedBox(height: 16),
                         // EPG Timeline
                         Expanded(
-                          child: EpgTimelineWidget(channelId: _selectedStreamId),
+                          child: EpgTimelineWidget(channelId: currentLive?.channelId),
                         ),
                       ],
                     ),

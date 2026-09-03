@@ -4,6 +4,7 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
 import '../dashboard/favorites_provider.dart';
 import 'vod_player_screen.dart';
+import '../../core/player/player_service.dart';
 
 class MovieDetailModal extends ConsumerStatefulWidget {
   final String movieName;
@@ -106,9 +107,13 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
     final url = '$baseUrl/movie/${account.username}/${account.password}/${widget.streamId}.$extension';
     
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => VodPlayerScreen(
+    // Stop any active stream (e.g. Live TV) immediately so it doesn't fight for resources
+    ref.read(playerServiceProvider).stop();
+
+    // Seamless instant transition directly into VodPlayerScreen
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, _, __) => VodPlayerScreen(
           streamUrl: url,
           title: widget.movieName,
           streamId: widget.streamId,
@@ -116,6 +121,8 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           coverUrl: widget.posterUrl,
           startPosition: startPosition,
         ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       ),
     );
   }

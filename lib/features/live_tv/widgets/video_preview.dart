@@ -40,7 +40,11 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(playerServiceProvider).open(widget.streamUrl);
+      final player = ref.read(playerServiceProvider).player;
+      final currentUri = player.state.playlist.medias.firstOrNull?.uri;
+      if (currentUri != widget.streamUrl) {
+        ref.read(playerServiceProvider).open(widget.streamUrl);
+      }
     });
   }
 

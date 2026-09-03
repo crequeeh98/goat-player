@@ -9,6 +9,8 @@ import 'package:goat_player/main.dart';
 
 import 'dart:io' show Platform;
 import '../../core/player/widgets/mobile_gesture_detector.dart';
+import '../../core/player/player_service.dart';
+import '../../core/player/playback_controller.dart';
 
 class VodPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
@@ -39,17 +41,98 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   late final VideoController controller;
   bool _isClosing = false;
   bool _canPop = false;
+  bool _isStreamReady = false;
+  bool _wasPlayingBeforeMinimize = true;
+  bool _isPlaying = true;
+  bool _isControlsVisible = true;
+  bool _isVolumeMutedForSync = false;
+  double _initialVolume = 100.0;
+  Timer? _controlsTimer;
+  StreamSubscription? _frameSub;
+  StreamSubscription? _playingSub;
   Timer? _progressTimer;
   BoxFit _fit = BoxFit.contain;
+
+  void _restoreVolume() {
+    if (_isVolumeMutedForSync) {
+      _isVolumeMutedForSync = false;
+      player.setVolume(_initialVolume);
+    }
+  }
+
+  void _onPointerMove() {
+    if (!_isControlsVisible) {
+      setState(() => _isControlsVisible = true);
+    }
+    _controlsTimer?.cancel();
+    if (_isPlaying) {
+      _controlsTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && _isPlaying) {
+          setState(() => _isControlsVisible = false);
+        }
+      });
+    }
+  }
+
+  void _toggleCenterPlayPause() {
+    player.playOrPause();
+    _onPointerMove();
+  }
 
   @override
   void initState() {
     super.initState();
-    player = Player(configuration: const PlayerConfiguration());
-    controller = VideoController(
-      player,
-      configuration: const VideoControllerConfiguration(enableHardwareAcceleration: true),
-    );
+    final playerService = ref.read(playerServiceProvider);
+    player = playerService.player;
+    controller = playerService.controller;
+
+    _isPlaying = player.state.playing;
+    _wasPlayingBeforeMinimize = player.state.playing;
+    _playingSub = player.stream.playing.listen((p) {
+      if (!_isClosing && mounted) {
+        setState(() {
+          _isPlaying = p;
+          _wasPlayingBeforeMinimize = p;
+          if (!p) {
+            _isControlsVisible = true;
+          } else {
+            _onPointerMove();
+          }
+        });
+      }
+    });
+
+    final currentUri = player.state.playlist.medias.firstOrNull?.uri;
+    if (currentUri == widget.streamUrl && player.state.position > Duration.zero) {
+      _isStreamReady = true;
+    } else {
+      // Hold audio completely silent until video picture is actually rendered on screen
+      _initialVolume = player.state.volume > 0 ? player.state.volume : 100.0;
+      _isVolumeMutedForSync = true;
+      player.setVolume(0);
+
+      Duration? firstPos;
+      _frameSub = player.stream.position.listen((pos) {
+        final uri = player.state.playlist.medias.firstOrNull?.uri;
+        final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
+        if (!_isStreamReady && uri == widget.streamUrl && hasVideo) {
+          firstPos ??= pos;
+          // When the video decoder has rendered multiple frames on GPU, unmute and reveal together in 100% sync
+          if ((pos - firstPos!).inMilliseconds >= 250) {
+            _restoreVolume();
+            if (mounted) setState(() => _isStreamReady = true);
+            _frameSub?.cancel();
+          }
+        }
+      });
+      Future.delayed(const Duration(milliseconds: 6000), () {
+        if (!_isStreamReady && mounted) {
+          _restoreVolume();
+          setState(() => _isStreamReady = true);
+          _frameSub?.cancel();
+        }
+      });
+    }
     
     // Auto-lock to landscape on mobile devices for cinema experience
     if (Platform.isAndroid || Platform.isIOS) {
@@ -60,19 +143,24 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
 
-    // Auto-play the media
-    player.open(Media(widget.streamUrl), play: true);
-    
-    // Listen for the first time duration is loaded to jump to startPosition
-    if (widget.startPosition != null && widget.startPosition! > 0) {
-      StreamSubscription? sub;
-      sub = player.stream.duration.listen((duration) {
-        if (duration.inSeconds > 0) {
-          player.seek(Duration(seconds: widget.startPosition!));
-          sub?.cancel();
-        }
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final currentPlayback = ref.read(playbackControllerProvider);
+      if (currentPlayback == null || currentPlayback.streamUrl != widget.streamUrl) {
+        ref.read(playbackControllerProvider.notifier).playVod(
+          title: widget.title,
+          url: widget.streamUrl,
+          streamType: widget.streamType == 'series' ? StreamType.series : StreamType.movie,
+          streamId: widget.streamId,
+          seriesId: widget.seriesId,
+          coverUrl: widget.coverUrl,
+          startPosition: widget.startPosition,
+        );
+      } else {
+        // Returning from mini-player: continue from current playback without rewinding
+        ref.read(playbackControllerProvider.notifier).expand();
+      }
+    });
 
     player.stream.track.listen((event) {
       if (mounted) setState(() {});
@@ -138,23 +226,56 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     _progressTimer?.cancel();
-    player.dispose();
+    _frameSub?.cancel();
+    _playingSub?.cancel();
+    _controlsTimer?.cancel();
+    _restoreVolume();
     super.dispose();
   }
 
-  void _handleBack() {
+  void _handleMinimize() {
     if (_isClosing) return;
+    _restoreVolume();
+    
+    final shouldKeepPlaying = _wasPlayingBeforeMinimize;
     
     setState(() {
       _isClosing = true;
       _canPop = true;
     });
     
-    player.stop();
+    ref.read(playbackControllerProvider.notifier).minimize();
+    
+    if (shouldKeepPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        if (shouldKeepPlaying && !player.state.playing) {
+          player.play();
+        }
+      }
+    });
+  }
+
+  void _handleClose() {
+    if (_isClosing) return;
+    _restoreVolume();
+    
+    setState(() {
+      _isClosing = true;
+      _canPop = true;
+    });
+    
+    ref.read(playbackControllerProvider.notifier).stop();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     });
   }
@@ -164,18 +285,21 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     return PopScope(
       canPop: _canPop,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _handleBack();
+        if (!didPop) _handleMinimize();
       },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: _isClosing 
           ? const SizedBox.expand() 
-          : Stack(
+          : MouseRegion(
+              onHover: (_) => _onPointerMove(),
+              onEnter: (_) => _onPointerMove(),
+              child: Stack(
               children: [
                 MaterialDesktopVideoControlsTheme(
                   normal: MaterialDesktopVideoControlsThemeData(
                     hideMouseOnControlsRemoval: true,
-                    playAndPauseOnTap: true,
+                    playAndPauseOnTap: false,
                     toggleFullscreenOnDoublePress: true,
                     keyboardShortcuts: {
                       const SingleActivator(LogicalKeyboardKey.escape): () {
@@ -198,10 +322,14 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     },
                     topButtonBar: [
                       MaterialDesktopCustomButton(
-                        onPressed: _handleBack,
+                        onPressed: _handleMinimize,
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const Spacer(),
+                      MaterialDesktopCustomButton(
+                        onPressed: _handleClose,
+                        icon: const Icon(Icons.close),
+                      ),
                     ],
                     bottomButtonBar: [
                       const MaterialPlayOrPauseButton(),
@@ -291,7 +419,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                   ),
                   fullscreen: MaterialDesktopVideoControlsThemeData(
                     hideMouseOnControlsRemoval: true,
-                    playAndPauseOnTap: true,
+                    playAndPauseOnTap: false,
                     toggleFullscreenOnDoublePress: true,
                     keyboardShortcuts: {
                       const SingleActivator(LogicalKeyboardKey.escape): () {
@@ -314,10 +442,14 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     },
                     topButtonBar: [
                       MaterialDesktopCustomButton(
-                        onPressed: _handleBack,
+                        onPressed: _handleMinimize,
                         icon: const Icon(Icons.arrow_back),
                       ),
                       const Spacer(),
+                      MaterialDesktopCustomButton(
+                        onPressed: _handleClose,
+                        icon: const Icon(Icons.close),
+                      ),
                     ],
                     bottomButtonBar: [
                       const MaterialPlayOrPauseButton(),
@@ -410,25 +542,80 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       const MaterialDesktopFullscreenButton(),
                     ],
                   ),
-                  child: (Platform.isAndroid || Platform.isIOS)
-                      ? MobileGestureDetector(
-                          player: player,
-                          enableSeek: false,
-                          onDoubleTap: () => toggleFullscreen(context),
-                          child: Video(
-                            controller: controller,
-                            fit: _fit,
-                            controls: MaterialDesktopVideoControls,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      (Platform.isAndroid || Platform.isIOS)
+                          ? MobileGestureDetector(
+                              player: player,
+                              enableSeek: false,
+                              onDoubleTap: () => toggleFullscreen(context),
+                              child: Video(
+                                controller: controller,
+                                fit: _fit,
+                                controls: MaterialDesktopVideoControls,
+                              ),
+                            )
+                          : Video(
+                              controller: controller,
+                              fit: _fit,
+                              controls: MaterialDesktopVideoControls,
+                            ),
+
+                      // Center Play/Pause Button (same as Live TV)
+                      Positioned.fill(
+                        child: Center(
+                          child: AnimatedOpacity(
+                            opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: IgnorePointer(
+                              ignoring: !(_isControlsVisible || !_isPlaying),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.black45,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  iconSize: 76,
+                                  color: Colors.white,
+                                  icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                                  onPressed: _toggleCenterPlayPause,
+                                ),
+                              ),
+                            ),
                           ),
-                        )
-                      : Video(
-                          controller: controller,
-                          fit: _fit,
-                          controls: MaterialDesktopVideoControls,
                         ),
+                      ),
+
+                      // Poster shield
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          ignoring: _isStreamReady,
+                          child: AnimatedOpacity(
+                            opacity: _isStreamReady ? 0.0 : 1.0,
+                            duration: const Duration(milliseconds: 100),
+                            curve: Curves.easeOut,
+                            child: Container(
+                              color: Colors.black,
+                              child: Center(
+                                child: widget.coverUrl != null
+                                    ? Image.network(
+                                        widget.coverUrl!,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => const CircularProgressIndicator(color: Colors.white70),
+                                      )
+                                    : const CircularProgressIndicator(color: Colors.white70),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
+          ),
       ),
     );
   }

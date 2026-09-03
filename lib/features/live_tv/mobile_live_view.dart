@@ -10,6 +10,7 @@ import 'widgets/channel_icon.dart';
 import 'live_tv_controller.dart';
 import 'epg_controller.dart';
 import '../../core/utils/channel_name_cleaner.dart';
+import '../../core/player/playback_controller.dart';
 import '../../main.dart';
 
 class MobileLiveCategoriesScreen extends ConsumerStatefulWidget {
@@ -225,7 +226,7 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
   }
 }
 
-class MobilePlayerScreen extends StatefulWidget {
+class MobilePlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
   final String channelName;
   final String? channelId;
@@ -233,10 +234,25 @@ class MobilePlayerScreen extends StatefulWidget {
   const MobilePlayerScreen({super.key, required this.streamUrl, required this.channelName, this.channelId});
 
   @override
-  State<MobilePlayerScreen> createState() => _MobilePlayerScreenState();
+  ConsumerState<MobilePlayerScreen> createState() => _MobilePlayerScreenState();
 }
 
-class _MobilePlayerScreenState extends State<MobilePlayerScreen> {
+class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final active = ref.read(playbackControllerProvider);
+    if (active == null || active.streamUrl != widget.streamUrl) {
+      ref.read(playbackControllerProvider.notifier).playLive(
+        title: widget.channelName,
+        url: widget.streamUrl,
+        channelId: widget.channelId,
+      );
+    } else {
+      ref.read(playbackControllerProvider.notifier).expand();
+    }
+  }
+
   @override
   void dispose() {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -254,6 +270,7 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (Platform.isAndroid || Platform.isIOS) {
           SystemChrome.setPreferredOrientations([
@@ -264,13 +281,32 @@ class _MobilePlayerScreenState extends State<MobilePlayerScreen> {
           ]);
           SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
         }
+        ref.read(playbackControllerProvider.notifier).minimize();
       },
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down, size: 28),
+            tooltip: 'Minimize',
+            onPressed: () {
+              ref.read(playbackControllerProvider.notifier).minimize();
+              Navigator.of(context).pop();
+            },
+          ),
           title: Text(widget.channelName),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'Close',
+              onPressed: () {
+                ref.read(playbackControllerProvider.notifier).stop();
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: Column(

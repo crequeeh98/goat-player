@@ -63,5 +63,10 @@
   "resume": "Resume",
   "favorites": "Favorites",
   "noAccountsAdded": "No accounts added",
-  "episodes": "Episodes"
+  "episodes": "Episodes",
+  "close": "Close",
+  "fullScreen": "Fullscreen",
+  "fullWidth": "Full Width",
+  "minimize": "Minimize",
+  "vodPlayback": "VOD Playback"
 }

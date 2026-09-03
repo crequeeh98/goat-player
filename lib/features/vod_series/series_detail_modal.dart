@@ -4,6 +4,7 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
 import '../dashboard/favorites_provider.dart';
 import '../vod_movies/vod_player_screen.dart';
+import '../../core/player/player_service.dart';
 
 class SeriesDetailModal extends ConsumerStatefulWidget {
   final String seriesName;
@@ -142,9 +143,13 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     final epTitle = episode['title']?.toString() ?? 'Episode';
     final cover = episode['info']?['movie_image']?.toString();
     
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => VodPlayerScreen(
+    // Stop any active stream (e.g. Live TV) immediately so it doesn't fight for resources
+    ref.read(playerServiceProvider).stop();
+
+    // Seamless instant transition directly into VodPlayerScreen
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, _, __) => VodPlayerScreen(
           streamUrl: url,
           title: '${widget.seriesName} - $epTitle',
           streamId: episodeId,
@@ -153,6 +158,8 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           coverUrl: cover ?? widget.coverUrl,
           startPosition: startPosition,
         ),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       ),
     );
   }

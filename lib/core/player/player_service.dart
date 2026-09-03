@@ -3,7 +3,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:flutter/foundation.dart';
 
-final playerServiceProvider = Provider.autoDispose<PlayerService>((ref) {
+final playerServiceProvider = Provider<PlayerService>((ref) {
   final service = PlayerService();
   ref.onDispose(() => service.dispose());
   return service;
@@ -39,11 +39,28 @@ class PlayerService {
 
   bool _isDisposed = false;
 
-  Future<void> open(String url) async {
+  Future<void> open(String url, {bool isLive = false, Duration? startPosition}) async {
     if (_isDisposed) return;
     _lastOpenedUrl = url;
     try {
-      await player.open(Media(url), play: true);
+      final dynamic platform = player.platform;
+      if (isLive) {
+        platform?.setProperty('demuxer-lavf-o', 'fflags=+nobuffer+discardcorrupt');
+        platform?.setProperty('demuxer-readahead-secs', '2');
+      } else {
+        // VOD: Enable smooth pre-buffering to eliminate stuttering and frame drops
+        platform?.setProperty('demuxer-lavf-o', '');
+        platform?.setProperty('demuxer-readahead-secs', '10');
+        platform?.setProperty('demuxer-max-bytes', '33554432'); // 32MB
+      }
+
+      await player.open(
+        Media(
+          url,
+          start: startPosition,
+        ),
+        play: true,
+      );
       if (!_isDisposed) {
         await player.play(); // Force play in case auto-play fails
       }

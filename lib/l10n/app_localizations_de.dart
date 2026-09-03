@@ -202,4 +202,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get episodes => 'Episoden';
+
+  @override
+  String get close => 'Schließen';
+
+  @override
+  String get fullScreen => 'Vollbild';
+
+  @override
+  String get fullWidth => 'Volle Breite';
+
+  @override
+  String get minimize => 'Minimieren';
+
+  @override
+  String get vodPlayback => 'VOD Wiedergabe';
 }

@@ -16,6 +16,8 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import '../vod_series/series_controller.dart';
 import '../live_tv/live_tv_controller.dart';
 import '../../core/settings/locale_controller.dart';
+import '../../core/player/widgets/floating_mini_player.dart';
+import '../../core/player/playback_controller.dart';
 import 'master_search_modal.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
@@ -169,45 +171,81 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           const SizedBox(width: 8),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 800;
-          
-          final pages = [
-            isDesktop ? const DesktopLiveScreen() : const MobileLiveCategoriesScreen(),
-            const MoviesGridScreen(),
-            const SeriesGridScreen(),
-          ];
+      body: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth > 800;
+              
+              final pages = [
+                isDesktop ? const DesktopLiveScreen() : const MobileLiveCategoriesScreen(),
+                const MoviesGridScreen(),
+                const SeriesGridScreen(),
+              ];
 
-          if (isDesktop) {
-            return Row(
-              children: [
-                if (!hideChrome) ...[
-                  NavigationRail(
-                    selectedIndex: _selectedIndex,
-                    onDestinationSelected: (idx) => setState(() => _selectedIndex = idx),
-                    labelType: NavigationRailLabelType.all,
-                    destinations: [
-                      NavigationRailDestination(icon: const Icon(Icons.tv), label: Text(AppLocalizations.of(context)!.liveTv)),
-                      NavigationRailDestination(icon: const Icon(Icons.movie), label: Text(AppLocalizations.of(context)!.movies)),
-                      NavigationRailDestination(icon: const Icon(Icons.video_library), label: Text(AppLocalizations.of(context)!.series)),
+              if (isDesktop) {
+                return Row(
+                  children: [
+                    if (!hideChrome) ...[
+                      NavigationRail(
+                        selectedIndex: _selectedIndex,
+                        onDestinationSelected: (idx) {
+                          if (_selectedIndex == 0 && idx != 0) {
+                            final active = ref.read(playbackControllerProvider);
+                            if (active != null && active.streamType == StreamType.live) {
+                              ref.read(playbackControllerProvider.notifier).minimize();
+                            }
+                          } else if (_selectedIndex != 0 && idx == 0) {
+                            final active = ref.read(playbackControllerProvider);
+                            if (active != null && active.streamType == StreamType.live) {
+                              ref.read(playbackControllerProvider.notifier).expand();
+                            }
+                          }
+                          setState(() => _selectedIndex = idx);
+                        },
+                        labelType: NavigationRailLabelType.all,
+                        destinations: [
+                          NavigationRailDestination(icon: const Icon(Icons.tv), label: Text(AppLocalizations.of(context)!.liveTv)),
+                          NavigationRailDestination(icon: const Icon(Icons.movie), label: Text(AppLocalizations.of(context)!.movies)),
+                          NavigationRailDestination(icon: const Icon(Icons.video_library), label: Text(AppLocalizations.of(context)!.series)),
+                        ],
+                      ),
+                      const VerticalDivider(thickness: 1, width: 1),
                     ],
-                  ),
-                  const VerticalDivider(thickness: 1, width: 1),
-                ],
-                Expanded(child: pages[_selectedIndex]),
-              ],
-            );
-          } else {
-            return pages[_selectedIndex];
-          }
-        },
+                    Expanded(child: pages[_selectedIndex]),
+                  ],
+                );
+              } else {
+                return pages[_selectedIndex];
+              }
+            },
+          ),
+          FloatingMiniPlayer(
+            onExpandLiveDesktop: () {
+              setState(() => _selectedIndex = 0);
+              ref.read(isLiveFullWidthProvider.notifier).set(true);
+            },
+          ),
+        ],
       ),
       bottomNavigationBar: (!hideChrome && MediaQuery.of(context).size.width <= 800)
           ? SafeArea(
               child: BottomNavigationBar(
                 currentIndex: _selectedIndex,
-                onTap: (idx) => setState(() => _selectedIndex = idx),
+                onTap: (idx) {
+                  if (_selectedIndex == 0 && idx != 0) {
+                    final active = ref.read(playbackControllerProvider);
+                    if (active != null && active.streamType == StreamType.live) {
+                      ref.read(playbackControllerProvider.notifier).minimize();
+                    }
+                  } else if (_selectedIndex != 0 && idx == 0) {
+                    final active = ref.read(playbackControllerProvider);
+                    if (active != null && active.streamType == StreamType.live) {
+                      ref.read(playbackControllerProvider.notifier).expand();
+                    }
+                  }
+                  setState(() => _selectedIndex = idx);
+                },
                 items: [
                   BottomNavigationBarItem(icon: const Icon(Icons.tv), label: AppLocalizations.of(context)!.liveTv),
                   BottomNavigationBarItem(icon: const Icon(Icons.movie), label: AppLocalizations.of(context)!.movies),

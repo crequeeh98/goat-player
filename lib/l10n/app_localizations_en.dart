@@ -201,4 +201,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get episodes => 'Episodes';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get fullScreen => 'Fullscreen';
+
+  @override
+  String get fullWidth => 'Full Width';
+
+  @override
+  String get minimize => 'Minimize';
+
+  @override
+  String get vodPlayback => 'VOD Playback';
 }

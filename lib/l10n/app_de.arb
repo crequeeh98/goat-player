@@ -63,5 +63,10 @@
   "resume": "Fortsetzen",
   "favorites": "Favoriten",
   "noAccountsAdded": "Keine Konten hinzugefügt",
-  "episodes": "Episoden"
+  "episodes": "Episoden",
+  "close": "Schließen",
+  "fullScreen": "Vollbild",
+  "fullWidth": "Volle Breite",
+  "minimize": "Minimieren",
+  "vodPlayback": "VOD Wiedergabe"
 }
