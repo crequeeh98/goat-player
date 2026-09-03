@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
 final playerServiceProvider = Provider<PlayerService>((ref) {
@@ -17,8 +18,9 @@ class PlayerService {
 
   PlayerService() {
     player = Player(
-      configuration: const PlayerConfiguration(
+      configuration: PlayerConfiguration(
         bufferSize: 8 * 1024 * 1024, // 8MB buffer for snappy startup
+        libass: !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS),
       ),
     );
     controller = VideoController(

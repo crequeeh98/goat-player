@@ -397,16 +397,25 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                               content: SingleChildScrollView(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: player.state.tracks.subtitle.map((t) {
-                                    return ListTile(
-                                      title: Text(t.title ?? t.language ?? t.id),
-                                      selected: player.state.track.subtitle == t,
-                                      onTap: () {
-                                        player.setSubtitleTrack(t);
-                                        Navigator.pop(context);
-                                      },
-                                    );
-                                  }).toList(),
+                                  children: () {
+                                    final uniqueTracks = <String, SubtitleTrack>{};
+                                    for (final t in player.state.tracks.subtitle) {
+                                      uniqueTracks.putIfAbsent(t.id, () => t);
+                                    }
+                                    return uniqueTracks.values.map((t) {
+                                      String label = t.title ?? t.language ?? t.id;
+                                      if (t.id == 'no') label = 'Off / Deaktiviert';
+                                      if (t.id == 'auto') label = 'Auto / Automatisch';
+                                      return ListTile(
+                                        title: Text(label),
+                                        selected: player.state.track.subtitle == t,
+                                        onTap: () {
+                                          player.setSubtitleTrack(t);
+                                          Navigator.pop(context);
+                                        },
+                                      );
+                                    }).toList();
+                                  }(),
                                 ),
                               ),
                             ),
@@ -517,16 +526,25 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                               content: SingleChildScrollView(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: player.state.tracks.subtitle.map((t) {
-                                    return ListTile(
-                                      title: Text(t.title ?? t.language ?? t.id),
-                                      selected: player.state.track.subtitle == t,
-                                      onTap: () {
-                                        player.setSubtitleTrack(t);
-                                        Navigator.pop(context);
-                                      },
-                                    );
-                                  }).toList(),
+                                  children: () {
+                                    final uniqueTracks = <String, SubtitleTrack>{};
+                                    for (final t in player.state.tracks.subtitle) {
+                                      uniqueTracks.putIfAbsent(t.id, () => t);
+                                    }
+                                    return uniqueTracks.values.map((t) {
+                                      String label = t.title ?? t.language ?? t.id;
+                                      if (t.id == 'no') label = 'Off / Deaktiviert';
+                                      if (t.id == 'auto') label = 'Auto / Automatisch';
+                                      return ListTile(
+                                        title: Text(label),
+                                        selected: player.state.track.subtitle == t,
+                                        onTap: () {
+                                          player.setSubtitleTrack(t);
+                                          Navigator.pop(context);
+                                        },
+                                      );
+                                    }).toList();
+                                  }(),
                                 ),
                               ),
                             ),
@@ -554,12 +572,18 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                                 controller: controller,
                                 fit: _fit,
                                 controls: MaterialDesktopVideoControls,
+                                subtitleViewConfiguration: const SubtitleViewConfiguration(
+                                  visible: false,
+                                ),
                               ),
                             )
                           : Video(
                               controller: controller,
                               fit: _fit,
                               controls: MaterialDesktopVideoControls,
+                              subtitleViewConfiguration: const SubtitleViewConfiguration(
+                                visible: false,
+                              ),
                             ),
 
                       // Center Play/Pause Button (same as Live TV)
