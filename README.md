@@ -118,7 +118,17 @@ The compiled output will be located in:
 
 ## 🗺️ Roadmap & Planned Features
 
-### 📋 Phase 1: Smart TV & Remote Experience (Next Up)
+### ⚡ Priority 1: In-Player EPG List & Quick-Zapping
+- [ ] **In-Player Slide-Out EPG & Channel List Drawer**:
+  - Transparent frosted sidebar overlay accessible directly inside the Live TV player (both Full-Width and Fullscreen).
+  - Search channels, view logos, and inspect real-time EPG program schedules with live progress bars without leaving the stream.
+  - 1-click instant channel tuning directly from the drawer.
+- [ ] **Quick In-Stream Zapping**:
+  - In-player Channel Up (`CH +`) / Channel Down (`CH -`) buttons.
+  - Keyboard & Remote shortcuts (`PageUp` / `PageDown` or `ArrowUp` / `ArrowDown`) to flip channels instantly.
+  - Sleek translucent On-Screen Display (OSD) banner showing channel logo, name, number, and current live show info on each zap.
+
+### 📋 Phase 1: Smart TV & Remote Experience
 - [ ] **Android TV & Amazon Fire TV Remote (D-Pad) Navigation**:
   - D-Pad focus traversal on category lists, channel guides, and VOD cards.
   - Remote channel flipping (Channel Up / Down) with instant in-stream zapping.
