@@ -49,6 +49,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   StreamSubscription? _playingSub;
   Timer? _progressTimer;
   BoxFit _fit = BoxFit.contain;
+  late final FocusNode _screenFocusNode = FocusNode(debugLabel: 'VodPlayerScreenFocus');
 
   void _restoreVolume() {
     if (_isVolumeMutedForSync) {
@@ -88,7 +89,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
         final elapsedMs = DateTime.now().difference(startTime).inMilliseconds;
         if (advancingTicks >= 5 && elapsedMs >= 600) {
           _restoreVolume();
-          if (mounted) setState(() => _isStreamReady = true);
+          if (mounted) {
+            setState(() => _isStreamReady = true);
+            _screenFocusNode.requestFocus();
+          }
           _frameSub?.cancel();
         }
       }
@@ -99,6 +103,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       if (!_isStreamReady && mounted) {
         _restoreVolume();
         setState(() => _isStreamReady = true);
+        _screenFocusNode.requestFocus();
         _frameSub?.cancel();
       }
     });
@@ -144,6 +149,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      _screenFocusNode.requestFocus();
       final currentPlayback = ref.read(playbackControllerProvider);
       final isExistingStream = (currentPlayback != null && currentPlayback.streamUrl == widget.streamUrl) ||
           (player.state.playlist.medias.firstOrNull?.uri == widget.streamUrl);
@@ -164,7 +170,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
         ref.read(playbackControllerProvider.notifier).expand();
         _restoreVolume();
         if (player.state.position > Duration.zero) {
-          if (mounted) setState(() => _isStreamReady = true);
+          if (mounted) {
+            setState(() => _isStreamReady = true);
+            _screenFocusNode.requestFocus();
+          }
         } else {
           _armFrameListener();
         }
@@ -238,6 +247,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     _frameSub?.cancel();
     _playingSub?.cancel();
     _restoreVolume();
+    _screenFocusNode.dispose();
     super.dispose();
   }
 
@@ -299,9 +309,48 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
         backgroundColor: Colors.black,
         body: _isClosing 
           ? const SizedBox.expand() 
-          : Stack(
-              fit: StackFit.expand,
-              children: [
+          : Focus(
+              focusNode: _screenFocusNode,
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent) {
+                  if (event.logicalKey == LogicalKeyboardKey.space) {
+                    player.playOrPause();
+                    return KeyEventResult.handled;
+                  }
+                  if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                    final current = player.state.position;
+                    final newPosition = current - const Duration(seconds: 10);
+                    player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
+                    return KeyEventResult.handled;
+                  }
+                  if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                    final current = player.state.position;
+                    final duration = player.state.duration;
+                    final newPosition = current + const Duration(seconds: 10);
+                    player.seek(newPosition > duration ? duration : newPosition);
+                    return KeyEventResult.handled;
+                  }
+                  if (event.logicalKey == LogicalKeyboardKey.escape) {
+                    if (isFullscreen(context)) {
+                      toggleFullscreen(context);
+                      return KeyEventResult.handled;
+                    } else {
+                      _handleMinimize();
+                      return KeyEventResult.handled;
+                    }
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  _screenFocusNode.requestFocus();
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
                 MaterialDesktopVideoControlsTheme(
                   normal: MaterialDesktopVideoControlsThemeData(
                     hideMouseOnControlsRemoval: true,
@@ -653,6 +702,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                 ),
               ],
             ),
+          ),
+        ),
       ),
     );
   }
@@ -715,6 +766,9 @@ class _VodControlsState extends State<_VodControls> {
   DateTime _lastTimerReset = DateTime.now();
 
   void _onPointerMove() {
+    if (!_focusNode.hasFocus && mounted) {
+      _focusNode.requestFocus();
+    }
     if (!_isControlsVisible) {
       setState(() => _isControlsVisible = true);
     }
