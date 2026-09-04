@@ -134,54 +134,64 @@ The compiled output will be located in:
 
 ## 🗺️ Roadmap & Planned Features
 
-### ⚡ Priority 1: In-Player EPG List & Quick-Zapping (Completed)
-- [x] **In-Player Slide-Out EPG & Channel List Drawer**:
-  - Transparent frosted sidebar overlay accessible directly inside the Live TV player (both Full-Width and Fullscreen).
-  - Search channels, view logos, and inspect real-time EPG program schedules with live progress bars without leaving the stream.
-  - 1-click instant channel tuning directly from the drawer.
+### ⚡ Core Foundations (Completed)
+- [x] **In-Player Slide-Out EPG & Channel Drawer**:
+  - Frosted sidebar overlay inside the player (Full-Width and Fullscreen).
+  - Search channels, view logos, and inspect live progress bars without leaving playback.
 - [x] **Quick In-Stream Zapping**:
-  - In-player Channel Up (`CH +`) / Channel Down (`CH -`) buttons.
-  - Keyboard & Remote shortcuts (`PageUp` / `PageDown` or `ArrowUp` / `ArrowDown`) to flip channels instantly.
-  - Sleek translucent On-Screen Display (OSD) banner showing channel logo, name, number, and current live show info on each zap.
+  - In-player Channel Up (`CH +`) / Channel Down (`CH -`) buttons with remote & keyboard shortcuts.
+  - Translucent On-Screen Display (OSD) banner showing channel logo, name, number, and current live show info.
+- [x] **Remote Playlist Manager Web Portal ([goat-player.vercel.app](https://goat-player.vercel.app))**:
+  - Zero-typing TV setup with QR code instant pairing, virtual Device ID, and expiring PIN.
+  - Full bidirectional playlist management (Add, Edit, Delete), smart M3U breakdown, and real-time disconnection detection.
 
-### 📋 Phase 1: Smart TV Integrations & Big-Screen Platforms
+### 🎬 Phase 1: VOD Series Overhaul (Netflix-Style Experience)
+- [ ] **In-Player Episode Navigation**:
+  - "Next Episode" button overlay upon episode completion / credits countdown.
+  - Slide-out Episode Drawer to quickly switch episodes without leaving playback.
+- [ ] **Audio & Subtitle Track Memory**:
+  - Remember preferred audio language and subtitle tracks per show/movie.
+  - Restore last-used audio and subtitle selections automatically.
+- [ ] **Continue Watching Deduplication**:
+  - Only show the single latest in-progress or next episode per series.
+- [ ] **Smart Season & Episode Modal Deep-Linking**:
+  - Automatically expand the active season and episode when opening a show from Continue Watching.
+- [ ] **Per-Episode Watch Progress Indicators**:
+  - Visual progress bar on every individual episode card in the Series Details modal.
+
+### 📺 Phase 2: Cross-Platform Expansion (Android, Fire TV, LG, Samsung)
 - [ ] **Android TV & Amazon Fire TV**:
-  - D-Pad remote navigation on category rails, channel guides, and VOD cards.
-  - Remote channel flipping (Channel Up / Down) with instant in-stream zapping and translucent OSD.
-  - Transparent slide-out quick-channel drawer while stream plays uninterrupted.
-- [ ] **LG webOS App** (webOS Web App / native hardware player integration).
-- [ ] **Samsung Tizen TV App** (Tizen Web engine & hardware decoder integration).
-- [ ] **Physical Android Phone & Tablet Optimization**:
-  - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
-  - Automatic landscape lock upon entering cinema mode.
+  - Full D-Pad focus traversal across main navigation, category rails, channel grids, and player controls.
+  - Standard TV remote button bindings (DPad Center = select/play, Back = return, Play/Pause, Channel Up/Down).
+  - Android TV launcher banner and leanback intent configuration.
+- [ ] **Samsung Tizen TV**:
+  - Tizen Web app package build with hardware media player compatibility.
+- [ ] **LG webOS**:
+  - webOS Web App package configuration and hardware decoder integration.
+- [ ] **Physical Mobile & Tablet Adaptations**:
+  - Touch HUD gestures: swipe seek, left side for brightness, right side for volume.
+  - Automatic landscape lock upon entering cinema playback.
 
-### 🌐 Priority 2: Remote Playlist Management Web Portal (Completed)
-- [x] **Device Linking & Remote Upload**:
-  - Unique Device ID (`GP-XXXX-XXXX`) and expiring 6-digit PIN with QR code generation.
-  - Zero-backend web portal hosted live at [goat-player.vercel.app](https://goat-player.vercel.app) for remote playlist entry.
-  - Complete remote playlist management: View, Add, Edit, and Delete playlists on the TV.
-  - Smart M3U Link Breakdown for automatic Xtream credential extraction.
-  - Real-time bidirectional synchronization with disconnection awareness and TV handshake.
+### 📋 Phase 3: Category Management
+- [ ] **Hide / Show Categories**:
+  - Ability to toggle visibility for unwanted categories (e.g. international packages, adult content).
+- [ ] **Manage & Reorder Categories**:
+  - Reorder categories or prioritize them according to user preference.
+- [ ] **Persistent Category Filter State**:
+  - Store hidden and reordered category states in local SQLite database per account.
 
-### 🎛️ Phase 3: Category Management & Organization
-- [ ] **Custom Category Filtering**:
-  - Hide/show unwanted categories (e.g. international packages, adult content, duplicate channels).
-  - Category reordering with custom folder organization.
-
-### ☁️ Phase 4: Cloud Sync & Profile Management
-- [ ] **Cross-Device Profile Sync**:
-  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop $\leftrightarrow$ Mobile $\leftrightarrow$ Smart TV).
+### 🚀 Phase 4: Advanced Media & Cloud Sync
+- [ ] **Cross-Device Profile & State Sync**:
+  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop ↔ Mobile ↔ Smart TV).
   - Multi-profile support for family households.
-
-### 🚀 Phase 5: Advanced Media Features
-- [ ] **Multi-Screen / Multi-View**:
-  - Watch 2 or 4 Live TV channels simultaneously in a customizable grid (ideal for live sports).
+- [ ] **Multi-View / Multi-Screen Player**:
+  - Split-screen grid to play 2 or 4 Live TV channels simultaneously (customizable layouts for live sports).
 - [ ] **Catch-Up TV (Archive)**:
   - Play past broadcasts directly from the EPG timeline for supported Xtream providers.
-- [ ] **Offline Downloads (Mobile & Desktop)**:
-  - Download VOD movies and episodes for offline viewing on flights or travel.
+- [ ] **Offline Downloads**:
+  - Download VOD movies and episodes locally for offline viewing on flights or travel.
 - [ ] **Custom User Categories**:
-  - Create personal custom categories mixing channels and VOD from multiple playlists.
+  - Create personal custom categories and curated playlists mixing channels and VOD from multiple accounts.
 
 ---
 

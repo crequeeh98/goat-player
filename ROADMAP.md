@@ -39,53 +39,57 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 📺 Phase 2: TV & Cross-Platform Expansion (Core Functionality)
-> *Focus: High-level enablement to get apps running on TV platforms without over-complicating.*
+## 🎬 Phase 1: VOD Series Overhaul (Netflix-Style Experience)
+- [ ] **In-Player Episode Navigation**:
+  - "Next Episode" button overlay upon episode completion / credits countdown.
+  - In-player slide-out Episode Drawer to quickly switch episodes without leaving active playback.
+- [ ] **Audio & Subtitle Track Memory**:
+  - Remember user's preferred audio language and subtitle settings across episodes and movies.
+  - Automatically restore last-used audio/subtitle tracks when continuing watching.
+- [ ] **Continue Watching Deduplication**:
+  - Prevent multiple episode cards of the same show from cluttering Continue Watching.
+  - Only show the single latest in-progress or next up episode for each series.
+- [ ] **Smart Season & Episode Modal Deep-Linking**:
+  - When opening a show from Continue Watching, automatically select and expand the relevant season and episode instead of resetting to Season 1 / Episode 1.
+- [ ] **Per-Episode Watch Progress Indicators**:
+  - Visual progress bar on every individual episode card in the Series Details modal, matching Continue Watching.
+
+---
+
+## 📺 Phase 2: Cross-Platform Expansion (Android, Fire TV, LG, Samsung)
 - [ ] **Android TV & Amazon Fire TV Enablement**:
-  - Basic D-Pad focus traversal across main navigation, category rails, channel grids, and player controls.
-  - Standard TV remote button bindings (DPad Center = select/play, Back = return, Play/Pause toggle).
-  - Android TV launcher banner and leanback intent configuration.
-- [ ] **Smart TV Web/WASM Foundation**:
-  - **Samsung Tizen TV**: Web app package build with media playback compatibility.
-  - **LG webOS**: Basic webOS package configuration.
-- [ ] **Mobile & Tablet Adaptations**:
-  - Clean touch responsive layout support.
+  - Full D-Pad focus traversal across main navigation, category rails, channel grids, and player controls.
+  - Standard TV remote button bindings (DPad Center = select/play, Back = return, Play/Pause toggle, Channel Up/Down).
+  - Android TV launcher banner, leanback intent configuration, and TV leanback manifest.
+- [ ] **Samsung Tizen TV**:
+  - Tizen Web app package build with hardware media player compatibility.
+- [ ] **LG webOS**:
+  - webOS Web App package configuration and hardware decoder integration.
+- [ ] **Physical Mobile & Tablet Adaptations**:
+  - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
+  - Automatic landscape lock upon entering cinema playback.
 
 ---
 
 ## 📋 Phase 3: Category Management
 - [ ] **Hide / Show Categories**:
-  - Ability to hide unwanted categories (e.g., international language packages, adult content).
+  - Ability to toggle visibility for unwanted categories (e.g., international language packages, adult content).
 - [ ] **Manage & Reorder Categories**:
-  - Reorder categories or group them according to user preference.
+  - Reorder categories or prioritize them according to user preference.
 - [ ] **Persistent Category Filter State**:
-  - Store hidden categories in the local database per account.
+  - Store hidden and reordered category states in the local SQLite database per account.
 
 ---
 
-## 🎬 Phase 4: Complete VOD Series Overhaul (Netflix-Style Experience)
-- [ ] **In-Player Episode Navigation**:
-  - "Next Episode" button overlay upon episode completion / credits.
-  - In-player slide-out Episode Drawer to switch episodes without leaving playback.
-- [ ] **Audio & Subtitle Track Memory**:
-  - Remember the user's preferred audio language and subtitle settings across episodes and movies.
-  - Restore last-used audio/subtitle tracks when continuing watching.
-- [ ] **Continue Watching Deduplication**:
-  - Prevent multiple episode cards of the same show from cluttering Continue Watching.
-  - Only show the latest in-progress or next episode for each series.
-- [ ] **Smart Season & Episode Modal Deep-Linking**:
-  - When opening a show from Continue Watching, automatically select and expand the relevant season and episode instead of resetting to Season 1 / Episode 1.
-- [ ] **Per-Episode Watch Progress Indicators**:
-  - Visual progress bar on every individual episode card in the Series Details modal, not just in Continue Watching.
-
----
-
-## 🚀 Phase 5: Advanced Media & Power Features (Deferred)
+## 🚀 Phase 4: Advanced Media & Cloud Sync (Sync, Multi-View, Catch-Up, Offline Downloads, Custom Categories)
+- [ ] **Cross-Device Profile & State Sync**:
+  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop ↔ Mobile ↔ Smart TV).
+  - Multi-profile support for family households.
 - [ ] **Multi-View / Multi-Screen Player**:
   - Split-screen grid to play 2 or 4 Live TV channels simultaneously (customizable layouts for live sports).
 - [ ] **Catch-Up TV (Archive)**:
   - Play past broadcasts directly from the EPG guide for supported Xtream providers.
 - [ ] **Offline Downloads**:
-  - Download VOD movies and episodes locally for offline viewing.
+  - Download VOD movies and episodes locally for offline viewing during flights or travel.
 - [ ] **Custom User Categories**:
-  - Create custom user playlists and grouped channels.
+  - Create personal custom categories and curated playlists mixing channels and VOD from multiple accounts.
