@@ -338,6 +338,12 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             return KeyEventResult.handled;
           }
 
+          // Space: Play / Pause (or catch up to live)
+          if (event.logicalKey == LogicalKeyboardKey.space) {
+            _togglePlayPause();
+            return KeyEventResult.handled;
+          }
+
           // E or L or Enter: Toggle EPG Drawer (only in full-width or fullscreen)
           if (event.logicalKey == LogicalKeyboardKey.keyE ||
               event.logicalKey == LogicalKeyboardKey.keyL ||

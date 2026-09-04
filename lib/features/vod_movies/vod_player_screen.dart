@@ -119,15 +119,15 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     });
 
     final activePlayback = ref.read(playbackControllerProvider);
-    final isReturningFromMiniPlayer = activePlayback != null &&
-        activePlayback.streamUrl == widget.streamUrl &&
-        activePlayback.isMinimized;
+    final isReturningFromMiniPlayer = (activePlayback != null && activePlayback.streamUrl == widget.streamUrl) ||
+        (player.state.playlist.medias.firstOrNull?.uri == widget.streamUrl);
 
     if (isReturningFromMiniPlayer && player.state.position > Duration.zero) {
       _isStreamReady = true;
+      _isVolumeMutedForSync = false;
     } else {
       // Hold audio completely silent until video picture is actually rendered on screen
-      _initialVolume = player.state.volume > 0 ? player.state.volume : 100.0;
+      _initialVolume = player.state.volume > 0 ? player.state.volume : (_initialVolume > 0 ? _initialVolume : 100.0);
       _isVolumeMutedForSync = true;
       player.setVolume(0);
       _isStreamReady = false;
@@ -145,7 +145,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final currentPlayback = ref.read(playbackControllerProvider);
-      if (currentPlayback == null || currentPlayback.streamUrl != widget.streamUrl) {
+      final isExistingStream = (currentPlayback != null && currentPlayback.streamUrl == widget.streamUrl) ||
+          (player.state.playlist.medias.firstOrNull?.uri == widget.streamUrl);
+
+      if (!isExistingStream) {
         await ref.read(playbackControllerProvider.notifier).playVod(
           title: widget.title,
           url: widget.streamUrl,
@@ -159,6 +162,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       } else {
         // Returning from mini-player: continue from current playback without rewinding
         ref.read(playbackControllerProvider.notifier).expand();
+        _restoreVolume();
         if (player.state.position > Duration.zero) {
           if (mounted) setState(() => _isStreamReady = true);
         } else {
@@ -573,7 +577,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                             child: Video(
                               controller: controller,
                               fit: _fit,
-                              controls: (state) => _VodControls(videoState: state),
+                              controls: (state) => _VodControls(
+                                videoState: state,
+                                onMinimize: _handleMinimize,
+                              ),
                               subtitleViewConfiguration: const SubtitleViewConfiguration(
                                 visible: true,
                                 style: TextStyle(
@@ -599,7 +606,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                         : Video(
                             controller: controller,
                             fit: _fit,
-                            controls: (state) => _VodControls(videoState: state),
+                            controls: (state) => _VodControls(
+                              videoState: state,
+                              onMinimize: _handleMinimize,
+                            ),
                             subtitleViewConfiguration: const SubtitleViewConfiguration(
                               visible: true,
                               style: TextStyle(
@@ -650,9 +660,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
 class _VodControls extends StatefulWidget {
   final VideoState videoState;
+  final VoidCallback? onMinimize;
 
   const _VodControls({
     required this.videoState,
+    this.onMinimize,
   });
 
   @override
@@ -665,6 +677,7 @@ class _VodControlsState extends State<_VodControls> {
   bool _isControlsVisible = true;
   Timer? _hideTimer;
   StreamSubscription? _playingSub;
+  late final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -684,10 +697,16 @@ class _VodControlsState extends State<_VodControls> {
       }
     });
     _onPointerMove();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _hideTimer?.cancel();
     _playingSub?.cancel();
     super.dispose();
@@ -722,44 +741,89 @@ class _VodControlsState extends State<_VodControls> {
 
   void _togglePlayPause() {
     _player.playOrPause();
+    _focusNode.requestFocus();
     _onPointerMove();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onHover: (_) => _onPointerMove(),
-      onEnter: (_) => _onPointerMove(),
-      onExit: (_) => _onMouseExit(),
-      child: Stack(
-        children: [
-          MaterialDesktopVideoControls(widget.videoState),
-          Positioned.fill(
-            child: Center(
-              child: AnimatedOpacity(
-                opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 150),
-                child: IgnorePointer(
-                  ignoring: !(_isControlsVisible || !_isPlaying),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.black45,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      iconSize: 76,
-                      color: Colors.white,
-                      icon: Icon(
-                        _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.space) {
+            _togglePlayPause();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            final current = _player.state.position;
+            final newPosition = current - const Duration(seconds: 10);
+            _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
+            _onPointerMove();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            final current = _player.state.position;
+            final duration = _player.state.duration;
+            final newPosition = current + const Duration(seconds: 10);
+            _player.seek(newPosition > duration ? duration : newPosition);
+            _onPointerMove();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.escape) {
+            if (isFullscreen(context)) {
+              toggleFullscreen(context);
+              return KeyEventResult.handled;
+            } else if (widget.onMinimize != null) {
+              widget.onMinimize!();
+              return KeyEventResult.handled;
+            }
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          _focusNode.requestFocus();
+          _onPointerMove();
+        },
+        child: MouseRegion(
+          onHover: (_) => _onPointerMove(),
+          onEnter: (_) => _onPointerMove(),
+          onExit: (_) => _onMouseExit(),
+          child: Stack(
+            children: [
+              MaterialDesktopVideoControls(widget.videoState),
+              Positioned.fill(
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: IgnorePointer(
+                      ignoring: !(_isControlsVisible || !_isPlaying),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black45,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          iconSize: 76,
+                          color: Colors.white,
+                          icon: Icon(
+                            _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                          ),
+                          onPressed: _togglePlayPause,
+                        ),
                       ),
-                      onPressed: _togglePlayPause,
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
