@@ -36,6 +36,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   Timer? _countdownTimer;
   Duration _remainingTime = Duration.zero;
   bool _playlistReceived = false;
+  bool _isClosingSession = false;
 
   @override
   void initState() {
@@ -111,6 +112,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           setState(() {
             _remainingTime = Duration.zero;
           });
+          if (_session != null) {
+            ref.read(remoteSyncServiceProvider).closePairingSession(_session!.deviceId);
+          }
         } else {
           setState(() {
             _remainingTime = rem;
@@ -181,6 +185,24 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     }
   }
 
+  Future<void> _handleCloseAndPop() async {
+    if (_isClosingSession) return;
+    if (_session != null) {
+      if (mounted) setState(() => _isClosingSession = true);
+      try {
+        await ref
+            .read(remoteSyncServiceProvider)
+            .closePairingSession(_session!.deviceId)
+            .timeout(const Duration(seconds: 3));
+      } catch (e) {
+        debugPrint('Error closing pairing session: $e');
+      }
+    }
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   void dispose() {
     if (_session != null) {
@@ -200,10 +222,20 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     final l10n = AppLocalizations.of(context)!;
     final isEditing = widget.accountToEdit != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? l10n.editAccount : l10n.addAccount),
-      ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _handleCloseAndPop();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(isEditing ? l10n.editAccount : l10n.addAccount),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _isClosingSession ? null : _handleCloseAndPop,
+          ),
+        ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
@@ -245,8 +277,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildManualForm(AppLocalizations l10n) {
     return Form(
@@ -559,8 +592,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           if (_playlistReceived) ...[
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.check),
+              onPressed: _isClosingSession ? null : _handleCloseAndPop,
+              icon: _isClosingSession
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check),
               label: Text(l10n.done),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,

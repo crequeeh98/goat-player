@@ -872,6 +872,7 @@
     let deletingPlaylistId = null;
     let realtimeChannel = null;
     let isDeviceConnected = false;
+    let pollDeviceInterval = null;
 
     // Translations Dictionary
     const i18n = {
@@ -999,6 +1000,10 @@
         }
       });
 
+      if (activeDeviceId) {
+        setDeviceConnectedState(isDeviceConnected);
+      }
+
       renderPlaylists();
     }
 
@@ -1118,7 +1123,8 @@
         const id = pl.id !== undefined ? pl.id : idx;
         const name = pl.playlist_name || pl.username || 'IPTV Playlist';
         const server = pl.server_url || 'Xtream Server';
-        const user = pl.username || 'User';
+        const btnOpacity = isDeviceConnected ? '1' : '0.5';
+        const btnCursor = isDeviceConnected ? 'pointer' : 'not-allowed';
 
         return `
           <div class="playlist-card">
@@ -1130,10 +1136,10 @@
               </div>
             </div>
             <div class="playlist-card-actions">
-              <button class="btn-action" onclick="openPlaylistModal('edit', ${id})" title="${t('btnEdit')}">
+              <button class="btn-action" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" onclick="openPlaylistModal('edit', ${id})" title="${t('btnEdit')}">
                 ✏️ <span>${t('btnEdit')}</span>
               </button>
-              <button class="btn-action delete" onclick="confirmDeletePlaylist(${id})" title="${t('btnDelete')}">
+              <button class="btn-action delete" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" onclick="confirmDeletePlaylist(${id})" title="${t('btnDelete')}">
                 🗑️
               </button>
             </div>
@@ -1270,16 +1276,82 @@
 
       if (btnAdd) {
         btnAdd.style.opacity = connected ? '1' : '0.65';
+        btnAdd.style.cursor = connected ? 'pointer' : 'not-allowed';
+      }
+
+      if (!connected) {
+        closeModal();
+        closeDeleteModal();
+      }
+
+      const cardActions = document.querySelectorAll('.playlist-card-actions button');
+      cardActions.forEach(btn => {
+        btn.style.opacity = connected ? '1' : '0.5';
+        btn.style.cursor = connected ? 'pointer' : 'not-allowed';
+      });
+    }
+
+    function startDevicePolling(deviceId) {
+      if (pollDeviceInterval) {
+        clearInterval(pollDeviceInterval);
+        pollDeviceInterval = null;
+      }
+      checkDeviceStatus(deviceId);
+      pollDeviceInterval = setInterval(() => {
+        checkDeviceStatus(deviceId);
+      }, 2500);
+    }
+
+    async function checkDeviceStatus(deviceId) {
+      if (!activeDeviceId || activeDeviceId !== deviceId) {
+        if (pollDeviceInterval) {
+          clearInterval(pollDeviceInterval);
+          pollDeviceInterval = null;
+        }
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient
+          .from('remote_devices')
+          .select('status, pin, pin_expires_at, playlists')
+          .eq('device_id', deviceId)
+          .maybeSingle();
+
+        if (error || !data) return;
+
+        const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
+        const pinChanged = Boolean(activePin && data.pin && data.pin !== activePin);
+        const isDisconnected = data.status === 'disconnected' || isExpired || pinChanged;
+
+        if (isDisconnected) {
+          if (isDeviceConnected) {
+            setDeviceConnectedState(false);
+          }
+        } else {
+          if (!isDeviceConnected) {
+            setDeviceConnectedState(true);
+          }
+          if (data.playlists && Array.isArray(data.playlists)) {
+            const deduped = deduplicatePlaylists(data.playlists);
+            if (JSON.stringify(deduped) !== JSON.stringify(activePlaylists)) {
+              activePlaylists = deduped;
+              renderPlaylists();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Device status check error:', err);
       }
     }
 
     function subscribeToDeviceChanges(deviceId) {
       if (realtimeChannel) {
         supabaseClient.removeChannel(realtimeChannel);
+        realtimeChannel = null;
       }
 
       realtimeChannel = supabaseClient
-        .channel(`device_${deviceId}`)
+        .channel(`device_sync_${deviceId}_${Date.now()}`)
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
@@ -1288,7 +1360,11 @@
         }, (payload) => {
           const newRecord = payload.new;
           if (newRecord) {
-            if (newRecord.status === 'disconnected') {
+            const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
+            const pinChanged = Boolean(activePin && newRecord.pin && newRecord.pin !== activePin);
+            const isDisconnected = newRecord.status === 'disconnected' || isExpired || pinChanged;
+
+            if (isDisconnected) {
               setDeviceConnectedState(false);
               return;
             } else {
@@ -1301,11 +1377,18 @@
           }
         })
         .subscribe();
+
+      startDevicePolling(deviceId);
     }
 
     function disconnectDevice() {
+      if (pollDeviceInterval) {
+        clearInterval(pollDeviceInterval);
+        pollDeviceInterval = null;
+      }
       if (realtimeChannel) {
         supabaseClient.removeChannel(realtimeChannel);
+        realtimeChannel = null;
       }
       activeDeviceId = '';
       activePin = '';

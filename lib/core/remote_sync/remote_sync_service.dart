@@ -152,6 +152,7 @@ class RemoteSyncService {
     try {
       await _client.from('remote_devices').update({
         'status': 'disconnected',
+        'pin_expires_at': DateTime.now().toUtc().toIso8601String(),
         'sync_action': null,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('device_id', deviceId);
