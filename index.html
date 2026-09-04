@@ -1058,6 +1058,24 @@
         .replace(/"/g, '&quot;');
     }
 
+    function deduplicatePlaylists(list) {
+      if (!Array.isArray(list)) return [];
+      const seen = new Set();
+      const result = [];
+      for (const item of list) {
+        const normServer = (item.server_url || '').trim().toLowerCase().replace(/\/+$/, '');
+        const normUser = (item.username || '').trim().toLowerCase();
+        const key = item.id !== undefined ? `id_${item.id}` : `${normServer}::${normUser}`;
+        const contentKey = `${normServer}::${normUser}`;
+        if (!seen.has(key) && !seen.has(contentKey)) {
+          seen.add(key);
+          seen.add(contentKey);
+          result.push(item);
+        }
+      }
+      return result;
+    }
+
     // Pairing & Realtime
     async function verifyPairing(deviceId, pin) {
       const btn = document.getElementById('btnVerifyPairing');
@@ -1101,9 +1119,9 @@
         document.getElementById('manualPairingSection').style.display = 'none';
         document.getElementById('playlistManagerSection').style.display = 'block';
 
-        // Extract playlists
+        // Extract and deduplicate playlists
         if (data.playlists && Array.isArray(data.playlists)) {
-          activePlaylists = data.playlists;
+          activePlaylists = deduplicatePlaylists(data.playlists);
         } else if (data.server_url) {
           activePlaylists = [{
             id: 1,
@@ -1142,7 +1160,7 @@
         }, (payload) => {
           const newRecord = payload.new;
           if (newRecord && newRecord.playlists && Array.isArray(newRecord.playlists)) {
-            activePlaylists = newRecord.playlists;
+            activePlaylists = deduplicatePlaylists(newRecord.playlists);
             renderPlaylists();
           }
         })
@@ -1240,21 +1258,32 @@
       try {
         if (currentModalMode === 'add') {
           btn.innerText = t('sending');
-          // Optimistic local add
-          const newId = Date.now();
-          activePlaylists.push({
-            id: newId,
-            playlist_name: playlistName,
-            server_url: serverUrl,
-            username: username,
-            password: password
-          });
-          renderPlaylists();
+
+          // Optimistic local add only if not already present
+          const normServer = serverUrl.trim().toLowerCase().replace(/\/+$/, '');
+          const normUser = username.trim().toLowerCase();
+          const alreadyExists = activePlaylists.some(p =>
+            (p.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer &&
+            (p.username || '').trim().toLowerCase() === normUser
+          );
+          if (!alreadyExists) {
+            activePlaylists.push({
+              id: Date.now(),
+              playlist_name: playlistName,
+              server_url: serverUrl,
+              username: username,
+              password: password
+            });
+            renderPlaylists();
+          }
+
+          const actionId = `add_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
           // Push to Supabase
           try {
             await supabaseClient.from('remote_devices').update({
               sync_action: {
+                action_id: actionId,
                 action: 'add',
                 playlist_name: playlistName,
                 server_url: serverUrl,
@@ -1266,7 +1295,6 @@
               server_url: serverUrl,
               username: username,
               password: password,
-              status: 'linked',
               updated_at: new Date().toISOString()
             }).eq('device_id', activeDeviceId).eq('pin', activePin);
           } catch (colErr) {
@@ -1294,8 +1322,10 @@
           }
           renderPlaylists();
 
+          const actionId = `edit_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
           await supabaseClient.from('remote_devices').update({
             sync_action: {
+              action_id: actionId,
               action: 'edit',
               id: editingPlaylistId,
               playlist_name: playlistName,

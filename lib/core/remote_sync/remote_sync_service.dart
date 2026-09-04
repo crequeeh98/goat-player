@@ -91,6 +91,37 @@ class RemoteSyncService {
     return deviceId;
   }
 
+  String _normalizeUrl(String url) {
+    var u = url.trim().toLowerCase();
+    while (u.endsWith('/')) {
+      u = u.substring(0, u.length - 1);
+    }
+    return u;
+  }
+
+  /// Removes any existing duplicate accounts that have identical serverUrl and username
+  Future<void> deduplicateLocalAccounts() async {
+    try {
+      final accounts = await _accountDao.getAllAccounts();
+      final seenKeys = <String>{};
+      for (final acc in accounts) {
+        final key = '${_normalizeUrl(acc.serverUrl)}::${acc.username.trim().toLowerCase()}';
+        if (seenKeys.contains(key)) {
+          debugPrint('Deduplicating local account duplicate: ${acc.id} (${acc.serverUrl})');
+          await _accountDao.deleteAccount(acc);
+          await _categoryDao.clearCategories(acc.id, 'live');
+          await _categoryDao.clearCategories(acc.id, 'movie');
+          await _streamDao.clearAllStreams(acc.id);
+          await _epgDao.clearPrograms(acc.id);
+        } else {
+          seenKeys.add(key);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deduplicating accounts: $e');
+    }
+  }
+
   /// Formats all local accounts into JSON to sync with Supabase
   Future<List<Map<String, dynamic>>> getLocalPlaylistsJson() async {
     final localAccounts = await _accountDao.getAllAccounts();
@@ -112,13 +143,16 @@ class RemoteSyncService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('device_id', deviceId);
     } catch (e) {
-      debugPrint('Note: could not update playlists in remote_devices (column may not exist yet): $e');
+      debugPrint('Note: could not update playlists in remote_devices: $e');
     }
   }
 
   /// Creates a new pairing session with a random 6-digit PIN valid for 20 minutes
   /// and syncs current device playlists to Supabase.
   Future<PairingSession> startPairingSession() async {
+    // Automatically purge any previous local duplicate accounts
+    await deduplicateLocalAccounts();
+
     final deviceId = getDeviceId();
     final random = Random();
     final pin = (100000 + random.nextInt(900000)).toString();
@@ -168,6 +202,8 @@ class RemoteSyncService {
     StreamSubscription<List<Map<String, dynamic>>>? sub;
     Timer? fallbackPollTimer;
     bool isProcessing = false;
+    final Set<String> processedActionKeys = {};
+    String? lastProcessedLegacyKey;
 
     void processRecord(Map<String, dynamic> record) async {
       if (isProcessing) return;
@@ -177,28 +213,62 @@ class RemoteSyncService {
         final syncAction = record['sync_action'];
         if (syncAction != null && syncAction is Map) {
           final action = syncAction['action']?.toString();
+          final actionTimestamp = syncAction['timestamp']?.toString() ?? '';
+          final actionId = syncAction['action_id']?.toString() ?? '${action}_$actionTimestamp';
+
+          if (actionId.isNotEmpty && processedActionKeys.contains(actionId)) {
+            debugPrint('Sync action already processed, skipping: $actionId');
+            return;
+          }
+          if (actionId.isNotEmpty) {
+            processedActionKeys.add(actionId);
+          }
 
           if (action == 'add') {
-            final serverUrl = syncAction['server_url']?.toString() ?? '';
-            final username = syncAction['username']?.toString() ?? '';
-            final password = syncAction['password']?.toString() ?? '';
+            final serverUrl = syncAction['server_url']?.toString().trim() ?? '';
+            final username = syncAction['username']?.toString().trim() ?? '';
+            final password = syncAction['password']?.toString().trim() ?? '';
             final playlistName = syncAction['playlist_name']?.toString();
 
             if (serverUrl.isNotEmpty) {
-              final id = await _accountDao.insertAccount(
-                AccountsCompanion.insert(
-                  playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : null),
-                  serverUrl: serverUrl.trim(),
-                  username: username.trim(),
-                  password: password.trim(),
-                ),
-              );
+              // Deduplication: check if account with same server and username already exists
+              final existingAccounts = await _accountDao.getAllAccounts();
+              final existing = existingAccounts.where((a) =>
+                _normalizeUrl(a.serverUrl) == _normalizeUrl(serverUrl) &&
+                a.username.trim().toLowerCase() == username.toLowerCase()
+              ).firstOrNull;
 
-              final newAccount = await _accountDao.getAccountById(id);
-              await pushLocalPlaylists(deviceId);
+              Account? accountResult;
+              int accountId;
 
+              if (existing != null) {
+                // Update existing account instead of duplicating
+                accountId = existing.id;
+                final updated = existing.copyWith(
+                  playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : existing.playlistName),
+                  serverUrl: serverUrl,
+                  username: username,
+                  password: password,
+                );
+                await _accountDao.updateAccount(updated);
+                accountResult = updated;
+              } else {
+                accountId = await _accountDao.insertAccount(
+                  AccountsCompanion.insert(
+                    playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : null),
+                    serverUrl: serverUrl,
+                    username: username,
+                    password: password,
+                  ),
+                );
+                accountResult = await _accountDao.getAccountById(accountId);
+              }
+
+              // ATOMIC UPDATE: sync playlists, clear action, and mark synced in ONE network call
+              final playlistsJson = await getLocalPlaylistsJson();
               try {
                 await _client.from('remote_devices').update({
+                  'playlists': playlistsJson,
                   'sync_action': null,
                   'status': 'synced',
                   'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -207,10 +277,12 @@ class RemoteSyncService {
 
               if (!controller.isClosed) {
                 controller.add(RemoteSyncEvent(
-                  type: RemoteSyncEventType.accountAdded,
-                  account: newAccount,
-                  accountId: id,
-                  message: 'Playlist added: ${newAccount?.playlistName ?? username}',
+                  type: existing != null ? RemoteSyncEventType.accountUpdated : RemoteSyncEventType.accountAdded,
+                  account: accountResult,
+                  accountId: accountId,
+                  message: existing != null
+                      ? 'Playlist updated: ${accountResult?.playlistName ?? username}'
+                      : 'Playlist added: ${accountResult?.playlistName ?? username}',
                 ));
               }
             }
@@ -234,10 +306,11 @@ class RemoteSyncService {
                 );
 
                 await _accountDao.updateAccount(updated);
-                await pushLocalPlaylists(deviceId);
 
+                final playlistsJson = await getLocalPlaylistsJson();
                 try {
                   await _client.from('remote_devices').update({
+                    'playlists': playlistsJson,
                     'sync_action': null,
                     'updated_at': DateTime.now().toUtc().toIso8601String(),
                   }).eq('device_id', deviceId);
@@ -266,10 +339,10 @@ class RemoteSyncService {
                 await _streamDao.clearAllStreams(accountId);
                 await _epgDao.clearPrograms(accountId);
 
-                await pushLocalPlaylists(deviceId);
-
+                final playlistsJson = await getLocalPlaylistsJson();
                 try {
                   await _client.from('remote_devices').update({
+                    'playlists': playlistsJson,
                     'sync_action': null,
                     'updated_at': DateTime.now().toUtc().toIso8601String(),
                   }).eq('device_id', deviceId);
@@ -285,39 +358,59 @@ class RemoteSyncService {
               }
             }
           }
-        } else if (record['status']?.toString() == 'linked') {
+        } else if (record['status']?.toString() == 'linked' && record['sync_action'] == null) {
           // Legacy single-playlist fallback
-          final serverUrl = record['server_url']?.toString();
-          final username = record['username']?.toString();
-          final password = record['password']?.toString();
+          final serverUrl = record['server_url']?.toString().trim();
+          final username = record['username']?.toString().trim();
+          final password = record['password']?.toString().trim();
           final playlistName = record['playlist_name']?.toString();
 
           if (serverUrl != null && serverUrl.isNotEmpty) {
-            final id = await _accountDao.insertAccount(
-              AccountsCompanion.insert(
-                playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : null),
-                serverUrl: serverUrl.trim(),
-                username: username?.trim() ?? '',
-                password: password?.trim() ?? '',
-              ),
-            );
+            final legacyKey = '${_normalizeUrl(serverUrl)}::$username';
+            if (lastProcessedLegacyKey == legacyKey) {
+              return;
+            }
+            lastProcessedLegacyKey = legacyKey;
 
-            await pushLocalPlaylists(deviceId);
+            final existingAccounts = await _accountDao.getAllAccounts();
+            final existing = existingAccounts.where((a) =>
+              _normalizeUrl(a.serverUrl) == _normalizeUrl(serverUrl) &&
+              a.username.trim().toLowerCase() == (username?.toLowerCase() ?? '')
+            ).firstOrNull;
 
+            int accountId;
+            Account? accountResult;
+
+            if (existing != null) {
+              accountId = existing.id;
+              accountResult = existing;
+            } else {
+              accountId = await _accountDao.insertAccount(
+                AccountsCompanion.insert(
+                  playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : null),
+                  serverUrl: serverUrl,
+                  username: username ?? '',
+                  password: password ?? '',
+                ),
+              );
+              accountResult = await _accountDao.getAccountById(accountId);
+            }
+
+            final playlistsJson = await getLocalPlaylistsJson();
             try {
               await _client.from('remote_devices').update({
+                'playlists': playlistsJson,
                 'status': 'synced',
                 'updated_at': DateTime.now().toUtc().toIso8601String(),
               }).eq('device_id', deviceId);
             } catch (_) {}
 
-            final newAccount = await _accountDao.getAccountById(id);
             if (!controller.isClosed) {
               controller.add(RemoteSyncEvent(
                 type: RemoteSyncEventType.accountAdded,
-                account: newAccount,
-                accountId: id,
-                message: 'Playlist received: ${newAccount?.playlistName ?? username}',
+                account: accountResult,
+                accountId: accountId,
+                message: 'Playlist received: ${accountResult?.playlistName ?? username}',
               ));
             }
           }
