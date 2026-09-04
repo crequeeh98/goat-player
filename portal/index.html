@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>GOATPlayer | Remote Playlist Manager</title>
+  <link rel="icon" type="image/png" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,14 +12,14 @@
   <style>
     :root {
       --bg: #09080F;
-      --card-bg: rgba(22, 19, 36, 0.85);
+      --card-bg: rgba(20, 17, 34, 0.88);
       --card-border: rgba(168, 85, 247, 0.2);
       --primary: #A855F7;
       --primary-hover: #9333EA;
       --primary-glow: rgba(168, 85, 247, 0.35);
       --text: #F3F4F6;
       --text-muted: #9CA3AF;
-      --input-bg: rgba(14, 12, 24, 0.9);
+      --input-bg: rgba(13, 11, 22, 0.95);
       --input-border: rgba(255, 255, 255, 0.12);
       --input-focus: #A855F7;
       --success: #10B981;
@@ -35,7 +36,7 @@
     body {
       background-color: var(--bg);
       background-image: 
-        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.18) 0%, transparent 50%),
+        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.2) 0%, transparent 50%),
         radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.12) 0%, transparent 40%);
       color: var(--text);
       min-height: 100vh;
@@ -43,12 +44,12 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px 16px;
+      padding: 24px 16px;
     }
 
     .container {
       width: 100%;
-      max-width: 480px;
+      max-width: 460px;
     }
 
     .header {
@@ -59,20 +60,33 @@
     .logo {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      object-fit: contain;
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+
+    .logo-title {
       font-size: 26px;
       font-weight: 800;
       letter-spacing: -0.5px;
-      margin-bottom: 8px;
+      color: #FFFFFF;
     }
 
     .logo-badge {
       background: linear-gradient(135deg, #A855F7, #6366F1);
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 16px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 13px;
       font-weight: 800;
-      box-shadow: 0 4px 14px var(--primary-glow);
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 10px var(--primary-glow);
     }
 
     .tagline {
@@ -82,25 +96,42 @@
 
     .card {
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
       border-radius: 20px;
       padding: 28px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 40px rgba(168, 85, 247, 0.08);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), 0 0 40px rgba(168, 85, 247, 0.08);
       position: relative;
-      overflow: hidden;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
     }
 
     .device-banner {
       background: rgba(168, 85, 247, 0.1);
-      border: 1px solid rgba(168, 85, 247, 0.25);
-      border-radius: 12px;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 14px;
       padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 20px;
+      animation: fadeIn 0.3s ease;
     }
 
     .device-info {
@@ -117,9 +148,10 @@
     }
 
     .device-val {
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 16px;
+      font-weight: 800;
       color: #E9D5FF;
+      letter-spacing: 0.5px;
     }
 
     .badge-status {
@@ -127,10 +159,11 @@
       align-items: center;
       gap: 6px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--success);
-      background: rgba(16, 185, 129, 0.12);
-      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 5px 12px;
       border-radius: 20px;
     }
 
@@ -208,16 +241,16 @@
 
     .tab-bar {
       display: flex;
-      background: rgba(14, 12, 24, 0.8);
+      background: rgba(13, 11, 22, 0.9);
       padding: 4px;
       border-radius: 12px;
       margin-bottom: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .tab-btn {
       flex: 1;
-      padding: 8px 12px;
+      padding: 9px 12px;
       background: transparent;
       border: none;
       color: var(--text-muted);
@@ -229,8 +262,8 @@
     }
 
     .tab-btn.active {
-      background: rgba(168, 85, 247, 0.25);
-      color: #F3F4F6;
+      background: rgba(168, 85, 247, 0.28);
+      color: #FFFFFF;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
@@ -242,11 +275,24 @@
       line-height: 1.5;
     }
 
+    .qr-tip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px dashed rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 16px;
+      line-height: 1.4;
+    }
+
     /* Success State */
     .success-card {
       display: none;
       text-align: center;
-      padding: 20px 0;
+      padding: 16px 0;
+      animation: fadeIn 0.4s ease;
     }
 
     .success-icon {
@@ -260,7 +306,7 @@
       align-items: center;
       justify-content: center;
       font-size: 36px;
-      margin: 0 auto 20px;
+      margin: 0 auto 18px;
       box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
       animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
@@ -288,7 +334,7 @@
       position: fixed;
       bottom: 24px;
       background: #1F1D2B;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
       color: white;
       padding: 12px 20px;
       border-radius: 12px;
@@ -300,7 +346,7 @@
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
@@ -309,33 +355,43 @@
   <div class="container">
     <div class="header">
       <div class="logo">
-        <span>🐐 GOATPlayer</span>
+        <img src="logo.png" alt="GOATPlayer Logo" class="logo-img" />
+        <span class="logo-title">GOATPlayer</span>
         <span class="logo-badge">Remote</span>
       </div>
-      <p class="tagline">Link & Push Playlists to your TV / Player</p>
+      <p class="tagline">Link & Push Playlists to your TV / Device</p>
     </div>
 
     <div class="card" id="mainCard">
-      <!-- Device Banner -->
-      <div class="device-banner">
+      <!-- Device Banner (Shown ONLY once successfully paired) -->
+      <div class="device-banner" id="deviceBanner" style="display: none;">
         <div class="device-info">
           <span class="device-label">Target Device</span>
-          <span class="device-val" id="deviceDisplay">Loading...</span>
+          <span class="device-val" id="deviceDisplay">---</span>
         </div>
-        <div class="badge-status" id="connectionStatus">Connected</div>
+        <div class="badge-status">Connected</div>
       </div>
 
-      <!-- Pairing Inputs (Shown only if device or PIN missing from URL) -->
-      <div id="manualPairingSection" style="display: none;">
+      <!-- Pairing Section (Shown when visiting without QR code) -->
+      <div id="manualPairingSection">
+        <h3 class="section-title">📺 Connect to your Player</h3>
+        <p class="section-desc">Enter the Device ID and 6-digit PIN displayed on your TV or GOATPlayer app.</p>
+        
         <div class="form-group">
-          <label class="form-label">Device ID (e.g. GP-8429-B7)</label>
-          <input type="text" id="inputDeviceId" class="form-input" placeholder="GP-XXXX-XXXX" />
+          <label class="form-label">Device ID</label>
+          <input type="text" id="inputDeviceId" class="form-input" placeholder="e.g. GP-8429-B712" style="text-transform: uppercase;" />
         </div>
         <div class="form-group">
           <label class="form-label">6-Digit Pairing PIN</label>
-          <input type="text" id="inputPin" class="form-input" placeholder="123456" maxlength="6" />
+          <input type="text" id="inputPin" class="form-input" placeholder="e.g. 482910" maxlength="6" inputmode="numeric" />
         </div>
-        <button type="button" class="btn-submit" id="btnVerifyPairing">Connect to Device</button>
+        <button type="button" class="btn-submit" id="btnVerifyPairing">
+          <span>Connect to Device</span>
+        </button>
+
+        <div class="qr-tip">
+          💡 <strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!
+        </div>
       </div>
 
       <!-- Playlist Upload Form (Shown once paired) -->
@@ -379,7 +435,7 @@
         </button>
 
         <p class="notice">
-          Your credentials are encrypted in transit and transmitted directly to your TV via Supabase Realtime.
+          Credentials are sent directly to your device via encrypted Supabase Realtime channel.
         </p>
       </form>
 
@@ -444,7 +500,10 @@
     }
 
     async function verifyPairing(deviceId, pin) {
-      document.getElementById('deviceDisplay').innerText = 'Verifying...';
+      const btn = document.getElementById('btnVerifyPairing');
+      btn.disabled = true;
+      btn.innerText = 'Connecting...';
+
       try {
         const { data, error } = await supabase
           .from('remote_devices')
@@ -455,20 +514,16 @@
 
         if (error || !data) {
           showToast('Invalid Device ID or PIN. Please check your screen.');
-          document.getElementById('deviceDisplay').innerText = 'Not Connected';
-          document.getElementById('connectionStatus').innerText = 'Unpaired';
-          document.getElementById('connectionStatus').style.color = 'var(--error)';
-          document.getElementById('manualPairingSection').style.display = 'block';
-          document.getElementById('playlistForm').style.display = 'none';
+          btn.disabled = false;
+          btn.innerText = 'Connect to Device';
           return false;
         }
 
         // Check if expired
         if (new Date(data.pin_expires_at) < new Date()) {
-          showToast('PIN has expired. Please refresh the PIN on your TV.');
-          document.getElementById('deviceDisplay').innerText = 'Expired PIN';
-          document.getElementById('manualPairingSection').style.display = 'block';
-          document.getElementById('playlistForm').style.display = 'none';
+          showToast('PIN has expired. Please tap the refresh button on your TV.');
+          btn.disabled = false;
+          btn.innerText = 'Connect to Device';
           return false;
         }
 
@@ -476,40 +531,36 @@
         activeDeviceId = deviceId;
         activePin = pin;
         document.getElementById('deviceDisplay').innerText = deviceId;
-        document.getElementById('connectionStatus').innerText = 'Connected';
-        document.getElementById('connectionStatus').style.color = 'var(--success)';
+        document.getElementById('deviceBanner').style.display = 'flex';
         document.getElementById('manualPairingSection').style.display = 'none';
         document.getElementById('playlistForm').style.display = 'block';
         return true;
       } catch (e) {
         showToast('Connection error: ' + e.message);
+        btn.disabled = false;
+        btn.innerText = 'Connect to Device';
         return false;
       }
     }
 
-    // Parse URL params
+    // Auto-verify if query params are present from QR code
     window.addEventListener('DOMContentLoaded', async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const urlDevice = urlParams.get('device');
       const urlPin = urlParams.get('pin');
 
       if (urlDevice && urlPin) {
-        document.getElementById('inputDeviceId').value = urlDevice;
-        document.getElementById('inputPin').value = urlPin;
+        document.getElementById('inputDeviceId').value = urlDevice.trim();
+        document.getElementById('inputPin').value = urlPin.trim();
         await verifyPairing(urlDevice.trim(), urlPin.trim());
-      } else {
-        document.getElementById('deviceDisplay').innerText = 'Pairing Required';
-        document.getElementById('connectionStatus').innerText = 'Disconnected';
-        document.getElementById('connectionStatus').style.color = 'var(--text-muted)';
-        document.getElementById('manualPairingSection').style.display = 'block';
       }
     });
 
     document.getElementById('btnVerifyPairing').addEventListener('click', async () => {
-      const d = document.getElementById('inputDeviceId').value.trim();
+      const d = document.getElementById('inputDeviceId').value.trim().toUpperCase();
       const p = document.getElementById('inputPin').value.trim();
       if (!d || !p) {
-        showToast('Please enter both Device ID and PIN.');
+        showToast('Please enter both Device ID and 6-digit PIN.');
         return;
       }
       await verifyPairing(d, p);
@@ -554,7 +605,7 @@
 
         // Show Success
         document.getElementById('playlistForm').style.display = 'none';
-        document.querySelector('.device-banner').style.display = 'none';
+        document.getElementById('deviceBanner').style.display = 'none';
         document.getElementById('successCard').style.display = 'block';
       } catch (err) {
         showToast('Failed to send playlist: ' + err.message);
