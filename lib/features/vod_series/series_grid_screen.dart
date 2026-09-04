@@ -228,30 +228,83 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
               children: [
                 Expanded(
                   flex: 20,
-                  child: ref.watch(seriesCategoriesProvider).when(
-                    data: (categories) {
-                      return ListView.builder(
-                        itemCount: categories.length,
-                        itemBuilder: (context, index) {
-                          final cat = categories[index];
-                          return ListTile(
-                            title: Text(cat.name),
-                            selected: _selectedCategory == cat.categoryId,
-                            selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-                            onTap: () {
-                              setState(() {
-                                _selectedCategory = cat.categoryId;
-                                _searchController.clear();
-                                _searchQuery = '';
-                              });
-                              ref.read(seriesControllerProvider).syncSeriesStreams(cat.categoryId);
-                            },
-                          );
-                        },
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, stack) => Center(child: Text('Error: ')),
+                  child: Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                    child: ref.watch(seriesCategoriesProvider).when(
+                      data: (categories) {
+                        return ListView.builder(
+                          itemExtent: 46.0,
+                          itemCount: categories.length,
+                          itemBuilder: (context, index) {
+                            final cat = categories[index];
+                            final isSelected = _selectedCategory == cat.categoryId;
+                            final isFavorites = cat.categoryId == 'favorites';
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCategory = cat.categoryId;
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                  });
+                                  if (!isFavorites) {
+                                    ref.read(seriesControllerProvider).syncSeriesStreams(cat.categoryId);
+                                  }
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.28)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: isSelected
+                                            ? const Color(0xFFB388FF)
+                                            : Colors.transparent,
+                                        width: 3.5,
+                                      ),
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isFavorites
+                                            ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
+                                            : (isSelected ? Icons.tv : Icons.folder_outlined),
+                                        size: 18,
+                                        color: isFavorites
+                                            ? Colors.amber
+                                            : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          cat.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.white : Colors.white70,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                            fontSize: 13.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, stack) => Center(child: Text('Error: $err')),
+                    ),
                   ),
                 ),
                 const VerticalDivider(width: 1, thickness: 1),
@@ -284,7 +337,9 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                         onChanged: (val) {
                           if (val != null) {
                             setState(() => _selectedCategory = val);
-                            ref.read(seriesControllerProvider).syncSeriesStreams(val);
+                            if (val != 'favorites') {
+                              ref.read(seriesControllerProvider).syncSeriesStreams(val);
+                            }
                           }
                         },
                       );

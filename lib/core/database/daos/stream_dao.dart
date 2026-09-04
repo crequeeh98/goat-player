@@ -62,4 +62,13 @@ class StreamDao extends DatabaseAccessor<AppDatabase> with _$StreamDaoMixin {
   Future<void> clearAllStreams(int accountId) {
     return (delete(streams)..where((s) => s.accountId.equals(accountId))).go();
   }
+
+  Future<void> replaceStreamsByCategory(int accountId, String categoryId, List<StreamsCompanion> streamList) async {
+    await transaction(() async {
+      await (delete(streams)..where((s) => s.accountId.equals(accountId) & s.categoryId.equals(categoryId))).go();
+      await batch((batch) {
+        batch.insertAll(streams, streamList, mode: InsertMode.insertOrReplace);
+      });
+    });
+  }
 }

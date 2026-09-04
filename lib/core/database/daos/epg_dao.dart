@@ -38,4 +38,18 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
   Future<void> clearPrograms(int accountId) {
     return (delete(epgPrograms)..where((p) => p.accountId.equals(accountId))).go();
   }
+
+  Future<void> replacePrograms(int accountId, List<EpgProgramsCompanion> programs) async {
+    await transaction(() async {
+      await (delete(epgPrograms)..where((p) => p.accountId.equals(accountId))).go();
+      const chunkSize = 1000;
+      for (var i = 0; i < programs.length; i += chunkSize) {
+        final end = (i + chunkSize < programs.length) ? i + chunkSize : programs.length;
+        final chunk = programs.sublist(i, end);
+        await batch((batch) {
+          batch.insertAll(epgPrograms, chunk, mode: InsertMode.insertOrReplace);
+        });
+      }
+    });
+  }
 }

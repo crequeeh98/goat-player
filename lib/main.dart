@@ -16,6 +16,8 @@ import 'core/settings/locale_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'features/account/account_list_screen.dart';
 import 'package:dio/dio.dart';
+import 'core/player/playback_controller.dart';
+import 'features/live_tv/live_tv_controller.dart';
 
 // Global providers
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -47,7 +49,15 @@ final epgDaoProvider = Provider<EpgDao>((ref) {
 class ActiveAccount extends Notifier<Account?> {
   @override
   Account? build() => null;
-  void set(Account? account) => state = account;
+  void set(Account? account) {
+    if (state?.id != account?.id) {
+      ref.read(playbackControllerProvider.notifier).stop();
+      ref.read(selectedLiveCategoryProvider.notifier).set(null);
+      ref.read(selectedLiveStreamProvider.notifier).set(null);
+      ref.read(isLiveFullWidthProvider.notifier).set(false);
+    }
+    state = account;
+  }
 }
 
 final activeAccountProvider = NotifierProvider<ActiveAccount, Account?>(ActiveAccount.new);

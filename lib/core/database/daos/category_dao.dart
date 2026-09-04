@@ -24,4 +24,13 @@ class CategoryDao extends DatabaseAccessor<AppDatabase> with _$CategoryDaoMixin 
   Future<void> clearCategories(int accountId, String type) {
     return (delete(categories)..where((c) => c.accountId.equals(accountId) & c.type.equals(type))).go();
   }
+
+  Future<void> replaceCategories(int accountId, String type, List<CategoriesCompanion> newCategories) async {
+    await transaction(() async {
+      await (delete(categories)..where((c) => c.accountId.equals(accountId) & c.type.equals(type))).go();
+      await batch((batch) {
+        batch.insertAll(categories, newCategories, mode: InsertMode.insertOrReplace);
+      });
+    });
+  }
 }

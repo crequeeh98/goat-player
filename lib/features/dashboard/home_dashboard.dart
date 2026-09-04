@@ -56,10 +56,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   void initState() {
     super.initState();
-    // Fast initial sync of categories only (keeps UI and SQLite thread snappy)
-    Future.microtask(() {
-      ref.read(liveTvControllerProvider).syncLiveCategories();
+    // Stagger category syncs to keep UI thread and database connection completely snappy
+    Future.microtask(() async {
+      await ref.read(liveTvControllerProvider).syncLiveCategories();
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       ref.read(vodControllerProvider).syncVodCategories();
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       ref.read(seriesControllerProvider).syncSeriesCategories();
     });
   }
@@ -167,6 +171,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             icon: const Icon(Icons.logout),
             tooltip: AppLocalizations.of(context)!.switchAccount,
             onPressed: () async {
+              ref.read(playbackControllerProvider.notifier).stop();
+              ref.read(selectedLiveCategoryProvider.notifier).set(null);
+              ref.read(selectedLiveStreamProvider.notifier).set(null);
+              ref.read(isLiveFullWidthProvider.notifier).set(false);
               final playerService = ref.read(playerServiceProvider);
               await playerService.player.stop();
               await Future.delayed(const Duration(milliseconds: 50));
@@ -224,11 +232,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       ),
                       const VerticalDivider(thickness: 1, width: 1),
                     ],
-                    Expanded(child: pages[_selectedIndex]),
+                    Expanded(
+                      child: IndexedStack(
+                        index: _selectedIndex,
+                        children: pages,
+                      ),
+                    ),
                   ],
                 );
               } else {
-                return pages[_selectedIndex];
+                return IndexedStack(
+                  index: _selectedIndex,
+                  children: pages,
+                );
               }
             },
           ),

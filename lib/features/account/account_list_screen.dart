@@ -5,6 +5,8 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import 'add_account_screen.dart';
 import '../dashboard/home_dashboard.dart';
 import '../../main.dart'; // To access providers for now
+import '../../core/player/playback_controller.dart';
+import '../live_tv/live_tv_controller.dart';
 
 class AccountListScreen extends ConsumerWidget {
   const AccountListScreen({super.key});
@@ -74,6 +76,10 @@ class AccountListScreen extends ConsumerWidget {
                   ],
                 ),
                 onTap: () {
+                  ref.read(playbackControllerProvider.notifier).stop();
+                  ref.read(selectedLiveCategoryProvider.notifier).set(null);
+                  ref.read(selectedLiveStreamProvider.notifier).set(null);
+                  ref.read(isLiveFullWidthProvider.notifier).set(false);
                   ref.read(activeAccountProvider.notifier).set(account);
                   Navigator.pushReplacement(
                     context,

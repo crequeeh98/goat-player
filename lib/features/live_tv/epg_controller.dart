@@ -6,6 +6,8 @@ import '../../core/database/app_database.dart';
 import '../../core/utils/epg_isolate_parser.dart';
 import 'package:dio/dio.dart';
 
+import '../../core/settings/locale_controller.dart';
+
 final epgControllerProvider = Provider<EpgController>((ref) {
   return EpgController(ref);
 });
@@ -24,7 +26,7 @@ class EpgController {
 
   bool _isSyncing = false;
 
-  Future<void> syncEpgData() async {
+  Future<void> syncEpgData({bool force = false}) async {
     if (_isSyncing) {
       debugPrint('EPG sync already in progress. Skipping.');
       return;
@@ -32,6 +34,14 @@ class EpgController {
     
     final account = _ref.read(activeAccountProvider);
     if (account == null) return;
+
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastSync = prefs.getInt('last_epg_sync_${account.id}') ?? 0;
+    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+      debugPrint('EPG was synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping EPG sync.');
+      return;
+    }
     
     _isSyncing = true;
     try {
@@ -62,9 +72,8 @@ class EpgController {
           );
         }).toList();
         
-        // Clear old EPG for this account first to prevent bloated database
-        await dao.clearPrograms(account.id);
-        await dao.insertPrograms(companions);
+        await dao.replacePrograms(account.id, companions);
+        await prefs.setInt('last_epg_sync_${account.id}', nowMs);
         debugPrint('EPG Successfully inserted ${companions.length} programs into DB');
       } else {
         debugPrint('EPG response data was null');

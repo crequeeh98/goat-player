@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import '../../main.dart';
 import '../../core/database/app_database.dart';
@@ -18,7 +18,9 @@ final vodCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
       name: 'Watchlist', 
       type: 'movie'
     );
-    return [favoritesCat, ...list];
+    final seen = <String>{'favorites'};
+    final uniqueList = list.where((c) => seen.add(c.categoryId)).toList();
+    return [favoritesCat, ...uniqueList];
   });
 });
 
@@ -62,17 +64,21 @@ class VodController {
       
       final dao = _ref.read(categoryDaoProvider);
       
-      final companions = rawCategories.map((c) {
-        return CategoriesCompanion.insert(
-          accountId: account.id,
-          categoryId: c['category_id'].toString(),
-          name: c['category_name'].toString(),
-          type: 'movie',
-        );
-      }).toList();
+      final seenIds = <String>{};
+      final companions = <CategoriesCompanion>[];
+      for (final c in rawCategories) {
+        final catId = c['category_id'].toString();
+        if (seenIds.add(catId)) {
+          companions.add(CategoriesCompanion.insert(
+            accountId: account.id,
+            categoryId: catId,
+            name: c['category_name'].toString(),
+            type: 'movie',
+          ));
+        }
+      }
       
-      await dao.clearCategories(account.id, 'movie');
-      await dao.insertCategories(companions);
+      await dao.replaceCategories(account.id, 'movie', companions);
     } catch (e) {
       debugPrint('Failed to sync vod categories: $e');
     }
@@ -101,8 +107,7 @@ class VodController {
         );
       }).toList();
       
-      await dao.clearStreamsByCategory(account.id, categoryId);
-      await dao.insertStreams(companions);
+      await dao.replaceStreamsByCategory(account.id, categoryId, companions);
     } catch (e) {
       debugPrint('Failed to sync vod streams: $e');
     }

@@ -25,10 +25,18 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   String? _selectedCategory;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _categoryScrollController = ScrollController();
+  final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
+
+  String? _lastScrolledStreamId;
+  String? _lastScrolledCategoryId;
+  String? _lastCategoryRailScrolledId;
 
   @override
   void dispose() {
+    _categoryScrollController.dispose();
+    _channelScrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -36,13 +44,72 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(liveTvControllerProvider).syncLiveCategories();
-      ref.read(epgControllerProvider).syncEpgData();
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) {
+        ref.read(epgControllerProvider).syncEpgData();
+      }
     });
   }
 
+  void _scrollToActiveChannel(List<StreamItem> streams, String? activeId) {
+    if (activeId == null || streams.isEmpty) return;
+    final index = streams.indexWhere((s) => s.streamId == activeId);
+    if (index >= 0) {
+      _lastScrolledStreamId = activeId;
+      _lastScrolledCategoryId = _selectedCategory;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_channelScrollController.hasClients) return;
+        const itemHeight = 64.0;
+        final viewportHeight = _channelScrollController.position.hasViewportDimension
+            ? _channelScrollController.position.viewportDimension
+            : 600.0;
+        final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
+        final maxScroll = _channelScrollController.position.maxScrollExtent;
+        final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+        _channelScrollController.animateTo(
+          clampedOffset,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
+  }
+
+  void _scrollToActiveCategory(List<Category> categories, String? activeCatId) {
+    if (activeCatId == null || categories.isEmpty) return;
+    final index = categories.indexWhere((c) => c.categoryId == activeCatId);
+    if (index >= 0) {
+      _lastCategoryRailScrolledId = activeCatId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_categoryScrollController.hasClients) return;
+        const itemHeight = 46.0;
+        final viewportHeight = _categoryScrollController.position.hasViewportDimension
+            ? _categoryScrollController.position.viewportDimension
+            : 600.0;
+        final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
+        final maxScroll = _categoryScrollController.position.maxScrollExtent;
+        final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+        _categoryScrollController.animateTo(
+          clampedOffset,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
+  }
+
   void _playStream(StreamItem stream) {
+    final activePlayback = ref.read(playbackControllerProvider);
+    final effectiveCat = _selectedCategory ?? stream.categoryId;
+    
+    // Prevent redundant reload if stream is already playing in the same category
+    if (activePlayback != null &&
+        activePlayback.streamType == StreamType.live &&
+        activePlayback.streamId == stream.streamId &&
+        activePlayback.categoryId == effectiveCat) {
+      return;
+    }
+
     final account = ref.read(activeAccountProvider);
     if (account == null) return;
     final cleanName = ChannelNameCleaner.clean(stream.name);
@@ -55,8 +122,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       url: url,
       channelId: epgChannelId,
       streamId: stream.streamId,
-      categoryId: stream.categoryId,
+      categoryId: effectiveCat,
     );
+    ref.read(selectedLiveCategoryProvider.notifier).set(effectiveCat);
+    ref.read(selectedLiveStreamProvider.notifier).set(stream);
   }
 
   void _zapNext(List<StreamItem> streams) {
@@ -112,24 +181,16 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       if (next != null && next != _selectedCategory) {
         setState(() {
           _selectedCategory = next;
+          _lastScrolledStreamId = null;
         });
       }
     });
 
-    ref.listen<StreamItem?>(selectedLiveStreamProvider, (prev, next) {
-      if (next != null) {
-        final account = ref.read(activeAccountProvider);
-        if (account == null) return;
-        final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-        final url = '$baseUrl/live/${account.username}/${account.password}/${next.streamId}.ts';
-        final epgChannelId = next.epgChannelId != null && next.epgChannelId!.isNotEmpty ? next.epgChannelId : next.streamId;
-        ref.read(playbackControllerProvider.notifier).playLive(
-          title: next.name,
-          url: url,
-          channelId: epgChannelId,
-          streamId: next.streamId,
-          categoryId: next.categoryId,
-        );
+    ref.listen<bool>(isLiveFullWidthProvider, (prev, next) {
+      if (prev == true && next == false) {
+        _lastScrolledStreamId = null;
+        _lastScrolledCategoryId = null;
+        _lastCategoryRailScrolledId = null;
       }
     });
 
@@ -170,17 +231,76 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           if (_searchQuery.isNotEmpty) {
                             categories = categories.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
                           }
+                          if (_selectedCategory != null && _selectedCategory != _lastCategoryRailScrolledId) {
+                            _scrollToActiveCategory(categories, _selectedCategory);
+                          }
                           return ListView.builder(
+                            controller: _categoryScrollController,
+                            itemExtent: 46.0,
                             itemCount: categories.length,
                             itemBuilder: (context, index) {
                               final cat = categories[index];
-                              return ListTile(
-                                title: Text(cat.categoryId == 'favorites' ? AppLocalizations.of(context)!.favorites : cat.name),
-                                selected: _selectedCategory == cat.categoryId,
-                                onTap: () {
-                                  setState(() => _selectedCategory = cat.categoryId);
-                                  ref.read(selectedLiveCategoryProvider.notifier).set(cat.categoryId);
-                                },
+                              final isSelected = _selectedCategory == cat.categoryId;
+                              final isFavorites = cat.categoryId == 'favorites';
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedCategory = cat.categoryId;
+                                      _lastScrolledStreamId = null;
+                                    });
+                                    ref.read(selectedLiveCategoryProvider.notifier).set(cat.categoryId);
+                                    if (cat.categoryId != 'favorites') {
+                                      ref.read(liveTvControllerProvider).syncLiveStreams(cat.categoryId);
+                                    }
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.28)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: isSelected
+                                              ? const Color(0xFFB388FF)
+                                              : Colors.transparent,
+                                          width: 3.5,
+                                        ),
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isFavorites
+                                              ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
+                                              : (isSelected ? Icons.tv : Icons.folder_outlined),
+                                          size: 18,
+                                          color: isFavorites
+                                              ? Colors.amber
+                                              : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            isFavorites ? AppLocalizations.of(context)!.favorites : cat.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isSelected ? Colors.white : Colors.white70,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                              fontSize: 13.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               );
                             },
                           );
@@ -227,36 +347,94 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           );
                         }
 
+                        final activeStreamId = activePlayback?.streamId ?? ref.watch(selectedLiveStreamProvider)?.streamId;
+                        if (activeStreamId != null && (activeStreamId != _lastScrolledStreamId || _selectedCategory != _lastScrolledCategoryId)) {
+                          _scrollToActiveChannel(streams, activeStreamId);
+                        }
+
                         final favoriteIds = ref.watch(favoriteStreamIdsProvider('live')).value ?? const <String>{};
                         final account = ref.read(activeAccountProvider);
                         final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
 
                         return ListView.builder(
+                          controller: _channelScrollController,
+                          itemExtent: 64.0,
                           itemCount: streams.length,
                           itemBuilder: (context, index) {
                             final stream = streams[index];
                             final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
                             final cleanName = ChannelNameCleaner.clean(stream.name);
                             final isFavorite = favoriteIds.contains(stream.streamId);
-                            
-                            return ListTile(
-                              leading: ChannelIcon(
-                                iconUrl: stream.streamIcon,
-                                channelName: cleanName,
+                            final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
+                                (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
+                                currentLive?.streamUrl == url ||
+                                activePlayback?.streamUrl == url;
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => _playStream(stream),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isCurrentPlaying
+                                        ? const Color(0xFF2E1C59)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: isCurrentPlaying
+                                        ? Border.all(color: const Color(0xFFB388FF), width: 1.5)
+                                        : Border.all(color: Colors.white.withValues(alpha: 0.05), width: 1),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      ChannelIcon(
+                                        iconUrl: stream.streamIcon,
+                                        channelName: cleanName,
+                                        size: 40,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    cleanName,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: isCurrentPlaying ? Colors.white : Colors.white.withValues(alpha: 0.88),
+                                                      fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.w500,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                                          size: 20,
+                                        ),
+                                        color: isFavorite ? Colors.red : Colors.white38,
+                                        onPressed: () async {
+                                          final acc = ref.read(activeAccountProvider);
+                                          if (acc != null) {
+                                            await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              title: Text(cleanName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              trailing: IconButton(
-                                icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
-                                color: isFavorite ? Colors.red : null,
-                                onPressed: () async {
-                                  final acc = ref.read(activeAccountProvider);
-                                  if (acc != null) {
-                                    await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
-                                  }
-                                },
-                              ),
-                              selected: (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) || currentLive?.streamUrl == url,
-                              onTap: () => _playStream(stream),
                             );
                           },
                         );

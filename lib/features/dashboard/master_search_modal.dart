@@ -8,6 +8,9 @@ import '../vod_series/series_controller.dart';
 import '../live_tv/live_tv_controller.dart';
 import '../vod_movies/movie_detail_modal.dart';
 import '../vod_series/series_detail_modal.dart';
+import '../../main.dart';
+import '../../core/player/playback_controller.dart';
+import '../../core/utils/channel_name_cleaner.dart';
 
 class MasterSearchModal extends ConsumerStatefulWidget {
   final VoidCallback? onClose;
@@ -189,6 +192,19 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                     ),
                   );
                 } else if (type == 'live') {
+                  final account = ref.read(activeAccountProvider);
+                  if (account != null) {
+                    final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
+                    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.ts';
+                    final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+                    ref.read(playbackControllerProvider.notifier).playLive(
+                      title: ChannelNameCleaner.clean(stream.name),
+                      url: url,
+                      channelId: epgChannelId,
+                      streamId: stream.streamId,
+                      categoryId: stream.categoryId,
+                    );
+                  }
                   ref.read(selectedLiveCategoryProvider.notifier).set(stream.categoryId);
                   ref.read(selectedLiveStreamProvider.notifier).set(stream);
                   if (widget.onSelectTab != null) {

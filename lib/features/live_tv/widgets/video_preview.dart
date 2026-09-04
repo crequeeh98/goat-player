@@ -54,10 +54,11 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final player = ref.read(playerServiceProvider).player;
+      final playerService = ref.read(playerServiceProvider);
+      final player = playerService.player;
       final currentUri = player.state.playlist.medias.firstOrNull?.uri;
-      if (currentUri != widget.streamUrl) {
-        ref.read(playerServiceProvider).open(widget.streamUrl, isLive: true);
+      if (currentUri != widget.streamUrl && playerService.lastOpenedUrl != widget.streamUrl) {
+        playerService.open(widget.streamUrl, isLive: true);
       }
     });
   }
@@ -66,10 +67,11 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
   void didUpdateWidget(covariant VideoPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.streamUrl != widget.streamUrl) {
-      final player = ref.read(playerServiceProvider).player;
+      final playerService = ref.read(playerServiceProvider);
+      final player = playerService.player;
       final currentUri = player.state.playlist.medias.firstOrNull?.uri;
-      if (currentUri != widget.streamUrl) {
-        ref.read(playerServiceProvider).open(widget.streamUrl, isLive: true);
+      if (currentUri != widget.streamUrl && playerService.lastOpenedUrl != widget.streamUrl) {
+        playerService.open(widget.streamUrl, isLive: true);
       }
     }
   }

@@ -15,6 +15,7 @@ class PlayerService {
   late final VideoController controller;
 
   String? _lastOpenedUrl;
+  String? get lastOpenedUrl => _lastOpenedUrl;
   bool _isLive = false;
   bool _isOpening = false;
   bool _isDisposed = false;
