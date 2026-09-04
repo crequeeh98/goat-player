@@ -6,8 +6,8 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20iOS%20%7C%20SmartTV-blue)](#-roadmap-v2--beyond)
-[![Repository](https://img.shields.io/badge/Repo-Private-red)](https://github.com)
-[![Release](https://img.shields.io/badge/Release-v1.1.0-purple)](https://github.com)
+[![Repository](https://img.shields.io/badge/Repo-GitHub-blue)](https://github.com/crequeeh98/goat-player)
+[![Release](https://img.shields.io/badge/Release-v1.1.0-purple)](https://github.com/crequeeh98/goat-player)
 
 </div>
 
@@ -112,7 +112,7 @@
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/goat-player.git
+git clone https://github.com/crequeeh98/goat-player.git
 cd goat-player
 ```
 

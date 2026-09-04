@@ -46,11 +46,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   void _closeSearch() async {
     setState(() => _isSearchOpen = false);
-    if (_wasLiveExpandedBeforeSearch && _selectedIndex == 0) {
+    final active = ref.read(playbackControllerProvider);
+    if (_wasLiveExpandedBeforeSearch && _selectedIndex == 0 && active != null && active.streamType == StreamType.live) {
       _wasLiveExpandedBeforeSearch = false;
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
       ref.read(playbackControllerProvider.notifier).expand();
+    } else {
+      _wasLiveExpandedBeforeSearch = false;
     }
   }
 
@@ -71,6 +74,22 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<ActivePlayback?>(playbackControllerProvider, (previous, next) {
+      if (next != null && (next.streamType == StreamType.movie || next.streamType == StreamType.series)) {
+        _wasLiveExpandedBeforeSearch = false;
+        if (_isSearchOpen) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _isSearchOpen) {
+              setState(() {
+                _isSearchOpen = false;
+                _selectedIndex = next.streamType == StreamType.movie ? 1 : 2;
+              });
+            }
+          });
+        }
+      }
+    });
+
     final isLiveFullWidth = ref.watch(isLiveFullWidthProvider);
     final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
     
