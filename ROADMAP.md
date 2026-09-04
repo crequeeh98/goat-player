@@ -19,14 +19,23 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 🌐 Phase 1: Remote Playlist Management (Web Portal)
-- [ ] **Virtual Device ID / MAC Address Generation**:
-  - Generate and display a persistent, unique virtual Device ID (or virtual MAC) on the device settings screen.
-- [ ] **Web Management Portal**:
-  - Web portal enabling users to enter their Device ID from a smartphone or computer browser.
-  - Remotely enter and manage Xtream Codes or M3U playlist credentials without typing on a TV remote or on-screen keyboard.
-- [ ] **Instant Cloud Sync**:
-  - Securely fetch and synchronize updated playlist configurations from the portal to the client application.
+## ✅ Remote Playlist Management Web Portal (Completed)
+
+### 🌐 Zero-Typing Smart TV Setup & Cloud Sync
+- [x] **Virtual Device ID & Pairing PIN**:
+  - Persistent, unique virtual Device ID (`GP-XXXX-XXXX`) and 20-minute expiring 6-digit PIN with live countdown and refresh option.
+  - QR Code generation in the TV app (`add_account_screen.dart`) for 1-tap mobile camera pairing.
+  - Copy-to-clipboard buttons for Device ID and PIN in the TV UI.
+- [x] **Web Management Portal ([goat-player.vercel.app](https://goat-player.vercel.app))**:
+  - Fully responsive, dark-mode web application deployed on Vercel with zero backend footprint (direct Supabase Realtime).
+  - Bilingual localization (**English** & **German**) with persistent language switcher.
+  - Full remote playlist manager: View all active playlists on the device, Add new playlists, Edit existing credentials, and Delete playlists remotely.
+  - **Smart M3U Link Breakdown**: Automatically parses raw M3U URLs (extracting server host, username, password, and output format) into structured Xtream accounts.
+  - Mobile-optimized responsive layout: top utility navigation, 2-tier device status banner, and structured playlist card metadata.
+- [x] **Real-Time Bidirectional Synchronization & Handshake**:
+  - Real-time Supabase WebSocket stream (`postgres_changes`) paired with an active 2.5s polling heartbeat fallback.
+  - Awaited disconnection handshake on TV: tapping *"Fertig"* (Done) or pressing TV remote "Back" (`PopScope`) immediately transmits disconnection status.
+  - Web portal disconnection state awareness: status badge turns amber, display of a prominent warning banner with 1-click reconnect button, and action guards preventing stale mutations.
 
 ---
 

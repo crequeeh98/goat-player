@@ -21,6 +21,16 @@
 
 ## ✨ Current Features
 
+### 🌐 Remote Playlist Manager & QR Sync (Web Portal)
+- **Zero-Typing Smart TV Setup**: Add, edit, or delete IPTV playlists on your TV directly from your phone, tablet, or PC browser without tedious on-screen keyboard typing.
+- **Hosted Live Web Portal**: Free, instant web portal at [goat-player.vercel.app](https://goat-player.vercel.app) with no backend servers (powered by Supabase Realtime).
+- **1-Tap QR Code Pairing**: Scan the pairing QR code displayed in the GOATPlayer TV app to automatically connect in under a second.
+- **Virtual Device ID & Expiring PIN**: Unique virtual ID (`GP-XXXX-XXXX`) and 20-minute expiring security PIN with live countdown and one-click copy buttons.
+- **Full Playlist Manager**: View all playlists currently configured on the TV, add new accounts, edit server URLs/credentials/names, and delete accounts remotely with automatic local database updates.
+- **Smart M3U Link Breakdown**: Paste any raw M3U link with credentials (`http://domain.com/get.php?username=...`), and the portal automatically extracts the server host, username, password, and output format.
+- **Real-Time TV Disconnection Detection**: Realtime WebSocket channel + 2.5s polling heartbeat detects when the TV finishes pairing (`Fertig` or TV back button), displays an alert banner with a 1-click reconnect button, and guards against stale actions.
+- **Responsive Bilingual UI**: English & German (`EN` / `DE`) localization with an optimized mobile interface.
+
 ### 📺 Live TV & EPG
 - **Multi-Account Support**: Add and manage multiple Xtream Codes / M3U playlists with ease.
 - **Smart Category Browsing**: Searchable category rail with instant search & clear functions.
@@ -145,11 +155,13 @@ The compiled output will be located in:
   - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
   - Automatic landscape lock upon entering cinema mode.
 
-### 🌐 Phase 2: Remote Playlist Management (Quick Setup)
-- [ ] **Device Linking & Remote Upload**:
-  - Unique Device ID / MAC code generation for instant TV login.
-  - Lightweight web portal to upload and assign Xtream / M3U playlists remotely without tedious remote control typing.
-  - Automatic client push synchronization on connect.
+### 🌐 Priority 2: Remote Playlist Management Web Portal (Completed)
+- [x] **Device Linking & Remote Upload**:
+  - Unique Device ID (`GP-XXXX-XXXX`) and expiring 6-digit PIN with QR code generation.
+  - Zero-backend web portal hosted live at [goat-player.vercel.app](https://goat-player.vercel.app) for remote playlist entry.
+  - Complete remote playlist management: View, Add, Edit, and Delete playlists on the TV.
+  - Smart M3U Link Breakdown for automatic Xtream credential extraction.
+  - Real-time bidirectional synchronization with disconnection awareness and TV handshake.
 
 ### 🎛️ Phase 3: Category Management & Organization
 - [ ] **Custom Category Filtering**:
