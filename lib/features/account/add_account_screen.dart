@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
@@ -68,21 +69,27 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _remoteSubscription?.cancel();
       _countdownTimer?.cancel();
 
-      _remoteSubscription = syncService.listenForLinkedPlaylist(session.deviceId).listen(
-        (newAccount) {
+      _remoteSubscription = syncService.listenForRemoteEvents(session.deviceId).listen(
+        (event) {
           if (!mounted) return;
           setState(() => _playlistReceived = true);
+
+          final l10n = AppLocalizations.of(context)!;
+          String toastMsg = event.message;
+          if (event.type == RemoteSyncEventType.accountAdded) {
+            toastMsg = l10n.playlistReceived;
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.playlistReceived),
-              backgroundColor: Colors.green,
+              content: Text(toastMsg),
+              backgroundColor: event.type == RemoteSyncEventType.accountDeleted
+                  ? Colors.orangeAccent
+                  : Colors.green,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
             ),
           );
-          Future.delayed(const Duration(milliseconds: 900), () {
-            if (mounted) {
-              Navigator.pop(context, newAccount);
-            }
-          });
         },
         onError: (e) {
           debugPrint('Remote playlist listen error: $e');
@@ -392,9 +399,32 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(l10n.deviceId, style: const TextStyle(fontSize: 12, color: Colors.white60)),
-                    Text(
-                      _session!.deviceId,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SelectableText(
+                          _session!.deviceId,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white70),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: l10n.copiedToClipboard,
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: _session!.deviceId));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${l10n.deviceId}: ${l10n.copied}'),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -403,21 +433,44 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(l10n.pairingPin, style: const TextStyle(fontSize: 12, color: Colors.white60)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _session!.pin,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                          color: Theme.of(context).colorScheme.primary,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _session!.pin,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white70),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: l10n.copiedToClipboard,
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: _session!.pin));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${l10n.pairingPin}: ${l10n.copied}'),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -497,6 +550,19 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ],
             ),
           ),
+          if (_playlistReceived) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.check),
+              label: Text(l10n.done),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -551,7 +551,7 @@ abstract class AppLocalizations {
   /// No description provided for @linkViaWeb.
   ///
   /// In en, this message translates to:
-  /// **'Link via Web / QR'**
+  /// **'Web / QR Code'**
   String get linkViaWeb;
 
   /// No description provided for @scanQrCode.
@@ -607,6 +607,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'PIN expires in'**
   String get pinExpiresIn;
+
+  /// No description provided for @copiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get copiedToClipboard;
+
+  /// No description provided for @copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied!'**
+  String get copied;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
 }
 
 class _AppLocalizationsDelegate

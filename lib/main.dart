@@ -81,8 +81,11 @@ final xtreamClientProvider = Provider<XtreamClient?>((ref) {
 
 final remoteSyncServiceProvider = Provider<RemoteSyncService>((ref) {
   final accountDao = ref.watch(accountDaoProvider);
+  final categoryDao = ref.watch(categoryDaoProvider);
+  final streamDao = ref.watch(streamDaoProvider);
+  final epgDao = ref.watch(epgDaoProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
-  return RemoteSyncService(accountDao, prefs);
+  return RemoteSyncService(accountDao, categoryDao, streamDao, epgDao, prefs);
 });
 
 void main() async {

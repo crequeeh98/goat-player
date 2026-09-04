@@ -12,8 +12,8 @@
   <style>
     :root {
       --bg: #09080F;
-      --card-bg: rgba(20, 17, 34, 0.88);
-      --card-border: rgba(168, 85, 247, 0.2);
+      --card-bg: rgba(20, 17, 34, 0.9);
+      --card-border: rgba(168, 85, 247, 0.22);
       --primary: #A855F7;
       --primary-hover: #9333EA;
       --primary-glow: rgba(168, 85, 247, 0.35);
@@ -23,7 +23,8 @@
       --input-border: rgba(255, 255, 255, 0.12);
       --input-focus: #A855F7;
       --success: #10B981;
-      --error: #EF4444;
+      --danger: #EF4444;
+      --danger-hover: #DC2626;
     }
 
     * {
@@ -36,25 +37,58 @@
     body {
       background-color: var(--bg);
       background-image: 
-        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.2) 0%, transparent 50%),
-        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.12) 0%, transparent 40%);
+        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.22) 0%, transparent 55%),
+        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.14) 0%, transparent 45%);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       padding: 24px 16px;
     }
 
     .container {
       width: 100%;
-      max-width: 460px;
+      max-width: 500px;
     }
 
     .header {
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
       margin-bottom: 24px;
+      width: 100%;
+    }
+
+    .lang-switcher {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 2px;
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .lang-btn.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 8px var(--primary-glow);
     }
 
     .logo {
@@ -92,6 +126,7 @@
     .tagline {
       color: var(--text-muted);
       font-size: 14px;
+      text-align: center;
     }
 
     .card {
@@ -100,9 +135,10 @@
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
       border-radius: 20px;
-      padding: 28px;
+      padding: 24px;
       box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), 0 0 40px rgba(168, 85, 247, 0.08);
       position: relative;
+      margin-bottom: 20px;
     }
 
     .section-title {
@@ -122,6 +158,7 @@
       line-height: 1.5;
     }
 
+    /* Device Banner */
     .device-banner {
       background: rgba(168, 85, 247, 0.1);
       border: 1px solid rgba(168, 85, 247, 0.3);
@@ -154,6 +191,12 @@
       letter-spacing: 0.5px;
     }
 
+    .device-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .badge-status {
       display: inline-flex;
       align-items: center;
@@ -163,7 +206,7 @@
       color: var(--success);
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 20px;
     }
 
@@ -174,6 +217,24 @@
       background: var(--success);
       border-radius: 50%;
       box-shadow: 0 0 8px var(--success);
+    }
+
+    .btn-disconnect {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-disconnect:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+      border-color: rgba(239, 68, 68, 0.3);
     }
 
     .form-group {
@@ -244,7 +305,7 @@
       background: rgba(13, 11, 22, 0.9);
       padding: 4px;
       border-radius: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -267,14 +328,6 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
-    .notice {
-      margin-top: 18px;
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
     .qr-tip {
       background: rgba(255, 255, 255, 0.04);
       border: 1px dashed rgba(255, 255, 255, 0.12);
@@ -287,47 +340,242 @@
       line-height: 1.4;
     }
 
-    /* Success State */
-    .success-card {
-      display: none;
-      text-align: center;
-      padding: 16px 0;
-      animation: fadeIn 0.4s ease;
+    /* M3U Breakdown Feedback Card */
+    .m3u-feedback {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-top: 10px;
+      margin-bottom: 16px;
+      animation: fadeIn 0.25s ease;
     }
 
-    .success-icon {
-      width: 72px;
-      height: 72px;
-      background: rgba(16, 185, 129, 0.15);
-      border: 2px solid var(--success);
+    .m3u-feedback-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
       color: var(--success);
-      border-radius: 50%;
+      margin-bottom: 6px;
+    }
+
+    .m3u-feedback-body {
+      font-size: 12px;
+      color: #D1D5DB;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .m3u-feedback-item {
+      display: flex;
+      justify-content: space-between;
+      word-break: break-all;
+    }
+
+    .m3u-feedback-label {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    /* Playlists Section */
+    .playlists-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .playlist-card {
+      background: rgba(13, 11, 22, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s;
+    }
+
+    .playlist-card:hover {
+      border-color: rgba(168, 85, 247, 0.35);
+      background: rgba(13, 11, 22, 0.9);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .playlist-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: hidden;
+      margin-right: 12px;
+    }
+
+    .playlist-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .playlist-card-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      gap: 8px;
+    }
+
+    .playlist-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-action {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #E5E7EB;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: rgba(168, 85, 247, 0.4);
+      color: #FFFFFF;
+    }
+
+    .btn-action.delete:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: var(--danger);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 30px 10px;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+      opacity: 0.6;
+    }
+
+    .empty-state-text {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .empty-state-sub {
+      font-size: 12px;
+      color: #6B7280;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 36px;
-      margin: 0 auto 18px;
-      box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
-      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      padding: 16px;
+      z-index: 999;
+      animation: fadeIn 0.2s ease;
     }
 
-    @keyframes popIn {
-      0% { transform: scale(0.5); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
+    .modal-content {
+      background: #141122;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    .success-title {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 8px;
-      color: #F3F4F6;
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
     }
 
-    .success-desc {
-      font-size: 14px;
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
       color: var(--text-muted);
-      line-height: 1.6;
-      margin-bottom: 24px;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #E5E7EB;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .btn-danger {
+      flex: 1;
+      background: var(--danger);
+      border: none;
+      color: white;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-hover);
     }
 
     .toast {
@@ -345,114 +593,175 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.6);
       display: none;
       animation: fadeIn 0.2s ease;
-      z-index: 1000;
+      z-index: 10000;
       text-align: center;
       max-width: 90%;
       width: max-content;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translate(-50%, 8px); }
-      to { opacity: 1; transform: translate(-50%, 0); }
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.92); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <div class="lang-switcher">
+        <button class="lang-btn" id="langEn" onclick="setLanguage('en')">EN</button>
+        <button class="lang-btn" id="langDe" onclick="setLanguage('de')">DE</button>
+      </div>
       <div class="logo">
         <img src="logo.png" alt="GOATPlayer Logo" class="logo-img" />
         <span class="logo-title">GOATPlayer</span>
         <span class="logo-badge">Remote</span>
       </div>
-      <p class="tagline">Link & Push Playlists to your TV / Device</p>
+      <p class="tagline" data-i18n="tagline">Manage & Push Playlists to your TV</p>
     </div>
 
+    <!-- MAIN CONTAINER -->
     <div class="card" id="mainCard">
       <!-- Device Banner (Shown ONLY once successfully paired) -->
       <div class="device-banner" id="deviceBanner" style="display: none;">
         <div class="device-info">
-          <span class="device-label">Target Device</span>
+          <span class="device-label" data-i18n="targetDevice">Target Device</span>
           <span class="device-val" id="deviceDisplay">---</span>
         </div>
-        <div class="badge-status">Connected</div>
+        <div class="device-actions">
+          <div class="badge-status" data-i18n="connected">Connected</div>
+          <button class="btn-disconnect" onclick="disconnectDevice()" data-i18n="disconnect">Disconnect</button>
+        </div>
       </div>
 
-      <!-- Pairing Section (Shown when visiting without QR code) -->
+      <!-- State 1: Pairing Section (When not paired) -->
       <div id="manualPairingSection">
-        <h3 class="section-title">📺 Connect to your Player</h3>
-        <p class="section-desc">Enter the Device ID and 6-digit PIN displayed on your TV or GOATPlayer app.</p>
+        <h3 class="section-title" data-i18n="connectTitle">📺 Connect to your Player</h3>
+        <p class="section-desc" data-i18n="connectDesc">Enter the Device ID and 6-digit PIN displayed on your TV or GOATPlayer app.</p>
         
         <div class="form-group">
-          <label class="form-label">Device ID</label>
+          <label class="form-label" data-i18n="deviceIdLabel">Device ID</label>
           <input type="text" id="inputDeviceId" class="form-input" placeholder="e.g. GP-8429-B712" style="text-transform: uppercase;" />
         </div>
         <div class="form-group">
-          <label class="form-label">6-Digit Pairing PIN</label>
+          <label class="form-label" data-i18n="pinLabel">6-Digit Pairing PIN</label>
           <input type="text" id="inputPin" class="form-input" placeholder="e.g. 482910" maxlength="6" inputmode="numeric" />
         </div>
         <button type="button" class="btn-submit" id="btnVerifyPairing">
-          <span>Connect to Device</span>
+          <span data-i18n="btnConnect">Connect to Device</span>
         </button>
 
-        <div class="qr-tip">
+        <div class="qr-tip" data-i18n="qrTip">
           💡 <strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!
         </div>
       </div>
 
-      <!-- Playlist Upload Form (Shown once paired) -->
-      <form id="playlistForm" style="display: none;">
-        <div class="tab-bar">
-          <button type="button" class="tab-btn active" id="tabXtream" onclick="switchTab('xtream')">Xtream Codes API</button>
-          <button type="button" class="tab-btn" id="tabM3u" onclick="switchTab('m3u')">M3U Playlist URL</button>
+      <!-- State 2: Playlist Manager Section (Shown once paired) -->
+      <div id="playlistManagerSection" style="display: none;">
+        <div class="playlists-header">
+          <h3 class="section-title" data-i18n="playlistsTitle">Playlists on Device</h3>
+          <span id="playlistCount" style="font-size: 12px; color: var(--primary); font-weight: 700;"></span>
+        </div>
+
+        <div id="playlistsListContainer">
+          <!-- Dynamically populated playlist cards -->
+        </div>
+
+        <button type="button" class="btn-submit" id="btnOpenAddModal" onclick="openPlaylistModal('add')">
+          <span data-i18n="btnAddPlaylist">+ Add New Playlist</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT PLAYLIST MODAL -->
+  <div class="modal-overlay" id="playlistModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle" data-i18n="modalAddTitle">Add New Playlist</h3>
+        <button class="modal-close" onclick="closePlaylistModal()">&times;</button>
+      </div>
+
+      <form id="playlistForm">
+        <div class="tab-bar" id="modalTabBar">
+          <button type="button" class="tab-btn active" id="tabXtream" onclick="switchTab('xtream')" data-i18n="tabXtream">Xtream Codes API</button>
+          <button type="button" class="tab-btn" id="tabM3u" onclick="switchTab('m3u')" data-i18n="tabM3u">M3U Playlist URL</button>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Playlist Name (Optional)</label>
-          <input type="text" id="playlistName" class="form-input" placeholder="e.g. My Home IPTV" />
-        </div>
-
-        <!-- Xtream Codes Section -->
-        <div id="xtreamFields">
-          <div class="form-group">
-            <label class="form-label">Server URL / Host</label>
-            <input type="url" id="serverUrl" class="form-input" placeholder="http://my-iptv-server.com:8080" required />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Username</label>
-            <input type="text" id="username" class="form-input" placeholder="Username" required />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Password</label>
-            <input type="password" id="password" class="form-input" placeholder="Password" required />
-          </div>
+          <label class="form-label" data-i18n="playlistNameLabel">Playlist Name (Optional)</label>
+          <input type="text" id="playlistName" class="form-input" placeholder="e.g. My Home IPTV" data-i18n-placeholder="playlistNamePlaceholder" />
         </div>
 
         <!-- M3U URL Section -->
         <div id="m3uFields" style="display: none;">
           <div class="form-group">
-            <label class="form-label">M3U Playlist URL</label>
-            <input type="url" id="m3uUrl" class="form-input" placeholder="https://example.com/playlist.m3u" />
+            <label class="form-label" data-i18n="m3uUrlLabel">M3U Playlist URL</label>
+            <input type="url" id="m3uUrl" class="form-input" placeholder="https://provider.com/get.php?username=...&password=..." data-i18n-placeholder="m3uUrlPlaceholder" oninput="onM3uInput(this.value)" />
+          </div>
+
+          <!-- Live Breakdown Feedback -->
+          <div class="m3u-feedback" id="m3uFeedback" style="display: none;">
+            <div class="m3u-feedback-header">
+              <span>✓</span> <span data-i18n="m3uParsedSuccess">Xtream credentials extracted!</span>
+            </div>
+            <div class="m3u-feedback-body">
+              <div class="m3u-feedback-item">
+                <span class="m3u-feedback-label">Server:</span>
+                <span id="m3uFeedbackServer" style="font-weight: 600; color: #E9D5FF;"></span>
+              </div>
+              <div class="m3u-feedback-item">
+                <span class="m3u-feedback-label">User:</span>
+                <span id="m3uFeedbackUser" style="font-weight: 600; color: #E9D5FF;"></span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <button type="submit" class="btn-submit" id="btnSubmit">
-          <span>🚀 Send to GOATPlayer</span>
-        </button>
+        <!-- Xtream Codes Section -->
+        <div id="xtreamFields">
+          <div class="form-group">
+            <label class="form-label" data-i18n="serverUrlLabel">Server URL / Host</label>
+            <input type="url" id="serverUrl" class="form-input" placeholder="http://my-iptv-server.com:8080" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="usernameLabel">Username</label>
+            <input type="text" id="username" class="form-input" placeholder="Username" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="passwordLabel">Password</label>
+            <input type="password" id="password" class="form-input" placeholder="Password" required />
+          </div>
+        </div>
 
-        <p class="notice">
-          Credentials are sent directly to your device via encrypted Supabase Realtime channel.
-        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" onclick="closePlaylistModal()" data-i18n="btnCancel">Cancel</button>
+          <button type="submit" class="btn-submit" id="btnSubmitModal" style="margin-top: 0; flex: 2;">
+            <span id="btnSubmitModalText" data-i18n="btnSendToPlayer">🚀 Send to GOATPlayer</span>
+          </button>
+        </div>
       </form>
+    </div>
+  </div>
 
-      <!-- Success Card -->
-      <div class="success-card" id="successCard">
-        <div class="success-icon">✓</div>
-        <h2 class="success-title">Playlist Sent!</h2>
-        <p class="success-desc">
-          Your playlist has been transmitted directly to GOATPlayer. Your TV/app is now loading your live channels, movies, and series!
-        </p>
-        <button type="button" class="btn-submit" onclick="location.reload()">Send Another Playlist</button>
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div class="modal-overlay" id="deleteModal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" data-i18n="deleteConfirmTitle">Delete Playlist</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <p class="section-desc" style="margin-bottom: 20px;" data-i18n="deleteConfirmDesc">
+        Are you sure you want to remove this playlist from your GOATPlayer device?
+      </p>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" onclick="closeDeleteModal()" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="btn-danger" id="btnConfirmDelete" onclick="executeDeletePlaylist()" data-i18n="btnDelete">Delete</button>
       </div>
     </div>
   </div>
@@ -470,19 +779,203 @@
         ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
         : null;
 
+    // State
+    let currentLang = 'en';
     let activeDeviceId = '';
     let activePin = '';
-    let currentMode = 'xtream';
+    let activePlaylists = [];
+    let currentTabMode = 'xtream';
+    let currentModalMode = 'add'; // 'add' or 'edit'
+    let editingPlaylistId = null;
+    let deletingPlaylistId = null;
+    let realtimeChannel = null;
+
+    // Translations Dictionary
+    const i18n = {
+      en: {
+        tagline: "Manage & Push Playlists to your TV",
+        connectTitle: "📺 Connect to your Player",
+        connectDesc: "Enter the Device ID and 6-digit PIN displayed on your TV or GOATPlayer app.",
+        deviceIdLabel: "Device ID",
+        pinLabel: "6-Digit Pairing PIN",
+        btnConnect: "Connect to Device",
+        connecting: "Connecting...",
+        qrTip: "💡 <strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!",
+        targetDevice: "Target Device",
+        connected: "Connected",
+        disconnect: "Disconnect",
+        playlistsTitle: "Playlists on Device",
+        emptyPlaylistsTitle: "No Playlists on this Device",
+        emptyPlaylistsSub: "Add your first IPTV playlist using the button below.",
+        btnAddPlaylist: "+ Add New Playlist",
+        modalAddTitle: "Add New Playlist",
+        modalEditTitle: "Edit Playlist",
+        tabXtream: "Xtream Codes API",
+        tabM3u: "M3U Playlist URL",
+        playlistNameLabel: "Playlist Name (Optional)",
+        playlistNamePlaceholder: "e.g. My Home IPTV",
+        serverUrlLabel: "Server URL / Host",
+        usernameLabel: "Username",
+        passwordLabel: "Password",
+        m3uUrlLabel: "M3U Playlist URL",
+        m3uUrlPlaceholder: "https://provider.com/get.php?username=...&password=...",
+        m3uParsedSuccess: "Xtream credentials extracted!",
+        btnSendToPlayer: "🚀 Send to GOATPlayer",
+        btnUpdatePlaylist: "💾 Save Changes",
+        sending: "Transmitting to Device...",
+        updating: "Updating...",
+        deleting: "Deleting...",
+        deleteConfirmTitle: "Delete Playlist",
+        deleteConfirmDesc: "Are you sure you want to remove this playlist from your GOATPlayer device?",
+        btnCancel: "Cancel",
+        btnDelete: "Delete",
+        btnEdit: "Edit",
+        invalidPin: "Invalid Device ID or PIN. Please check your screen.",
+        pinExpired: "PIN has expired. Please refresh the PIN on your TV.",
+        enterBoth: "Please enter both Device ID and 6-digit PIN.",
+        playlistSentSuccess: "Playlist sent! GOATPlayer is now syncing.",
+        playlistUpdatedSuccess: "Playlist updated on GOATPlayer!",
+        playlistDeletedSuccess: "Playlist removed from GOATPlayer."
+      },
+      de: {
+        tagline: "Playlists verwalten & an deinen Fernseher senden",
+        connectTitle: "📺 Mit GOATPlayer verbinden",
+        connectDesc: "Gib die Geräte-ID und den 6-stelligen PIN ein, die auf deinem TV oder Gerät angezeigt werden.",
+        deviceIdLabel: "Geräte-ID",
+        pinLabel: "6-stelliger PIN",
+        btnConnect: "Mit Gerät verbinden",
+        connecting: "Verbinde...",
+        qrTip: "💡 <strong>Tipp:</strong> Du kannst auch einfach den QR-Code in der GOATPlayer-App scannen, um dich sofort zu verbinden!",
+        targetDevice: "Verbundenes Gerät",
+        connected: "Verbunden",
+        disconnect: "Trennen",
+        playlistsTitle: "Playlists auf dem Gerät",
+        emptyPlaylistsTitle: "Keine Playlists vorhanden",
+        emptyPlaylistsSub: "Füge mit dem Button unten deine erste IPTV-Playlist hinzu.",
+        btnAddPlaylist: "+ Neue Playlist hinzufügen",
+        modalAddTitle: "Neue Playlist hinzufügen",
+        modalEditTitle: "Playlist bearbeiten",
+        tabXtream: "Xtream Codes API",
+        tabM3u: "M3U Playlist-Link",
+        playlistNameLabel: "Playlist-Name (Optional)",
+        playlistNamePlaceholder: "z.B. Mein IPTV Zuhause",
+        serverUrlLabel: "Server-URL / Host",
+        usernameLabel: "Benutzername",
+        passwordLabel: "Passwort",
+        m3uUrlLabel: "M3U Playlist-URL",
+        m3uUrlPlaceholder: "https://provider.com/get.php?username=...&password=...",
+        m3uParsedSuccess: "Xtream Zugangsdaten erfolgreich erkannt!",
+        btnSendToPlayer: "🚀 An GOATPlayer senden",
+        btnUpdatePlaylist: "💾 Änderungen speichern",
+        sending: "Wird an Gerät übertragen...",
+        updating: "Wird aktualisiert...",
+        deleting: "Wird gelöscht...",
+        deleteConfirmTitle: "Playlist löschen",
+        deleteConfirmDesc: "Möchtest du diese Playlist wirklich von deinem GOATPlayer-Gerät entfernen?",
+        btnCancel: "Abbrechen",
+        btnDelete: "Löschen",
+        btnEdit: "Bearbeiten",
+        invalidPin: "Ungültige Geräte-ID oder PIN. Bitte überprüfe deinen Bildschirm.",
+        pinExpired: "PIN ist abgelaufen. Bitte auf dem TV auf Aktualisieren tippen.",
+        enterBoth: "Bitte gib sowohl die Geräte-ID als auch den 6-stelligen PIN ein.",
+        playlistSentSuccess: "Playlist gesendet! GOATPlayer lädt deine Sender.",
+        playlistUpdatedSuccess: "Playlist auf dem Gerät aktualisiert!",
+        playlistDeletedSuccess: "Playlist von GOATPlayer entfernt."
+      }
+    };
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('goat_player_lang', lang);
+      document.getElementById('langEn').classList.toggle('active', lang === 'en');
+      document.getElementById('langDe').classList.toggle('active', lang === 'de');
+
+      // Update text
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (i18n[lang] && i18n[lang][key]) {
+          el.innerHTML = i18n[lang][key];
+        }
+      });
+
+      // Update placeholders
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (i18n[lang] && i18n[lang][key]) {
+          el.placeholder = i18n[lang][key];
+        }
+      });
+
+      renderPlaylists();
+    }
+
+    function t(key) {
+      return (i18n[currentLang] && i18n[currentLang][key]) || key;
+    }
 
     function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.innerText = msg;
-      t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 3500);
+      const el = document.getElementById('toast');
+      el.innerText = msg;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 3800);
+    }
+
+    // Smart M3U Parser
+    function parseM3uUrl(rawUrl) {
+      if (!rawUrl || typeof rawUrl !== 'string') return null;
+      const str = rawUrl.trim();
+      if (!str.startsWith('http://') && !str.startsWith('https://')) return null;
+
+      try {
+        const url = new URL(str);
+        const serverUrl = `${url.protocol}//${url.host}`;
+        const params = url.searchParams;
+
+        let username = params.get('username') || params.get('user') || params.get('u');
+        let password = params.get('password') || params.get('pass') || params.get('p');
+
+        // Path breakdown: e.g. /live/USER/PASS/id.ts
+        if (!username || !password) {
+          const parts = url.pathname.split('/').filter(Boolean);
+          if (parts.length >= 3 && ['live', 'movie', 'series', 'play', 'get'].includes(parts[0].toLowerCase())) {
+            username = parts[1];
+            password = parts[2];
+          }
+        }
+
+        if (serverUrl && username && password) {
+          return {
+            serverUrl,
+            username,
+            password,
+            isValidXtream: true
+          };
+        }
+      } catch (e) {
+        console.error('Error parsing M3U URL:', e);
+      }
+      return null;
+    }
+
+    function onM3uInput(val) {
+      const parsed = parseM3uUrl(val);
+      const feedback = document.getElementById('m3uFeedback');
+      if (parsed) {
+        document.getElementById('m3uFeedbackServer').innerText = parsed.serverUrl;
+        document.getElementById('m3uFeedbackUser').innerText = parsed.username;
+        feedback.style.display = 'block';
+
+        // Auto-populate Xtream fields in background
+        document.getElementById('serverUrl').value = parsed.serverUrl;
+        document.getElementById('username').value = parsed.username;
+        document.getElementById('password').value = parsed.password;
+      } else {
+        feedback.style.display = 'none';
+      }
     }
 
     function switchTab(mode) {
-      currentMode = mode;
+      currentTabMode = mode;
       const tabX = document.getElementById('tabXtream');
       const tabM = document.getElementById('tabM3u');
       const fX = document.getElementById('xtreamFields');
@@ -509,17 +1002,72 @@
       }
     }
 
+    // Playlist Rendering
+    function renderPlaylists() {
+      const container = document.getElementById('playlistsListContainer');
+      const countEl = document.getElementById('playlistCount');
+      if (!container) return;
+
+      countEl.innerText = activePlaylists.length > 0 ? `(${activePlaylists.length})` : '';
+
+      if (activePlaylists.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📺</div>
+            <div class="empty-state-text">${t('emptyPlaylistsTitle')}</div>
+            <div class="empty-state-sub">${t('emptyPlaylistsSub')}</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = activePlaylists.map((pl, idx) => {
+        const id = pl.id !== undefined ? pl.id : idx;
+        const name = pl.playlist_name || pl.username || 'IPTV Playlist';
+        const server = pl.server_url || 'Xtream Server';
+        const user = pl.username || 'User';
+
+        return `
+          <div class="playlist-card">
+            <div class="playlist-card-info">
+              <div class="playlist-card-title">📺 ${escapeHtml(name)}</div>
+              <div class="playlist-card-meta">
+                <span>🌐 ${escapeHtml(server)}</span>
+                <span>👤 ${escapeHtml(user)}</span>
+              </div>
+            </div>
+            <div class="playlist-card-actions">
+              <button class="btn-action" onclick="openPlaylistModal('edit', ${id})" title="${t('btnEdit')}">
+                ✏️ <span>${t('btnEdit')}</span>
+              </button>
+              <button class="btn-action delete" onclick="confirmDeletePlaylist(${id})" title="${t('btnDelete')}">
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Pairing & Realtime
     async function verifyPairing(deviceId, pin) {
       const btn = document.getElementById('btnVerifyPairing');
       btn.disabled = true;
-      btn.innerText = 'Connecting...';
-
-      console.log('Verifying pairing for device:', deviceId, 'PIN:', pin);
+      btn.innerText = t('connecting');
 
       if (!supabaseClient) {
         showToast('Supabase client failed to initialize.');
         btn.disabled = false;
-        btn.innerText = 'Connect to Device';
+        btn.innerText = t('btnConnect');
         return false;
       }
 
@@ -531,42 +1079,295 @@
           .eq('pin', pin)
           .maybeSingle();
 
-        console.log('Query result:', data, 'error:', error);
-
         if (error || !data) {
-          showToast('Invalid Device ID or PIN. Please check your screen.');
+          showToast(t('invalidPin'));
           btn.disabled = false;
-          btn.innerText = 'Connect to Device';
+          btn.innerText = t('btnConnect');
           return false;
         }
 
-        // Check if expired
         if (new Date(data.pin_expires_at) < new Date()) {
-          showToast('PIN has expired. Please tap the refresh button on your TV.');
+          showToast(t('pinExpired'));
           btn.disabled = false;
-          btn.innerText = 'Connect to Device';
+          btn.innerText = t('btnConnect');
           return false;
         }
 
-        // Successfully verified
+        // Successfully paired
         activeDeviceId = deviceId;
         activePin = pin;
         document.getElementById('deviceDisplay').innerText = deviceId;
         document.getElementById('deviceBanner').style.display = 'flex';
         document.getElementById('manualPairingSection').style.display = 'none';
-        document.getElementById('playlistForm').style.display = 'block';
+        document.getElementById('playlistManagerSection').style.display = 'block';
+
+        // Extract playlists
+        if (data.playlists && Array.isArray(data.playlists)) {
+          activePlaylists = data.playlists;
+        } else if (data.server_url) {
+          activePlaylists = [{
+            id: 1,
+            playlist_name: data.playlist_name || 'My Playlist',
+            server_url: data.server_url,
+            username: data.username,
+            password: data.password
+          }];
+        } else {
+          activePlaylists = [];
+        }
+
+        renderPlaylists();
+        subscribeToDeviceChanges(deviceId);
         return true;
       } catch (e) {
-        console.error('Connection error:', e);
         showToast('Connection error: ' + (e.message || e));
         btn.disabled = false;
-        btn.innerText = 'Connect to Device';
+        btn.innerText = t('btnConnect');
         return false;
       }
     }
 
-    // Auto-verify if query params are present from QR code
+    function subscribeToDeviceChanges(deviceId) {
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+
+      realtimeChannel = supabaseClient
+        .channel(`device_${deviceId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'remote_devices',
+          filter: `device_id=eq.${deviceId}`
+        }, (payload) => {
+          const newRecord = payload.new;
+          if (newRecord && newRecord.playlists && Array.isArray(newRecord.playlists)) {
+            activePlaylists = newRecord.playlists;
+            renderPlaylists();
+          }
+        })
+        .subscribe();
+    }
+
+    function disconnectDevice() {
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+      activeDeviceId = '';
+      activePin = '';
+      activePlaylists = [];
+      document.getElementById('deviceBanner').style.display = 'none';
+      document.getElementById('playlistManagerSection').style.display = 'none';
+      document.getElementById('manualPairingSection').style.display = 'block';
+      const btn = document.getElementById('btnVerifyPairing');
+      btn.disabled = false;
+      btn.innerText = t('btnConnect');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Modal Control
+    function openPlaylistModal(mode, id = null) {
+      currentModalMode = mode;
+      editingPlaylistId = id;
+      const modal = document.getElementById('playlistModal');
+      const title = document.getElementById('modalTitle');
+      const submitText = document.getElementById('btnSubmitModalText');
+      const tabBar = document.getElementById('modalTabBar');
+
+      // Reset form
+      document.getElementById('playlistForm').reset();
+      document.getElementById('m3uFeedback').style.display = 'none';
+
+      if (mode === 'edit') {
+        title.innerText = t('modalEditTitle');
+        submitText.innerText = t('btnUpdatePlaylist');
+        tabBar.style.display = 'none';
+        switchTab('xtream');
+
+        const pl = activePlaylists.find(p => (p.id !== undefined ? p.id : 0) === id);
+        if (pl) {
+          document.getElementById('playlistName').value = pl.playlist_name || '';
+          document.getElementById('serverUrl').value = pl.server_url || '';
+          document.getElementById('username').value = pl.username || '';
+          document.getElementById('password').value = pl.password || '';
+        }
+      } else {
+        title.innerText = t('modalAddTitle');
+        submitText.innerText = t('btnSendToPlayer');
+        tabBar.style.display = 'flex';
+        switchTab('xtream');
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closePlaylistModal() {
+      document.getElementById('playlistModal').style.display = 'none';
+      editingPlaylistId = null;
+    }
+
+    // Submit Playlist (Add or Edit)
+    document.getElementById('playlistForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitModal');
+      btn.disabled = true;
+
+      let serverUrl = '';
+      let username = '';
+      let password = '';
+      const playlistName = document.getElementById('playlistName').value.trim() || 'My IPTV';
+
+      if (currentTabMode === 'm3u') {
+        const m3uUrl = document.getElementById('m3uUrl').value.trim();
+        const parsed = parseM3uUrl(m3uUrl);
+        if (parsed) {
+          serverUrl = parsed.serverUrl;
+          username = parsed.username;
+          password = parsed.password;
+        } else {
+          showToast(currentLang === 'de' 
+            ? 'Bitte stelle sicher, dass deine M3U-URL Benutzername und Passwort enthält, oder nutze Xtream Codes.' 
+            : 'Please ensure your M3U link contains username and password, or use Xtream Codes.');
+          btn.disabled = false;
+          return;
+        }
+      } else {
+        serverUrl = document.getElementById('serverUrl').value.trim();
+        username = document.getElementById('username').value.trim();
+        password = document.getElementById('password').value.trim();
+      }
+
+      try {
+        if (currentModalMode === 'add') {
+          btn.innerText = t('sending');
+          // Optimistic local add
+          const newId = Date.now();
+          activePlaylists.push({
+            id: newId,
+            playlist_name: playlistName,
+            server_url: serverUrl,
+            username: username,
+            password: password
+          });
+          renderPlaylists();
+
+          // Push to Supabase
+          try {
+            await supabaseClient.from('remote_devices').update({
+              sync_action: {
+                action: 'add',
+                playlist_name: playlistName,
+                server_url: serverUrl,
+                username: username,
+                password: password,
+                timestamp: Date.now()
+              },
+              playlist_name: playlistName,
+              server_url: serverUrl,
+              username: username,
+              password: password,
+              status: 'linked',
+              updated_at: new Date().toISOString()
+            }).eq('device_id', activeDeviceId).eq('pin', activePin);
+          } catch (colErr) {
+            // Fallback if sync_action column not created
+            await supabaseClient.from('remote_devices').update({
+              playlist_name: playlistName,
+              server_url: serverUrl,
+              username: username,
+              password: password,
+              status: 'linked',
+              updated_at: new Date().toISOString()
+            }).eq('device_id', activeDeviceId).eq('pin', activePin);
+          }
+
+          showToast(t('playlistSentSuccess'));
+        } else if (currentModalMode === 'edit') {
+          btn.innerText = t('updating');
+          // Optimistic local update
+          const pl = activePlaylists.find(p => (p.id !== undefined ? p.id : 0) === editingPlaylistId);
+          if (pl) {
+            pl.playlist_name = playlistName;
+            pl.server_url = serverUrl;
+            pl.username = username;
+            pl.password = password;
+          }
+          renderPlaylists();
+
+          await supabaseClient.from('remote_devices').update({
+            sync_action: {
+              action: 'edit',
+              id: editingPlaylistId,
+              playlist_name: playlistName,
+              server_url: serverUrl,
+              username: username,
+              password: password,
+              timestamp: Date.now()
+            },
+            updated_at: new Date().toISOString()
+          }).eq('device_id', activeDeviceId).eq('pin', activePin);
+
+          showToast(t('playlistUpdatedSuccess'));
+        }
+
+        closePlaylistModal();
+      } catch (err) {
+        showToast('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Delete Playlist
+    function confirmDeletePlaylist(id) {
+      deletingPlaylistId = id;
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'none';
+      deletingPlaylistId = null;
+    }
+
+    async function executeDeletePlaylist() {
+      if (deletingPlaylistId === null) return;
+      const btn = document.getElementById('btnConfirmDelete');
+      btn.disabled = true;
+      btn.innerText = t('deleting');
+
+      try {
+        const idToDelete = deletingPlaylistId;
+        // Optimistic local delete
+        activePlaylists = activePlaylists.filter(p => (p.id !== undefined ? p.id : 0) !== idToDelete);
+        renderPlaylists();
+        closeDeleteModal();
+
+        await supabaseClient.from('remote_devices').update({
+          sync_action: {
+            action: 'delete',
+            id: idToDelete,
+            timestamp: Date.now()
+          },
+          updated_at: new Date().toISOString()
+        }).eq('device_id', activeDeviceId).eq('pin', activePin);
+
+        showToast(t('playlistDeletedSuccess'));
+      } catch (err) {
+        showToast('Error deleting playlist: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = t('btnDelete');
+      }
+    }
+
+    // Auto-init on page load
     window.addEventListener('DOMContentLoaded', async () => {
+      // 1. Language Init
+      const savedLang = localStorage.getItem('goat_player_lang');
+      const browserLang = (navigator.language || navigator.userLanguage || 'en').startsWith('de') ? 'de' : 'en';
+      setLanguage(savedLang || browserLang);
+
+      // 2. Query Params Init (QR code auto-link)
       const urlParams = new URLSearchParams(window.location.search);
       const urlDevice = urlParams.get('device');
       const urlPin = urlParams.get('pin');
@@ -582,58 +1383,10 @@
       const d = document.getElementById('inputDeviceId').value.trim().toUpperCase();
       const p = document.getElementById('inputPin').value.trim();
       if (!d || !p) {
-        showToast('Please enter both Device ID and 6-digit PIN.');
+        showToast(t('enterBoth'));
         return;
       }
       await verifyPairing(d, p);
-    });
-
-    document.getElementById('playlistForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('btnSubmit');
-      btn.disabled = true;
-      btn.innerText = 'Transmitting to Device...';
-
-      let serverUrl = '';
-      let username = '';
-      let password = '';
-      const playlistName = document.getElementById('playlistName').value.trim() || 'My Remote Playlist';
-
-      if (currentMode === 'xtream') {
-        serverUrl = document.getElementById('serverUrl').value.trim();
-        username = document.getElementById('username').value.trim();
-        password = document.getElementById('password').value.trim();
-      } else {
-        serverUrl = document.getElementById('m3uUrl').value.trim();
-      }
-
-      try {
-        const { error } = await supabaseClient
-          .from('remote_devices')
-          .update({
-            playlist_name: playlistName,
-            server_url: serverUrl,
-            username: username,
-            password: password,
-            status: 'linked',
-            updated_at: new Date().toISOString()
-          })
-          .eq('device_id', activeDeviceId)
-          .eq('pin', activePin);
-
-        if (error) {
-          throw error;
-        }
-
-        // Show Success
-        document.getElementById('playlistForm').style.display = 'none';
-        document.getElementById('deviceBanner').style.display = 'none';
-        document.getElementById('successCard').style.display = 'block';
-      } catch (err) {
-        showToast('Failed to send playlist: ' + err.message);
-        btn.disabled = false;
-        btn.innerHTML = '<span>🚀 Send to GOATPlayer</span>';
-      }
     });
   </script>
 </body>

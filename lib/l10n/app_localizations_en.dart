@@ -236,7 +236,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get manualSetup => 'Manual Setup';
 
   @override
-  String get linkViaWeb => 'Link via Web / QR';
+  String get linkViaWeb => 'Web / QR Code';
 
   @override
   String get scanQrCode => 'Scan QR Code';
@@ -265,4 +265,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pinExpiresIn => 'PIN expires in';
+
+  @override
+  String get copiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get copied => 'Copied!';
+
+  @override
+  String get done => 'Done';
 }

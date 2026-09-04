@@ -75,7 +75,7 @@
   "noProgramInfo": "Keine Programminfo",
   "upNext": "Danach",
   "manualSetup": "Manuelle Eingabe",
-  "linkViaWeb": "Über Web / QR verbinden",
+  "linkViaWeb": "Web / QR-Code",
   "scanQrCode": "QR-Code scannen",
   "scanWithPhone": "Scanne diesen QR-Code mit deinem Smartphone, um deine Playlist bequem zu übertragen.",
   "deviceId": "Geräte-ID",
@@ -84,5 +84,8 @@
   "playlistReceived": "Playlist empfangen! Wird geladen...",
   "newPin": "Neuer PIN",
   "orVisitWebsite": "Oder öffne dieses Portal im Browser:",
-  "pinExpiresIn": "PIN läuft ab in"
+  "pinExpiresIn": "PIN läuft ab in",
+  "copiedToClipboard": "In die Zwischenablage kopiert",
+  "copied": "Kopiert!",
+  "done": "Fertig"
 }

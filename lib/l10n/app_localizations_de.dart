@@ -237,7 +237,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get manualSetup => 'Manuelle Eingabe';
 
   @override
-  String get linkViaWeb => 'Über Web / QR verbinden';
+  String get linkViaWeb => 'Web / QR-Code';
 
   @override
   String get scanQrCode => 'QR-Code scannen';
@@ -266,4 +266,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get pinExpiresIn => 'PIN läuft ab in';
+
+  @override
+  String get copiedToClipboard => 'In die Zwischenablage kopiert';
+
+  @override
+  String get copied => 'Kopiert!';
+
+  @override
+  String get done => 'Fertig';
 }

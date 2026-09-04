@@ -75,7 +75,7 @@
   "noProgramInfo": "No program info",
   "upNext": "Up Next",
   "manualSetup": "Manual Setup",
-  "linkViaWeb": "Link via Web / QR",
+  "linkViaWeb": "Web / QR Code",
   "scanQrCode": "Scan QR Code",
   "scanWithPhone": "Scan this QR code with your smartphone to upload your playlist remotely.",
   "deviceId": "Device ID",
@@ -84,5 +84,8 @@
   "playlistReceived": "Playlist received! Loading...",
   "newPin": "New PIN",
   "orVisitWebsite": "Or open this portal in any browser:",
-  "pinExpiresIn": "PIN expires in"
+  "pinExpiresIn": "PIN expires in",
+  "copiedToClipboard": "Copied to clipboard",
+  "copied": "Copied!",
+  "done": "Done"
 }
