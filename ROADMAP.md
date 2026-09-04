@@ -19,7 +19,32 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 📋 Phase 1: Category Management
+## 🌐 Phase 1: Remote Playlist Management (Web Portal)
+- [ ] **Virtual Device ID / MAC Address Generation**:
+  - Generate and display a persistent, unique virtual Device ID (or virtual MAC) on the device settings screen.
+- [ ] **Web Management Portal**:
+  - Web portal enabling users to enter their Device ID from a smartphone or computer browser.
+  - Remotely enter and manage Xtream Codes or M3U playlist credentials without typing on a TV remote or on-screen keyboard.
+- [ ] **Instant Cloud Sync**:
+  - Securely fetch and synchronize updated playlist configurations from the portal to the client application.
+
+---
+
+## 📺 Phase 2: TV & Cross-Platform Expansion (Core Functionality)
+> *Focus: High-level enablement to get apps running on TV platforms without over-complicating.*
+- [ ] **Android TV & Amazon Fire TV Enablement**:
+  - Basic D-Pad focus traversal across main navigation, category rails, channel grids, and player controls.
+  - Standard TV remote button bindings (DPad Center = select/play, Back = return, Play/Pause toggle).
+  - Android TV launcher banner and leanback intent configuration.
+- [ ] **Smart TV Web/WASM Foundation**:
+  - **Samsung Tizen TV**: Web app package build with media playback compatibility.
+  - **LG webOS**: Basic webOS package configuration.
+- [ ] **Mobile & Tablet Adaptations**:
+  - Clean touch responsive layout support.
+
+---
+
+## 📋 Phase 3: Category Management
 - [ ] **Hide / Show Categories**:
   - Ability to hide unwanted categories (e.g., international language packages, adult content).
 - [ ] **Manage & Reorder Categories**:
@@ -29,7 +54,7 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 🎬 Phase 2: Complete VOD Series Overhaul (Netflix-Style Experience)
+## 🎬 Phase 4: Complete VOD Series Overhaul (Netflix-Style Experience)
 - [ ] **In-Player Episode Navigation**:
   - "Next Episode" button overlay upon episode completion / credits.
   - In-player slide-out Episode Drawer to switch episodes without leaving playback.
@@ -43,29 +68,6 @@ This document outlines the planned development phases, feature requirements, and
   - When opening a show from Continue Watching, automatically select and expand the relevant season and episode instead of resetting to Season 1 / Episode 1.
 - [ ] **Per-Episode Watch Progress Indicators**:
   - Visual progress bar on every individual episode card in the Series Details modal, not just in Continue Watching.
-
----
-
-## 🌐 Phase 3: Remote Playlist Management (Web Portal)
-- [ ] **Virtual Device ID / MAC Address Generation**:
-  - Display a unique virtual hardware/device ID in settings for easy identification.
-- [ ] **Web Management Portal**:
-  - Lightweight web portal where users can input their Device ID from a smartphone or computer browser.
-  - Remotely add, update, and manage Xtream Codes or M3U playlists without typing on a TV remote or virtual keyboard.
-- [ ] **Instant Cloud Sync**:
-  - Push updated playlist configurations from the web portal directly to the client application.
-
----
-
-## 📺 Phase 4: TV & Cross-Platform Expansion
-- [ ] **Android TV & Amazon Fire TV Remote Navigation**:
-  - Full D-Pad focus engine with directional navigation rings and remote-friendly focus states across all screens.
-  - Physical remote shortcuts for channel zapping, guide toggling, and menu access.
-- [ ] **Smart TV Ecosystems**:
-  - **Samsung Tizen TV**: Dedicated web/WASM packaging.
-  - **LG webOS**: webOS app package with hardware-accelerated playback.
-- [ ] **Mobile & Tablet Releases**:
-  - Android APK optimization and iOS / Apple TV packaging.
 
 ---
 
