@@ -4,16 +4,18 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 📍 Current Phase: Polish & In-Stream Navigation (In Progress)
+## ✅ Polish & In-Stream Navigation (Completed)
 
-### 🎯 Immediate Priority: Live TV Active Indicator & Auto-Scroll Tracking
-- [ ] **High-Visibility Selection & Active Highlighting**:
-  - Distinct, high-contrast visual styling for the currently selected category in the category rail.
-  - Prominent playing indicator for the currently active channel in the channel list (e.g., pulsing/equalizer badge, illuminated border, high-contrast text) replacing the faint purple highlight.
-- [ ] **Category & Channel Auto-Scroll Sync**:
-  - When switching away to another tab (Movies, Series) and returning to Live TV, maintain and restore the active category (including Favorites) and **auto-scroll the channel list directly to the active channel's position** rather than starting at the top of the list.
-- [ ] **Master Search Direct Jump**:
-  - When selecting a live channel from Master Search, reliably initiate playback and jump to the channel's category, automatically scrolling the channel list down to the exact selected channel.
+### 🎯 Live TV Active Indicator & Auto-Scroll Tracking
+- [x] **High-Visibility Selection & Active Highlighting**:
+  - Distinct, high-contrast visual styling for the currently selected category in the category rail across Live TV, Movies, and Series.
+  - Prominent playing indicator for the currently active channel in the channel list (illuminated border, rich card background, bold high-contrast text).
+- [x] **Category & Channel Auto-Scroll Sync**:
+  - When switching away to another tab (Movies, Series) or toggling full-width mode, restores the active category (including Favorites) and auto-scrolls the channel list directly to the active channel's position.
+- [x] **Master Search Direct Jump**:
+  - Selecting a live channel from Master Search reliably initiates playback in the preview player and auto-scrolls down to the exact selected channel.
+- [x] **Performance & Concurrency Optimization**:
+  - SQLite WAL mode, database indexes, 64MB cache, EPG throttling, and atomic category/stream replacements to eliminate freezes and stutter.
 
 ---
 
