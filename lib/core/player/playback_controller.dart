@@ -18,6 +18,11 @@ class ActivePlayback {
   final String? channelId;
   final String? categoryId;
   final bool isMinimized;
+  final String? seriesName;
+  final String? episodeTitle;
+  final String? currentSeason;
+  final String? episodeNum;
+  final Map<String, List<dynamic>>? seasonsWithEpisodes;
 
   const ActivePlayback({
     required this.title,
@@ -30,6 +35,11 @@ class ActivePlayback {
     this.channelId,
     this.categoryId,
     this.isMinimized = false,
+    this.seriesName,
+    this.episodeTitle,
+    this.currentSeason,
+    this.episodeNum,
+    this.seasonsWithEpisodes,
   });
 
   ActivePlayback copyWith({
@@ -43,6 +53,11 @@ class ActivePlayback {
     String? channelId,
     String? categoryId,
     bool? isMinimized,
+    String? seriesName,
+    String? episodeTitle,
+    String? currentSeason,
+    String? episodeNum,
+    Map<String, List<dynamic>>? seasonsWithEpisodes,
   }) {
     return ActivePlayback(
       title: title ?? this.title,
@@ -55,6 +70,11 @@ class ActivePlayback {
       channelId: channelId ?? this.channelId,
       categoryId: categoryId ?? this.categoryId,
       isMinimized: isMinimized ?? this.isMinimized,
+      seriesName: seriesName ?? this.seriesName,
+      episodeTitle: episodeTitle ?? this.episodeTitle,
+      currentSeason: currentSeason ?? this.currentSeason,
+      episodeNum: episodeNum ?? this.episodeNum,
+      seasonsWithEpisodes: seasonsWithEpisodes ?? this.seasonsWithEpisodes,
     );
   }
 }
@@ -92,6 +112,11 @@ class PlaybackController extends Notifier<ActivePlayback?> {
     String? seriesId,
     String? coverUrl,
     int? startPosition,
+    String? seriesName,
+    String? episodeTitle,
+    String? currentSeason,
+    String? episodeNum,
+    Map<String, List<dynamic>>? seasonsWithEpisodes,
   }) async {
     final playerService = ref.read(playerServiceProvider);
     state = ActivePlayback(
@@ -103,6 +128,11 @@ class PlaybackController extends Notifier<ActivePlayback?> {
       coverUrl: coverUrl,
       startPosition: startPosition,
       isMinimized: false,
+      seriesName: seriesName,
+      episodeTitle: episodeTitle,
+      currentSeason: currentSeason,
+      episodeNum: episodeNum,
+      seasonsWithEpisodes: seasonsWithEpisodes,
     );
     await playerService.stop();
     final startDuration = (startPosition != null && startPosition > 0)

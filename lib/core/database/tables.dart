@@ -68,6 +68,10 @@ class PlaybackProgress extends Table {
   TextColumn get coverUrl => text().nullable()(); // Poster URL
   IntColumn get position => integer()(); // Position in seconds
   IntColumn get duration => integer()(); // Duration in seconds
+  IntColumn get season => integer().nullable()(); // Season number
+  IntColumn get episode => integer().nullable()(); // Episode number
+  TextColumn get episodeTitle => text().nullable()(); // Specific episode title
+  BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

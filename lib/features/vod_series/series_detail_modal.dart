@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
+import '../../core/database/app_database.dart';
+import '../../core/utils/vod_title_cleaner.dart';
 import '../dashboard/favorites_provider.dart';
 import '../vod_movies/vod_player_screen.dart';
 
@@ -9,12 +11,18 @@ class SeriesDetailModal extends ConsumerStatefulWidget {
   final String seriesName;
   final String seriesId;
   final String? coverUrl;
+  final String? initialSeason;
+  final String? initialEpisodeId;
+  final int? targetEpisodeNum;
 
   const SeriesDetailModal({
     super.key,
     required this.seriesName,
     required this.seriesId,
     this.coverUrl,
+    this.initialSeason,
+    this.initialEpisodeId,
+    this.targetEpisodeNum,
   });
 
   @override
@@ -27,14 +35,22 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
   String? errorMessage;
   
   String? selectedSeason;
+  String? _highlightEpisodeId;
   List<dynamic> currentEpisodes = [];
-  Map<String, dynamic> _episodeProgress = {};
+  Map<String, PlaybackProgressItem> _episodeProgress = {};
+  final ScrollController _contentScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _fetchSeriesData();
     _fetchProgress();
+  }
+
+  @override
+  void dispose() {
+    _contentScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchProgress() async {
@@ -62,17 +78,73 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     try {
       final details = await client.getSeriesInfo(widget.seriesId);
       if (mounted) {
+        final infoMap = details is Map ? details.cast<String, dynamic>() : null;
+        
+        // Smart season selection: initialSeason > last watched season from DB > first season
+        String? targetSeason = widget.initialSeason;
+        final episodesMap = infoMap?['episodes'];
+        if (targetSeason == null && episodesMap is Map && episodesMap.isNotEmpty) {
+          final lastWatched = await ref.read(databaseProvider).playbackProgressDao.getLastWatchedForSeries(widget.seriesId);
+          if (lastWatched?.season != null && episodesMap.containsKey(lastWatched!.season.toString())) {
+            targetSeason = lastWatched.season.toString();
+          } else {
+            targetSeason = episodesMap.keys.first.toString();
+          }
+        }
+
+        String? highlightId = widget.initialEpisodeId;
+
+        // If targetEpisodeNum is specified (e.g. from Continue Watching advanced card)
+        if (highlightId == null && widget.targetEpisodeNum != null && episodesMap is Map) {
+          final currentSeasonEps = (episodesMap[targetSeason] is List) ? (episodesMap[targetSeason] as List) : [];
+          final match = currentSeasonEps.firstWhere(
+            (ep) => int.tryParse(ep['episode_num']?.toString() ?? '') == widget.targetEpisodeNum,
+            orElse: () => null,
+          );
+          if (match != null) {
+            highlightId = match['id']?.toString();
+          } else {
+            // Check if next season has it (e.g. after season finale)
+            final seasonKeys = episodesMap.keys.toList();
+            final currIdx = seasonKeys.indexOf(targetSeason);
+            if (currIdx != -1 && currIdx + 1 < seasonKeys.length) {
+              final nextSeasonKey = seasonKeys[currIdx + 1];
+              final nextSeasonEps = (episodesMap[nextSeasonKey] is List) ? (episodesMap[nextSeasonKey] as List) : [];
+              if (nextSeasonEps.isNotEmpty) {
+                targetSeason = nextSeasonKey;
+                highlightId = nextSeasonEps.first['id']?.toString();
+              }
+            }
+          }
+        }
+
         setState(() {
-          xtreamInfo = details is Map ? details.cast<String, dynamic>() : null;
+          xtreamInfo = infoMap;
           isLoading = false;
+          _highlightEpisodeId = highlightId;
           
-          // Auto-select first season
-          final episodesMap = xtreamInfo?['episodes'];
           if (episodesMap != null && episodesMap is Map && episodesMap.isNotEmpty) {
-            selectedSeason = episodesMap.keys.first.toString();
+            selectedSeason = (targetSeason != null && episodesMap.containsKey(targetSeason))
+                ? targetSeason
+                : episodesMap.keys.first.toString();
             currentEpisodes = _getEpisodesForSeason(selectedSeason!);
           }
         });
+
+        if (highlightId != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _contentScrollController.hasClients) {
+              final eps = currentEpisodes;
+              final idx = eps.indexWhere((ep) => ep['id']?.toString() == highlightId);
+              final targetOffset = idx != -1 ? (350.0 + idx * 72.0) : 350.0;
+              _contentScrollController.animateTo(
+                targetOffset,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
       }
     } catch (e) {
       debugPrint('Xtream Series Info Error: $e');
@@ -109,27 +181,30 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     int? startPosition;
     
     if (progress != null && mounted) {
-      final resume = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(AppLocalizations.of(ctx)!.resumePlayback ?? 'Resume Playback'),
-          content: Text('${AppLocalizations.of(ctx)!.resumeFrom ?? 'Do you want to resume from'} ${_formatDuration(progress.position)}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(AppLocalizations.of(ctx)!.startOver ?? 'Start Over'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(AppLocalizations.of(ctx)!.resume ?? 'Resume'),
-            ),
-          ],
-        ),
-      );
-      
-      if (resume == null) return;
-      if (resume == true) {
-        startPosition = progress.position;
+      final isComp = progress.isCompleted || (progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
+      if (!isComp) {
+        final resume = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(AppLocalizations.of(ctx)!.resumePlayback),
+            content: Text('${AppLocalizations.of(ctx)!.resumeFrom} ${_formatDuration(progress.position)}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(AppLocalizations.of(ctx)!.startOver),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(AppLocalizations.of(ctx)!.resume),
+              ),
+            ],
+          ),
+        );
+        
+        if (resume == null) return;
+        if (resume == true) {
+          startPosition = progress.position;
+        }
       }
     }
     
@@ -142,19 +217,41 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     final epTitle = episode['title']?.toString() ?? 'Episode';
     final cover = episode['info']?['movie_image']?.toString();
     
+    // Convert seasons map for player
+    final seasonsMap = <String, List<dynamic>>{};
+    if (xtreamInfo?['episodes'] is Map) {
+      for (final entry in (xtreamInfo!['episodes'] as Map).entries) {
+        if (entry.value is List) {
+          seasonsMap[entry.key.toString()] = entry.value as List<dynamic>;
+        }
+      }
+    }
+
     if (!mounted) return;
+
+    final cleanTitle = VodTitleCleaner.formatDisplayTitle(
+      seriesName: widget.seriesName,
+      season: selectedSeason ?? '1',
+      epNum: episode['episode_num']?.toString() ?? '1',
+      epTitle: epTitle,
+    );
 
     // Seamless instant transition directly into VodPlayerScreen
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, _, __) => VodPlayerScreen(
           streamUrl: url,
-          title: '${widget.seriesName} - $epTitle',
+          title: cleanTitle,
+          seriesName: widget.seriesName,
+          episodeTitle: epTitle,
           streamId: episodeId,
           streamType: 'series',
           seriesId: widget.seriesId,
           coverUrl: cover ?? widget.coverUrl,
           startPosition: startPosition,
+          seasonsWithEpisodes: seasonsMap,
+          currentSeason: selectedSeason,
+          episodeNum: episode['episode_num']?.toString(),
         ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
@@ -289,6 +386,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
             // Content
             Flexible(
               child: SingleChildScrollView(
+                controller: _contentScrollController,
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,14 +430,14 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                     const SizedBox(height: 16),
                     Text(plot, style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5)),
                     const SizedBox(height: 24),
-                    if (director != null && director.toString().isNotEmpty) _buildInfoRow(context, Icons.movie_creation, AppLocalizations.of(context)!.director ?? 'Director', director.toString()),
-                    if (cast != null && cast.toString().isNotEmpty) _buildInfoRow(context, Icons.people, AppLocalizations.of(context)!.cast ?? 'Cast', cast.toString()),
+                    if (director != null && director.toString().isNotEmpty) _buildInfoRow(context, Icons.movie_creation, AppLocalizations.of(context)!.director, director.toString()),
+                    if (cast != null && cast.toString().isNotEmpty) _buildInfoRow(context, Icons.people, AppLocalizations.of(context)!.cast, cast.toString()),
                     
                     const SizedBox(height: 24),
                     const Divider(),
                     const SizedBox(height: 16),
                     
-                    Text(AppLocalizations.of(context)!.episodes ?? 'Episodes', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(AppLocalizations.of(context)!.episodes, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     
                     if (isLoading)
@@ -359,7 +457,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8.0),
                                 child: ChoiceChip(
-                                  label: Text('${AppLocalizations.of(context)!.season ?? 'Season'} $season'),
+                                  label: Text('${AppLocalizations.of(context)!.season}$season'),
                                   selected: isSelected,
                                   onSelected: (selected) {
                                     if (selected) setState(() => selectedSeason = season.toString());
@@ -384,28 +482,48 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                               itemCount: episodes.length,
                               itemBuilder: (context, index) {
                                 final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
+                                final epId = ep['id']?.toString() ?? '';
                                 final title = ep['title']?.toString() ?? 'Episode ${index + 1}';
                                 final duration = ep['info']?['duration']?.toString() ?? '';
-                                final hasProgress = ep['progress'] != null;
-                                final progress = hasProgress ? ep['progress'] : null;
+                                final isTarget = epId == (_highlightEpisodeId ?? widget.initialEpisodeId);
+
+                                final progress = _episodeProgress[epId];
+                                final isCompleted = progress?.isCompleted == true ||
+                                    (progress != null && progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
+                                final double progressRatio = (progress != null && progress.duration > 0)
+                                    ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
+                                    : 0.0;
                                 
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 8),
                                   clipBehavior: Clip.antiAlias,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(
+                                      color: isTarget
+                                          ? Theme.of(context).colorScheme.primary
+                                          : (isCompleted ? Colors.green.withValues(alpha: 0.4) : Colors.transparent),
+                                      width: isTarget ? 1.5 : 1.0,
+                                    ),
+                                  ),
                                   child: Column(
                                     children: [
                                       ListTile(
-                                        leading: const Icon(Icons.play_circle_fill, size: 36),
+                                        leading: Icon(
+                                          isCompleted ? Icons.check_circle : Icons.play_circle_fill,
+                                          size: 36,
+                                          color: isCompleted ? Colors.green : Theme.of(context).colorScheme.primary,
+                                        ),
                                         title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
                                         subtitle: duration.isNotEmpty ? Text(duration, style: Theme.of(context).textTheme.bodySmall) : null,
                                         onTap: () => _playEpisode(ep),
                                       ),
-                                      if (hasProgress)
+                                      if (progressRatio > 0.0)
                                         LinearProgressIndicator(
-                                          value: progress!.position / progress.duration,
-                                          backgroundColor: Colors.transparent,
-                                          color: Colors.red,
-                                          minHeight: 3,
+                                          value: progressRatio,
+                                          backgroundColor: Colors.white12,
+                                          color: isCompleted ? Colors.green : Colors.red,
+                                          minHeight: 4,
                                         ),
                                     ],
                                   ),

@@ -125,9 +125,7 @@ class PlayerService {
       platform?.setProperty('keep-open', 'yes');
       platform?.setProperty('force-window', 'no');
       platform?.setProperty('ytdl', 'no');
-      // Prevent secondary/crude native subtitles (let Flutter SubtitleView render cleanly)
       platform?.setProperty('secondary-sid', 'no');
-      platform?.setProperty('secondary-sub-visibility', 'no');
       platform?.setProperty('sub-visibility', 'no');
     } catch (e) {
       debugPrint('PlayerService mpv optimizations error: $e');
@@ -147,6 +145,9 @@ class PlayerService {
       await player.open(
         Media(
           url,
+          httpHeaders: {
+            'User-Agent': 'IPTVSmartersPlayer',
+          },
           start: startPosition,
         ),
         play: true,
@@ -195,7 +196,6 @@ class PlayerService {
     try {
       final dynamic platform = player.platform;
       platform?.setProperty('secondary-sid', 'no');
-      platform?.setProperty('secondary-sub-visibility', 'no');
       platform?.setProperty('sub-visibility', 'no');
     } catch (_) {}
     await player.setSubtitleTrack(track);

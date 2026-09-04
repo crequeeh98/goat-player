@@ -87,5 +87,21 @@
   "pinExpiresIn": "PIN expires in",
   "copiedToClipboard": "Copied to clipboard",
   "copied": "Copied!",
-  "done": "Done"
+  "done": "Done",
+  "playbackPreferences": "Playback & Language Preferences",
+  "preferredAudioLanguage": "Preferred Audio Language",
+  "preferredSubtitleLanguage": "Preferred Subtitles",
+  "playbackPreferencesHint": "Automatically applied to movies and series when available. Manual track adjustments during playback are remembered per title.",
+  "audioTrackDialogTitle": "Audio Tracks",
+  "subtitlesDialogTitle": "Subtitles",
+  "langGerman": "German",
+  "langEnglish": "English",
+  "langFrench": "French",
+  "langSpanish": "Spanish",
+  "langItalian": "Italian",
+  "langTurkish": "Turkish",
+  "langRussian": "Russian",
+  "langArabic": "Arabic",
+  "langDefault": "Original / Default",
+  "subtitlesOff": "Off"
 }

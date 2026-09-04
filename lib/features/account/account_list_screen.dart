@@ -32,7 +32,7 @@ class AccountListScreen extends ConsumerWidget {
           if (accounts.isEmpty) {
             return Center(
               child: Text(
-                AppLocalizations.of(context)!.noAccountsAdded ?? 'No accounts configured.',
+                AppLocalizations.of(context)!.noAccountsAdded,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             );

@@ -39,20 +39,27 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 🎬 Phase 1: VOD Series Overhaul (Netflix-Style Experience)
-- [ ] **In-Player Episode Navigation**:
-  - "Next Episode" button overlay upon episode completion / credits countdown.
-  - In-player slide-out Episode Drawer to quickly switch episodes without leaving active playback.
-- [ ] **Audio & Subtitle Track Memory**:
-  - Remember user's preferred audio language and subtitle settings across episodes and movies.
-  - Automatically restore last-used audio/subtitle tracks when continuing watching.
-- [ ] **Continue Watching Deduplication**:
-  - Prevent multiple episode cards of the same show from cluttering Continue Watching.
-  - Only show the single latest in-progress or next up episode for each series.
-- [ ] **Smart Season & Episode Modal Deep-Linking**:
-  - When opening a show from Continue Watching, automatically select and expand the relevant season and episode instead of resetting to Season 1 / Episode 1.
-- [ ] **Per-Episode Watch Progress Indicators**:
-  - Visual progress bar on every individual episode card in the Series Details modal, matching Continue Watching.
+## ✅ Phase 1: VOD Series Overhaul (Netflix-Style Experience) - Completed
+- [x] **In-Player Episode Navigation & Frosted Drawer**:
+  - Slide-out episode drawer with season chips, episode thumbnails, and active glowing indicator.
+  - Dedicated season/episode pill badge (`[S01 E03]`) + episode title layout in player header to prevent title truncation.
+  - Permanent "Next Episode" button overlay and `N` keyboard shortcut.
+  - ESC key integration: closes the drawer gracefully without minimizing playback.
+  - Mini-player state retention: preserved series metadata and drawer access when minimizing and restoring player.
+- [x] **Stream Completion Auto-Play**:
+  - Automatically loads and plays subsequent episodes upon completion, including seamless season rollovers.
+- [x] **Audio & Subtitle Preferences & Memory**:
+  - Fuzzy language matching supporting multi-lingual aliases, audio codecs, channels (5.1/7.1), and forced subtitles.
+  - Remembers user's track selections per series and per movie.
+  - Fully localized Playback Settings dialog for configuring global preferred languages.
+  - Subtitle visibility enabled by default when subtitle track is selected.
+- [x] **Continue Watching Deduplication & Card Progression**:
+  - Deduplicates series in Continue Watching so only the latest/next episode appears.
+  - Cleans country code prefixes (`DE - `, `EN | `) to ensure clean titles and subtitle labels.
+  - Automatically advances cards to the next episode upon completion ($\ge 95\%$), and removes finished series finales / movies.
+- [x] **Smart Deep-Linking & Per-Episode Watch Progress**:
+  - Clicking Continue Watching deep-links to the exact next episode in the Series Details modal with primary border highlight and auto-scroll.
+  - Persistent SQLite watch progress bars on every episode card (in-progress red bar, completed green bar + checkmark).
 
 ---
 

@@ -274,4 +274,53 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get done => 'Done';
+
+  @override
+  String get playbackPreferences => 'Playback & Language Preferences';
+
+  @override
+  String get preferredAudioLanguage => 'Preferred Audio Language';
+
+  @override
+  String get preferredSubtitleLanguage => 'Preferred Subtitles';
+
+  @override
+  String get playbackPreferencesHint =>
+      'Automatically applied to movies and series when available. Manual track adjustments during playback are remembered per title.';
+
+  @override
+  String get audioTrackDialogTitle => 'Audio Tracks';
+
+  @override
+  String get subtitlesDialogTitle => 'Subtitles';
+
+  @override
+  String get langGerman => 'German';
+
+  @override
+  String get langEnglish => 'English';
+
+  @override
+  String get langFrench => 'French';
+
+  @override
+  String get langSpanish => 'Spanish';
+
+  @override
+  String get langItalian => 'Italian';
+
+  @override
+  String get langTurkish => 'Turkish';
+
+  @override
+  String get langRussian => 'Russian';
+
+  @override
+  String get langArabic => 'Arabic';
+
+  @override
+  String get langDefault => 'Original / Default';
+
+  @override
+  String get subtitlesOff => 'Off';
 }

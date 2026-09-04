@@ -127,7 +127,7 @@ class XtreamClient {
       }
       
       if (responseData is List) {
-        return responseData as List<dynamic>;
+        return responseData;
       } else {
         debugPrint('Warning: responseData is neither List nor valid Map: $responseData');
         return [];

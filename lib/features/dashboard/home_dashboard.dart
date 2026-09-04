@@ -3,6 +3,7 @@ import '../../core/player/player_service.dart';
 import '../live_tv/desktop_live_screen.dart';
 import '../live_tv/mobile_live_view.dart';
 import '../settings/widgets/vpn_import_dialog.dart';
+import '../settings/widgets/playback_settings_dialog.dart';
 import '../../core/vpn/wireguard_service.dart';
 import 'package:wireguard_flutter/wireguard_flutter.dart';
 import '../vod_movies/movies_grid_screen.dart';
@@ -102,7 +103,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             builder: (context, ref, child) {
               final stageAsync = ref.watch(vpnStageProvider);
               final isConnected = stageAsync.value == VpnStage.connected;
-              final status = stageAsync.value?.name ?? 'disconnected';
               final localizedStatus = isConnected 
                   ? AppLocalizations.of(context)!.vpnConnected 
                   : AppLocalizations.of(context)!.vpnDisconnected;
@@ -163,6 +163,16 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     ),
                   ),
                 ],
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: AppLocalizations.of(context)?.playbackPreferences ?? 'Playback Preferences',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const PlaybackSettingsDialog(),
               );
             },
           ),

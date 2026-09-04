@@ -77,16 +77,16 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
       final resume = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(AppLocalizations.of(ctx)!.resumePlayback ?? 'Resume Playback'),
-          content: Text('${AppLocalizations.of(ctx)!.resumeFrom ?? 'Do you want to resume from'} ${_formatDuration(progress.position)}?'),
+          title: Text(AppLocalizations.of(ctx)!.resumePlayback),
+          content: Text('${AppLocalizations.of(ctx)!.resumeFrom} ${_formatDuration(progress.position)}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(AppLocalizations.of(ctx)!.startOver ?? 'Start Over'),
+              child: Text(AppLocalizations.of(ctx)!.startOver),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(AppLocalizations.of(ctx)!.resume ?? 'Resume'),
+              child: Text(AppLocalizations.of(ctx)!.resume),
             ),
           ],
         ),

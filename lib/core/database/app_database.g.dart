@@ -2421,6 +2421,52 @@ class $PlaybackProgressTable extends PlaybackProgress
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _seasonMeta = const VerificationMeta('season');
+  @override
+  late final GeneratedColumn<int> season = GeneratedColumn<int>(
+    'season',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _episodeMeta = const VerificationMeta(
+    'episode',
+  );
+  @override
+  late final GeneratedColumn<int> episode = GeneratedColumn<int>(
+    'episode',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _episodeTitleMeta = const VerificationMeta(
+    'episodeTitle',
+  );
+  @override
+  late final GeneratedColumn<String> episodeTitle = GeneratedColumn<String>(
+    'episode_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isCompletedMeta = const VerificationMeta(
+    'isCompleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isCompleted = GeneratedColumn<bool>(
+    'is_completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_completed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -2442,6 +2488,10 @@ class $PlaybackProgressTable extends PlaybackProgress
     coverUrl,
     position,
     duration,
+    season,
+    episode,
+    episodeTitle,
+    isCompleted,
     updatedAt,
   ];
   @override
@@ -2508,6 +2558,36 @@ class $PlaybackProgressTable extends PlaybackProgress
     } else if (isInserting) {
       context.missing(_durationMeta);
     }
+    if (data.containsKey('season')) {
+      context.handle(
+        _seasonMeta,
+        season.isAcceptableOrUnknown(data['season']!, _seasonMeta),
+      );
+    }
+    if (data.containsKey('episode')) {
+      context.handle(
+        _episodeMeta,
+        episode.isAcceptableOrUnknown(data['episode']!, _episodeMeta),
+      );
+    }
+    if (data.containsKey('episode_title')) {
+      context.handle(
+        _episodeTitleMeta,
+        episodeTitle.isAcceptableOrUnknown(
+          data['episode_title']!,
+          _episodeTitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_completed')) {
+      context.handle(
+        _isCompletedMeta,
+        isCompleted.isAcceptableOrUnknown(
+          data['is_completed']!,
+          _isCompletedMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -2551,6 +2631,22 @@ class $PlaybackProgressTable extends PlaybackProgress
         DriftSqlType.int,
         data['${effectivePrefix}duration'],
       )!,
+      season: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}season'],
+      ),
+      episode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}episode'],
+      ),
+      episodeTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}episode_title'],
+      ),
+      isCompleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_completed'],
+      )!,
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -2573,6 +2669,10 @@ class PlaybackProgressItem extends DataClass
   final String? coverUrl;
   final int position;
   final int duration;
+  final int? season;
+  final int? episode;
+  final String? episodeTitle;
+  final bool isCompleted;
   final DateTime updatedAt;
   const PlaybackProgressItem({
     required this.streamId,
@@ -2582,6 +2682,10 @@ class PlaybackProgressItem extends DataClass
     this.coverUrl,
     required this.position,
     required this.duration,
+    this.season,
+    this.episode,
+    this.episodeTitle,
+    required this.isCompleted,
     required this.updatedAt,
   });
   @override
@@ -2598,6 +2702,16 @@ class PlaybackProgressItem extends DataClass
     }
     map['position'] = Variable<int>(position);
     map['duration'] = Variable<int>(duration);
+    if (!nullToAbsent || season != null) {
+      map['season'] = Variable<int>(season);
+    }
+    if (!nullToAbsent || episode != null) {
+      map['episode'] = Variable<int>(episode);
+    }
+    if (!nullToAbsent || episodeTitle != null) {
+      map['episode_title'] = Variable<String>(episodeTitle);
+    }
+    map['is_completed'] = Variable<bool>(isCompleted);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -2615,6 +2729,16 @@ class PlaybackProgressItem extends DataClass
           : Value(coverUrl),
       position: Value(position),
       duration: Value(duration),
+      season: season == null && nullToAbsent
+          ? const Value.absent()
+          : Value(season),
+      episode: episode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(episode),
+      episodeTitle: episodeTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(episodeTitle),
+      isCompleted: Value(isCompleted),
       updatedAt: Value(updatedAt),
     );
   }
@@ -2632,6 +2756,10 @@ class PlaybackProgressItem extends DataClass
       coverUrl: serializer.fromJson<String?>(json['coverUrl']),
       position: serializer.fromJson<int>(json['position']),
       duration: serializer.fromJson<int>(json['duration']),
+      season: serializer.fromJson<int?>(json['season']),
+      episode: serializer.fromJson<int?>(json['episode']),
+      episodeTitle: serializer.fromJson<String?>(json['episodeTitle']),
+      isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -2646,6 +2774,10 @@ class PlaybackProgressItem extends DataClass
       'coverUrl': serializer.toJson<String?>(coverUrl),
       'position': serializer.toJson<int>(position),
       'duration': serializer.toJson<int>(duration),
+      'season': serializer.toJson<int?>(season),
+      'episode': serializer.toJson<int?>(episode),
+      'episodeTitle': serializer.toJson<String?>(episodeTitle),
+      'isCompleted': serializer.toJson<bool>(isCompleted),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -2658,6 +2790,10 @@ class PlaybackProgressItem extends DataClass
     Value<String?> coverUrl = const Value.absent(),
     int? position,
     int? duration,
+    Value<int?> season = const Value.absent(),
+    Value<int?> episode = const Value.absent(),
+    Value<String?> episodeTitle = const Value.absent(),
+    bool? isCompleted,
     DateTime? updatedAt,
   }) => PlaybackProgressItem(
     streamId: streamId ?? this.streamId,
@@ -2667,6 +2803,10 @@ class PlaybackProgressItem extends DataClass
     coverUrl: coverUrl.present ? coverUrl.value : this.coverUrl,
     position: position ?? this.position,
     duration: duration ?? this.duration,
+    season: season.present ? season.value : this.season,
+    episode: episode.present ? episode.value : this.episode,
+    episodeTitle: episodeTitle.present ? episodeTitle.value : this.episodeTitle,
+    isCompleted: isCompleted ?? this.isCompleted,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   PlaybackProgressItem copyWithCompanion(PlaybackProgressCompanion data) {
@@ -2680,6 +2820,14 @@ class PlaybackProgressItem extends DataClass
       coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
       position: data.position.present ? data.position.value : this.position,
       duration: data.duration.present ? data.duration.value : this.duration,
+      season: data.season.present ? data.season.value : this.season,
+      episode: data.episode.present ? data.episode.value : this.episode,
+      episodeTitle: data.episodeTitle.present
+          ? data.episodeTitle.value
+          : this.episodeTitle,
+      isCompleted: data.isCompleted.present
+          ? data.isCompleted.value
+          : this.isCompleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -2694,6 +2842,10 @@ class PlaybackProgressItem extends DataClass
           ..write('coverUrl: $coverUrl, ')
           ..write('position: $position, ')
           ..write('duration: $duration, ')
+          ..write('season: $season, ')
+          ..write('episode: $episode, ')
+          ..write('episodeTitle: $episodeTitle, ')
+          ..write('isCompleted: $isCompleted, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -2708,6 +2860,10 @@ class PlaybackProgressItem extends DataClass
     coverUrl,
     position,
     duration,
+    season,
+    episode,
+    episodeTitle,
+    isCompleted,
     updatedAt,
   );
   @override
@@ -2721,6 +2877,10 @@ class PlaybackProgressItem extends DataClass
           other.coverUrl == this.coverUrl &&
           other.position == this.position &&
           other.duration == this.duration &&
+          other.season == this.season &&
+          other.episode == this.episode &&
+          other.episodeTitle == this.episodeTitle &&
+          other.isCompleted == this.isCompleted &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -2732,6 +2892,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
   final Value<String?> coverUrl;
   final Value<int> position;
   final Value<int> duration;
+  final Value<int?> season;
+  final Value<int?> episode;
+  final Value<String?> episodeTitle;
+  final Value<bool> isCompleted;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const PlaybackProgressCompanion({
@@ -2742,6 +2906,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     this.coverUrl = const Value.absent(),
     this.position = const Value.absent(),
     this.duration = const Value.absent(),
+    this.season = const Value.absent(),
+    this.episode = const Value.absent(),
+    this.episodeTitle = const Value.absent(),
+    this.isCompleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2753,6 +2921,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     this.coverUrl = const Value.absent(),
     required int position,
     required int duration,
+    this.season = const Value.absent(),
+    this.episode = const Value.absent(),
+    this.episodeTitle = const Value.absent(),
+    this.isCompleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : streamId = Value(streamId),
@@ -2768,6 +2940,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     Expression<String>? coverUrl,
     Expression<int>? position,
     Expression<int>? duration,
+    Expression<int>? season,
+    Expression<int>? episode,
+    Expression<String>? episodeTitle,
+    Expression<bool>? isCompleted,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -2779,6 +2955,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
       if (coverUrl != null) 'cover_url': coverUrl,
       if (position != null) 'position': position,
       if (duration != null) 'duration': duration,
+      if (season != null) 'season': season,
+      if (episode != null) 'episode': episode,
+      if (episodeTitle != null) 'episode_title': episodeTitle,
+      if (isCompleted != null) 'is_completed': isCompleted,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2792,6 +2972,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     Value<String?>? coverUrl,
     Value<int>? position,
     Value<int>? duration,
+    Value<int?>? season,
+    Value<int?>? episode,
+    Value<String?>? episodeTitle,
+    Value<bool>? isCompleted,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -2803,6 +2987,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
       coverUrl: coverUrl ?? this.coverUrl,
       position: position ?? this.position,
       duration: duration ?? this.duration,
+      season: season ?? this.season,
+      episode: episode ?? this.episode,
+      episodeTitle: episodeTitle ?? this.episodeTitle,
+      isCompleted: isCompleted ?? this.isCompleted,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -2832,6 +3020,18 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     if (duration.present) {
       map['duration'] = Variable<int>(duration.value);
     }
+    if (season.present) {
+      map['season'] = Variable<int>(season.value);
+    }
+    if (episode.present) {
+      map['episode'] = Variable<int>(episode.value);
+    }
+    if (episodeTitle.present) {
+      map['episode_title'] = Variable<String>(episodeTitle.value);
+    }
+    if (isCompleted.present) {
+      map['is_completed'] = Variable<bool>(isCompleted.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -2851,6 +3051,10 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
           ..write('coverUrl: $coverUrl, ')
           ..write('position: $position, ')
           ..write('duration: $duration, ')
+          ..write('season: $season, ')
+          ..write('episode: $episode, ')
+          ..write('episodeTitle: $episodeTitle, ')
+          ..write('isCompleted: $isCompleted, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4941,6 +5145,10 @@ typedef $$PlaybackProgressTableCreateCompanionBuilder =
       Value<String?> coverUrl,
       required int position,
       required int duration,
+      Value<int?> season,
+      Value<int?> episode,
+      Value<String?> episodeTitle,
+      Value<bool> isCompleted,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -4953,6 +5161,10 @@ typedef $$PlaybackProgressTableUpdateCompanionBuilder =
       Value<String?> coverUrl,
       Value<int> position,
       Value<int> duration,
+      Value<int?> season,
+      Value<int?> episode,
+      Value<String?> episodeTitle,
+      Value<bool> isCompleted,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -4998,6 +5210,26 @@ class $$PlaybackProgressTableFilterComposer
 
   ColumnFilters<int> get duration => $composableBuilder(
     column: $table.duration,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get season => $composableBuilder(
+    column: $table.season,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get episode => $composableBuilder(
+    column: $table.episode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get episodeTitle => $composableBuilder(
+    column: $table.episodeTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCompleted => $composableBuilder(
+    column: $table.isCompleted,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5051,6 +5283,26 @@ class $$PlaybackProgressTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get season => $composableBuilder(
+    column: $table.season,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get episode => $composableBuilder(
+    column: $table.episode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get episodeTitle => $composableBuilder(
+    column: $table.episodeTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCompleted => $composableBuilder(
+    column: $table.isCompleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -5088,6 +5340,22 @@ class $$PlaybackProgressTableAnnotationComposer
 
   GeneratedColumn<int> get duration =>
       $composableBuilder(column: $table.duration, builder: (column) => column);
+
+  GeneratedColumn<int> get season =>
+      $composableBuilder(column: $table.season, builder: (column) => column);
+
+  GeneratedColumn<int> get episode =>
+      $composableBuilder(column: $table.episode, builder: (column) => column);
+
+  GeneratedColumn<String> get episodeTitle => $composableBuilder(
+    column: $table.episodeTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isCompleted => $composableBuilder(
+    column: $table.isCompleted,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -5137,6 +5405,10 @@ class $$PlaybackProgressTableTableManager
                 Value<String?> coverUrl = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> duration = const Value.absent(),
+                Value<int?> season = const Value.absent(),
+                Value<int?> episode = const Value.absent(),
+                Value<String?> episodeTitle = const Value.absent(),
+                Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion(
@@ -5147,6 +5419,10 @@ class $$PlaybackProgressTableTableManager
                 coverUrl: coverUrl,
                 position: position,
                 duration: duration,
+                season: season,
+                episode: episode,
+                episodeTitle: episodeTitle,
+                isCompleted: isCompleted,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -5159,6 +5435,10 @@ class $$PlaybackProgressTableTableManager
                 Value<String?> coverUrl = const Value.absent(),
                 required int position,
                 required int duration,
+                Value<int?> season = const Value.absent(),
+                Value<int?> episode = const Value.absent(),
+                Value<String?> episodeTitle = const Value.absent(),
+                Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion.insert(
@@ -5169,6 +5449,10 @@ class $$PlaybackProgressTableTableManager
                 coverUrl: coverUrl,
                 position: position,
                 duration: duration,
+                season: season,
+                episode: episode,
+                episodeTitle: episodeTitle,
+                isCompleted: isCompleted,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),

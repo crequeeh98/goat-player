@@ -30,11 +30,9 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
 
   // Brightness (software overlay 0.0 to 1.0)
   static double _currentBrightness = 0.8;
-  double _initialBrightness = 0.8;
 
   // Volume (0.0 to 100.0)
   double _currentVolume = 100.0;
-  double _initialVolume = 100.0;
 
   // Seek
   Duration _initialPosition = Duration.zero;
@@ -71,10 +69,8 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
     final isLeft = details.localPosition.dx < (constraints.maxWidth / 2);
     if (isLeft) {
       _activeGesture = _GestureType.brightness;
-      _initialBrightness = _currentBrightness;
     } else {
       _activeGesture = _GestureType.volume;
-      _initialVolume = _currentVolume;
     }
     setState(() {});
   }
@@ -139,29 +135,6 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
         });
       }
     });
-  }
-
-  void _triggerSkip(bool isForward) {
-    final currentPos = widget.player.state.position;
-    final totalDuration = widget.player.state.duration;
-    final delta = isForward ? const Duration(seconds: 10) : const Duration(seconds: -10);
-    
-    final newSeconds = (currentPos + delta).inSeconds.clamp(0, totalDuration.inSeconds > 0 ? totalDuration.inSeconds : 86400);
-    widget.player.seek(Duration(seconds: newSeconds));
-
-    if (isForward) {
-      setState(() => _showSkipRight = true);
-      _skipRightTimer?.cancel();
-      _skipRightTimer = Timer(const Duration(milliseconds: 650), () {
-        if (mounted) setState(() => _showSkipRight = false);
-      });
-    } else {
-      setState(() => _showSkipLeft = true);
-      _skipLeftTimer?.cancel();
-      _skipLeftTimer = Timer(const Duration(milliseconds: 650), () {
-        if (mounted) setState(() => _showSkipLeft = false);
-      });
-    }
   }
 
   String _formatDuration(Duration d) {

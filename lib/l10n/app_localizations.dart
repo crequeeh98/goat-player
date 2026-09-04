@@ -625,6 +625,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get done;
+
+  /// No description provided for @playbackPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback & Language Preferences'**
+  String get playbackPreferences;
+
+  /// No description provided for @preferredAudioLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Audio Language'**
+  String get preferredAudioLanguage;
+
+  /// No description provided for @preferredSubtitleLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred Subtitles'**
+  String get preferredSubtitleLanguage;
+
+  /// No description provided for @playbackPreferencesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically applied to movies and series when available. Manual track adjustments during playback are remembered per title.'**
+  String get playbackPreferencesHint;
+
+  /// No description provided for @audioTrackDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio Tracks'**
+  String get audioTrackDialogTitle;
+
+  /// No description provided for @subtitlesDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get subtitlesDialogTitle;
+
+  /// No description provided for @langGerman.
+  ///
+  /// In en, this message translates to:
+  /// **'German'**
+  String get langGerman;
+
+  /// No description provided for @langEnglish.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get langEnglish;
+
+  /// No description provided for @langFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get langFrench;
+
+  /// No description provided for @langSpanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get langSpanish;
+
+  /// No description provided for @langItalian.
+  ///
+  /// In en, this message translates to:
+  /// **'Italian'**
+  String get langItalian;
+
+  /// No description provided for @langTurkish.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkish'**
+  String get langTurkish;
+
+  /// No description provided for @langRussian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get langRussian;
+
+  /// No description provided for @langArabic.
+  ///
+  /// In en, this message translates to:
+  /// **'Arabic'**
+  String get langArabic;
+
+  /// No description provided for @langDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Original / Default'**
+  String get langDefault;
+
+  /// No description provided for @subtitlesOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get subtitlesOff;
 }
 
 class _AppLocalizationsDelegate

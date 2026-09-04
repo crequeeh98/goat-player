@@ -11,6 +11,10 @@ import 'dart:io' show Platform;
 import '../../core/player/widgets/mobile_gesture_detector.dart';
 import '../../core/player/player_service.dart';
 import '../../core/player/playback_controller.dart';
+import '../../core/player/track_language_matcher.dart';
+import '../../core/player/track_preference_service.dart';
+import '../../core/utils/vod_title_cleaner.dart';
+import '../vod_series/widgets/in_player_episode_drawer.dart';
 
 class VodPlayerScreen extends ConsumerStatefulWidget {
   final String streamUrl;
@@ -20,6 +24,11 @@ class VodPlayerScreen extends ConsumerStatefulWidget {
   final String? seriesId;
   final String? coverUrl;
   final int? startPosition; // seconds
+  final Map<String, List<dynamic>>? seasonsWithEpisodes;
+  final String? currentSeason;
+  final String? episodeNum;
+  final String? seriesName;
+  final String? episodeTitle;
 
   const VodPlayerScreen({
     super.key,
@@ -30,6 +39,11 @@ class VodPlayerScreen extends ConsumerStatefulWidget {
     this.seriesId,
     this.coverUrl,
     this.startPosition,
+    this.seasonsWithEpisodes,
+    this.currentSeason,
+    this.episodeNum,
+    this.seriesName,
+    this.episodeTitle,
   });
 
   @override
@@ -47,9 +61,68 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   double _initialVolume = 100.0;
   StreamSubscription? _frameSub;
   StreamSubscription? _playingSub;
+  StreamSubscription? _completedSub;
+  StreamSubscription? _tracksSub;
   Timer? _progressTimer;
   BoxFit _fit = BoxFit.contain;
   late final FocusNode _screenFocusNode = FocusNode(debugLabel: 'VodPlayerScreenFocus');
+
+  late String _currentStreamUrl;
+  late String _currentTitle;
+  late String? _currentSeriesName;
+  late String? _currentEpisodeTitle;
+  late String? _currentStreamId;
+  late String? _currentSeason;
+  late String? _currentEpisodeNum;
+  late String? _currentCoverUrl;
+
+  Map<String, List<dynamic>> _seasonsWithEpisodes = {};
+  Map<String, PlaybackProgressItem> _episodeProgress = {};
+  bool _isEpisodeDrawerOpen = false;
+  bool _appliedAudioTrack = false;
+  bool _appliedSubtitleTrack = false;
+  String? _lastDemuxedTrackHash;
+  late final ValueNotifier<String> _titleNotifier;
+
+  static String _cleanCountryPrefix(String text) {
+    var t = text.trim();
+    final match = RegExp(r'^[A-Z]{2,4}\s*[-:|•]\s*').firstMatch(t);
+    if (match != null) {
+      t = t.substring(match.end).trim();
+    }
+    return t;
+  }
+
+  static String _extractSeriesName(String title) {
+    final cleaned = _cleanCountryPrefix(title);
+    if (cleaned.contains(' - ')) {
+      return cleaned.split(' - ').first.trim();
+    }
+    return cleaned;
+  }
+
+  static String _extractEpisodeTitle(String title) {
+    final cleaned = _cleanCountryPrefix(title);
+    if (cleaned.contains(' - ')) {
+      final parts = cleaned.split(' - ');
+      return parts.last.trim();
+    }
+    return cleaned;
+  }
+
+  static String _cleanDuplicatePrefix(String text) => VodTitleCleaner.cleanDuplicatePrefix(text);
+
+  static String _formatEpisodeTitle({
+    required String seriesName,
+    required String season,
+    required String epNum,
+    required String epTitle,
+  }) => VodTitleCleaner.formatDisplayTitle(
+    seriesName: seriesName,
+    season: season,
+    epNum: epNum,
+    epTitle: epTitle,
+  );
 
   void _restoreVolume() {
     if (_isVolumeMutedForSync) {
@@ -71,8 +144,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
       final isBuffering = player.state.buffering;
 
-      if (!_isStreamReady && uri == widget.streamUrl && hasVideo && !isBuffering) {
-        if (widget.startPosition != null && widget.startPosition! > 0) {
+      if (!_isStreamReady && uri == _currentStreamUrl && hasVideo && !isBuffering) {
+        if (widget.startPosition != null && widget.startPosition! > 0 && _currentStreamUrl == widget.streamUrl) {
           final targetSec = widget.startPosition!;
           if (pos.inSeconds < (targetSec - 5)) {
             // Still seeking to target keyframe, ignore premature ticks
@@ -92,6 +165,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
           if (mounted) {
             setState(() => _isStreamReady = true);
             _screenFocusNode.requestFocus();
+            _handleTracksDemuxed(player.state.tracks);
           }
           _frameSub?.cancel();
         }
@@ -104,6 +178,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
         _restoreVolume();
         setState(() => _isStreamReady = true);
         _screenFocusNode.requestFocus();
+        _handleTracksDemuxed(player.state.tracks);
         _frameSub?.cancel();
       }
     });
@@ -112,6 +187,21 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _currentStreamUrl = widget.streamUrl;
+    final initialCleanTitle = _cleanDuplicatePrefix(widget.title);
+    _currentTitle = initialCleanTitle;
+    _titleNotifier = ValueNotifier<String>(initialCleanTitle);
+    _currentSeriesName = widget.seriesName ?? _extractSeriesName(widget.title);
+    _currentEpisodeTitle = widget.episodeTitle ?? _extractEpisodeTitle(widget.title);
+    _currentStreamId = widget.streamId;
+    _currentSeason = widget.currentSeason;
+    _currentEpisodeNum = widget.episodeNum;
+    _currentCoverUrl = widget.coverUrl;
+
+    if (widget.seasonsWithEpisodes != null) {
+      _seasonsWithEpisodes = Map.from(widget.seasonsWithEpisodes!);
+    }
+
     final playerService = ref.read(playerServiceProvider);
     player = playerService.player;
     controller = playerService.controller;
@@ -180,16 +270,323 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       }
     });
 
-    player.stream.track.listen((event) {
-      if (mounted) setState(() {});
-    });
-    
+    _setupListeners();
+    _fetchSeriesDetailsIfNeeded();
     _startProgressTracking();
+  }
+
+  void _setupListeners() {
+    _completedSub?.cancel();
+    _completedSub = player.stream.completed.listen((completed) {
+      if (completed && widget.streamType == 'series' && mounted && !_isClosing) {
+        debugPrint('VodPlayerScreen: Stream completed. Auto-playing next episode...');
+        _playNextEpisode(autoPlay: true);
+      }
+    });
+
+    _tracksSub?.cancel();
+    _tracksSub = player.stream.tracks.listen((tracks) {
+      if (!mounted) return;
+      _handleTracksDemuxed(tracks);
+    });
+  }
+
+  void _handleTracksDemuxed(Tracks tracks) {
+    final currentHash = '${tracks.audio.map((a) => a.id).join(",")}|${tracks.subtitle.map((s) => s.id).join(",")}';
+    if (currentHash == _lastDemuxedTrackHash && _appliedAudioTrack && _appliedSubtitleTrack) return;
+    _lastDemuxedTrackHash = currentHash;
+
+    final trackPref = ref.read(trackPreferenceServiceProvider);
+    final mediaId = widget.streamType == 'series'
+        ? (widget.seriesId ?? _currentStreamId ?? '')
+        : (_currentStreamId ?? '');
+
+    // 1. Audio track
+    final realAudioTracks = tracks.audio.where((t) => t.id != 'auto' && t.id != 'no').toList();
+    if (!_appliedAudioTrack && realAudioTracks.isNotEmpty) {
+      final rememberedAudio = trackPref.getMediaAudioChoice(mediaId);
+      final targetAudio = rememberedAudio ?? trackPref.getPreferredAudioLanguage();
+      final bestAudio = TrackLanguageMatcher.findBestAudioTrack(
+        realAudioTracks,
+        targetAudio,
+        targetTitle: rememberedAudio,
+      );
+      if (bestAudio != null) {
+        if (player.state.track.audio != bestAudio) {
+          debugPrint('Auto-selecting audio track: ${bestAudio.title} (${bestAudio.language})');
+          player.setAudioTrack(bestAudio);
+        }
+        _appliedAudioTrack = true;
+      }
+    }
+
+    // 2. Subtitle track
+    final targetSub = trackPref.getMediaSubtitleChoice(mediaId) ?? trackPref.getPreferredSubtitleLanguage();
+    if (!_appliedSubtitleTrack) {
+      if (targetSub.toLowerCase() == 'off' || targetSub.toLowerCase() == 'no') {
+        final noSub = tracks.subtitle.firstWhere((t) => t.id == 'no', orElse: () => SubtitleTrack.no());
+        ref.read(playerServiceProvider).setSubtitleTrack(noSub);
+        _appliedSubtitleTrack = true;
+      } else {
+        final realSubTracks = tracks.subtitle.where((t) => t.id != 'auto' && t.id != 'no').toList();
+        if (realSubTracks.isNotEmpty) {
+          final rememberedSub = trackPref.getMediaSubtitleChoice(mediaId);
+          final activeAudioLang = player.state.track.audio.language ?? player.state.track.audio.title;
+          final isAudioSame = TrackLanguageMatcher.matchesLanguage(activeAudioLang, null, targetSub);
+
+          final bestSub = TrackLanguageMatcher.findBestSubtitleTrack(
+            tracks.subtitle,
+            targetSub,
+            isAudioSameLanguage: isAudioSame,
+            targetTitle: rememberedSub,
+          );
+          if (bestSub != null) {
+            debugPrint('Auto-selecting subtitle track: ${bestSub.title} (${bestSub.language})');
+            ref.read(playerServiceProvider).setSubtitleTrack(bestSub);
+            _appliedSubtitleTrack = true;
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _fetchSeriesDetailsIfNeeded() async {
+    if (widget.streamType != 'series' || widget.seriesId == null) return;
+
+    final db = ref.read(databaseProvider);
+    final progressList = await db.playbackProgressDao.getEpisodesProgressForSeries(widget.seriesId!);
+    if (mounted) {
+      setState(() {
+        _episodeProgress = {for (var p in progressList) p.streamId: p};
+      });
+    }
+
+    if (_seasonsWithEpisodes.isNotEmpty) return;
+
+    final client = ref.read(xtreamClientProvider);
+    if (client == null) return;
+
+    try {
+      final info = await client.getSeriesInfo(widget.seriesId!);
+      if (info is Map && info['episodes'] is Map && mounted) {
+        final rawEpisodes = info['episodes'] as Map;
+        final mapped = <String, List<dynamic>>{};
+        for (final entry in rawEpisodes.entries) {
+          if (entry.value is List) {
+            mapped[entry.key.toString()] = entry.value as List<dynamic>;
+          }
+        }
+        setState(() {
+          _seasonsWithEpisodes = mapped;
+        });
+      }
+    } catch (e) {
+      debugPrint('VodPlayerScreen failed to fetch series details: $e');
+    }
+  }
+
+  Map<String, dynamic>? _getNextEpisode() {
+    if (_seasonsWithEpisodes.isEmpty || _currentStreamId == null) return null;
+
+    final sortedSeasonKeys = _seasonsWithEpisodes.keys.toList();
+    sortedSeasonKeys.sort((a, b) {
+      final na = int.tryParse(a);
+      final nb = int.tryParse(b);
+      if (na != null && nb != null) return na.compareTo(nb);
+      return a.compareTo(b);
+    });
+
+    final currentSeasonKey = _currentSeason ?? sortedSeasonKeys.first;
+    final currentSeasonEpisodes = _seasonsWithEpisodes[currentSeasonKey] ?? [];
+
+    final currentIndex = currentSeasonEpisodes.indexWhere(
+      (ep) => ep['id']?.toString() == _currentStreamId,
+    );
+
+    if (currentIndex != -1 && currentIndex + 1 < currentSeasonEpisodes.length) {
+      final nextEp = Map<String, dynamic>.from(currentSeasonEpisodes[currentIndex + 1] as Map);
+      nextEp['season_key'] = currentSeasonKey;
+      return nextEp;
+    }
+
+    // Rollover to next season
+    final seasonIdx = sortedSeasonKeys.indexOf(currentSeasonKey);
+    if (seasonIdx != -1 && seasonIdx + 1 < sortedSeasonKeys.length) {
+      final nextSeasonKey = sortedSeasonKeys[seasonIdx + 1];
+      final nextSeasonEpisodes = _seasonsWithEpisodes[nextSeasonKey] ?? [];
+      if (nextSeasonEpisodes.isNotEmpty) {
+        final nextEp = Map<String, dynamic>.from(nextSeasonEpisodes.first as Map);
+        nextEp['season_key'] = nextSeasonKey;
+        return nextEp;
+      }
+    }
+
+    return null;
+  }
+
+  bool get _hasNextEpisode => _getNextEpisode() != null;
+
+  Future<void> _switchEpisode(Map<String, dynamic> ep) async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+
+    final nextId = ep['id']?.toString() ?? '';
+    final nextExtension = ep['container_extension']?.toString() ?? 'mp4';
+    final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
+    final nextUrl = '$baseUrl/series/${account.username}/${account.password}/$nextId.$nextExtension';
+    final nextEpTitle = ep['title']?.toString() ?? 'Episode';
+    final nextSeason = ep['season']?.toString() ?? ep['season_key']?.toString() ?? _currentSeason ?? '1';
+    final nextEpNum = ep['episode_num']?.toString() ?? '';
+    final nextCover = ep['info']?['movie_image']?.toString() ?? _currentCoverUrl;
+
+    if (_currentStreamId != null) {
+      final db = ref.read(databaseProvider);
+      final prevProgress = await db.playbackProgressDao.getProgress(_currentStreamId!);
+      if (prevProgress != null && prevProgress.duration > 0) {
+        await db.playbackProgressDao.markCompleted(_currentStreamId!);
+      }
+    }
+
+    final seriesName = _currentSeriesName ?? widget.seriesName ?? _extractSeriesName(widget.title);
+    final fullTitle = _formatEpisodeTitle(
+      seriesName: seriesName,
+      season: nextSeason,
+      epNum: nextEpNum,
+      epTitle: nextEpTitle,
+    );
+
+    setState(() {
+      _currentStreamId = nextId;
+      _currentStreamUrl = nextUrl;
+      _currentSeriesName = seriesName;
+      _currentEpisodeTitle = nextEpTitle;
+      _currentSeason = nextSeason;
+      _currentEpisodeNum = nextEpNum;
+      _currentTitle = fullTitle;
+      _currentCoverUrl = nextCover;
+      _isStreamReady = false;
+      _appliedAudioTrack = false;
+      _appliedSubtitleTrack = false;
+      _lastDemuxedTrackHash = null;
+      _isVolumeMutedForSync = true;
+    });
+    _titleNotifier.value = fullTitle;
+    player.setVolume(0);
+
+    await ref.read(playbackControllerProvider.notifier).playVod(
+      title: _currentTitle,
+      url: nextUrl,
+      streamType: StreamType.series,
+      streamId: nextId,
+      seriesId: widget.seriesId,
+      coverUrl: nextCover,
+      seriesName: seriesName,
+      episodeTitle: nextEpTitle,
+      currentSeason: nextSeason,
+      episodeNum: nextEpNum,
+      seasonsWithEpisodes: _seasonsWithEpisodes,
+    );
+
+    _armFrameListener();
+    _startProgressTracking();
+  }
+
+  void _playNextEpisode({bool autoPlay = false}) {
+    final nextEp = _getNextEpisode();
+    if (nextEp != null) {
+      _switchEpisode(nextEp);
+      if (autoPlay && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nächste Folge: ${nextEp['title'] ?? ''}'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAudioTracksDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Audio Tracks'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: player.state.tracks.audio.map((t) {
+              return ListTile(
+                title: Text(t.title ?? t.language ?? t.id),
+                selected: player.state.track.audio == t,
+                onTap: () {
+                  player.setAudioTrack(t);
+                  final mediaId = widget.streamType == 'series'
+                      ? (widget.seriesId ?? _currentStreamId ?? '')
+                      : (_currentStreamId ?? '');
+                  if (mediaId.isNotEmpty) {
+                    ref.read(trackPreferenceServiceProvider).setMediaAudioChoice(
+                      mediaId,
+                      t.title ?? t.language ?? t.id,
+                    );
+                  }
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSubtitleTracksDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Subtitles'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: () {
+              final uniqueTracks = <String, SubtitleTrack>{};
+              for (final t in player.state.tracks.subtitle) {
+                uniqueTracks.putIfAbsent(t.id, () => t);
+              }
+              return uniqueTracks.values.map((t) {
+                String label = t.title ?? t.language ?? t.id;
+                if (t.id == 'no') label = 'Off / Deaktiviert';
+                if (t.id == 'auto') label = 'Auto / Automatisch';
+                return ListTile(
+                  title: Text(label),
+                  selected: player.state.track.subtitle == t,
+                  onTap: () {
+                    ref.read(playerServiceProvider).setSubtitleTrack(t);
+                    final mediaId = widget.streamType == 'series'
+                        ? (widget.seriesId ?? _currentStreamId ?? '')
+                        : (_currentStreamId ?? '');
+                    if (mediaId.isNotEmpty) {
+                      final choice = t.id == 'no' ? 'off' : (t.title ?? t.language ?? t.id);
+                      ref.read(trackPreferenceServiceProvider).setMediaSubtitleChoice(
+                        mediaId,
+                        choice,
+                      );
+                    }
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList();
+            }(),
+          ),
+        ),
+      ),
+    );
   }
   
   void _startProgressTracking() {
-    if (widget.streamId == null || widget.streamType == null) return;
+    if (_currentStreamId == null || widget.streamType == null) return;
     
+    _progressTimer?.cancel();
     _progressTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
       if (_isClosing) return;
       final position = player.state.position.inSeconds;
@@ -197,18 +594,27 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       
       if (duration > 0 && position > 0) {
         final db = ref.read(databaseProvider);
-        await db.playbackProgressDao.upsertProgress(
-          PlaybackProgressItem(
-            streamId: widget.streamId!,
-            streamType: widget.streamType!,
-            seriesId: widget.seriesId,
-            title: widget.title,
-            coverUrl: widget.coverUrl,
-            position: position,
-            duration: duration,
-            updatedAt: DateTime.now(),
-          ),
+        final isComp = (position / duration) >= 0.95;
+        final item = PlaybackProgressItem(
+          streamId: _currentStreamId!,
+          streamType: widget.streamType!,
+          seriesId: widget.seriesId,
+          title: _currentSeriesName ?? _currentTitle,
+          coverUrl: _currentCoverUrl,
+          position: isComp ? duration : position,
+          duration: duration,
+          season: int.tryParse(_currentSeason ?? ''),
+          episode: int.tryParse(_currentEpisodeNum ?? ''),
+          episodeTitle: _currentEpisodeTitle ?? _currentTitle,
+          isCompleted: isComp,
+          updatedAt: DateTime.now(),
         );
+        await db.playbackProgressDao.upsertProgress(item);
+        if (mounted) {
+          setState(() {
+            _episodeProgress[_currentStreamId!] = item;
+          });
+        }
       }
     });
   }
@@ -246,7 +652,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     _progressTimer?.cancel();
     _frameSub?.cancel();
     _playingSub?.cancel();
+    _completedSub?.cancel();
+    _tracksSub?.cancel();
     _restoreVolume();
+    _titleNotifier.dispose();
     _screenFocusNode.dispose();
     super.dispose();
   }
@@ -298,6 +707,32 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     });
   }
 
+  Widget _buildCenterTitle() {
+    return Expanded(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: ValueListenableBuilder<String>(
+            valueListenable: _titleNotifier,
+            builder: (context, title, _) {
+              return Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -331,7 +766,17 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     player.seek(newPosition > duration ? duration : newPosition);
                     return KeyEventResult.handled;
                   }
+                  if (event.logicalKey == LogicalKeyboardKey.keyN) {
+                    if (widget.streamType == 'series' && _hasNextEpisode) {
+                      _playNextEpisode();
+                      return KeyEventResult.handled;
+                    }
+                  }
                   if (event.logicalKey == LogicalKeyboardKey.escape) {
+                    if (_isEpisodeDrawerOpen) {
+                      setState(() => _isEpisodeDrawerOpen = false);
+                      return KeyEventResult.handled;
+                    }
                     if (isFullscreen(context)) {
                       toggleFullscreen(context);
                       return KeyEventResult.handled;
@@ -358,11 +803,20 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     toggleFullscreenOnDoublePress: true,
                     keyboardShortcuts: {
                       const SingleActivator(LogicalKeyboardKey.escape): () {
+                        if (_isEpisodeDrawerOpen) {
+                          setState(() => _isEpisodeDrawerOpen = false);
+                          return;
+                        }
                         if (ModalRoute.of(context)?.isCurrent != true) {
                           Navigator.of(context, rootNavigator: true).maybePop();
                         }
                       },
                       const SingleActivator(LogicalKeyboardKey.space): () => player.playOrPause(),
+                      const SingleActivator(LogicalKeyboardKey.keyN): () {
+                        if (widget.streamType == 'series' && _hasNextEpisode) {
+                          _playNextEpisode();
+                        }
+                      },
                       const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
                         final current = player.state.position;
                         final newPosition = current - const Duration(seconds: 10);
@@ -407,77 +861,27 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       ),
                       const MaterialDesktopVolumeButton(),
                       const MaterialDesktopPositionIndicator(),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            widget.title,
-                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
+                      _buildCenterTitle(),
                       MaterialDesktopCustomButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Audio Tracks'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: player.state.tracks.audio.map((t) {
-                                    return ListTile(
-                                      title: Text(t.title ?? t.language ?? t.id),
-                                      selected: player.state.track.audio == t,
-                                      onTap: () {
-                                        player.setAudioTrack(t);
-                                        Navigator.pop(context);
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _showAudioTracksDialog,
                         icon: const Icon(Icons.audiotrack, color: Colors.white),
                       ),
                       MaterialDesktopCustomButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Subtitles'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: () {
-                                    final uniqueTracks = <String, SubtitleTrack>{};
-                                    for (final t in player.state.tracks.subtitle) {
-                                      uniqueTracks.putIfAbsent(t.id, () => t);
-                                    }
-                                    return uniqueTracks.values.map((t) {
-                                      String label = t.title ?? t.language ?? t.id;
-                                      if (t.id == 'no') label = 'Off / Deaktiviert';
-                                      if (t.id == 'auto') label = 'Auto / Automatisch';
-                                      return ListTile(
-                                        title: Text(label),
-                                        selected: player.state.track.subtitle == t,
-                                        onTap: () {
-                                          ref.read(playerServiceProvider).setSubtitleTrack(t);
-                                          Navigator.pop(context);
-                                        },
-                                      );
-                                    }).toList();
-                                  }(),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _showSubtitleTracksDialog,
                         icon: const Icon(Icons.subtitles, color: Colors.white),
                       ),
+                      if (widget.streamType == 'series' && _seasonsWithEpisodes.isNotEmpty)
+                        MaterialDesktopCustomButton(
+                          onPressed: () {
+                            setState(() => _isEpisodeDrawerOpen = !_isEpisodeDrawerOpen);
+                          },
+                          icon: const Icon(Icons.video_library_outlined, color: Colors.white),
+                        ),
+                      if (widget.streamType == 'series' && _hasNextEpisode)
+                        MaterialDesktopCustomButton(
+                          onPressed: () => _playNextEpisode(),
+                          icon: const Icon(Icons.skip_next, color: Colors.white),
+                        ),
                       const MaterialDesktopFullscreenButton(),
                     ],
                   ),
@@ -487,11 +891,20 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     toggleFullscreenOnDoublePress: true,
                     keyboardShortcuts: {
                       const SingleActivator(LogicalKeyboardKey.escape): () {
+                        if (_isEpisodeDrawerOpen) {
+                          setState(() => _isEpisodeDrawerOpen = false);
+                          return;
+                        }
                         if (ModalRoute.of(context)?.isCurrent != true) {
                           Navigator.of(context, rootNavigator: true).maybePop();
                         }
                       },
                       const SingleActivator(LogicalKeyboardKey.space): () => player.playOrPause(),
+                      const SingleActivator(LogicalKeyboardKey.keyN): () {
+                        if (widget.streamType == 'series' && _hasNextEpisode) {
+                          _playNextEpisode();
+                        }
+                      },
                       const SingleActivator(LogicalKeyboardKey.arrowLeft): () {
                         final current = player.state.position;
                         final newPosition = current - const Duration(seconds: 10);
@@ -536,77 +949,27 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       ),
                       const MaterialDesktopVolumeButton(),
                       const MaterialDesktopPositionIndicator(),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            widget.title,
-                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
+                      _buildCenterTitle(),
                       MaterialDesktopCustomButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Audio Tracks'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: player.state.tracks.audio.map((t) {
-                                    return ListTile(
-                                      title: Text(t.title ?? t.language ?? t.id),
-                                      selected: player.state.track.audio == t,
-                                      onTap: () {
-                                        player.setAudioTrack(t);
-                                        Navigator.pop(context);
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _showAudioTracksDialog,
                         icon: const Icon(Icons.audiotrack, color: Colors.white),
                       ),
                       MaterialDesktopCustomButton(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Subtitles'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: () {
-                                    final uniqueTracks = <String, SubtitleTrack>{};
-                                    for (final t in player.state.tracks.subtitle) {
-                                      uniqueTracks.putIfAbsent(t.id, () => t);
-                                    }
-                                    return uniqueTracks.values.map((t) {
-                                      String label = t.title ?? t.language ?? t.id;
-                                      if (t.id == 'no') label = 'Off / Deaktiviert';
-                                      if (t.id == 'auto') label = 'Auto / Automatisch';
-                                      return ListTile(
-                                        title: Text(label),
-                                        selected: player.state.track.subtitle == t,
-                                        onTap: () {
-                                          ref.read(playerServiceProvider).setSubtitleTrack(t);
-                                          Navigator.pop(context);
-                                        },
-                                      );
-                                    }).toList();
-                                  }(),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _showSubtitleTracksDialog,
                         icon: const Icon(Icons.subtitles, color: Colors.white),
                       ),
+                      if (widget.streamType == 'series' && _seasonsWithEpisodes.isNotEmpty)
+                        MaterialDesktopCustomButton(
+                          onPressed: () {
+                            setState(() => _isEpisodeDrawerOpen = !_isEpisodeDrawerOpen);
+                          },
+                          icon: const Icon(Icons.video_library_outlined, color: Colors.white),
+                        ),
+                      if (widget.streamType == 'series' && _hasNextEpisode)
+                        MaterialDesktopCustomButton(
+                          onPressed: () => _playNextEpisode(),
+                          icon: const Icon(Icons.skip_next, color: Colors.white),
+                        ),
                       if (Platform.isAndroid || Platform.isIOS)
                         MaterialDesktopCustomButton(
                           onPressed: _cycleFit,
@@ -627,28 +990,30 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                               controller: controller,
                               fit: _fit,
                               controls: (state) => _VodControls(
+                                key: ValueKey(_currentStreamId),
                                 videoState: state,
                                 onMinimize: _handleMinimize,
+                                isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
+                                onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
                               ),
                               subtitleViewConfiguration: const SubtitleViewConfiguration(
                                 visible: true,
                                 style: TextStyle(
                                   height: 1.3,
-                                  fontSize: 28.0,
+                                  fontSize: 26.0,
                                   letterSpacing: 0.2,
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
-                                  backgroundColor: Color(0xb3000000),
                                   shadows: [
-                                    Shadow(
-                                      offset: Offset(0, 1.5),
-                                      blurRadius: 3.0,
-                                      color: Colors.black,
-                                    ),
+                                    Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                                    Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                                    Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                                    Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                                    Shadow(offset: Offset(0, 2.0), color: Colors.black87, blurRadius: 4.0),
                                   ],
                                 ),
                                 textAlign: TextAlign.center,
-                                padding: EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 48.0),
+                                padding: EdgeInsets.fromLTRB(32.0, 0.0, 32.0, 36.0),
                               ),
                             ),
                           )
@@ -656,28 +1021,30 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                             controller: controller,
                             fit: _fit,
                             controls: (state) => _VodControls(
+                              key: ValueKey(_currentStreamId),
                               videoState: state,
                               onMinimize: _handleMinimize,
+                              isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
+                              onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
                             ),
                             subtitleViewConfiguration: const SubtitleViewConfiguration(
                               visible: true,
                               style: TextStyle(
                                 height: 1.3,
-                                fontSize: 28.0,
+                                fontSize: 26.0,
                                 letterSpacing: 0.2,
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
-                                backgroundColor: Color(0xb3000000),
                                 shadows: [
-                                  Shadow(
-                                    offset: Offset(0, 1.5),
-                                    blurRadius: 3.0,
-                                    color: Colors.black,
-                                  ),
+                                  Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                                  Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                                  Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                                  Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                                  Shadow(offset: Offset(0, 2.0), color: Colors.black87, blurRadius: 4.0),
                                 ],
                               ),
                               textAlign: TextAlign.center,
-                              padding: EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 48.0),
+                              padding: EdgeInsets.fromLTRB(32.0, 0.0, 32.0, 36.0),
                             ),
                           ),
                   ),
@@ -700,6 +1067,37 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     ),
                   ),
                 ),
+
+                // In-Player Episode Drawer backdrop & drawer
+                if (widget.streamType == 'series' && _isEpisodeDrawerOpen)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _isEpisodeDrawerOpen = false),
+                      child: const ColoredBox(color: Colors.black38),
+                    ),
+                  ),
+                if (widget.streamType == 'series' && _seasonsWithEpisodes.isNotEmpty)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    left: _isEpisodeDrawerOpen ? 0 : -440,
+                    top: 0,
+                    bottom: 0,
+                    child: InPlayerEpisodeDrawer(
+                      seriesName: _currentSeriesName ?? widget.seriesName ?? _extractSeriesName(widget.title),
+                      seasonsWithEpisodes: _seasonsWithEpisodes,
+                      currentEpisodeId: _currentStreamId ?? '',
+                      currentSeason: _currentSeason,
+                      episodeProgress: _episodeProgress,
+                      isOpen: _isEpisodeDrawerOpen,
+                      onSelectEpisode: (ep) {
+                        setState(() => _isEpisodeDrawerOpen = false);
+                        _switchEpisode(ep);
+                      },
+                      onClose: () => setState(() => _isEpisodeDrawerOpen = false),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -712,10 +1110,15 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 class _VodControls extends StatefulWidget {
   final VideoState videoState;
   final VoidCallback? onMinimize;
+  final bool isEpisodeDrawerOpen;
+  final VoidCallback? onCloseDrawer;
 
   const _VodControls({
+    super.key,
     required this.videoState,
     this.onMinimize,
+    this.isEpisodeDrawerOpen = false,
+    this.onCloseDrawer,
   });
 
   @override
@@ -826,6 +1229,10 @@ class _VodControlsState extends State<_VodControls> {
             return KeyEventResult.handled;
           }
           if (event.logicalKey == LogicalKeyboardKey.escape) {
+            if (widget.isEpisodeDrawerOpen) {
+              widget.onCloseDrawer?.call();
+              return KeyEventResult.handled;
+            }
             if (isFullscreen(context)) {
               toggleFullscreen(context);
               return KeyEventResult.handled;

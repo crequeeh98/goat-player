@@ -275,4 +275,53 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get done => 'Fertig';
+
+  @override
+  String get playbackPreferences => 'Wiedergabe- & Spracheinstellungen';
+
+  @override
+  String get preferredAudioLanguage => 'Bevorzugte Audiosprache';
+
+  @override
+  String get preferredSubtitleLanguage => 'Bevorzugte Untertitel';
+
+  @override
+  String get playbackPreferencesHint =>
+      'Wird bei Filmen und Serien automatisch angewendet, sofern verfügbar. Manuelle Track-Änderungen während der Wiedergabe werden pro Titel gespeichert.';
+
+  @override
+  String get audioTrackDialogTitle => 'Audiospuren';
+
+  @override
+  String get subtitlesDialogTitle => 'Untertitel';
+
+  @override
+  String get langGerman => 'Deutsch';
+
+  @override
+  String get langEnglish => 'Englisch';
+
+  @override
+  String get langFrench => 'Französisch';
+
+  @override
+  String get langSpanish => 'Spanisch';
+
+  @override
+  String get langItalian => 'Italienisch';
+
+  @override
+  String get langTurkish => 'Türkisch';
+
+  @override
+  String get langRussian => 'Russisch';
+
+  @override
+  String get langArabic => 'Arabisch';
+
+  @override
+  String get langDefault => 'Original / Standard';
+
+  @override
+  String get subtitlesOff => 'Aus';
 }
