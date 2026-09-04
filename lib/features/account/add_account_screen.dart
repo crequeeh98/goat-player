@@ -32,7 +32,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   PairingSession? _session;
   bool _isLoadingSession = false;
   String? _sessionError;
-  StreamSubscription<Account>? _remoteSubscription;
+  StreamSubscription<RemoteSyncEvent>? _remoteSubscription;
   Timer? _countdownTimer;
   Duration _remainingTime = Duration.zero;
   bool _playlistReceived = false;
