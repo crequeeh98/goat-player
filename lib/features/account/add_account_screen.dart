@@ -49,6 +49,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   }
 
   void _onModeChanged(AddAccountMode mode) {
+    if (_selectedMode == AddAccountMode.remote && mode == AddAccountMode.manual && _session != null) {
+      ref.read(remoteSyncServiceProvider).closePairingSession(_session!.deviceId);
+    }
     setState(() => _selectedMode = mode);
     if (mode == AddAccountMode.remote && _session == null) {
       _initRemoteSession();
@@ -180,6 +183,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 
   @override
   void dispose() {
+    if (_session != null) {
+      ref.read(remoteSyncServiceProvider).closePairingSession(_session!.deviceId);
+    }
     _remoteSubscription?.cancel();
     _countdownTimer?.cancel();
     _playlistNameController.dispose();

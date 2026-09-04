@@ -147,6 +147,20 @@ class RemoteSyncService {
     }
   }
 
+  /// Closes the pairing session in Supabase so the web portal immediately detects disconnection
+  Future<void> closePairingSession(String deviceId) async {
+    try {
+      await _client.from('remote_devices').update({
+        'status': 'disconnected',
+        'sync_action': null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('device_id', deviceId);
+      debugPrint('Pairing session closed for device $deviceId');
+    } catch (e) {
+      debugPrint('Error closing pairing session in Supabase: $e');
+    }
+  }
+
   /// Creates a new pairing session with a random 6-digit PIN valid for 20 minutes
   /// and syncs current device playlists to Supabase.
   Future<PairingSession> startPairingSession() async {

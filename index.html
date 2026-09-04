@@ -203,20 +203,39 @@
       gap: 6px;
       font-size: 12px;
       font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .badge-status.connected {
       color: var(--success);
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 4px 10px;
-      border-radius: 20px;
     }
 
-    .badge-status::before {
+    .badge-status.connected::before {
       content: '';
       width: 6px;
       height: 6px;
       background: var(--success);
       border-radius: 50%;
       box-shadow: 0 0 8px var(--success);
+    }
+
+    .badge-status.disconnected {
+      color: #F59E0B;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .badge-status.disconnected::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: #F59E0B;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #F59E0B;
     }
 
     .btn-disconnect {
@@ -235,6 +254,57 @@
       background: rgba(239, 68, 68, 0.2);
       color: var(--danger);
       border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .disconnected-banner {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .disconnected-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .disconnected-content {
+      flex: 1;
+    }
+
+    .disconnected-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #FCD34D;
+      margin-bottom: 2px;
+    }
+
+    .disconnected-desc {
+      font-size: 11px;
+      color: #D1D5DB;
+      line-height: 1.4;
+    }
+
+    .btn-reconnect {
+      background: #F59E0B;
+      color: #111827;
+      border: none;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .btn-reconnect:hover {
+      background: #D97706;
     }
 
     .form-group {
@@ -634,7 +704,9 @@
           <span class="device-val" id="deviceDisplay">---</span>
         </div>
         <div class="device-actions">
-          <div class="badge-status" data-i18n="connected">Connected</div>
+          <div class="badge-status connected" id="deviceStatusBadge">
+            <span id="deviceStatusText" data-i18n="connected">Connected</span>
+          </div>
           <button class="btn-disconnect" onclick="disconnectDevice()" data-i18n="disconnect">Disconnect</button>
         </div>
       </div>
@@ -663,6 +735,16 @@
 
       <!-- State 2: Playlist Manager Section (Shown once paired) -->
       <div id="playlistManagerSection" style="display: none;">
+        <!-- Disconnected Warning Banner -->
+        <div class="disconnected-banner" id="disconnectedBanner" style="display: none;">
+          <div class="disconnected-icon">⚠️</div>
+          <div class="disconnected-content">
+            <div class="disconnected-title" data-i18n="disconnectedTitle">TV Disconnected</div>
+            <div class="disconnected-desc" data-i18n="disconnectedDesc">The pairing session on your TV has ended. Reopen the Web / QR code screen on your TV to make further changes.</div>
+          </div>
+          <button type="button" class="btn-reconnect" onclick="disconnectDevice()" data-i18n="btnReconnect">Reconnect</button>
+        </div>
+
         <div class="playlists-header">
           <h3 class="section-title" data-i18n="playlistsTitle">Playlists on Device</h3>
           <span id="playlistCount" style="font-size: 12px; color: var(--primary); font-weight: 700;"></span>
@@ -789,6 +871,7 @@
     let editingPlaylistId = null;
     let deletingPlaylistId = null;
     let realtimeChannel = null;
+    let isDeviceConnected = false;
 
     // Translations Dictionary
     const i18n = {
@@ -835,7 +918,12 @@
         enterBoth: "Please enter both Device ID and 6-digit PIN.",
         playlistSentSuccess: "Playlist sent! GOATPlayer is now syncing.",
         playlistUpdatedSuccess: "Playlist updated on GOATPlayer!",
-        playlistDeletedSuccess: "Playlist removed from GOATPlayer."
+        playlistDeletedSuccess: "Playlist removed from GOATPlayer.",
+        disconnected: "Disconnected",
+        disconnectedTitle: "TV Disconnected",
+        disconnectedDesc: "The session on your TV has ended. Reopen the Web / QR code screen on your TV to reconnect.",
+        btnReconnect: "Reconnect",
+        deviceDisconnectedToast: "Device is disconnected. Please reopen the Web / QR screen on your TV."
       },
       de: {
         tagline: "Playlists verwalten & an deinen Fernseher senden",
@@ -880,7 +968,12 @@
         enterBoth: "Bitte gib sowohl die Geräte-ID als auch den 6-stelligen PIN ein.",
         playlistSentSuccess: "Playlist gesendet! GOATPlayer lädt deine Sender.",
         playlistUpdatedSuccess: "Playlist auf dem Gerät aktualisiert!",
-        playlistDeletedSuccess: "Playlist von GOATPlayer entfernt."
+        playlistDeletedSuccess: "Playlist von GOATPlayer entfernt.",
+        disconnected: "Getrennt",
+        disconnectedTitle: "TV getrennt",
+        disconnectedDesc: "Die Verbindung am TV wurde beendet. Öffne den Web / QR-Code am TV erneut, um dich zu verbinden.",
+        btnReconnect: "Neu verbinden",
+        deviceDisconnectedToast: "Gerät ist getrennt. Bitte öffne den Web / QR-Code am TV erneut."
       }
     };
 
@@ -1104,6 +1197,13 @@
           return false;
         }
 
+        if (data.status === 'disconnected') {
+          showToast(t('pinExpired'));
+          btn.disabled = false;
+          btn.innerText = t('btnConnect');
+          return false;
+        }
+
         if (new Date(data.pin_expires_at) < new Date()) {
           showToast(t('pinExpired'));
           btn.disabled = false;
@@ -1118,6 +1218,8 @@
         document.getElementById('deviceBanner').style.display = 'flex';
         document.getElementById('manualPairingSection').style.display = 'none';
         document.getElementById('playlistManagerSection').style.display = 'block';
+
+        setDeviceConnectedState(true);
 
         // Extract and deduplicate playlists
         if (data.playlists && Array.isArray(data.playlists)) {
@@ -1145,6 +1247,32 @@
       }
     }
 
+    function setDeviceConnectedState(connected) {
+      isDeviceConnected = connected;
+      const badge = document.getElementById('deviceStatusBadge');
+      const badgeText = document.getElementById('deviceStatusText');
+      const banner = document.getElementById('disconnectedBanner');
+      const btnAdd = document.getElementById('btnOpenAddModal');
+
+      if (badge && badgeText) {
+        if (connected) {
+          badge.className = 'badge-status connected';
+          badgeText.innerText = t('connected');
+        } else {
+          badge.className = 'badge-status disconnected';
+          badgeText.innerText = t('disconnected');
+        }
+      }
+
+      if (banner) {
+        banner.style.display = connected ? 'none' : 'flex';
+      }
+
+      if (btnAdd) {
+        btnAdd.style.opacity = connected ? '1' : '0.65';
+      }
+    }
+
     function subscribeToDeviceChanges(deviceId) {
       if (realtimeChannel) {
         supabaseClient.removeChannel(realtimeChannel);
@@ -1159,9 +1287,17 @@
           filter: `device_id=eq.${deviceId}`
         }, (payload) => {
           const newRecord = payload.new;
-          if (newRecord && newRecord.playlists && Array.isArray(newRecord.playlists)) {
-            activePlaylists = deduplicatePlaylists(newRecord.playlists);
-            renderPlaylists();
+          if (newRecord) {
+            if (newRecord.status === 'disconnected') {
+              setDeviceConnectedState(false);
+              return;
+            } else {
+              setDeviceConnectedState(true);
+            }
+            if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
+              activePlaylists = deduplicatePlaylists(newRecord.playlists);
+              renderPlaylists();
+            }
           }
         })
         .subscribe();
@@ -1174,6 +1310,7 @@
       activeDeviceId = '';
       activePin = '';
       activePlaylists = [];
+      isDeviceConnected = false;
       document.getElementById('deviceBanner').style.display = 'none';
       document.getElementById('playlistManagerSection').style.display = 'none';
       document.getElementById('manualPairingSection').style.display = 'block';
@@ -1185,6 +1322,10 @@
 
     // Modal Control
     function openPlaylistModal(mode, id = null) {
+      if (!isDeviceConnected) {
+        showToast(t('deviceDisconnectedToast'));
+        return;
+      }
       currentModalMode = mode;
       editingPlaylistId = id;
       const modal = document.getElementById('playlistModal');
@@ -1228,6 +1369,12 @@
     document.getElementById('playlistForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('btnSubmitModal');
+
+      if (!isDeviceConnected) {
+        showToast(t('deviceDisconnectedToast'));
+        return;
+      }
+
       btn.disabled = true;
 
       let serverUrl = '';
@@ -1350,6 +1497,10 @@
 
     // Delete Playlist
     function confirmDeletePlaylist(id) {
+      if (!isDeviceConnected) {
+        showToast(t('deviceDisconnectedToast'));
+        return;
+      }
       deletingPlaylistId = id;
       document.getElementById('deleteModal').style.display = 'flex';
     }
