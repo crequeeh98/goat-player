@@ -28,7 +28,7 @@ class RemoteSyncService {
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGVweXp0YmN4Y3V4Ymdqd3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MzcwNTcsImV4cCI6MjEwNDExMzA1N30.DGTV-_uwmmo4CN7CBZuqR1rqkh121GF2BqgNEvGj2LA';
 
-  static const String defaultPortalUrl = 'https://goatplayer.vercel.app';
+  static const String defaultPortalUrl = 'https://goat-player.vercel.app';
   static const String _deviceIdPrefKey = 'remote_device_id';
 
   final AccountDao _accountDao;
