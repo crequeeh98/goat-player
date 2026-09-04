@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../core/database/app_database.dart';
@@ -9,7 +10,14 @@ import '../vod_movies/movie_detail_modal.dart';
 import '../vod_series/series_detail_modal.dart';
 
 class MasterSearchModal extends ConsumerStatefulWidget {
-  const MasterSearchModal({super.key});
+  final VoidCallback? onClose;
+  final ValueChanged<int>? onSelectTab;
+
+  const MasterSearchModal({
+    super.key,
+    this.onClose,
+    this.onSelectTab,
+  });
 
   @override
   ConsumerState<MasterSearchModal> createState() => _MasterSearchModalState();
@@ -33,57 +41,84 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
     super.dispose();
   }
 
+  void _handleBack() {
+    if (widget.onClose != null) {
+      widget.onClose!();
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: '${AppLocalizations.of(context)!.search}...',
-            border: InputBorder.none,
-            hintStyle: const TextStyle(color: Colors.white54),
-            suffixIcon: _query.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.white70),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _query = '');
-                    },
-                  ),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): _handleBack,
+      },
+      child: FocusScope(
+        child: PopScope(
+          canPop: widget.onClose == null,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop && widget.onClose != null) {
+              widget.onClose!();
+            }
+          },
+          child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _handleBack,
           ),
-          onChanged: (val) => setState(() => _query = val),
+          title: TextField(
+            controller: _searchController,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: '${AppLocalizations.of(context)!.search}...',
+              border: InputBorder.none,
+              hintStyle: const TextStyle(color: Colors.white54),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.cancel, color: Colors.white70),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+            ),
+            onChanged: (val) => setState(() => _query = val),
+          ),
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: [
+              Tab(text: AppLocalizations.of(context)!.liveTv),
+              Tab(text: AppLocalizations.of(context)!.movies),
+              Tab(text: AppLocalizations.of(context)!.series),
+            ],
+          ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: AppLocalizations.of(context)!.liveTv),
-            Tab(text: AppLocalizations.of(context)!.movies),
-            Tab(text: AppLocalizations.of(context)!.series),
-          ],
-        ),
-      ),
-      body: _query.trim().isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+        body: _query.trim().isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.search, size: 64, color: Colors.white24),
+                    const SizedBox(height: 16),
+                    Text(AppLocalizations.of(context)!.typeToSearch, style: const TextStyle(color: Colors.white54)),
+                  ],
+                ),
+              )
+            : TabBarView(
+                controller: _tabController,
                 children: [
-                  const Icon(Icons.search, size: 64, color: Colors.white24),
-                  const SizedBox(height: 16),
-                  Text(AppLocalizations.of(context)!.typeToSearch, style: const TextStyle(color: Colors.white54)),
+                  _buildResultsList(liveTvSearchProvider(_query.trim()), 'live'),
+                  _buildResultsList(vodSearchProvider(_query.trim()), 'movie'),
+                  _buildResultsList(seriesSearchProvider(_query.trim()), 'series'),
                 ],
               ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildResultsList(liveTvSearchProvider(_query.trim()), 'live'),
-                _buildResultsList(vodSearchProvider(_query.trim()), 'movie'),
-                _buildResultsList(seriesSearchProvider(_query.trim()), 'series'),
-              ],
-            ),
+      ),
+        ),
+      ),
     );
   }
 
@@ -105,6 +140,7 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
         }
         
         return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 120),
           itemCount: streams.length,
           itemBuilder: (context, index) {
             final stream = streams[index];
@@ -155,7 +191,11 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                 } else if (type == 'live') {
                   ref.read(selectedLiveCategoryProvider.notifier).set(stream.categoryId);
                   ref.read(selectedLiveStreamProvider.notifier).set(stream);
-                  Navigator.pop(context, 0); // pop MasterSearchModal and switch to Live TV tab
+                  if (widget.onSelectTab != null) {
+                    widget.onSelectTab!(0);
+                  } else {
+                    Navigator.pop(context, 0); // pop MasterSearchModal and switch to Live TV tab
+                  }
                 }
               },
             );

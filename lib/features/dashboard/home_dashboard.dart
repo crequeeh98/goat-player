@@ -29,6 +29,29 @@ class HomeDashboard extends ConsumerStatefulWidget {
 
 class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   int _selectedIndex = 0;
+  bool _isSearchOpen = false;
+  bool _wasLiveExpandedBeforeSearch = false;
+
+  void _openSearch() async {
+    final active = ref.read(playbackControllerProvider);
+    _wasLiveExpandedBeforeSearch = active != null && active.streamType == StreamType.live && !active.isMinimized;
+    if (_wasLiveExpandedBeforeSearch) {
+      ref.read(playbackControllerProvider.notifier).minimize();
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    setState(() => _isSearchOpen = true);
+  }
+
+  void _closeSearch() async {
+    setState(() => _isSearchOpen = false);
+    if (_wasLiveExpandedBeforeSearch && _selectedIndex == 0) {
+      _wasLiveExpandedBeforeSearch = false;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      ref.read(playbackControllerProvider.notifier).expand();
+    }
+  }
 
   @override
   void initState() {
@@ -44,7 +67,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   Widget build(BuildContext context) {
     final isLiveFullWidth = ref.watch(isLiveFullWidthProvider);
-    final hideChrome = isLiveFullWidth && _selectedIndex == 0;
+    final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
     
     return Scaffold(
       appBar: hideChrome ? null : AppBar(
@@ -69,18 +92,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: AppLocalizations.of(context)!.search,
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MasterSearchModal(),
-                  fullscreenDialog: true,
-                ),
-              );
-              if (result != null && result is int) {
-                setState(() => _selectedIndex = result);
-              }
-            },
+            onPressed: _openSearch,
           ),
           Consumer(
             builder: (context, ref, child) {
@@ -220,8 +232,26 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               }
             },
           ),
+          if (_isSearchOpen)
+            Positioned.fill(
+              child: MasterSearchModal(
+                onClose: _closeSearch,
+                onSelectTab: (idx) {
+                  _wasLiveExpandedBeforeSearch = false;
+                  setState(() {
+                    _isSearchOpen = false;
+                    _selectedIndex = idx;
+                  });
+                },
+              ),
+            ),
           FloatingMiniPlayer(
             onExpandLiveDesktop: () {
+              if (_isSearchOpen) {
+                _wasLiveExpandedBeforeSearch = false;
+                setState(() => _isSearchOpen = false);
+              }
+              ref.read(playbackControllerProvider.notifier).expand();
               setState(() => _selectedIndex = 0);
               ref.read(isLiveFullWidthProvider.notifier).set(true);
             },

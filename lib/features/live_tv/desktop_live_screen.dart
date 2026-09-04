@@ -89,14 +89,17 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   Widget build(BuildContext context) {
     final _isFullWidth = ref.watch(isLiveFullWidthProvider);
     final activePlayback = ref.watch(playbackControllerProvider);
-    final currentLive = (activePlayback != null && activePlayback.streamType == StreamType.live) ? activePlayback : null;
+    final isLiveActive = activePlayback != null &&
+        activePlayback.streamType == StreamType.live &&
+        !activePlayback.isMinimized;
+    final currentLive = isLiveActive ? activePlayback : null;
 
     final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
     final globalSelectedCat = ref.watch(selectedLiveCategoryProvider);
 
     // If _selectedCategory is not set locally (e.g. after minimizing and expanding),
     // restore it from the active playing stream, global provider, or first category
-    _selectedCategory ??= currentLive?.categoryId ?? globalSelectedCat ?? categories.firstOrNull?.categoryId;
+    _selectedCategory ??= activePlayback?.categoryId ?? globalSelectedCat ?? categories.firstOrNull?.categoryId;
 
     final currentCategoryStreams = _selectedCategory != null
         ? (ref.watch(liveStreamsProvider(_selectedCategory!)).asData?.value ?? const <StreamItem>[])
