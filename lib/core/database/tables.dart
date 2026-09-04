@@ -33,6 +33,7 @@ class Streams extends Table {
   TextColumn get streamType => text()(); // 'live', 'movie', 'series'
   TextColumn get streamIcon => text().nullable()();
   TextColumn get url => text().nullable()(); // Built from server_url/type/username/password/streamId
+  IntColumn get added => integer().nullable()(); // Unix timestamp from API (for VOD sorting)
 }
 
 @DataClassName('EpgProgram')

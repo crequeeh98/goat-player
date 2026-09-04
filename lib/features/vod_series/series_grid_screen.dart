@@ -105,6 +105,15 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                       streams = List.from(streams)..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
                     } else if (_sortMode == 'desc') {
                       streams = List.from(streams)..sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+                    } else if (_sortMode == 'default') {
+                      streams = List.from(streams)..sort((a, b) {
+                        final aAdded = a.added ?? 0;
+                        final bAdded = b.added ?? 0;
+                        if (aAdded != bAdded) {
+                          return bAdded.compareTo(aAdded); // Newest added first
+                        }
+                        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+                      });
                     }
 
                     if (streams.isEmpty) {

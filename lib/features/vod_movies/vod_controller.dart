@@ -97,6 +97,7 @@ class VodController {
       final dao = _ref.read(streamDaoProvider);
       
       final companions = rawStreams.map((s) {
+        final added = _parseAdded(s['added']);
         return StreamsCompanion.insert(
           accountId: account.id,
           streamId: s['stream_id'].toString(),
@@ -104,6 +105,7 @@ class VodController {
           streamType: 'movie',
           categoryId: categoryId,
           streamIcon: s['stream_icon'] != null ? Value(s['stream_icon'].toString()) : const Value.absent(),
+          added: added != null ? Value(added) : const Value.absent(),
         );
       }).toList();
       
@@ -136,11 +138,24 @@ class VodController {
   }
 }
 
+int? _parseAdded(dynamic val) {
+  if (val == null) return null;
+  if (val is int) return val;
+  if (val is String) {
+    final parsedInt = int.tryParse(val);
+    if (parsedInt != null) return parsedInt;
+    final parsedDate = DateTime.tryParse(val);
+    if (parsedDate != null) return parsedDate.millisecondsSinceEpoch ~/ 1000;
+  }
+  return null;
+}
+
 // Top-level function for compute
 List<StreamsCompanion> _mapVodStreams(Map<String, dynamic> data) {
   final int accountId = data['accountId'];
   final List<dynamic> rawStreams = data['streams'];
   return rawStreams.map((s) {
+    final added = _parseAdded(s['added']);
     return StreamsCompanion.insert(
       accountId: accountId,
       streamId: s['stream_id']?.toString() ?? 'unknown',
@@ -150,6 +165,7 @@ List<StreamsCompanion> _mapVodStreams(Map<String, dynamic> data) {
       streamIcon: s['stream_icon'] != null && s['stream_icon'].toString().isNotEmpty 
           ? Value(s['stream_icon'].toString()) 
           : const Value.absent(),
+      added: added != null ? Value(added) : const Value.absent(),
     );
   }).toList();
 }

@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -43,6 +43,10 @@ class AppDatabase extends _$AppDatabase {
             await customStatement('DROP TABLE IF EXISTS favorites;');
             await m.createTable(favorites);
           }
+          if (from < 6) {
+            await m.addColumn(streams, streams.added);
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_added ON streams(account_id, category_id, added);');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA journal_mode = WAL;');
@@ -52,6 +56,7 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('CREATE INDEX IF NOT EXISTS idx_categories_account_type ON categories(account_id, type);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_cat ON streams(account_id, category_id);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_type ON streams(account_id, stream_type);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_added ON streams(account_id, category_id, added);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_epg_channel_time ON epg_programs(account_id, channel_id, start_time, stop_time);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_favorites_lookup ON favorites(account_id, stream_id, stream_type);');
         },

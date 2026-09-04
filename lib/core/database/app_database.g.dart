@@ -1018,6 +1018,15 @@ class $StreamsTable extends Streams with TableInfo<$StreamsTable, StreamItem> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _addedMeta = const VerificationMeta('added');
+  @override
+  late final GeneratedColumn<int> added = GeneratedColumn<int>(
+    'added',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1029,6 +1038,7 @@ class $StreamsTable extends Streams with TableInfo<$StreamsTable, StreamItem> {
     streamType,
     streamIcon,
     url,
+    added,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1106,6 +1116,12 @@ class $StreamsTable extends Streams with TableInfo<$StreamsTable, StreamItem> {
         url.isAcceptableOrUnknown(data['url']!, _urlMeta),
       );
     }
+    if (data.containsKey('added')) {
+      context.handle(
+        _addedMeta,
+        added.isAcceptableOrUnknown(data['added']!, _addedMeta),
+      );
+    }
     return context;
   }
 
@@ -1151,6 +1167,10 @@ class $StreamsTable extends Streams with TableInfo<$StreamsTable, StreamItem> {
         DriftSqlType.string,
         data['${effectivePrefix}url'],
       ),
+      added: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}added'],
+      ),
     );
   }
 
@@ -1170,6 +1190,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
   final String streamType;
   final String? streamIcon;
   final String? url;
+  final int? added;
   const StreamItem({
     required this.id,
     required this.accountId,
@@ -1180,6 +1201,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
     required this.streamType,
     this.streamIcon,
     this.url,
+    this.added,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1199,6 +1221,9 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
     if (!nullToAbsent || url != null) {
       map['url'] = Variable<String>(url);
     }
+    if (!nullToAbsent || added != null) {
+      map['added'] = Variable<int>(added);
+    }
     return map;
   }
 
@@ -1217,6 +1242,9 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
           ? const Value.absent()
           : Value(streamIcon),
       url: url == null && nullToAbsent ? const Value.absent() : Value(url),
+      added: added == null && nullToAbsent
+          ? const Value.absent()
+          : Value(added),
     );
   }
 
@@ -1235,6 +1263,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
       streamType: serializer.fromJson<String>(json['streamType']),
       streamIcon: serializer.fromJson<String?>(json['streamIcon']),
       url: serializer.fromJson<String?>(json['url']),
+      added: serializer.fromJson<int?>(json['added']),
     );
   }
   @override
@@ -1250,6 +1279,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
       'streamType': serializer.toJson<String>(streamType),
       'streamIcon': serializer.toJson<String?>(streamIcon),
       'url': serializer.toJson<String?>(url),
+      'added': serializer.toJson<int?>(added),
     };
   }
 
@@ -1263,6 +1293,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
     String? streamType,
     Value<String?> streamIcon = const Value.absent(),
     Value<String?> url = const Value.absent(),
+    Value<int?> added = const Value.absent(),
   }) => StreamItem(
     id: id ?? this.id,
     accountId: accountId ?? this.accountId,
@@ -1273,6 +1304,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
     streamType: streamType ?? this.streamType,
     streamIcon: streamIcon.present ? streamIcon.value : this.streamIcon,
     url: url.present ? url.value : this.url,
+    added: added.present ? added.value : this.added,
   );
   StreamItem copyWithCompanion(StreamsCompanion data) {
     return StreamItem(
@@ -1293,6 +1325,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
           ? data.streamIcon.value
           : this.streamIcon,
       url: data.url.present ? data.url.value : this.url,
+      added: data.added.present ? data.added.value : this.added,
     );
   }
 
@@ -1307,7 +1340,8 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
           ..write('name: $name, ')
           ..write('streamType: $streamType, ')
           ..write('streamIcon: $streamIcon, ')
-          ..write('url: $url')
+          ..write('url: $url, ')
+          ..write('added: $added')
           ..write(')'))
         .toString();
   }
@@ -1323,6 +1357,7 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
     streamType,
     streamIcon,
     url,
+    added,
   );
   @override
   bool operator ==(Object other) =>
@@ -1336,7 +1371,8 @@ class StreamItem extends DataClass implements Insertable<StreamItem> {
           other.name == this.name &&
           other.streamType == this.streamType &&
           other.streamIcon == this.streamIcon &&
-          other.url == this.url);
+          other.url == this.url &&
+          other.added == this.added);
 }
 
 class StreamsCompanion extends UpdateCompanion<StreamItem> {
@@ -1349,6 +1385,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
   final Value<String> streamType;
   final Value<String?> streamIcon;
   final Value<String?> url;
+  final Value<int?> added;
   const StreamsCompanion({
     this.id = const Value.absent(),
     this.accountId = const Value.absent(),
@@ -1359,6 +1396,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
     this.streamType = const Value.absent(),
     this.streamIcon = const Value.absent(),
     this.url = const Value.absent(),
+    this.added = const Value.absent(),
   });
   StreamsCompanion.insert({
     this.id = const Value.absent(),
@@ -1370,6 +1408,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
     required String streamType,
     this.streamIcon = const Value.absent(),
     this.url = const Value.absent(),
+    this.added = const Value.absent(),
   }) : accountId = Value(accountId),
        categoryId = Value(categoryId),
        streamId = Value(streamId),
@@ -1385,6 +1424,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
     Expression<String>? streamType,
     Expression<String>? streamIcon,
     Expression<String>? url,
+    Expression<int>? added,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1396,6 +1436,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
       if (streamType != null) 'stream_type': streamType,
       if (streamIcon != null) 'stream_icon': streamIcon,
       if (url != null) 'url': url,
+      if (added != null) 'added': added,
     });
   }
 
@@ -1409,6 +1450,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
     Value<String>? streamType,
     Value<String?>? streamIcon,
     Value<String?>? url,
+    Value<int?>? added,
   }) {
     return StreamsCompanion(
       id: id ?? this.id,
@@ -1420,6 +1462,7 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
       streamType: streamType ?? this.streamType,
       streamIcon: streamIcon ?? this.streamIcon,
       url: url ?? this.url,
+      added: added ?? this.added,
     );
   }
 
@@ -1453,6 +1496,9 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
     if (url.present) {
       map['url'] = Variable<String>(url.value);
     }
+    if (added.present) {
+      map['added'] = Variable<int>(added.value);
+    }
     return map;
   }
 
@@ -1467,7 +1513,8 @@ class StreamsCompanion extends UpdateCompanion<StreamItem> {
           ..write('name: $name, ')
           ..write('streamType: $streamType, ')
           ..write('streamIcon: $streamIcon, ')
-          ..write('url: $url')
+          ..write('url: $url, ')
+          ..write('added: $added')
           ..write(')'))
         .toString();
   }
@@ -3827,6 +3874,7 @@ typedef $$StreamsTableCreateCompanionBuilder = StreamsCompanion Function({
   required String streamType,
   Value<String?> streamIcon,
   Value<String?> url,
+  Value<int?> added,
 });
 typedef $$StreamsTableUpdateCompanionBuilder = StreamsCompanion Function({
   Value<int> id,
@@ -3838,6 +3886,7 @@ typedef $$StreamsTableUpdateCompanionBuilder = StreamsCompanion Function({
   Value<String> streamType,
   Value<String?> streamIcon,
   Value<String?> url,
+  Value<int?> added,
 });
 
 final class $$StreamsTableReferences
@@ -3908,6 +3957,11 @@ class $$StreamsTableFilterComposer
 
   ColumnFilters<String> get url => $composableBuilder(
     column: $table.url,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get added => $composableBuilder(
+    column: $table.added,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3984,6 +4038,11 @@ class $$StreamsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get added => $composableBuilder(
+    column: $table.added,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AccountsTableOrderingComposer get accountId {
     final $$AccountsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4049,6 +4108,9 @@ class $$StreamsTableAnnotationComposer
   GeneratedColumn<String> get url =>
       $composableBuilder(column: $table.url, builder: (column) => column);
 
+  GeneratedColumn<int> get added =>
+      $composableBuilder(column: $table.added, builder: (column) => column);
+
   $$AccountsTableAnnotationComposer get accountId {
     final $$AccountsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -4110,6 +4172,7 @@ class $$StreamsTableTableManager
                 Value<String> streamType = const Value.absent(),
                 Value<String?> streamIcon = const Value.absent(),
                 Value<String?> url = const Value.absent(),
+                Value<int?> added = const Value.absent(),
               }) => StreamsCompanion(
                 id: id,
                 accountId: accountId,
@@ -4120,6 +4183,7 @@ class $$StreamsTableTableManager
                 streamType: streamType,
                 streamIcon: streamIcon,
                 url: url,
+                added: added,
               ),
           createCompanionCallback:
               ({
@@ -4132,6 +4196,7 @@ class $$StreamsTableTableManager
                 required String streamType,
                 Value<String?> streamIcon = const Value.absent(),
                 Value<String?> url = const Value.absent(),
+                Value<int?> added = const Value.absent(),
               }) => StreamsCompanion.insert(
                 id: id,
                 accountId: accountId,
@@ -4142,6 +4207,7 @@ class $$StreamsTableTableManager
                 streamType: streamType,
                 streamIcon: streamIcon,
                 url: url,
+                added: added,
               ),
           withReferenceMapper: (p0) => p0
               .map(

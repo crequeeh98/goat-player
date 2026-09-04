@@ -99,6 +99,7 @@ class SeriesController {
       final companions = rawStreams.map((s) {
         final seriesId = s['series_id']?.toString() ?? s['stream_id']?.toString() ?? 'unknown';
         final icon = s['cover']?.toString() ?? s['stream_icon']?.toString();
+        final added = _parseAdded(s['last_modified'] ?? s['added']);
         return StreamsCompanion.insert(
           accountId: account.id,
           streamId: seriesId,
@@ -106,6 +107,7 @@ class SeriesController {
           streamType: 'series',
           categoryId: categoryId,
           streamIcon: icon != null && icon.isNotEmpty ? Value(icon) : const Value.absent(),
+          added: added != null ? Value(added) : const Value.absent(),
         );
       }).toList();
       
@@ -138,6 +140,18 @@ class SeriesController {
   }
 }
 
+int? _parseAdded(dynamic val) {
+  if (val == null) return null;
+  if (val is int) return val;
+  if (val is String) {
+    final parsedInt = int.tryParse(val);
+    if (parsedInt != null) return parsedInt;
+    final parsedDate = DateTime.tryParse(val);
+    if (parsedDate != null) return parsedDate.millisecondsSinceEpoch ~/ 1000;
+  }
+  return null;
+}
+
 // Top-level function for compute
 List<StreamsCompanion> _mapSeriesStreams(Map<String, dynamic> data) {
   final int accountId = data['accountId'];
@@ -145,6 +159,7 @@ List<StreamsCompanion> _mapSeriesStreams(Map<String, dynamic> data) {
   return rawStreams.map((s) {
     final seriesId = s['series_id']?.toString() ?? s['stream_id']?.toString() ?? 'unknown';
     final icon = s['cover']?.toString() ?? s['stream_icon']?.toString();
+    final added = _parseAdded(s['last_modified'] ?? s['added']);
     return StreamsCompanion.insert(
       accountId: accountId,
       streamId: seriesId,
@@ -152,6 +167,7 @@ List<StreamsCompanion> _mapSeriesStreams(Map<String, dynamic> data) {
       streamType: 'series',
       categoryId: s['category_id']?.toString() ?? 'unknown',
       streamIcon: icon != null && icon.isNotEmpty ? Value(icon) : const Value.absent(),
+      added: added != null ? Value(added) : const Value.absent(),
     );
   }).toList();
 }

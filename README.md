@@ -27,17 +27,21 @@
 - **Interactive EPG Timeline**: Real-time Electronic Program Guide with progress bars, program details, and schedules.
 - **In-Player Slide-Out EPG & Channel Drawer**: Frosted glass sidebar accessible directly inside the player (both Full-Width and Fullscreen modes). Search channels, inspect logos, and view live show progress bars without exiting the stream.
 - **Quick In-Stream Zapping (CH- / CH+)**: Channel flipping buttons and keyboard/remote shortcuts (`ArrowUp` / `ArrowDown` or `PageUp` / `PageDown`) with real-time translucent OSD info banner.
-- **Split-Screen & Full-Width Player**: Seamless toggle between category/channel list browsing and full-width playback.
+- **Split-Screen & Full-Width Player**: Seamless toggle between category/channel list browsing and full-width playback, with automatic scroll-position restoration on return.
+- **Illuminated Channel Selection**: Dynamic glowing border and card container highlight for the active channel; zero-stutter channel tuning in Favorites without stream reloading penalties.
 - **Favorites / Favoriten**: Pin and manage your top live channels with instant filtering.
 - **Dedicated Volume Controls**: Hover volume slider and quick-mute toggle right next to fullscreen controls.
 
 ### 🎬 Movies & Series (VOD)
+- **Flexible Sorting (Standard / Added, A-Z, Z-A)**: Real-time sorting by server added date (newest added first using Xtream Unix timestamp metadata), alphabetical A-Z, and reverse Z-A.
+- **Unified High-Contrast Category Rails**: Sleek category navigation with vibrant left purple accent indicators and dedicated Watchlist icons.
 - **Rich Grid Catalogs**: Responsive poster grids with cover art, genres, ratings, and release years.
 - **Watchlist**: Dedicated Watchlist system for both Movies and TV Shows.
 - **Continue Watching Rail**: Automatic playback resume tracking with persistent progress indicators.
 - **Series Season & Episode Browser**: Clean episode modal breakdown with episode thumbnails, synopsis, and quick launch.
 - **Global Master Search**: Search across Live TV, Movies, and TV Shows simultaneously with category filtering.
 - **Seamless Instant Transition**: Non-blocking `pushReplacement` navigation from modals directly into the cinema player with zero stutter or lag.
+- **Clean Account Switch Isolation**: Instant teardown of active playback and stream states when switching accounts to ensure 100% playlist isolation.
 
 ### 🪟 Picture-in-Picture (Floating Mini-Player)
 - **Universal Multi-Tasking**: Seamlessly browse movies, series, or settings while Live TV or VOD streams keep playing in the corner.
@@ -130,39 +134,42 @@ The compiled output will be located in:
   - Keyboard & Remote shortcuts (`PageUp` / `PageDown` or `ArrowUp` / `ArrowDown`) to flip channels instantly.
   - Sleek translucent On-Screen Display (OSD) banner showing channel logo, name, number, and current live show info on each zap.
 
-### 📋 Phase 1: Smart TV & Remote Experience
-- [ ] **Android TV & Amazon Fire TV Remote (D-Pad) Navigation**:
-  - D-Pad focus traversal on category lists, channel guides, and VOD cards.
-  - Remote channel flipping (Channel Up / Down) with instant in-stream zapping.
-  - Transparent slide-out quick-channel drawer while video plays in the background.
+### 📋 Phase 1: Smart TV Integrations & Big-Screen Platforms
+- [ ] **Android TV & Amazon Fire TV**:
+  - D-Pad remote navigation on category rails, channel guides, and VOD cards.
+  - Remote channel flipping (Channel Up / Down) with instant in-stream zapping and translucent OSD.
+  - Transparent slide-out quick-channel drawer while stream plays uninterrupted.
+- [ ] **LG webOS App** (webOS Web App / native hardware player integration).
+- [ ] **Samsung Tizen TV App** (Tizen Web engine & hardware decoder integration).
 - [ ] **Physical Android Phone & Tablet Optimization**:
-  - Touch HUD gestures: swipe left/right for seek, swipe left side for brightness, swipe right side for volume.
+  - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
   - Automatic landscape lock upon entering cinema mode.
-  - Adaptive touch controls for mobile screens.
 
-### 🌐 Phase 2: Remote Playlist Management & Cloud Sync
-- [ ] **Web-Based Playlist Portal via MAC Address**:
-  - Assign a unique device MAC address / Virtual ID to each GOATPlayer installation.
-  - Web management portal where users can upload and manage Xtream / M3U playlists remotely from any browser.
-  - Instant automatic sync to the client device without manual typing on TV remotes.
-- [ ] **Cloud Profile & Watch Progress Sync**:
-  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop $\leftrightarrow$ Mobile $\leftrightarrow$ TV).
+### 🌐 Phase 2: Remote Playlist Management (Quick Setup)
+- [ ] **Device Linking & Remote Upload**:
+  - Unique Device ID / MAC code generation for instant TV login.
+  - Lightweight web portal to upload and assign Xtream / M3U playlists remotely without tedious remote control typing.
+  - Automatic client push synchronization on connect.
 
-### 🎛️ Phase 3: Advanced Media & Organization
-- [ ] **Category Management**:
-  - Hide/show unwanted categories (e.g. international packages, adult content).
-  - Drag-and-drop category reordering with custom folder organization.
+### 🎛️ Phase 3: Category Management & Organization
+- [ ] **Custom Category Filtering**:
+  - Hide/show unwanted categories (e.g. international packages, adult content, duplicate channels).
+  - Category reordering with custom folder organization.
+
+### ☁️ Phase 4: Cloud Sync & Profile Management
+- [ ] **Cross-Device Profile Sync**:
+  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop $\leftrightarrow$ Mobile $\leftrightarrow$ Smart TV).
+  - Multi-profile support for family households.
+
+### 🚀 Phase 5: Advanced Media Features
 - [ ] **Multi-Screen / Multi-View**:
   - Watch 2 or 4 Live TV channels simultaneously in a customizable grid (ideal for live sports).
 - [ ] **Catch-Up TV (Archive)**:
   - Play past broadcasts directly from the EPG timeline for supported Xtream providers.
 - [ ] **Offline Downloads (Mobile & Desktop)**:
   - Download VOD movies and episodes for offline viewing on flights or travel.
-
-### 📺 Phase 4: Smart TV Platform Expansion
-- [ ] **Samsung Tizen TV App** (Tizen Web / WebAssembly player engine).
-- [ ] **LG webOS App** (webOS Web App with hardware decoders).
-- [ ] **Apple TV & iOS** (TestFlight & App Store release).
+- [ ] **Custom User Categories**:
+  - Create personal custom categories mixing channels and VOD from multiple playlists.
 
 ---
 
