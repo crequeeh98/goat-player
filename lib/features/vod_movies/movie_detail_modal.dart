@@ -284,45 +284,83 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                     if (cast != null && cast.toString().isNotEmpty)
                       _buildInfoRow(context, Icons.people, AppLocalizations.of(context)!.cast, cast.toString()),
                   ],
-                  
-                  const SizedBox(height: 24),
-                  
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _playMovie,
-                          icon: const Icon(Icons.play_arrow),
-                          label: Text(AppLocalizations.of(context)!.playMovie),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.streamId, streamType: 'movie'))).value ?? false;
-                          return IconButton(
-                            icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
-                            color: isFavorite ? Colors.red : null,
-                            iconSize: 32,
-                            onPressed: () async {
-                              final account = ref.read(activeAccountProvider);
-                              if (account != null) {
-                                await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
+          ),
+            
+            // Pinned Middle-Bottom Action Footer
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isMobile)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _playMovie,
+                        icon: const Icon(Icons.play_arrow, size: 24),
+                        label: Text(
+                          AppLocalizations.of(context)!.playMovie,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+                      child: ElevatedButton.icon(
+                        onPressed: _playMovie,
+                        icon: const Icon(Icons.play_arrow, size: 24),
+                        label: Text(
+                          AppLocalizations.of(context)!.playMovie,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.streamId, streamType: 'movie'))).value ?? false;
+                      return IconButton.filledTonal(
+                        icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
+                        color: isFavorite ? Colors.redAccent : Colors.white70,
+                        iconSize: 24,
+                        style: IconButton.styleFrom(
+                          padding: const EdgeInsets.all(12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          final account = ref.read(activeAccountProvider);
+                          if (account != null) {
+                            await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
