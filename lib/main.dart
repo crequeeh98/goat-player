@@ -15,7 +15,6 @@ import 'core/network/xtream_client.dart';
 import 'core/settings/locale_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'features/account/account_list_screen.dart';
-import 'features/dashboard/home_dashboard.dart';
 import 'package:dio/dio.dart';
 
 // Global providers
@@ -57,7 +56,12 @@ final xtreamClientProvider = Provider<XtreamClient?>((ref) {
   final account = ref.watch(activeAccountProvider);
   if (account == null) return null;
   return XtreamClient(
-    Dio(),
+    Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      ),
+    ),
     baseUrl: account.serverUrl,
     username: account.username,
     password: account.password,

@@ -5,6 +5,7 @@ import 'package:goat_player/l10n/app_localizations.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
+import '../../../core/utils/live_stream_matcher.dart';
 import '../epg_controller.dart';
 import 'channel_icon.dart';
 
@@ -14,6 +15,7 @@ class InPlayerEpgDrawer extends ConsumerStatefulWidget {
   final ValueChanged<StreamItem> onSelectStream;
   final VoidCallback onClose;
   final String? categoryName;
+  final bool isOpen;
 
   const InPlayerEpgDrawer({
     super.key,
@@ -22,6 +24,7 @@ class InPlayerEpgDrawer extends ConsumerStatefulWidget {
     required this.onSelectStream,
     required this.onClose,
     this.categoryName,
+    this.isOpen = false,
   });
 
   @override
@@ -33,18 +36,40 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
   String _searchQuery = '';
   final ScrollController _scrollController = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    // Auto-scroll to active channel on drawer open
+  void _scrollToCurrentChannel() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (widget.currentStreamId != null && widget.streams.isNotEmpty) {
-        final idx = widget.streams.indexWhere((s) => s.streamId == widget.currentStreamId);
+        final idx = LiveStreamMatcher.indexOf(
+          widget.streams,
+          streamId: widget.currentStreamId,
+          channelId: widget.currentStreamId,
+        );
         if (idx > 3 && _scrollController.hasClients) {
           _scrollController.jumpTo((idx - 2) * 68.0);
         }
       }
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToCurrentChannel();
+  }
+
+  @override
+  void didUpdateWidget(covariant InPlayerEpgDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isOpen && !widget.isOpen) {
+      // Clear search query and text controller when drawer closes
+      _searchController.clear();
+      setState(() {
+        _searchQuery = '';
+      });
+    } else if (!oldWidget.isOpen && widget.isOpen) {
+      _scrollToCurrentChannel();
+    }
   }
 
   @override

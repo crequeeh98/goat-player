@@ -4,7 +4,6 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
 import '../dashboard/favorites_provider.dart';
 import '../vod_movies/vod_player_screen.dart';
-import '../../core/player/player_service.dart';
 
 class SeriesDetailModal extends ConsumerStatefulWidget {
   final String seriesName;
@@ -64,7 +63,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
       final details = await client.getSeriesInfo(widget.seriesId);
       if (mounted) {
         setState(() {
-          xtreamInfo = details is Map<String, dynamic> ? details : null;
+          xtreamInfo = details is Map ? details.cast<String, dynamic>() : null;
           isLoading = false;
           
           // Auto-select first season
@@ -143,8 +142,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     final epTitle = episode['title']?.toString() ?? 'Episode';
     final cover = episode['info']?['movie_image']?.toString();
     
-    // Stop any active stream (e.g. Live TV) immediately so it doesn't fight for resources
-    ref.read(playerServiceProvider).stop();
+    if (!mounted) return;
 
     // Seamless instant transition directly into VodPlayerScreen
     Navigator.of(context).pushReplacement(
@@ -176,7 +174,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
 
   @override
   Widget build(BuildContext context) {
-    final info = xtreamInfo?['info'] as Map<String, dynamic>?;
+    final info = xtreamInfo?['info'] is Map ? (xtreamInfo!['info'] as Map).cast<String, dynamic>() : null;
     
     final plot = info?['plot'] ?? info?['description'] ?? 'No synopsis available.';
     final director = info?['director'];
@@ -348,7 +346,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                       const Center(child: CircularProgressIndicator())
                     else if (errorMessage != null)
                       Center(child: Text(errorMessage!))
-                    else if (xtreamInfo?['episodes'] != null && (xtreamInfo!['episodes'] as Map).isNotEmpty)
+                    else if (xtreamInfo?['episodes'] != null && xtreamInfo!['episodes'] is Map && (xtreamInfo!['episodes'] as Map).isNotEmpty)
                       ...[
                         // Seasons tabs
                         Container(
@@ -375,7 +373,9 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                         // Episodes list
                         Builder(
                           builder: (context) {
-                            final episodes = xtreamInfo!['episodes'][selectedSeason] as List<dynamic>? ?? [];
+                            final episodes = (xtreamInfo!['episodes'] is Map && xtreamInfo!['episodes'][selectedSeason] is List) 
+                                ? (xtreamInfo!['episodes'][selectedSeason] as List<dynamic>) 
+                                : const [];
                             if (episodes.isEmpty) return const Text('No episodes found');
                             
                             return ListView.builder(
@@ -383,7 +383,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: episodes.length,
                               itemBuilder: (context, index) {
-                                final ep = episodes[index] as Map<String, dynamic>;
+                                final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
                                 final title = ep['title']?.toString() ?? 'Episode ${index + 1}';
                                 final duration = ep['info']?['duration']?.toString() ?? '';
                                 final hasProgress = ep['progress'] != null;

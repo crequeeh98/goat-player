@@ -4,7 +4,6 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
 import '../dashboard/favorites_provider.dart';
 import 'vod_player_screen.dart';
-import '../../core/player/player_service.dart';
 
 class MovieDetailModal extends ConsumerStatefulWidget {
   final String movieName;
@@ -49,7 +48,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
       final details = await client.getVodInfo(widget.streamId);
       if (mounted) {
         setState(() {
-          xtreamInfo = details is Map<String, dynamic> ? details : null;
+          xtreamInfo = details is Map ? details.cast<String, dynamic>() : null;
           isLoading = false;
         });
       }
@@ -101,14 +100,13 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     
     if (!mounted) return;
     
-    final movieData = xtreamInfo?['movie_data'] as Map<String, dynamic>?;
+    final movieData = xtreamInfo?['movie_data'] is Map ? (xtreamInfo!['movie_data'] as Map).cast<String, dynamic>() : null;
     final extension = movieData?['container_extension'] ?? 'mp4';
     
     final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
     final url = '$baseUrl/movie/${account.username}/${account.password}/${widget.streamId}.$extension';
     
-    // Stop any active stream (e.g. Live TV) immediately so it doesn't fight for resources
-    ref.read(playerServiceProvider).stop();
+    if (!mounted) return;
 
     // Seamless instant transition directly into VodPlayerScreen
     Navigator.of(context).pushReplacement(
@@ -139,7 +137,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
 
   @override
   Widget build(BuildContext context) {
-    final info = xtreamInfo?['info'] as Map<String, dynamic>?;
+    final info = xtreamInfo?['info'] is Map ? (xtreamInfo!['info'] as Map).cast<String, dynamic>() : null;
     
     // Fallback UI data
     final plot = info?['plot'] ?? info?['description'] ?? 'No synopsis available.';

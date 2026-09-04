@@ -16,6 +16,7 @@ class ActivePlayback {
   final String? coverUrl;
   final int? startPosition;
   final String? channelId;
+  final String? categoryId;
   final bool isMinimized;
 
   const ActivePlayback({
@@ -27,6 +28,7 @@ class ActivePlayback {
     this.coverUrl,
     this.startPosition,
     this.channelId,
+    this.categoryId,
     this.isMinimized = false,
   });
 
@@ -39,6 +41,7 @@ class ActivePlayback {
     String? coverUrl,
     int? startPosition,
     String? channelId,
+    String? categoryId,
     bool? isMinimized,
   }) {
     return ActivePlayback(
@@ -50,6 +53,7 @@ class ActivePlayback {
       coverUrl: coverUrl ?? this.coverUrl,
       startPosition: startPosition ?? this.startPosition,
       channelId: channelId ?? this.channelId,
+      categoryId: categoryId ?? this.categoryId,
       isMinimized: isMinimized ?? this.isMinimized,
     );
   }
@@ -63,6 +67,8 @@ class PlaybackController extends Notifier<ActivePlayback?> {
     required String title,
     required String url,
     String? channelId,
+    String? streamId,
+    String? categoryId,
   }) async {
     final playerService = ref.read(playerServiceProvider);
     state = ActivePlayback(
@@ -70,6 +76,8 @@ class PlaybackController extends Notifier<ActivePlayback?> {
       streamUrl: url,
       streamType: StreamType.live,
       channelId: channelId,
+      streamId: streamId ?? channelId,
+      categoryId: categoryId,
       isMinimized: false,
     );
     await playerService.stop();

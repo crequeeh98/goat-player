@@ -126,107 +126,112 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         ? { for (var item in progressAsync.asData!.value) item.streamId : item }
                         : {};
                         
-                    return Column(
-                      children: [
+                    return CustomScrollView(
+                      slivers: [
                         if (_searchQuery.isEmpty)
-                          const ContinueWatchingRail(type: 'movie'),
-                        Expanded(
-                          child: GridView.builder(
-                            padding: const EdgeInsets.all(16),
+                          const SliverToBoxAdapter(
+                            child: ContinueWatchingRail(type: 'movie'),
+                          ),
+                        SliverPadding(
+                          padding: const EdgeInsets.all(16),
+                          sliver: SliverGrid(
                             gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: isDesktop ? 200 : 150,
                               childAspectRatio: 2 / 3,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
                             ),
-                            itemCount: streams.length,
-                            itemBuilder: (context, index) {
-                              final stream = streams[index];
-                              final progress = progressMap[stream.streamId];
-                              
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    PageRouteBuilder(
-                                      opaque: false,
-                                      barrierDismissible: true,
-                                      barrierColor: Colors.black87,
-                                      transitionDuration: const Duration(milliseconds: 400),
-                                      reverseTransitionDuration: const Duration(milliseconds: 400),
-                                      pageBuilder: (context, animation, secondaryAnimation) => MovieDetailModal(
-                                        movieName: stream.name,
-                                        streamId: stream.streamId,
-                                        posterUrl: stream.streamIcon,
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final stream = streams[index];
+                                final progress = progressMap[stream.streamId];
+                                
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      PageRouteBuilder(
+                                        opaque: false,
+                                        barrierDismissible: true,
+                                        barrierColor: Colors.black87,
+                                        transitionDuration: const Duration(milliseconds: 400),
+                                        reverseTransitionDuration: const Duration(milliseconds: 400),
+                                        pageBuilder: (context, animation, secondaryAnimation) => MovieDetailModal(
+                                          movieName: stream.name,
+                                          streamId: stream.streamId,
+                                          posterUrl: stream.streamIcon,
+                                        ),
+                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                          return FadeTransition(opacity: animation, child: child);
+                                        },
                                       ),
-                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                        return FadeTransition(opacity: animation, child: child);
-                                      },
-                                    ),
-                                  );
-                                },
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-                                      if (stream.streamIcon != null && stream.streamIcon!.isNotEmpty)
-                                        Hero(
-                                          tag: 'movie_${stream.streamId}',
-                                          flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
-                                            return fromHeroContext.widget;
-                                          },
-                                          child: Image.network(
-                                            stream.streamIcon!, 
-                                            fit: BoxFit.cover,
-                                            cacheWidth: 200,
-                                            errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 40, color: Colors.grey)),
+                                    );
+                                  },
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                                        if (stream.streamIcon != null && stream.streamIcon!.isNotEmpty)
+                                          Hero(
+                                            tag: 'movie_${stream.streamId}',
+                                            flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                                              return fromHeroContext.widget;
+                                            },
+                                            child: Image.network(
+                                              stream.streamIcon!, 
+                                              fit: BoxFit.cover,
+                                              cacheWidth: 200,
+                                              cacheHeight: 300,
+                                              errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 40, color: Colors.grey)),
+                                            ),
+                                          ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.bottomCenter,
+                                              end: Alignment.center,
+                                              colors: [
+                                                Colors.black.withAlpha(220),
+                                                Colors.transparent,
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.bottomCenter,
-                                            end: Alignment.center,
-                                            colors: [
-                                              Colors.black.withAlpha(220),
-                                              Colors.transparent,
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 8,
-                                        left: 8,
-                                        right: 8,
-                                        child: Text(
-                                          stream.name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                      if (progress != null && progress.duration > 0)
                                         Positioned(
-                                          bottom: 0, left: 0, right: 0,
-                                          child: LinearProgressIndicator(
-                                            value: progress.position / progress.duration,
-                                            backgroundColor: Colors.black54,
-                                            color: Colors.red,
-                                            minHeight: 4,
+                                          bottom: 8,
+                                          left: 8,
+                                          right: 8,
+                                          child: Text(
+                                            stream.name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
                                           ),
                                         ),
-                                    ],
+                                        if (progress != null && progress.duration > 0)
+                                          Positioned(
+                                            bottom: 0, left: 0, right: 0,
+                                            child: LinearProgressIndicator(
+                                              value: progress.position / progress.duration,
+                                              backgroundColor: Colors.black54,
+                                              color: Colors.red,
+                                              minHeight: 4,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                              childCount: streams.length,
+                            ),
                           ),
                         ),
                       ],

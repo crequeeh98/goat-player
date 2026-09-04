@@ -15,10 +15,13 @@ class ChannelIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (iconUrl != null && iconUrl!.isNotEmpty) {
+      final cachePx = (size * 2).round().clamp(64, 160);
       return Image.network(
         iconUrl!,
         width: size,
         height: size,
+        cacheWidth: cachePx,
+        cacheHeight: cachePx,
         errorBuilder: (_, __, ___) => _buildFallback(context),
       );
     }

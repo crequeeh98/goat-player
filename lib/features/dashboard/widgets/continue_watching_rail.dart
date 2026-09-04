@@ -83,7 +83,13 @@ class ContinueWatchingRail extends ConsumerWidget {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: item.coverUrl != null && item.coverUrl!.isNotEmpty
-                                      ? Image.network(item.coverUrl!, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 32)))
+                                      ? Image.network(
+                                          item.coverUrl!,
+                                          fit: BoxFit.cover,
+                                          cacheWidth: 260,
+                                          cacheHeight: 390,
+                                          errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 32)),
+                                        )
                                       : Container(color: Colors.grey[800], child: const Icon(Icons.movie, size: 32)),
                                 ),
                                 Positioned(
@@ -133,6 +139,16 @@ class ContinueWatchingRail extends ConsumerWidget {
                 },
               ),
             ),
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.white12,
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
         );
       },

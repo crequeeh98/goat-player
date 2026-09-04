@@ -8,13 +8,18 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/player/playback_controller.dart';
+import '../../../core/utils/channel_name_cleaner.dart';
+import '../../../core/utils/live_stream_matcher.dart';
 import '../epg_controller.dart';
+import '../live_tv_controller.dart';
 import 'in_player_epg_drawer.dart';
 
 class CustomLiveControls extends ConsumerStatefulWidget {
   final VideoState state;
   final String title;
   final bool showBackButton;
+  final bool isFullWidth;
   final VoidCallback? onBack;
   final VoidCallback? onSingleTap;
   final VoidCallback? onEnterFullWidth;
@@ -24,6 +29,7 @@ class CustomLiveControls extends ConsumerStatefulWidget {
 
   // In-Stream EPG & Zapping parameters
   final List<StreamItem>? streams;
+  final String? streamId;
   final String? currentStreamId;
   final ValueChanged<StreamItem>? onSelectStream;
   final VoidCallback? onZapPrevious;
@@ -35,6 +41,7 @@ class CustomLiveControls extends ConsumerStatefulWidget {
     required this.state,
     required this.title,
     this.showBackButton = false,
+    this.isFullWidth = false,
     this.onBack,
     this.onSingleTap,
     this.onEnterFullWidth,
@@ -42,6 +49,7 @@ class CustomLiveControls extends ConsumerStatefulWidget {
     this.currentFit,
     this.onCatchUpLive,
     this.streams,
+    this.streamId,
     this.currentStreamId,
     this.onSelectStream,
     this.onZapPrevious,
@@ -58,6 +66,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Timer? _hideTimer;
   double _volume = 100.0;
   bool _isPlaying = true;
+  String? _optimisticStreamId;
 
   // In-Player EPG Drawer & OSD Banner state
   bool _isDrawerOpen = false;
@@ -65,6 +74,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Timer? _osdBannerTimer;
   StreamSubscription? _volumeSub;
   StreamSubscription? _playingSub;
+  StreamSubscription? _drawerChannelChangeSub;
+  String? _channelChangingToStreamId;
 
   @override
   void initState() {
@@ -84,6 +95,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
   @override
   void dispose() {
+    _drawerChannelChangeSub?.cancel();
     _hideTimer?.cancel();
     _osdBannerTimer?.cancel();
     _volumeSub?.cancel();
@@ -98,6 +110,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       if (mounted) setState(() => _showOsdBanner = false);
     });
   }
+
+  DateTime _lastLiveTimerReset = DateTime.now();
 
   void _startHideTimer() {
     _hideTimer?.cancel();
@@ -114,7 +128,11 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     if (!_showOverlay) {
       setState(() => _showOverlay = true);
     }
-    _startHideTimer();
+    final now = DateTime.now();
+    if (now.difference(_lastLiveTimerReset).inMilliseconds > 250) {
+      _lastLiveTimerReset = now;
+      _startHideTimer();
+    }
   }
 
   void _togglePlayPause() {
@@ -160,6 +178,28 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   }
 
   void _zapPrevious() {
+    final activePlayback = ref.read(playbackControllerProvider);
+    final categoryId = activePlayback?.categoryId ?? ref.read(selectedLiveCategoryProvider);
+    final fallbackStreams = categoryId != null ? ref.read(liveStreamsProvider(categoryId)).asData?.value : null;
+    final streams = (widget.streams != null && widget.streams!.isNotEmpty)
+        ? widget.streams!
+        : (fallbackStreams ?? const <StreamItem>[]);
+
+    if (streams.isNotEmpty) {
+      final currentIdx = LiveStreamMatcher.indexOf(
+        streams,
+        streamId: _optimisticStreamId ?? activePlayback?.streamId ?? widget.streamId,
+        channelId: activePlayback?.channelId ?? widget.currentStreamId,
+        streamUrl: activePlayback?.streamUrl,
+      );
+      final prevIdx = (currentIdx != -1) ? (currentIdx - 1 + streams.length) % streams.length : streams.length - 1;
+      final prevStream = streams[prevIdx];
+      _optimisticStreamId = prevStream.streamId;
+      widget.onSelectStream?.call(prevStream);
+      _triggerOsdBanner();
+      _startHideTimer();
+      return;
+    }
     if (widget.onZapPrevious != null) {
       widget.onZapPrevious!();
       _triggerOsdBanner();
@@ -168,6 +208,28 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   }
 
   void _zapNext() {
+    final activePlayback = ref.read(playbackControllerProvider);
+    final categoryId = activePlayback?.categoryId ?? ref.read(selectedLiveCategoryProvider);
+    final fallbackStreams = categoryId != null ? ref.read(liveStreamsProvider(categoryId)).asData?.value : null;
+    final streams = (widget.streams != null && widget.streams!.isNotEmpty)
+        ? widget.streams!
+        : (fallbackStreams ?? const <StreamItem>[]);
+
+    if (streams.isNotEmpty) {
+      final currentIdx = LiveStreamMatcher.indexOf(
+        streams,
+        streamId: _optimisticStreamId ?? activePlayback?.streamId ?? widget.streamId,
+        channelId: activePlayback?.channelId ?? widget.currentStreamId,
+        streamUrl: activePlayback?.streamUrl,
+      );
+      final nextIdx = (currentIdx != -1) ? (currentIdx + 1) % streams.length : 0;
+      final nextStream = streams[nextIdx];
+      _optimisticStreamId = nextStream.streamId;
+      widget.onSelectStream?.call(nextStream);
+      _triggerOsdBanner();
+      _startHideTimer();
+      return;
+    }
     if (widget.onZapNext != null) {
       widget.onZapNext!();
       _triggerOsdBanner();
@@ -176,6 +238,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   }
 
   void _toggleDrawer() {
+    final isFull = isFullscreen(context);
+    final canShowDrawer = (isFull || widget.isFullWidth) && (widget.streams != null && widget.streams!.isNotEmpty);
+    if (!canShowDrawer) return;
+
     setState(() {
       _isDrawerOpen = !_isDrawerOpen;
       if (_isDrawerOpen) {
@@ -191,16 +257,38 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isFull = isFullscreen(context);
+    final canShowDrawer = (isFull || widget.isFullWidth) && (widget.streams != null && widget.streams!.isNotEmpty);
 
-    // Look up active stream item and EPG data for OSD Banner
+    // Dynamically watch active playback state so fullscreen mode immediately updates
+    // on channel zap without relying on frozen constructor parameters
+    final activePlayback = ref.watch(playbackControllerProvider);
+    if (_optimisticStreamId != null && activePlayback?.streamId == _optimisticStreamId) {
+      _optimisticStreamId = null;
+    }
+    final activeStreamId = _optimisticStreamId ?? activePlayback?.streamId ?? widget.streamId;
+    final activeChannelId = activePlayback?.channelId ?? widget.currentStreamId;
+    final activeTitle = (activePlayback != null && activePlayback.streamType == StreamType.live)
+        ? activePlayback.title
+        : widget.title;
+
+    final categoryId = activePlayback?.categoryId ?? ref.watch(selectedLiveCategoryProvider);
+    final fallbackStreams = categoryId != null ? ref.watch(liveStreamsProvider(categoryId)).asData?.value : null;
+    final availableStreams = (widget.streams != null && widget.streams!.isNotEmpty)
+        ? widget.streams!
+        : (fallbackStreams ?? const <StreamItem>[]);
+
+    // Look up active stream item and real-time EPG data for OSD Banner & title display
     StreamItem? currentStreamItem;
     int channelIndex = 1;
-    if (widget.streams != null && widget.streams!.isNotEmpty && widget.currentStreamId != null) {
-      final idx = widget.streams!.indexWhere(
-        (s) => s.streamId == widget.currentStreamId || s.epgChannelId == widget.currentStreamId,
+    if (availableStreams.isNotEmpty) {
+      final idx = LiveStreamMatcher.indexOf(
+        availableStreams,
+        streamId: activeStreamId,
+        channelId: activeChannelId,
+        streamUrl: activePlayback?.streamUrl,
       );
       if (idx != -1) {
-        currentStreamItem = widget.streams![idx];
+        currentStreamItem = availableStreams[idx];
         channelIndex = idx + 1;
       }
     }
@@ -210,6 +298,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         ? currentStreamItem.epgChannelId
         : currentStreamItem?.streamId;
     final currentProgram = epgId != null ? currentPrograms[epgId] : null;
+
+    final displayTitle = (currentProgram != null && currentProgram.title.isNotEmpty)
+        ? '$activeTitle - ${currentProgram.title}'
+        : (currentStreamItem != null ? ChannelNameCleaner.clean(currentStreamItem.name) : activeTitle);
 
     return Focus(
       autofocus: true,
@@ -231,22 +323,26 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
           }
 
           // Channel Up: Next Channel
-          if (event.logicalKey == LogicalKeyboardKey.arrowUp || event.logicalKey == LogicalKeyboardKey.pageUp) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+              event.logicalKey == LogicalKeyboardKey.pageUp ||
+              event.logicalKey == LogicalKeyboardKey.channelUp) {
             _zapNext();
             return KeyEventResult.handled;
           }
 
           // Channel Down: Previous Channel
-          if (event.logicalKey == LogicalKeyboardKey.arrowDown || event.logicalKey == LogicalKeyboardKey.pageDown) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+              event.logicalKey == LogicalKeyboardKey.pageDown ||
+              event.logicalKey == LogicalKeyboardKey.channelDown) {
             _zapPrevious();
             return KeyEventResult.handled;
           }
 
-          // E or L or Enter: Toggle EPG Drawer
+          // E or L or Enter: Toggle EPG Drawer (only in full-width or fullscreen)
           if (event.logicalKey == LogicalKeyboardKey.keyE ||
               event.logicalKey == LogicalKeyboardKey.keyL ||
               event.logicalKey == LogicalKeyboardKey.enter) {
-            if (widget.streams != null && widget.streams!.isNotEmpty) {
+            if (canShowDrawer) {
               _toggleDrawer();
               return KeyEventResult.handled;
             }
@@ -263,11 +359,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             setState(() => _showOverlay = false);
           }
         },
-        child: Listener(
-          onPointerHover: _onPointerEvent,
-          onPointerMove: _onPointerEvent,
-          onPointerDown: _onPointerEvent,
-          child: GestureDetector(
+        child: GestureDetector(
             onTap: () {
               if (_isDrawerOpen) {
                 setState(() => _isDrawerOpen = false);
@@ -438,8 +530,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                           ),
                         ),
 
-                        // BOTTOM LEFT: In-Player EPG Drawer Button
-                        if (widget.streams != null && widget.streams!.isNotEmpty)
+                        // BOTTOM LEFT: In-Player EPG Drawer Button (Only in Full-Width or Fullscreen)
+                        if (canShowDrawer)
                           Positioned(
                             bottom: 20,
                             left: 20,
@@ -456,7 +548,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                           left: 90,
                           right: 90,
                           child: Text(
-                            widget.title,
+                            displayTitle,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 17,
@@ -469,37 +561,17 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                           ),
                         ),
 
-                        // BOTTOM RIGHT: Volume & Fullscreen Toggle
+                        // BOTTOM RIGHT: Fullscreen Toggle
                         Positioned(
                           bottom: 20,
                           right: 20,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
-                                  color: Colors.white,
-                                  size: 26,
-                                ),
-                                tooltip: _volume == 0 ? 'Unmute' : 'Mute',
-                                onPressed: () {
-                                  if (_volume > 0) {
-                                    setState(() => _volume = 0);
-                                    widget.state.widget.controller.player.setVolume(0);
-                                  } else {
-                                    setState(() => _volume = 100);
-                                    widget.state.widget.controller.player.setVolume(100);
-                                  }
-                                  _startHideTimer();
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: Icon(isFull ? Icons.fullscreen_exit : Icons.fullscreen, color: Colors.white, size: 36),
-                                onPressed: () => _toggleFullscreen(context),
-                              ),
-                            ],
+                          child: IconButton(
+                            icon: Icon(
+                              isFull ? Icons.fullscreen_exit : Icons.fullscreen,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                            onPressed: () => _toggleFullscreen(context),
                           ),
                         ),
                       ],
@@ -507,10 +579,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                   ),
                 ),
 
-                // 3. Floating OSD Banner (Appears on Zap / Channel Change)
+                // 3. In-Player OSD Channel Info Banner (Appears on zap)
                 if (_showOsdBanner && currentStreamItem != null)
                   Positioned(
-                    bottom: 84,
+                    top: 40,
                     left: 0,
                     right: 0,
                     child: Center(
@@ -522,8 +594,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                     ),
                   ),
 
-                // 4. In-Player Slide-Out EPG & Channel List Drawer (Frosted Sidebar)
-                if (widget.streams != null && widget.streams!.isNotEmpty)
+                // 4. In-Player Slide-Out EPG & Channel List Drawer (Only in Full-Width or Fullscreen)
+                if (canShowDrawer && availableStreams.isNotEmpty)
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeOutCubic,
@@ -531,14 +603,64 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                     top: 0,
                     bottom: 0,
                     child: InPlayerEpgDrawer(
-                      streams: widget.streams!,
-                      currentStreamId: widget.currentStreamId,
+                      streams: availableStreams,
+                      currentStreamId: activeStreamId ?? activeChannelId,
                       categoryName: widget.categoryName,
+                      isOpen: _isDrawerOpen,
                       onSelectStream: (stream) {
+                        _optimisticStreamId = stream.streamId;
+                        _channelChangingToStreamId = stream.streamId;
+                        setState(() {}); // Rebuild so the drawer highlight updates to the new channel immediately!
+
                         widget.onSelectStream?.call(stream);
                         _triggerOsdBanner();
+
+                        _hideTimer?.cancel();
+                        _drawerChannelChangeSub?.cancel();
+
+                        // Keep the drawer open with the channel highlighted until the stream is loaded and playing!
+                        final player = widget.state.widget.controller.player;
+                        int ticks = 0;
+                        _drawerChannelChangeSub = player.stream.position.listen((pos) {
+                          final uri = player.state.playlist.medias.firstOrNull?.uri;
+                          final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
+                          final targetId = stream.streamId;
+                          if (uri != null && uri.contains('/$targetId.') && hasVideo) {
+                            ticks++;
+                            if (ticks >= 2) {
+                              _drawerChannelChangeSub?.cancel();
+                              _drawerChannelChangeSub = null;
+                              if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
+                                // Short 300ms pause so the user clearly sees the channel confirmed before closing
+                                Future.delayed(const Duration(milliseconds: 300), () {
+                                  if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
+                                    setState(() {
+                                      _isDrawerOpen = false;
+                                      _channelChangingToStreamId = null;
+                                    });
+                                    _startHideTimer();
+                                  }
+                                });
+                              }
+                            }
+                          }
+                        });
+
+                        // Fallback: close drawer after 4 seconds if stream takes unusually long
+                        Future.delayed(const Duration(seconds: 4), () {
+                          if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
+                            setState(() {
+                              _isDrawerOpen = false;
+                              _channelChangingToStreamId = null;
+                            });
+                            _startHideTimer();
+                          }
+                        });
                       },
                       onClose: () {
+                        _drawerChannelChangeSub?.cancel();
+                        _drawerChannelChangeSub = null;
+                        _channelChangingToStreamId = null;
                         setState(() => _isDrawerOpen = false);
                         _startHideTimer();
                       },
@@ -548,7 +670,6 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

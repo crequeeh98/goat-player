@@ -43,11 +43,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   bool _canPop = false;
   bool _isStreamReady = false;
   bool _wasPlayingBeforeMinimize = true;
-  bool _isPlaying = true;
-  bool _isControlsVisible = true;
   bool _isVolumeMutedForSync = false;
   double _initialVolume = 100.0;
-  Timer? _controlsTimer;
   StreamSubscription? _frameSub;
   StreamSubscription? _playingSub;
   Timer? _progressTimer;
@@ -60,23 +57,51 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     }
   }
 
-  void _onPointerMove() {
-    if (!_isControlsVisible) {
-      setState(() => _isControlsVisible = true);
-    }
-    _controlsTimer?.cancel();
-    if (_isPlaying) {
-      _controlsTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted && _isPlaying) {
-          setState(() => _isControlsVisible = false);
-        }
-      });
-    }
-  }
+  void _armFrameListener() {
+    if (_isStreamReady || !mounted) return;
+    _frameSub?.cancel();
 
-  void _toggleCenterPlayPause() {
-    player.playOrPause();
-    _onPointerMove();
+    int advancingTicks = 0;
+    Duration? lastPos;
+    final startTime = DateTime.now();
+
+    _frameSub = player.stream.position.listen((pos) {
+      final uri = player.state.playlist.medias.firstOrNull?.uri;
+      final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
+      final isBuffering = player.state.buffering;
+
+      if (!_isStreamReady && uri == widget.streamUrl && hasVideo && !isBuffering) {
+        if (widget.startPosition != null && widget.startPosition! > 0) {
+          final targetSec = widget.startPosition!;
+          if (pos.inSeconds < (targetSec - 5)) {
+            // Still seeking to target keyframe, ignore premature ticks
+            return;
+          }
+        }
+
+        if (lastPos != null && pos != lastPos) {
+          advancingTicks++;
+        }
+        lastPos = pos;
+
+        // Ensure at least 5 frames advanced and at least 600ms have elapsed since stream opened
+        final elapsedMs = DateTime.now().difference(startTime).inMilliseconds;
+        if (advancingTicks >= 5 && elapsedMs >= 600) {
+          _restoreVolume();
+          if (mounted) setState(() => _isStreamReady = true);
+          _frameSub?.cancel();
+        }
+      }
+    });
+
+    // Safety fallback: 10 seconds
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!_isStreamReady && mounted) {
+        _restoreVolume();
+        setState(() => _isStreamReady = true);
+        _frameSub?.cancel();
+      }
+    });
   }
 
   @override
@@ -86,52 +111,26 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     player = playerService.player;
     controller = playerService.controller;
 
-    _isPlaying = player.state.playing;
     _wasPlayingBeforeMinimize = player.state.playing;
     _playingSub = player.stream.playing.listen((p) {
       if (!_isClosing && mounted) {
-        setState(() {
-          _isPlaying = p;
-          _wasPlayingBeforeMinimize = p;
-          if (!p) {
-            _isControlsVisible = true;
-          } else {
-            _onPointerMove();
-          }
-        });
+        _wasPlayingBeforeMinimize = p;
       }
     });
 
-    final currentUri = player.state.playlist.medias.firstOrNull?.uri;
-    if (currentUri == widget.streamUrl && player.state.position > Duration.zero) {
+    final activePlayback = ref.read(playbackControllerProvider);
+    final isReturningFromMiniPlayer = activePlayback != null &&
+        activePlayback.streamUrl == widget.streamUrl &&
+        activePlayback.isMinimized;
+
+    if (isReturningFromMiniPlayer && player.state.position > Duration.zero) {
       _isStreamReady = true;
     } else {
       // Hold audio completely silent until video picture is actually rendered on screen
       _initialVolume = player.state.volume > 0 ? player.state.volume : 100.0;
       _isVolumeMutedForSync = true;
       player.setVolume(0);
-
-      Duration? firstPos;
-      _frameSub = player.stream.position.listen((pos) {
-        final uri = player.state.playlist.medias.firstOrNull?.uri;
-        final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
-        if (!_isStreamReady && uri == widget.streamUrl && hasVideo) {
-          firstPos ??= pos;
-          // When the video decoder has rendered multiple frames on GPU, unmute and reveal together in 100% sync
-          if ((pos - firstPos!).inMilliseconds >= 250) {
-            _restoreVolume();
-            if (mounted) setState(() => _isStreamReady = true);
-            _frameSub?.cancel();
-          }
-        }
-      });
-      Future.delayed(const Duration(milliseconds: 6000), () {
-        if (!_isStreamReady && mounted) {
-          _restoreVolume();
-          setState(() => _isStreamReady = true);
-          _frameSub?.cancel();
-        }
-      });
+      _isStreamReady = false;
     }
     
     // Auto-lock to landscape on mobile devices for cinema experience
@@ -143,11 +142,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final currentPlayback = ref.read(playbackControllerProvider);
       if (currentPlayback == null || currentPlayback.streamUrl != widget.streamUrl) {
-        ref.read(playbackControllerProvider.notifier).playVod(
+        await ref.read(playbackControllerProvider.notifier).playVod(
           title: widget.title,
           url: widget.streamUrl,
           streamType: widget.streamType == 'series' ? StreamType.series : StreamType.movie,
@@ -156,9 +155,15 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
           coverUrl: widget.coverUrl,
           startPosition: widget.startPosition,
         );
+        _armFrameListener();
       } else {
         // Returning from mini-player: continue from current playback without rewinding
         ref.read(playbackControllerProvider.notifier).expand();
+        if (player.state.position > Duration.zero) {
+          if (mounted) setState(() => _isStreamReady = true);
+        } else {
+          _armFrameListener();
+        }
       }
     });
 
@@ -228,7 +233,6 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     _progressTimer?.cancel();
     _frameSub?.cancel();
     _playingSub?.cancel();
-    _controlsTimer?.cancel();
     _restoreVolume();
     super.dispose();
   }
@@ -291,10 +295,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
         backgroundColor: Colors.black,
         body: _isClosing 
           ? const SizedBox.expand() 
-          : MouseRegion(
-              onHover: (_) => _onPointerMove(),
-              onEnter: (_) => _onPointerMove(),
-              child: Stack(
+          : Stack(
+              fit: StackFit.expand,
               children: [
                 MaterialDesktopVideoControlsTheme(
                   normal: MaterialDesktopVideoControlsThemeData(
@@ -410,7 +412,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                                         title: Text(label),
                                         selected: player.state.track.subtitle == t,
                                         onTap: () {
-                                          player.setSubtitleTrack(t);
+                                          ref.read(playerServiceProvider).setSubtitleTrack(t);
                                           Navigator.pop(context);
                                         },
                                       );
@@ -539,7 +541,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                                         title: Text(label),
                                         selected: player.state.track.subtitle == t,
                                         onTap: () {
-                                          player.setSubtitleTrack(t);
+                                          ref.read(playerServiceProvider).setSubtitleTrack(t);
                                           Navigator.pop(context);
                                         },
                                       );
@@ -560,86 +562,204 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       const MaterialDesktopFullscreenButton(),
                     ],
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      (Platform.isAndroid || Platform.isIOS)
-                          ? MobileGestureDetector(
-                              player: player,
-                              enableSeek: false,
-                              onDoubleTap: () => toggleFullscreen(context),
-                              child: Video(
-                                controller: controller,
-                                fit: _fit,
-                                controls: MaterialDesktopVideoControls,
-                                subtitleViewConfiguration: const SubtitleViewConfiguration(
-                                  visible: false,
-                                ),
-                              ),
-                            )
-                          : Video(
+                  child: Visibility(
+                    visible: _isStreamReady,
+                    maintainState: true,
+                    child: (Platform.isAndroid || Platform.isIOS)
+                        ? MobileGestureDetector(
+                            player: player,
+                            enableSeek: false,
+                            onDoubleTap: () => toggleFullscreen(context),
+                            child: Video(
                               controller: controller,
                               fit: _fit,
-                              controls: MaterialDesktopVideoControls,
+                              controls: (state) => _VodControls(videoState: state),
                               subtitleViewConfiguration: const SubtitleViewConfiguration(
-                                visible: false,
-                              ),
-                            ),
-
-                      // Center Play/Pause Button (same as Live TV)
-                      Positioned.fill(
-                        child: Center(
-                          child: AnimatedOpacity(
-                            opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: IgnorePointer(
-                              ignoring: !(_isControlsVisible || !_isPlaying),
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black45,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  iconSize: 76,
+                                visible: true,
+                                style: TextStyle(
+                                  height: 1.3,
+                                  fontSize: 28.0,
+                                  letterSpacing: 0.2,
                                   color: Colors.white,
-                                  icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                                  onPressed: _toggleCenterPlayPause,
+                                  fontWeight: FontWeight.w600,
+                                  backgroundColor: Color(0xb3000000),
+                                  shadows: [
+                                    Shadow(
+                                      offset: Offset(0, 1.5),
+                                      blurRadius: 3.0,
+                                      color: Colors.black,
+                                    ),
+                                  ],
                                 ),
+                                textAlign: TextAlign.center,
+                                padding: EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 48.0),
                               ),
                             ),
+                          )
+                        : Video(
+                            controller: controller,
+                            fit: _fit,
+                            controls: (state) => _VodControls(videoState: state),
+                            subtitleViewConfiguration: const SubtitleViewConfiguration(
+                              visible: true,
+                              style: TextStyle(
+                                height: 1.3,
+                                fontSize: 28.0,
+                                letterSpacing: 0.2,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                backgroundColor: Color(0xb3000000),
+                                shadows: [
+                                  Shadow(
+                                    offset: Offset(0, 1.5),
+                                    blurRadius: 3.0,
+                                    color: Colors.black,
+                                  ),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                              padding: EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 48.0),
+                            ),
                           ),
-                        ),
-                      ),
+                  ),
+                ),
 
-                      // Poster shield
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          ignoring: _isStreamReady,
-                          child: AnimatedOpacity(
-                            opacity: _isStreamReady ? 0.0 : 1.0,
-                            duration: const Duration(milliseconds: 100),
-                            curve: Curves.easeOut,
-                            child: Container(
-                              color: Colors.black,
-                              child: Center(
-                                child: widget.coverUrl != null
-                                    ? Image.network(
-                                        widget.coverUrl!,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => const CircularProgressIndicator(color: Colors.white70),
-                                      )
-                                    : const CircularProgressIndicator(color: Colors.white70),
-                              ),
-                            ),
-                          ),
+                // Pure solid black shield during loading/sync (NO poster)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: _isStreamReady,
+                    child: AnimatedOpacity(
+                      opacity: _isStreamReady ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                      child: const ColoredBox(
+                        color: Colors.black,
+                        child: Center(
+                          child: CircularProgressIndicator(color: Colors.white38),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
+      ),
+    );
+  }
+}
+
+class _VodControls extends StatefulWidget {
+  final VideoState videoState;
+
+  const _VodControls({
+    required this.videoState,
+  });
+
+  @override
+  State<_VodControls> createState() => _VodControlsState();
+}
+
+class _VodControlsState extends State<_VodControls> {
+  late final Player _player = widget.videoState.widget.controller.player;
+  late bool _isPlaying = _player.state.playing;
+  bool _isControlsVisible = true;
+  Timer? _hideTimer;
+  StreamSubscription? _playingSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _isPlaying = _player.state.playing;
+    _playingSub = _player.stream.playing.listen((p) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = p;
+          if (!p) {
+            _isControlsVisible = true;
+            _hideTimer?.cancel();
+          } else {
+            _onPointerMove();
+          }
+        });
+      }
+    });
+    _onPointerMove();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _playingSub?.cancel();
+    super.dispose();
+  }
+
+  DateTime _lastTimerReset = DateTime.now();
+
+  void _onPointerMove() {
+    if (!_isControlsVisible) {
+      setState(() => _isControlsVisible = true);
+    }
+    final now = DateTime.now();
+    if (now.difference(_lastTimerReset).inMilliseconds > 250) {
+      _lastTimerReset = now;
+      _hideTimer?.cancel();
+      if (_isPlaying) {
+        _hideTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted && _isPlaying) {
+            setState(() => _isControlsVisible = false);
+          }
+        });
+      }
+    }
+  }
+
+  void _onMouseExit() {
+    _hideTimer?.cancel();
+    if (mounted && _isPlaying) {
+      setState(() => _isControlsVisible = false);
+    }
+  }
+
+  void _togglePlayPause() {
+    _player.playOrPause();
+    _onPointerMove();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onHover: (_) => _onPointerMove(),
+      onEnter: (_) => _onPointerMove(),
+      onExit: (_) => _onMouseExit(),
+      child: Stack(
+        children: [
+          MaterialDesktopVideoControls(widget.videoState),
+          Positioned.fill(
+            child: Center(
+              child: AnimatedOpacity(
+                opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 150),
+                child: IgnorePointer(
+                  ignoring: !(_isControlsVisible || !_isPlaying),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      iconSize: 76,
+                      color: Colors.white,
+                      icon: Icon(
+                        _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      ),
+                      onPressed: _togglePlayPause,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
+        ],
       ),
     );
   }

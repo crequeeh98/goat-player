@@ -15,6 +15,13 @@ class FavoriteDao extends DatabaseAccessor<AppDatabase> with _$FavoriteDaoMixin 
         .map((favorite) => favorite != null);
   }
 
+  Stream<Set<String>> watchFavoriteStreamIds(int accountId, String streamType) {
+    return (select(favorites)
+          ..where((f) => f.accountId.equals(accountId) & f.streamType.equals(streamType)))
+        .watch()
+        .map((rows) => rows.map((r) => r.streamId).toSet());
+  }
+
   Future<void> toggleFavorite(int accountId, String streamId, String streamType) async {
     final existing = await (select(favorites)
           ..where((f) => f.accountId.equals(accountId) & f.streamId.equals(streamId) & f.streamType.equals(streamType)))

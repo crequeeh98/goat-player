@@ -10,6 +10,7 @@ import 'widgets/channel_icon.dart';
 import 'live_tv_controller.dart';
 import '../dashboard/favorites_provider.dart';
 import '../../core/utils/channel_name_cleaner.dart';
+import '../../core/utils/live_stream_matcher.dart';
 import '../../core/player/playback_controller.dart';
 import '../../main.dart';
 
@@ -23,7 +24,7 @@ class DesktopLiveScreen extends ConsumerStatefulWidget {
 class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   String? _selectedCategory;
   String _searchQuery = '';
-  final _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final GlobalKey _videoPreviewKey = GlobalKey();
 
   @override
@@ -35,7 +36,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(liveTvControllerProvider).syncLiveCategories();
       ref.read(epgControllerProvider).syncEpgData();
     });
@@ -53,17 +54,33 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       title: cleanName,
       url: url,
       channelId: epgChannelId,
+      streamId: stream.streamId,
+      categoryId: stream.categoryId,
     );
   }
 
-  void _zapNext(List<StreamItem> streams, int currentIndex) {
+  void _zapNext(List<StreamItem> streams) {
     if (streams.isEmpty) return;
+    final activePlayback = ref.read(playbackControllerProvider);
+    final currentIndex = LiveStreamMatcher.indexOf(
+      streams,
+      streamId: activePlayback?.streamId,
+      channelId: activePlayback?.channelId,
+      streamUrl: activePlayback?.streamUrl,
+    );
     final nextIndex = currentIndex >= 0 ? (currentIndex + 1) % streams.length : 0;
     _playStream(streams[nextIndex]);
   }
 
-  void _zapPrevious(List<StreamItem> streams, int currentIndex) {
+  void _zapPrevious(List<StreamItem> streams) {
     if (streams.isEmpty) return;
+    final activePlayback = ref.read(playbackControllerProvider);
+    final currentIndex = LiveStreamMatcher.indexOf(
+      streams,
+      streamId: activePlayback?.streamId,
+      channelId: activePlayback?.channelId,
+      streamUrl: activePlayback?.streamUrl,
+    );
     final prevIndex = currentIndex >= 0 ? (currentIndex - 1 + streams.length) % streams.length : streams.length - 1;
     _playStream(streams[prevIndex]);
   }
@@ -74,17 +91,19 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final activePlayback = ref.watch(playbackControllerProvider);
     final currentLive = (activePlayback != null && activePlayback.streamType == StreamType.live) ? activePlayback : null;
 
+    final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
+    final globalSelectedCat = ref.watch(selectedLiveCategoryProvider);
+
+    // If _selectedCategory is not set locally (e.g. after minimizing and expanding),
+    // restore it from the active playing stream, global provider, or first category
+    _selectedCategory ??= currentLive?.categoryId ?? globalSelectedCat ?? categories.firstOrNull?.categoryId;
+
     final currentCategoryStreams = _selectedCategory != null
         ? (ref.watch(liveStreamsProvider(_selectedCategory!)).asData?.value ?? const <StreamItem>[])
         : const <StreamItem>[];
 
-    final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
     final currentCatObj = categories.where((c) => c.categoryId == _selectedCategory).firstOrNull;
     final categoryName = currentCatObj?.name;
-
-    final currentStreamIndex = currentCategoryStreams.indexWhere(
-      (s) => s.streamId == currentLive?.channelId || s.epgChannelId == currentLive?.channelId,
-    );
 
     ref.listen<String?>(selectedLiveCategoryProvider, (prev, next) {
       if (next != null && next != _selectedCategory) {
@@ -100,10 +119,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         if (account == null) return;
         final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
         final url = '$baseUrl/live/${account.username}/${account.password}/${next.streamId}.ts';
+        final epgChannelId = next.epgChannelId != null && next.epgChannelId!.isNotEmpty ? next.epgChannelId : next.streamId;
         ref.read(playbackControllerProvider.notifier).playLive(
           title: next.name,
           url: url,
-          channelId: next.streamId,
+          channelId: epgChannelId,
+          streamId: next.streamId,
+          categoryId: next.categoryId,
         );
       }
     });
@@ -150,10 +172,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             itemBuilder: (context, index) {
                               final cat = categories[index];
                               return ListTile(
-                                title: Text(cat.categoryId == 'favorites' ? (AppLocalizations.of(context)!.favorites ?? cat.name) : cat.name),
+                                title: Text(cat.categoryId == 'favorites' ? AppLocalizations.of(context)!.favorites : cat.name),
                                 selected: _selectedCategory == cat.categoryId,
                                 onTap: () {
                                   setState(() => _selectedCategory = cat.categoryId);
+                                  ref.read(selectedLiveCategoryProvider.notifier).set(cat.categoryId);
                                 },
                               );
                             },
@@ -200,38 +223,36 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             ),
                           );
                         }
+
+                        final favoriteIds = ref.watch(favoriteStreamIdsProvider('live')).value ?? const <String>{};
+                        final account = ref.read(activeAccountProvider);
+                        final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
+
                         return ListView.builder(
                           itemCount: streams.length,
                           itemBuilder: (context, index) {
                             final stream = streams[index];
-                            final account = ref.read(activeAccountProvider);
-                            final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
                             final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
-                            
                             final cleanName = ChannelNameCleaner.clean(stream.name);
+                            final isFavorite = favoriteIds.contains(stream.streamId);
                             
                             return ListTile(
                               leading: ChannelIcon(
                                 iconUrl: stream.streamIcon,
                                 channelName: cleanName,
                               ),
-                              title: Text(cleanName),
-                              trailing: Consumer(
-                                builder: (context, ref, child) {
-                                  final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: stream.streamId, streamType: 'live'))).value ?? false;
-                                  return IconButton(
-                                    icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
-                                    color: isFavorite ? Colors.red : null,
-                                    onPressed: () async {
-                                      final account = ref.read(activeAccountProvider);
-                                      if (account != null) {
-                                        await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, stream.streamId, 'live');
-                                      }
-                                    },
-                                  );
+                              title: Text(cleanName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              trailing: IconButton(
+                                icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
+                                color: isFavorite ? Colors.red : null,
+                                onPressed: () async {
+                                  final acc = ref.read(activeAccountProvider);
+                                  if (acc != null) {
+                                    await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
+                                  }
                                 },
                               ),
-                              selected: currentLive?.streamUrl == url,
+                              selected: (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) || currentLive?.streamUrl == url,
                               onTap: () => _playStream(stream),
                             );
                           },
@@ -256,14 +277,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                       ? VideoPreview(
                           key: _videoPreviewKey,
                           streamUrl: currentLive.streamUrl,
+                          streamId: currentLive.streamId,
                           channelId: currentLive.channelId,
                           channelName: currentLive.title,
                           isFullWidth: _isFullWidth,
                           streams: currentCategoryStreams,
                           categoryName: categoryName,
                           onSelectStream: _playStream,
-                          onZapNext: () => _zapNext(currentCategoryStreams, currentStreamIndex),
-                          onZapPrevious: () => _zapPrevious(currentCategoryStreams, currentStreamIndex),
+                          onZapNext: () => _zapNext(currentCategoryStreams),
+                          onZapPrevious: () => _zapPrevious(currentCategoryStreams),
                           onToggleFullWidth: () {
                             ref.read(isLiveFullWidthProvider.notifier).toggle();
                           },

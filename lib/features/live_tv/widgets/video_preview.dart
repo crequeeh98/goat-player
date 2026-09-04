@@ -11,6 +11,7 @@ import '../../../core/player/widgets/mobile_gesture_detector.dart';
 
 class VideoPreview extends ConsumerStatefulWidget {
   final String streamUrl;
+  final String? streamId;
   final String? channelId;
   final String? channelName;
   final bool isFullWidth;
@@ -28,6 +29,7 @@ class VideoPreview extends ConsumerStatefulWidget {
   const VideoPreview({
     super.key,
     required this.streamUrl,
+    this.streamId,
     this.channelId,
     this.channelName,
     this.isFullWidth = false,
@@ -64,7 +66,11 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
   void didUpdateWidget(covariant VideoPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.streamUrl != widget.streamUrl) {
-      ref.read(playerServiceProvider).open(widget.streamUrl, isLive: true);
+      final player = ref.read(playerServiceProvider).player;
+      final currentUri = player.state.playlist.medias.firstOrNull?.uri;
+      if (currentUri != widget.streamUrl) {
+        ref.read(playerServiceProvider).open(widget.streamUrl, isLive: true);
+      }
     }
   }
 
@@ -106,6 +112,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
         state: state,
         title: displayTitle,
         showBackButton: widget.isFullWidth,
+        isFullWidth: widget.isFullWidth,
         onBack: widget.onExitToPreview ?? widget.onToggleFullWidth,
         onCycleFit: _cycleFit,
         currentFit: _fit,
@@ -119,7 +126,8 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
           playerService.jumpToLiveEdge();
         },
         streams: widget.streams,
-        currentStreamId: widget.channelId,
+        streamId: widget.streamId,
+        currentStreamId: widget.streamId ?? widget.channelId,
         onSelectStream: widget.onSelectStream,
         onZapPrevious: widget.onZapPrevious,
         onZapNext: widget.onZapNext,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../main.dart';
 
 class FavoriteQuery {
@@ -25,4 +25,12 @@ final isFavoriteProvider = StreamProvider.family.autoDispose<bool, FavoriteQuery
 
   final db = ref.watch(databaseProvider);
   return db.favoriteDao.isFavorite(account.id, query.streamId, query.streamType);
+});
+
+final favoriteStreamIdsProvider = StreamProvider.family.autoDispose<Set<String>, String>((ref, streamType) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return Stream.value(<String>{});
+
+  final db = ref.watch(databaseProvider);
+  return db.favoriteDao.watchFavoriteStreamIds(account.id, streamType);
 });

@@ -7,7 +7,6 @@ import '../vod_series/series_controller.dart';
 import '../live_tv/live_tv_controller.dart';
 import '../vod_movies/movie_detail_modal.dart';
 import '../vod_series/series_detail_modal.dart';
-import '../live_tv/desktop_live_screen.dart'; // fallback if we want to play live tv directly
 
 class MasterSearchModal extends ConsumerStatefulWidget {
   const MasterSearchModal({super.key});
@@ -111,7 +110,15 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
             final stream = streams[index];
             return ListTile(
               leading: stream.streamIcon != null && stream.streamIcon!.isNotEmpty
-                  ? Image.network(stream.streamIcon!, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.tv))
+                  ? Image.network(
+                      stream.streamIcon!,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      cacheWidth: 100,
+                      cacheHeight: 100,
+                      errorBuilder: (_,__,___) => const Icon(Icons.tv),
+                    )
                   : const Icon(Icons.tv),
               title: Text(stream.name),
               onTap: () {
