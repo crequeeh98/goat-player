@@ -73,5 +73,16 @@
   "nextChannel": "Next Channel",
   "previousChannel": "Previous Channel",
   "noProgramInfo": "No program info",
-  "upNext": "Up Next"
+  "upNext": "Up Next",
+  "manualSetup": "Manual Setup",
+  "linkViaWeb": "Link via Web / QR",
+  "scanQrCode": "Scan QR Code",
+  "scanWithPhone": "Scan this QR code with your smartphone to upload your playlist remotely.",
+  "deviceId": "Device ID",
+  "pairingPin": "Pairing PIN",
+  "waitingForPlaylist": "Waiting for playlist...",
+  "playlistReceived": "Playlist received! Loading...",
+  "newPin": "New PIN",
+  "orVisitWebsite": "Or open this portal in any browser:",
+  "pinExpiresIn": "PIN expires in"
 }

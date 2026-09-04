@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GOATPlayer | Remote Playlist Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #09080F;
+      --card-bg: rgba(22, 19, 36, 0.85);
+      --card-border: rgba(168, 85, 247, 0.2);
+      --primary: #A855F7;
+      --primary-hover: #9333EA;
+      --primary-glow: rgba(168, 85, 247, 0.35);
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --input-bg: rgba(14, 12, 24, 0.9);
+      --input-border: rgba(255, 255, 255, 0.12);
+      --input-focus: #A855F7;
+      --success: #10B981;
+      --error: #EF4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.18) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.12) 0%, transparent 40%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, #A855F7, #6366F1);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 800;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .tagline {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 40px rgba(168, 85, 247, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .device-banner {
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .device-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .device-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .device-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #E9D5FF;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.12);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .badge-status::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #E5E7EB;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-size: 14px;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--input-focus);
+      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
+    }
+
+    .form-input::placeholder {
+      color: #6B7280;
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 20px var(--primary-glow);
+      transition: all 0.2s ease;
+      margin-top: 8px;
+    }
+
+    .btn-submit:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .tab-bar {
+      display: flex;
+      background: rgba(14, 12, 24, 0.8);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: rgba(168, 85, 247, 0.25);
+      color: #F3F4F6;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .notice {
+      margin-top: 18px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Success State */
+    .success-card {
+      display: none;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid var(--success);
+      color: var(--success);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .success-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #F3F4F6;
+    }
+
+    .success-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      background: #1F1D2B;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: none;
+      animation: fadeIn 0.2s ease;
+      z-index: 100;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <span>🐐 GOATPlayer</span>
+        <span class="logo-badge">Remote</span>
+      </div>
+      <p class="tagline">Link & Push Playlists to your TV / Player</p>
+    </div>
+
+    <div class="card" id="mainCard">
+      <!-- Device Banner -->
+      <div class="device-banner">
+        <div class="device-info">
+          <span class="device-label">Target Device</span>
+          <span class="device-val" id="deviceDisplay">Loading...</span>
+        </div>
+        <div class="badge-status" id="connectionStatus">Connected</div>
+      </div>
+
+      <!-- Pairing Inputs (Shown only if device or PIN missing from URL) -->
+      <div id="manualPairingSection" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Device ID (e.g. GP-8429-B7)</label>
+          <input type="text" id="inputDeviceId" class="form-input" placeholder="GP-XXXX-XXXX" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">6-Digit Pairing PIN</label>
+          <input type="text" id="inputPin" class="form-input" placeholder="123456" maxlength="6" />
+        </div>
+        <button type="button" class="btn-submit" id="btnVerifyPairing">Connect to Device</button>
+      </div>
+
+      <!-- Playlist Upload Form (Shown once paired) -->
+      <form id="playlistForm" style="display: none;">
+        <div class="tab-bar">
+          <button type="button" class="tab-btn active" id="tabXtream" onclick="switchTab('xtream')">Xtream Codes API</button>
+          <button type="button" class="tab-btn" id="tabM3u" onclick="switchTab('m3u')">M3U Playlist URL</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Playlist Name (Optional)</label>
+          <input type="text" id="playlistName" class="form-input" placeholder="e.g. My Home IPTV" />
+        </div>
+
+        <!-- Xtream Codes Section -->
+        <div id="xtreamFields">
+          <div class="form-group">
+            <label class="form-label">Server URL / Host</label>
+            <input type="url" id="serverUrl" class="form-input" placeholder="http://my-iptv-server.com:8080" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="username" class="form-input" placeholder="Username" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="password" class="form-input" placeholder="Password" required />
+          </div>
+        </div>
+
+        <!-- M3U URL Section -->
+        <div id="m3uFields" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">M3U Playlist URL</label>
+            <input type="url" id="m3uUrl" class="form-input" placeholder="https://example.com/playlist.m3u" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btnSubmit">
+          <span>🚀 Send to GOATPlayer</span>
+        </button>
+
+        <p class="notice">
+          Your credentials are encrypted in transit and transmitted directly to your TV via Supabase Realtime.
+        </p>
+      </form>
+
+      <!-- Success Card -->
+      <div class="success-card" id="successCard">
+        <div class="success-icon">✓</div>
+        <h2 class="success-title">Playlist Sent!</h2>
+        <p class="success-desc">
+          Your playlist has been transmitted directly to GOATPlayer. Your TV/app is now loading your live channels, movies, and series!
+        </p>
+        <button type="button" class="btn-submit" onclick="location.reload()">Send Another Playlist</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Supabase Configuration
+    const SUPABASE_URL = 'https://ejxepyztbcxcuxbgjwsh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGVweXp0YmN4Y3V4Ymdqd3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MzcwNTcsImV4cCI6MjEwNDExMzA1N30.DGTV-_uwmmo4CN7CBZuqR1rqkh121GF2BqgNEvGj2LA';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let activeDeviceId = '';
+    let activePin = '';
+    let currentMode = 'xtream';
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3500);
+    }
+
+    function switchTab(mode) {
+      currentMode = mode;
+      const tabX = document.getElementById('tabXtream');
+      const tabM = document.getElementById('tabM3u');
+      const fX = document.getElementById('xtreamFields');
+      const fM = document.getElementById('m3uFields');
+
+      if (mode === 'xtream') {
+        tabX.classList.add('active');
+        tabM.classList.remove('active');
+        fX.style.display = 'block';
+        fM.style.display = 'none';
+        document.getElementById('serverUrl').required = true;
+        document.getElementById('username').required = true;
+        document.getElementById('password').required = true;
+        document.getElementById('m3uUrl').required = false;
+      } else {
+        tabM.classList.add('active');
+        tabX.classList.remove('active');
+        fM.style.display = 'block';
+        fX.style.display = 'none';
+        document.getElementById('serverUrl').required = false;
+        document.getElementById('username').required = false;
+        document.getElementById('password').required = false;
+        document.getElementById('m3uUrl').required = true;
+      }
+    }
+
+    async function verifyPairing(deviceId, pin) {
+      document.getElementById('deviceDisplay').innerText = 'Verifying...';
+      try {
+        const { data, error } = await supabase
+          .from('remote_devices')
+          .select('*')
+          .eq('device_id', deviceId)
+          .eq('pin', pin)
+          .maybeSingle();
+
+        if (error || !data) {
+          showToast('Invalid Device ID or PIN. Please check your screen.');
+          document.getElementById('deviceDisplay').innerText = 'Not Connected';
+          document.getElementById('connectionStatus').innerText = 'Unpaired';
+          document.getElementById('connectionStatus').style.color = 'var(--error)';
+          document.getElementById('manualPairingSection').style.display = 'block';
+          document.getElementById('playlistForm').style.display = 'none';
+          return false;
+        }
+
+        // Check if expired
+        if (new Date(data.pin_expires_at) < new Date()) {
+          showToast('PIN has expired. Please refresh the PIN on your TV.');
+          document.getElementById('deviceDisplay').innerText = 'Expired PIN';
+          document.getElementById('manualPairingSection').style.display = 'block';
+          document.getElementById('playlistForm').style.display = 'none';
+          return false;
+        }
+
+        // Successfully verified
+        activeDeviceId = deviceId;
+        activePin = pin;
+        document.getElementById('deviceDisplay').innerText = deviceId;
+        document.getElementById('connectionStatus').innerText = 'Connected';
+        document.getElementById('connectionStatus').style.color = 'var(--success)';
+        document.getElementById('manualPairingSection').style.display = 'none';
+        document.getElementById('playlistForm').style.display = 'block';
+        return true;
+      } catch (e) {
+        showToast('Connection error: ' + e.message);
+        return false;
+      }
+    }
+
+    // Parse URL params
+    window.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlDevice = urlParams.get('device');
+      const urlPin = urlParams.get('pin');
+
+      if (urlDevice && urlPin) {
+        document.getElementById('inputDeviceId').value = urlDevice;
+        document.getElementById('inputPin').value = urlPin;
+        await verifyPairing(urlDevice.trim(), urlPin.trim());
+      } else {
+        document.getElementById('deviceDisplay').innerText = 'Pairing Required';
+        document.getElementById('connectionStatus').innerText = 'Disconnected';
+        document.getElementById('connectionStatus').style.color = 'var(--text-muted)';
+        document.getElementById('manualPairingSection').style.display = 'block';
+      }
+    });
+
+    document.getElementById('btnVerifyPairing').addEventListener('click', async () => {
+      const d = document.getElementById('inputDeviceId').value.trim();
+      const p = document.getElementById('inputPin').value.trim();
+      if (!d || !p) {
+        showToast('Please enter both Device ID and PIN.');
+        return;
+      }
+      await verifyPairing(d, p);
+    });
+
+    document.getElementById('playlistForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerText = 'Transmitting to Device...';
+
+      let serverUrl = '';
+      let username = '';
+      let password = '';
+      const playlistName = document.getElementById('playlistName').value.trim() || 'My Remote Playlist';
+
+      if (currentMode === 'xtream') {
+        serverUrl = document.getElementById('serverUrl').value.trim();
+        username = document.getElementById('username').value.trim();
+        password = document.getElementById('password').value.trim();
+      } else {
+        serverUrl = document.getElementById('m3uUrl').value.trim();
+      }
+
+      try {
+        const { error } = await supabase
+          .from('remote_devices')
+          .update({
+            playlist_name: playlistName,
+            server_url: serverUrl,
+            username: username,
+            password: password,
+            status: 'linked',
+            updated_at: new Date().toISOString()
+          })
+          .eq('device_id', activeDeviceId)
+          .eq('pin', activePin);
+
+        if (error) {
+          throw error;
+        }
+
+        // Show Success
+        document.getElementById('playlistForm').style.display = 'none';
+        document.querySelector('.device-banner').style.display = 'none';
+        document.getElementById('successCard').style.display = 'block';
+      } catch (err) {
+        showToast('Failed to send playlist: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<span>🚀 Send to GOATPlayer</span>';
+      }
+    });
+  </script>
+</body>
+</html>

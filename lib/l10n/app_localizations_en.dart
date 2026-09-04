@@ -231,4 +231,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get upNext => 'Up Next';
+
+  @override
+  String get manualSetup => 'Manual Setup';
+
+  @override
+  String get linkViaWeb => 'Link via Web / QR';
+
+  @override
+  String get scanQrCode => 'Scan QR Code';
+
+  @override
+  String get scanWithPhone =>
+      'Scan this QR code with your smartphone to upload your playlist remotely.';
+
+  @override
+  String get deviceId => 'Device ID';
+
+  @override
+  String get pairingPin => 'Pairing PIN';
+
+  @override
+  String get waitingForPlaylist => 'Waiting for playlist...';
+
+  @override
+  String get playlistReceived => 'Playlist received! Loading...';
+
+  @override
+  String get newPin => 'New PIN';
+
+  @override
+  String get orVisitWebsite => 'Or open this portal in any browser:';
+
+  @override
+  String get pinExpiresIn => 'PIN expires in';
 }

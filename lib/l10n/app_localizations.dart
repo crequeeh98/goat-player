@@ -541,6 +541,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Up Next'**
   String get upNext;
+
+  /// No description provided for @manualSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual Setup'**
+  String get manualSetup;
+
+  /// No description provided for @linkViaWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Link via Web / QR'**
+  String get linkViaWeb;
+
+  /// No description provided for @scanQrCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR Code'**
+  String get scanQrCode;
+
+  /// No description provided for @scanWithPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan this QR code with your smartphone to upload your playlist remotely.'**
+  String get scanWithPhone;
+
+  /// No description provided for @deviceId.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID'**
+  String get deviceId;
+
+  /// No description provided for @pairingPin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing PIN'**
+  String get pairingPin;
+
+  /// No description provided for @waitingForPlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for playlist...'**
+  String get waitingForPlaylist;
+
+  /// No description provided for @playlistReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist received! Loading...'**
+  String get playlistReceived;
+
+  /// No description provided for @newPin.
+  ///
+  /// In en, this message translates to:
+  /// **'New PIN'**
+  String get newPin;
+
+  /// No description provided for @orVisitWebsite.
+  ///
+  /// In en, this message translates to:
+  /// **'Or open this portal in any browser:'**
+  String get orVisitWebsite;
+
+  /// No description provided for @pinExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN expires in'**
+  String get pinExpiresIn;
 }
 
 class _AppLocalizationsDelegate

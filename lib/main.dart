@@ -18,6 +18,7 @@ import 'features/account/account_list_screen.dart';
 import 'package:dio/dio.dart';
 import 'core/player/playback_controller.dart';
 import 'features/live_tv/live_tv_controller.dart';
+import 'core/remote_sync/remote_sync_service.dart';
 
 // Global providers
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -78,9 +79,16 @@ final xtreamClientProvider = Provider<XtreamClient?>((ref) {
   );
 });
 
+final remoteSyncServiceProvider = Provider<RemoteSyncService>((ref) {
+  final accountDao = ref.watch(accountDaoProvider);
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return RemoteSyncService(accountDao, prefs);
+});
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  await RemoteSyncService.initialize();
   
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();

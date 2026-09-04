@@ -232,4 +232,38 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get upNext => 'Danach';
+
+  @override
+  String get manualSetup => 'Manuelle Eingabe';
+
+  @override
+  String get linkViaWeb => 'Über Web / QR verbinden';
+
+  @override
+  String get scanQrCode => 'QR-Code scannen';
+
+  @override
+  String get scanWithPhone =>
+      'Scanne diesen QR-Code mit deinem Smartphone, um deine Playlist bequem zu übertragen.';
+
+  @override
+  String get deviceId => 'Geräte-ID';
+
+  @override
+  String get pairingPin => 'Verbindungs-PIN';
+
+  @override
+  String get waitingForPlaylist => 'Warte auf Playlist...';
+
+  @override
+  String get playlistReceived => 'Playlist empfangen! Wird geladen...';
+
+  @override
+  String get newPin => 'Neuer PIN';
+
+  @override
+  String get orVisitWebsite => 'Oder öffne dieses Portal im Browser:';
+
+  @override
+  String get pinExpiresIn => 'PIN läuft ab in';
 }
