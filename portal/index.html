@@ -333,21 +333,27 @@
     .toast {
       position: fixed;
       bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
       background: #1F1D2B;
-      border: 1px solid rgba(255,255,255,0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
       color: white;
-      padding: 12px 20px;
+      padding: 12px 24px;
       border-radius: 12px;
       font-size: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
       display: none;
       animation: fadeIn 0.2s ease;
-      z-index: 100;
+      z-index: 1000;
+      text-align: center;
+      max-width: 90%;
+      width: max-content;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; transform: translate(-50%, 8px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
     }
   </style>
 </head>
@@ -458,7 +464,11 @@
     const SUPABASE_URL = 'https://ejxepyztbcxcuxbgjwsh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGVweXp0YmN4Y3V4Ymdqd3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MzcwNTcsImV4cCI6MjEwNDExMzA1N30.DGTV-_uwmmo4CN7CBZuqR1rqkh121GF2BqgNEvGj2LA';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = (window.supabase && window.supabase.createClient)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : (typeof supabase !== 'undefined' && supabase.createClient)
+        ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        : null;
 
     let activeDeviceId = '';
     let activePin = '';
@@ -504,13 +514,24 @@
       btn.disabled = true;
       btn.innerText = 'Connecting...';
 
+      console.log('Verifying pairing for device:', deviceId, 'PIN:', pin);
+
+      if (!supabaseClient) {
+        showToast('Supabase client failed to initialize.');
+        btn.disabled = false;
+        btn.innerText = 'Connect to Device';
+        return false;
+      }
+
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
           .from('remote_devices')
           .select('*')
           .eq('device_id', deviceId)
           .eq('pin', pin)
           .maybeSingle();
+
+        console.log('Query result:', data, 'error:', error);
 
         if (error || !data) {
           showToast('Invalid Device ID or PIN. Please check your screen.');
@@ -536,7 +557,8 @@
         document.getElementById('playlistForm').style.display = 'block';
         return true;
       } catch (e) {
-        showToast('Connection error: ' + e.message);
+        console.error('Connection error:', e);
+        showToast('Connection error: ' + (e.message || e));
         btn.disabled = false;
         btn.innerText = 'Connect to Device';
         return false;
@@ -550,9 +572,9 @@
       const urlPin = urlParams.get('pin');
 
       if (urlDevice && urlPin) {
-        document.getElementById('inputDeviceId').value = urlDevice.trim();
+        document.getElementById('inputDeviceId').value = urlDevice.trim().toUpperCase();
         document.getElementById('inputPin').value = urlPin.trim();
-        await verifyPairing(urlDevice.trim(), urlPin.trim());
+        await verifyPairing(urlDevice.trim().toUpperCase(), urlPin.trim());
       }
     });
 
@@ -586,7 +608,7 @@
       }
 
       try {
-        const { error } = await supabase
+        const { error } = await supabaseClient
           .from('remote_devices')
           .update({
             playlist_name: playlistName,
