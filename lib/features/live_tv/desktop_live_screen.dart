@@ -373,37 +373,37 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         final account = ref.read(activeAccountProvider);
                         final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
 
-                        return ListView.builder(
-                          controller: _channelScrollController,
-                          itemExtent: 64.0,
-                          itemCount: streams.length,
-                          itemBuilder: (context, index) {
-                            final stream = streams[index];
-                            final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
-                            final cleanName = ChannelNameCleaner.clean(stream.name);
-                            final isFavorite = favoriteIds.contains(stream.streamId);
-                            final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
-                                (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
-                                currentLive?.streamUrl == url ||
-                                activePlayback?.streamUrl == url;
+                        return FocusTraversalGroup(
+                          policy: WidgetOrderTraversalPolicy(),
+                          child: ListView.builder(
+                            controller: _channelScrollController,
+                            itemExtent: 64.0,
+                            itemCount: streams.length,
+                            itemBuilder: (context, index) {
+                              final stream = streams[index];
+                              final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
+                              final cleanName = ChannelNameCleaner.clean(stream.name);
+                              final isFavorite = favoriteIds.contains(stream.streamId);
+                              final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
+                                  (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
+                                  currentLive?.streamUrl == url ||
+                                  activePlayback?.streamUrl == url;
 
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              child: Focus(
-                                onKeyEvent: (node, event) {
-                                  if (event is KeyDownEvent &&
-                                      event.logicalKey == LogicalKeyboardKey.arrowDown &&
-                                      index == streams.length - 1) {
-                                    _channelScrollController.animateTo(
-                                      0,
-                                      duration: const Duration(milliseconds: 200),
-                                      curve: Curves.easeOutCubic,
-                                    );
-                                    _firstChannelNode.requestFocus();
-                                    return KeyEventResult.handled;
-                                  }
-                                  return KeyEventResult.ignored;
-                                },
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                child: Focus(
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                                        index == streams.length - 1) {
+                                      _channelScrollController.jumpTo(0);
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        _firstChannelNode.requestFocus();
+                                      });
+                                      return KeyEventResult.handled;
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
                                 child: TvFocusable(
                                   focusNode: index == 0 ? _firstChannelNode : null,
                                   focusScale: 1.02,
@@ -472,8 +472,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             ),
                           );
                         },
-                        );
-                      },
+                      ),
+                    );
+                  },
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (err, stack) => Center(child: Text('${AppLocalizations.of(context)!.error}$err')),
                     ),

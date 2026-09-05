@@ -62,6 +62,7 @@ class CustomLiveControls extends ConsumerStatefulWidget {
 }
 
 class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
+  final FocusNode _focusNode = FocusNode();
   bool _showOverlay = true;
   Timer? _hideTimer;
   double _volume = 100.0;
@@ -91,10 +92,27 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _playingSub = player.stream.playing.listen((p) {
       if (mounted) setState(() => _isPlaying = p);
     });
+
+    if (widget.isFullWidth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(CustomLiveControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isFullWidth && !oldWidget.isFullWidth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _drawerChannelChangeSub?.cancel();
     _hideTimer?.cancel();
     _osdBannerTimer?.cancel();
@@ -304,10 +322,14 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         : (currentStreamItem != null ? ChannelNameCleaner.clean(currentStreamItem.name) : activeTitle);
 
     return Focus(
+      focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
-          // Escape closes drawer if open, otherwise toggles fullscreen
+          // Any remote interaction resets hide timer
+          _startHideTimer();
+
+          // Escape closes drawer if open, otherwise toggles fullscreen, otherwise exits full-width
           if (event.logicalKey == LogicalKeyboardKey.escape) {
             if (_isDrawerOpen) {
               setState(() => _isDrawerOpen = false);
@@ -319,22 +341,37 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 widget.onEnterFullWidth!();
               }
               return KeyEventResult.handled;
+            } else if (widget.isFullWidth) {
+              if (widget.onBack != null) {
+                widget.onBack!();
+              }
+              return KeyEventResult.handled;
             }
           }
 
-          // Channel Up: Next Channel
+          // Channel Up: Next Channel or Toggle Overlay
           if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
               event.logicalKey == LogicalKeyboardKey.pageUp ||
               event.logicalKey == LogicalKeyboardKey.channelUp) {
-            _zapNext();
+            if (widget.streams != null && widget.streams!.length > 1) {
+              _zapNext();
+            } else {
+              setState(() => _showOverlay = !_showOverlay);
+              if (_showOverlay) _startHideTimer();
+            }
             return KeyEventResult.handled;
           }
 
-          // Channel Down: Previous Channel
+          // Channel Down: Previous Channel or Toggle Overlay
           if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
               event.logicalKey == LogicalKeyboardKey.pageDown ||
               event.logicalKey == LogicalKeyboardKey.channelDown) {
-            _zapPrevious();
+            if (widget.streams != null && widget.streams!.length > 1) {
+              _zapPrevious();
+            } else {
+              setState(() => _showOverlay = !_showOverlay);
+              if (_showOverlay) _startHideTimer();
+            }
             return KeyEventResult.handled;
           }
 
@@ -358,8 +395,14 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       },
       child: MouseRegion(
         cursor: (_showOverlay || _isDrawerOpen) ? SystemMouseCursors.basic : SystemMouseCursors.none,
-        onHover: _onPointerEvent,
-        onEnter: _onPointerEvent,
+        onHover: (e) {
+          if (!_focusNode.hasFocus) _focusNode.requestFocus();
+          _onPointerEvent(e);
+        },
+        onEnter: (e) {
+          if (!_focusNode.hasFocus) _focusNode.requestFocus();
+          _onPointerEvent(e);
+        },
         onExit: (_) {
           if (_isPlaying && !_isDrawerOpen) {
             setState(() => _showOverlay = false);
@@ -367,6 +410,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         },
         child: GestureDetector(
             onTap: () {
+              if (!_focusNode.hasFocus) _focusNode.requestFocus();
               if (_isDrawerOpen) {
                 setState(() => _isDrawerOpen = false);
                 _startHideTimer();

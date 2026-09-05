@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import '../../core/widgets/tv_remote_scope.dart';
 import '../../core/player/widgets/floating_mini_player.dart';
 import '../../core/player/playback_controller.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'master_search_modal.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
@@ -100,15 +101,25 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     return TvRemoteScope(
       isRoot: true,
       onBackAtRoot: () async {
+        // Priority 0: If window is in OS fullscreen, restore windowed/full-width mode
+        if (isFullscreen(context)) {
+          toggleFullscreen(context);
+          return;
+        }
+
+        // Priority 1: If Live TV is in full-width mode, restore standard 3-column view
+        if (ref.read(isLiveFullWidthProvider)) {
+          ref.read(isLiveFullWidthProvider.notifier).set(false);
+          return;
+        }
+
+        // Priority 2: Close active master search modal if open
         if (_isSearchOpen) {
           _closeSearch();
           return;
         }
-        final active = ref.read(playbackControllerProvider);
-        if (active != null && !active.isMinimized) {
-          ref.read(playbackControllerProvider.notifier).minimize();
-          return;
-        }
+
+        // Priority 3: Root Level Exit Confirmation
         final shouldExit = await TvRemoteScope.showTvExitDialog(context);
         if (shouldExit && context.mounted) {
           if (GoatPlatform.isDesktop) {
@@ -122,6 +133,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
+          if (isFullscreen(context)) {
+            toggleFullscreen(context);
+            return;
+          }
+          if (ref.read(isLiveFullWidthProvider)) {
+            ref.read(isLiveFullWidthProvider.notifier).set(false);
+            return;
+          }
           if (_isSearchOpen) {
             _closeSearch();
             return;

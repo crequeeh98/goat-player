@@ -179,12 +179,10 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                     if (event is KeyDownEvent &&
                                         event.logicalKey == LogicalKeyboardKey.arrowDown &&
                                         index >= streams.length - (isDesktop ? 6 : 3)) {
-                                      _movieScrollController.animateTo(
-                                        0,
-                                        duration: const Duration(milliseconds: 250),
-                                        curve: Curves.easeOutCubic,
-                                      );
-                                      _firstMovieNode.requestFocus();
+                                      _movieScrollController.jumpTo(0);
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        _firstMovieNode.requestFocus();
+                                      });
                                       return KeyEventResult.handled;
                                     }
                                     return KeyEventResult.ignored;

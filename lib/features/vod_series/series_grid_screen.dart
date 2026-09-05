@@ -171,12 +171,10 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                     if (event is KeyDownEvent &&
                                         event.logicalKey == LogicalKeyboardKey.arrowDown &&
                                         index >= streams.length - (isDesktop ? 6 : 3)) {
-                                      _seriesScrollController.animateTo(
-                                        0,
-                                        duration: const Duration(milliseconds: 250),
-                                        curve: Curves.easeOutCubic,
-                                      );
-                                      _firstSeriesNode.requestFocus();
+                                      _seriesScrollController.jumpTo(0);
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        _firstSeriesNode.requestFocus();
+                                      });
                                       return KeyEventResult.handled;
                                     }
                                     return KeyEventResult.ignored;

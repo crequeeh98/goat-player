@@ -148,136 +148,138 @@ class ContinueWatchingRail extends ConsumerWidget {
                   final seriesTitle = _getSeriesTitle(item);
                   final subtitle = _getEpisodeSubtitle(context, item, isAdvanced);
 
-                  return TvFocusable(
-                    focusScale: 1.05,
-                    borderRadius: BorderRadius.circular(10),
-                    onPressed: () {
-                      if (type == 'movie') {
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            opaque: false,
-                            barrierDismissible: true,
-                            barrierColor: Colors.black54,
-                            pageBuilder: (context, _, __) => MovieDetailModal(
-                              movieName: item.title,
-                              streamId: item.streamId,
-                              posterUrl: item.coverUrl,
-                            ),
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            opaque: false,
-                            barrierDismissible: true,
-                            barrierColor: Colors.black54,
-                            pageBuilder: (context, _, __) => SeriesDetailModal(
-                              seriesName: seriesTitle,
-                              seriesId: item.seriesId ?? item.streamId,
-                              coverUrl: item.coverUrl,
-                              initialSeason: item.season?.toString(),
-                              initialEpisodeId: isAdvanced ? null : item.streamId,
-                              targetEpisodeNum: isAdvanced ? ((item.episode ?? 1) + 1) : item.episode,
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 14),
+                    child: SizedBox(
                       width: 140,
-                      margin: const EdgeInsets.only(right: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: item.coverUrl != null && item.coverUrl!.isNotEmpty
-                                      ? Image.network(
-                                          item.coverUrl!,
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 280,
-                                          cacheHeight: 420,
-                                          errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 32)),
-                                        )
-                                      : Container(color: Colors.grey[800], child: const Icon(Icons.movie, size: 32)),
-                                ),
-
-                                // S/E Badge on Top-Left of Poster
-                                if (badge.isNotEmpty)
-                                  Positioned(
-                                    top: 8,
-                                    left: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.78),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.white24, width: 0.5),
+                            child: TvFocusable(
+                              focusScale: 1.04,
+                              borderRadius: BorderRadius.circular(10),
+                              onPressed: () {
+                                if (type == 'movie') {
+                                  Navigator.push(
+                                    context,
+                                    PageRouteBuilder(
+                                      opaque: false,
+                                      barrierDismissible: true,
+                                      barrierColor: Colors.black54,
+                                      pageBuilder: (context, _, __) => MovieDetailModal(
+                                        movieName: item.title,
+                                        streamId: item.streamId,
+                                        posterUrl: item.coverUrl,
                                       ),
-                                      child: Text(
-                                        badge,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    context,
+                                    PageRouteBuilder(
+                                      opaque: false,
+                                      barrierDismissible: true,
+                                      barrierColor: Colors.black54,
+                                      pageBuilder: (context, _, __) => SeriesDetailModal(
+                                        seriesName: seriesTitle,
+                                        seriesId: item.seriesId ?? item.streamId,
+                                        coverUrl: item.coverUrl,
+                                        initialSeason: item.season?.toString(),
+                                        initialEpisodeId: isAdvanced ? null : item.streamId,
+                                        targetEpisodeNum: isAdvanced ? ((item.episode ?? 1) + 1) : item.episode,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    item.coverUrl != null && item.coverUrl!.isNotEmpty
+                                        ? Image.network(
+                                            item.coverUrl!,
+                                            fit: BoxFit.cover,
+                                            cacheWidth: 280,
+                                            cacheHeight: 420,
+                                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.movie, size: 32)),
+                                          )
+                                        : Container(color: Colors.grey[800], child: const Icon(Icons.movie, size: 32)),
+
+                                    // S/E Badge on Top-Left of Poster
+                                    if (badge.isNotEmpty)
+                                      Positioned(
+                                        top: 8,
+                                        left: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.78),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.white24, width: 0.5),
+                                          ),
+                                          child: Text(
+                                            badge,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Progress Indicator at bottom of poster
+                                    Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: ClipRRect(
+                                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                                        child: LinearProgressIndicator(
+                                          value: isAdvanced ? 0.0 : (item.duration > 0 ? item.position / item.duration : 0.0),
+                                          backgroundColor: Colors.black54,
+                                          color: Colors.redAccent,
+                                          minHeight: 4,
                                         ),
                                       ),
                                     ),
-                                  ),
 
-                                // Progress Indicator at bottom of poster
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
-                                    child: LinearProgressIndicator(
-                                      value: isAdvanced ? 0.0 : (item.duration > 0 ? item.position / item.duration : 0.0),
-                                      backgroundColor: Colors.black54,
-                                      color: Colors.redAccent,
-                                      minHeight: 4,
+                                    // Play Button Icon Overlay
+                                    const Center(
+                                      child: Icon(Icons.play_circle_fill, size: 48, color: Colors.white70),
                                     ),
-                                  ),
-                                ),
 
-                                // Play Button Icon Overlay
-                                const Center(
-                                  child: Icon(Icons.play_circle_fill, size: 48, color: Colors.white70),
-                                ),
-
-                                // Delete / Remove Card Button
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Material(
-                                    color: Colors.black54,
-                                    shape: const CircleBorder(),
-                                    child: InkWell(
-                                      customBorder: const CircleBorder(),
-                                      onTap: () {
-                                        final db = ref.read(databaseProvider);
-                                        if (type == 'series') {
-                                          db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId);
-                                        } else {
-                                          db.playbackProgressDao.deleteProgress(item.streamId);
-                                        }
-                                      },
-                                      child: const Padding(
-                                        padding: EdgeInsets.all(4.0),
-                                        child: Icon(Icons.close, size: 16, color: Colors.white),
+                                    // Delete / Remove Card Button
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Material(
+                                        color: Colors.black54,
+                                        shape: const CircleBorder(),
+                                        child: InkWell(
+                                          customBorder: const CircleBorder(),
+                                          onTap: () {
+                                            final db = ref.read(databaseProvider);
+                                            if (type == 'series') {
+                                              db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId);
+                                            } else {
+                                              db.playbackProgressDao.deleteProgress(item.streamId);
+                                            }
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(4.0),
+                                            child: Icon(Icons.close, size: 16, color: Colors.white),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),

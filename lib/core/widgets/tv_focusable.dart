@@ -1,5 +1,40 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+/// Global manager that tracks whether the latest user interaction was via keyboard/D-Pad or mouse.
+/// When keyboard/D-Pad navigation is active, lingering mouse hover states are suppressed so that
+/// only the actively focused item is highlighted.
+class TvInputModeManager {
+  static final TvInputModeManager instance = TvInputModeManager._();
+
+  TvInputModeManager._() {
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_handlePointerEvent);
+  }
+
+  final ValueNotifier<bool> isKeyboardMode = ValueNotifier<bool>(false);
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (!isKeyboardMode.value) {
+        isKeyboardMode.value = true;
+      }
+    }
+    return false;
+  }
+
+  void _handlePointerEvent(PointerEvent event) {
+    if (event is PointerMoveEvent || event is PointerHoverEvent) {
+      // Only switch to mouse mode if physical pointer displacement occurred
+      if (event.delta.dx.abs() > 1 || event.delta.dy.abs() > 1) {
+        if (isKeyboardMode.value) {
+          isKeyboardMode.value = false;
+        }
+      }
+    }
+  }
+}
 
 /// Reusable TV and Desktop focus wrapper.
 ///
@@ -57,9 +92,20 @@ class _TvFocusableState extends State<TvFocusable> {
   FocusNode get _effectiveNode => widget.focusNode ?? (_internalNode ??= FocusNode());
 
   @override
+  void initState() {
+    super.initState();
+    TvInputModeManager.instance.isKeyboardMode.addListener(_onInputModeChanged);
+  }
+
+  @override
   void dispose() {
+    TvInputModeManager.instance.isKeyboardMode.removeListener(_onInputModeChanged);
     _internalNode?.dispose();
     super.dispose();
+  }
+
+  void _onInputModeChanged() {
+    if (mounted) setState(() {});
   }
 
   void _handleFocusChange(bool hasFocus) {
@@ -109,7 +155,9 @@ class _TvFocusableState extends State<TvFocusable> {
     }
 
     final effectiveRadius = widget.borderRadius ?? BorderRadius.circular(10);
-    final isHighlighted = _isFocused || _isHovered;
+    final isKeyboardMode = TvInputModeManager.instance.isKeyboardMode.value;
+    // In keyboard/TV remote mode, ignore lingering mouse hover to ensure only 1 active highlight
+    final isHighlighted = isKeyboardMode ? _isFocused : (_isFocused || _isHovered);
     final scale = isHighlighted ? widget.focusScale : 1.0;
     // Fast response when highlighted, instant cleanup when losing focus to prevent ghosting
     final animDuration = isHighlighted
@@ -122,7 +170,10 @@ class _TvFocusableState extends State<TvFocusable> {
       onFocusChange: _handleFocusChange,
       onKeyEvent: _handleKeyEvent,
       child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
+        onEnter: (_) {
+          TvInputModeManager.instance.isKeyboardMode.value = false;
+          setState(() => _isHovered = true);
+        },
         onExit: (_) => setState(() => _isHovered = false),
         cursor: widget.onPressed != null ? SystemMouseCursors.click : MouseCursor.defer,
         child: GestureDetector(

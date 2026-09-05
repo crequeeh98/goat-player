@@ -56,31 +56,42 @@ class TvRemoteScope extends ConsumerStatefulWidget {
           ),
           actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           actions: [
-            TvFocusable(
-              autofocus: true,
-              borderRadius: BorderRadius.circular(8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(
-                l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel',
-                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
-              ),
-            ),
-            const SizedBox(width: 8),
-            TvFocusable(
-              borderRadius: BorderRadius.circular(8),
-              focusBorderColor: Colors.redAccent,
-              glowColor: const Color(0x33FF5252),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Container(
-                color: Colors.redAccent.withValues(alpha: 0.15),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Text(
-                  l10n?.localeName == 'de' ? 'Beenden' : 'Exit',
-                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SizedBox(
+                  width: 125,
+                  child: TvFocusable(
+                    autofocus: true,
+                    borderRadius: BorderRadius.circular(8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: Center(
+                      child: Text(
+                        l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel',
+                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 125,
+                  child: TvFocusable(
+                    borderRadius: BorderRadius.circular(8),
+                    focusBorderColor: Colors.redAccent,
+                    glowColor: const Color(0x33FF5252),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: Center(
+                      child: Text(
+                        l10n?.localeName == 'de' ? 'Beenden' : 'Exit',
+                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );
