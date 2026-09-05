@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/widgets/tv_focusable.dart';
 
 class InPlayerEpisodeDrawer extends StatefulWidget {
   final String seriesName;
@@ -151,25 +152,33 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                       final isSelected = seasonKey == _selectedSeason;
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: ChoiceChip(
-                          label: Text(
-                            '${l10n?.season ?? 'Season'} $seasonKey',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? Colors.white : Colors.white70,
-                            ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: Theme.of(context).colorScheme.primary,
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          showCheckmark: false,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _selectedSeason = seasonKey);
-                              _scrollToCurrentEpisode();
-                            }
+                        child: TvFocusable(
+                          focusScale: 1.05,
+                          borderRadius: BorderRadius.circular(8),
+                          onPressed: () {
+                            setState(() => _selectedSeason = seasonKey);
+                            _scrollToCurrentEpisode();
                           },
+                          child: ChoiceChip(
+                            label: Text(
+                              '${l10n?.season ?? 'Season'} $seasonKey',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.white : Colors.white70,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Colors.white.withValues(alpha: 0.08),
+                            showCheckmark: false,
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() => _selectedSeason = seasonKey);
+                                _scrollToCurrentEpisode();
+                              }
+                            },
+                          ),
                         ),
                       );
                     },
@@ -205,28 +214,27 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                               ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
                               : 0.0;
 
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              color: isCurrent
-                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.22)
-                                  : Colors.white.withValues(alpha: 0.05),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: TvFocusable(
+                              focusScale: 1.02,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isCurrent
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.white.withValues(alpha: 0.08),
-                                width: isCurrent ? 1.5 : 1.0,
-                              ),
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: () => widget.onSelectEpisode(ep),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Column(
+                              onPressed: () => widget.onSelectEpisode(ep),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isCurrent
+                                      ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.22)
+                                      : Colors.white.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isCurrent
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.white.withValues(alpha: 0.08),
+                                    width: isCurrent ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
@@ -303,22 +311,21 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                               ],
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                      if (progressRatio > 0) ...[
-                                        const SizedBox(height: 8),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(2),
-                                          child: LinearProgressIndicator(
-                                            value: progressRatio,
-                                            backgroundColor: Colors.white12,
-                                            color: Colors.redAccent,
-                                            minHeight: 3,
-                                          ),
-                                        ),
                                       ],
+                                    ),
+                                    if (progressRatio > 0) ...[
+                                      const SizedBox(height: 8),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(2),
+                                        child: LinearProgressIndicator(
+                                          value: progressRatio,
+                                          backgroundColor: Colors.white12,
+                                          color: Colors.redAccent,
+                                          minHeight: 3,
+                                        ),
+                                      ),
                                     ],
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),

@@ -12,6 +12,7 @@ import '../dashboard/favorites_provider.dart';
 import '../../core/utils/channel_name_cleaner.dart';
 import '../../core/utils/live_stream_matcher.dart';
 import '../../core/player/playback_controller.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../../main.dart';
 
 class DesktopLiveScreen extends ConsumerStatefulWidget {
@@ -245,9 +246,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
                               return Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                child: InkWell(
+                                child: TvFocusable(
+                                  focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
-                                  onTap: () {
+                                  onPressed: () {
                                     setState(() {
                                       _selectedCategory = cat.categoryId;
                                       _lastScrolledStreamId = null;
@@ -372,9 +374,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              child: InkWell(
+                              child: TvFocusable(
+                                focusScale: 1.02,
                                 borderRadius: BorderRadius.circular(10),
-                                onTap: () => _playStream(stream),
+                                onPressed: () => _playStream(stream),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: isCurrentPlaying

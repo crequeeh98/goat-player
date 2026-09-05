@@ -6,6 +6,7 @@ import '../../vod_series/series_detail_modal.dart';
 import 'package:goat_player/core/database/app_database.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import 'package:goat_player/main.dart';
+import '../../../core/widgets/tv_focusable.dart';
 
 class _DisplayProgressItem {
   final PlaybackProgressItem item;
@@ -147,8 +148,10 @@ class ContinueWatchingRail extends ConsumerWidget {
                   final seriesTitle = _getSeriesTitle(item);
                   final subtitle = _getEpisodeSubtitle(context, item, isAdvanced);
 
-                  return GestureDetector(
-                    onTap: () {
+                  return TvFocusable(
+                    focusScale: 1.05,
+                    borderRadius: BorderRadius.circular(10),
+                    onPressed: () {
                       if (type == 'movie') {
                         Navigator.push(
                           context,

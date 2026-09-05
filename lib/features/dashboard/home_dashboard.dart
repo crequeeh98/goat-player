@@ -17,6 +17,8 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import '../vod_series/series_controller.dart';
 import '../live_tv/live_tv_controller.dart';
 import '../../core/settings/locale_controller.dart';
+import 'package:flutter/services.dart';
+import '../../core/widgets/tv_remote_scope.dart';
 import '../../core/player/widgets/floating_mini_player.dart';
 import '../../core/player/playback_controller.dart';
 import 'master_search_modal.dart';
@@ -92,10 +94,25 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
     final isLiveFullWidth = ref.watch(isLiveFullWidthProvider);
     final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
-    
-    return Scaffold(
-      appBar: hideChrome ? null : AppBar(
-        title: Row(
+
+    return TvRemoteScope(
+      isRoot: true,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          if (_isSearchOpen) {
+            _closeSearch();
+            return;
+          }
+          final shouldExit = await TvRemoteScope.showTvExitDialog(context);
+          if (shouldExit && context.mounted) {
+            SystemNavigator.pop();
+          }
+        },
+        child: Scaffold(
+          appBar: hideChrome ? null : AppBar(
+            title: Row(
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -328,9 +345,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 ],
               ),
             )
-          : null,
-    );
-  }
+            : null,
+      ),
+    ),
+  );
+}
 
   Widget _buildGermanFlag() {
     return Container(

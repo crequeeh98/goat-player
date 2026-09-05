@@ -5,6 +5,7 @@ import 'package:goat_player/l10n/app_localizations.dart';
 import 'series_detail_modal.dart';
 import 'series_controller.dart';
 import '../dashboard/widgets/continue_watching_rail.dart';
+import '../../core/widgets/tv_focusable.dart';
 
 class SeriesGridScreen extends ConsumerStatefulWidget {
   const SeriesGridScreen({super.key});
@@ -147,8 +148,10 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final stream = streams[index];
-                                return GestureDetector(
-                                  onTap: () {
+                                return TvFocusable(
+                                  focusScale: 1.05,
+                                  borderRadius: BorderRadius.circular(12),
+                                  onPressed: () {
                                     Navigator.push(
                                       context,
                                       PageRouteBuilder(
@@ -251,9 +254,10 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
 
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              child: InkWell(
+                              child: TvFocusable(
+                                focusScale: 1.02,
                                 borderRadius: BorderRadius.circular(8),
-                                onTap: () {
+                                onPressed: () {
                                   setState(() {
                                     _selectedCategory = cat.categoryId;
                                     _searchController.clear();

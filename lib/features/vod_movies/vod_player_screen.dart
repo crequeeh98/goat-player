@@ -1209,18 +1209,32 @@ class _VodControlsState extends State<_VodControls> {
       autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.space) {
+          final key = event.logicalKey;
+
+          // Play / Pause toggle (Space, Select, Enter, Remote Play/Pause)
+          if (key == LogicalKeyboardKey.space ||
+              key == LogicalKeyboardKey.select ||
+              key == LogicalKeyboardKey.enter ||
+              key == LogicalKeyboardKey.mediaPlayPause ||
+              key == LogicalKeyboardKey.mediaPlay ||
+              key == LogicalKeyboardKey.mediaPause) {
             _togglePlayPause();
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+
+          // Seek Backward (Arrow Left, Rewind)
+          if (key == LogicalKeyboardKey.arrowLeft ||
+              key == LogicalKeyboardKey.mediaRewind) {
             final current = _player.state.position;
             final newPosition = current - const Duration(seconds: 10);
             _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
             _onPointerMove();
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+
+          // Seek Forward (Arrow Right, Fast Forward)
+          if (key == LogicalKeyboardKey.arrowRight ||
+              key == LogicalKeyboardKey.mediaFastForward) {
             final current = _player.state.position;
             final duration = _player.state.duration;
             final newPosition = current + const Duration(seconds: 10);
@@ -1228,7 +1242,25 @@ class _VodControlsState extends State<_VodControls> {
             _onPointerMove();
             return KeyEventResult.handled;
           }
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
+
+          // D-Pad Up: Reveal controls & extend hide timer
+          if (key == LogicalKeyboardKey.arrowUp) {
+            _onPointerMove();
+            return KeyEventResult.handled;
+          }
+
+          // D-Pad Down: Hide controls immediately
+          if (key == LogicalKeyboardKey.arrowDown) {
+            if (_isControlsVisible) {
+              setState(() => _isControlsVisible = false);
+              return KeyEventResult.handled;
+            }
+          }
+
+          // Back keys (Escape, Backspace, Android/TV GoBack, Tizen 10009, webOS 461)
+          if (key == LogicalKeyboardKey.escape ||
+              key == LogicalKeyboardKey.backspace ||
+              key == LogicalKeyboardKey.goBack) {
             if (widget.isEpisodeDrawerOpen) {
               widget.onCloseDrawer?.call();
               return KeyEventResult.handled;
