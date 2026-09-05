@@ -35,9 +35,9 @@ class TvFocusable extends StatefulWidget {
     this.onFocusChange,
     this.focusNode,
     this.autofocus = false,
-    this.focusScale = 1.03,
+    this.focusScale = 1.02,
     this.focusBorderColor = const Color(0xFFB388FF),
-    this.glowColor = const Color(0x66B388FF),
+    this.glowColor = const Color(0x33B388FF),
     this.borderRadius,
     this.autoScroll = true,
     this.scrollAlignment = 0.5,
@@ -74,7 +74,7 @@ class _TvFocusableState extends State<TvFocusable> {
         Scrollable.ensureVisible(
           context,
           alignment: widget.scrollAlignment,
-          duration: const Duration(milliseconds: 250),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
         );
       });
@@ -111,6 +111,10 @@ class _TvFocusableState extends State<TvFocusable> {
     final effectiveRadius = widget.borderRadius ?? BorderRadius.circular(10);
     final isHighlighted = _isFocused || _isHovered;
     final scale = isHighlighted ? widget.focusScale : 1.0;
+    // Fast response when highlighted, instant cleanup when losing focus to prevent ghosting
+    final animDuration = isHighlighted
+        ? const Duration(milliseconds: 70)
+        : const Duration(milliseconds: 30);
 
     return Focus(
       focusNode: _effectiveNode,
@@ -127,23 +131,23 @@ class _TvFocusableState extends State<TvFocusable> {
           behavior: HitTestBehavior.opaque,
           child: AnimatedScale(
             scale: scale,
-            duration: const Duration(milliseconds: 180),
+            duration: animDuration,
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: animDuration,
               curve: Curves.easeOutCubic,
               padding: widget.padding,
               decoration: BoxDecoration(
                 borderRadius: effectiveRadius,
                 border: isHighlighted
-                    ? Border.all(color: widget.focusBorderColor, width: 2.0)
-                    : Border.all(color: Colors.transparent, width: 2.0),
+                    ? Border.all(color: widget.focusBorderColor, width: 1.4)
+                    : Border.all(color: Colors.transparent, width: 1.4),
                 boxShadow: isHighlighted && widget.glowColor != Colors.transparent
                     ? [
                         BoxShadow(
                           color: widget.glowColor,
-                          blurRadius: 14,
-                          spreadRadius: 1,
+                          blurRadius: 4,
+                          spreadRadius: 0,
                         ),
                       ]
                     : null,

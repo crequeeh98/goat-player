@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 
@@ -18,11 +19,15 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
   String? _selectedCategory;
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  final ScrollController _seriesScrollController = ScrollController();
+  final FocusNode _firstSeriesNode = FocusNode();
   String _sortMode = 'default'; // default, asc, desc
 
   @override
   void dispose() {
     _searchController.dispose();
+    _seriesScrollController.dispose();
+    _firstSeriesNode.dispose();
     super.dispose();
   }
 
@@ -45,20 +50,32 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
             Text(l10n.series),
             const SizedBox(width: 24),
             Expanded(
-              child: TextField(
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                       event.logicalKey == LogicalKeyboardKey.enter)) {
+                    FocusScope.of(context).nextFocus();
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
                   controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context)!.searchSeries,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context)!.searchSeries,
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
                     border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  onChanged: (val) => setState(() => _searchQuery = val),
                 ),
-                onChanged: (val) => setState(() => _searchQuery = val),
               ),
             ),
           ],
@@ -131,6 +148,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                     }
 
                     return CustomScrollView(
+                      controller: _seriesScrollController,
                       slivers: [
                         if (_searchQuery.isEmpty)
                           const SliverToBoxAdapter(
@@ -148,10 +166,26 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final stream = streams[index];
-                                return TvFocusable(
-                                  focusScale: 1.05,
-                                  borderRadius: BorderRadius.circular(12),
-                                  onPressed: () {
+                                return Focus(
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                                        index >= streams.length - (isDesktop ? 6 : 3)) {
+                                      _seriesScrollController.animateTo(
+                                        0,
+                                        duration: const Duration(milliseconds: 250),
+                                        curve: Curves.easeOutCubic,
+                                      );
+                                      _firstSeriesNode.requestFocus();
+                                      return KeyEventResult.handled;
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
+                                  child: TvFocusable(
+                                    focusNode: index == 0 ? _firstSeriesNode : null,
+                                    focusScale: 1.03,
+                                    borderRadius: BorderRadius.circular(12),
+                                    onPressed: () {
                                     Navigator.push(
                                       context,
                                       PageRouteBuilder(
@@ -222,8 +256,9 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                       ],
                                     ),
                                   ),
-                                );
-                              },
+                                ),
+                              );
+                            },
                               childCount: streams.length,
                             ),
                           ),

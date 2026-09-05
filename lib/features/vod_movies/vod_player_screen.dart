@@ -1286,16 +1286,16 @@ class _VodControlsState extends State<_VodControls> {
           onHover: (_) => _onPointerMove(),
           onEnter: (_) => _onPointerMove(),
           onExit: (_) => _onMouseExit(),
-          child: Stack(
-            children: [
-              MaterialDesktopVideoControls(widget.videoState),
-              Positioned.fill(
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: IgnorePointer(
-                      ignoring: !(_isControlsVisible || !_isPlaying),
+          child: AnimatedOpacity(
+            opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 180),
+            child: IgnorePointer(
+              ignoring: !(_isControlsVisible || !_isPlaying),
+              child: Stack(
+                children: [
+                  MaterialDesktopVideoControls(widget.videoState),
+                  Positioned.fill(
+                    child: Center(
                       child: Container(
                         decoration: const BoxDecoration(
                           color: Colors.black45,
@@ -1312,9 +1312,9 @@ class _VodControlsState extends State<_VodControls> {
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

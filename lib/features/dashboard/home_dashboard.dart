@@ -1,4 +1,6 @@
+import 'dart:io' show exit;
 import 'package:flutter/material.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../core/player/player_service.dart';
 import '../live_tv/desktop_live_screen.dart';
 import '../live_tv/mobile_live_view.dart';
@@ -97,6 +99,25 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
     return TvRemoteScope(
       isRoot: true,
+      onBackAtRoot: () async {
+        if (_isSearchOpen) {
+          _closeSearch();
+          return;
+        }
+        final active = ref.read(playbackControllerProvider);
+        if (active != null && !active.isMinimized) {
+          ref.read(playbackControllerProvider.notifier).minimize();
+          return;
+        }
+        final shouldExit = await TvRemoteScope.showTvExitDialog(context);
+        if (shouldExit && context.mounted) {
+          if (GoatPlatform.isDesktop) {
+            exit(0);
+          } else {
+            SystemNavigator.pop();
+          }
+        }
+      },
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
@@ -107,7 +128,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           }
           final shouldExit = await TvRemoteScope.showTvExitDialog(context);
           if (shouldExit && context.mounted) {
-            SystemNavigator.pop();
+            if (GoatPlatform.isDesktop) {
+              exit(0);
+            } else {
+              SystemNavigator.pop();
+            }
           }
         },
         child: Scaffold(

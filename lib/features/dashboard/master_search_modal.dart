@@ -72,24 +72,36 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
             icon: const Icon(Icons.arrow_back),
             onPressed: _handleBack,
           ),
-          title: TextField(
-            controller: _searchController,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: '${AppLocalizations.of(context)!.search}...',
-              border: InputBorder.none,
-              hintStyle: const TextStyle(color: Colors.white54),
-              suffixIcon: _query.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.cancel, color: Colors.white70),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _query = '');
-                      },
-                    ),
+          title: Focus(
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                   event.logicalKey == LogicalKeyboardKey.enter)) {
+                FocusScope.of(context).nextFocus();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              decoration: InputDecoration(
+                hintText: '${AppLocalizations.of(context)!.search}...',
+                border: InputBorder.none,
+                hintStyle: const TextStyle(color: Colors.white54),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.white70),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
+              ),
+              onChanged: (val) => setState(() => _query = val),
             ),
-            onChanged: (val) => setState(() => _query = val),
           ),
           bottom: TabBar(
             controller: _tabController,

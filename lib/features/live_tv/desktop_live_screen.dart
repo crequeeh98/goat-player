@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../core/database/app_database.dart';
@@ -29,6 +30,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final ScrollController _categoryScrollController = ScrollController();
   final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
+  final FocusNode _firstChannelNode = FocusNode();
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
@@ -38,6 +40,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void dispose() {
     _categoryScrollController.dispose();
     _channelScrollController.dispose();
+    _firstChannelNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -213,16 +216,28 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: TextField(
+                      child: Focus(
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                               event.logicalKey == LogicalKeyboardKey.enter)) {
+                            FocusScope.of(context).nextFocus();
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: TextField(
                           controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: l10n.search,
-                          prefixIcon: const Icon(Icons.search),
-                          border: const OutlineInputBorder(),
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                          decoration: InputDecoration(
+                            hintText: l10n.search,
+                            prefixIcon: const Icon(Icons.search),
+                            border: const OutlineInputBorder(),
                             suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
-                          isDense: true,
+                            isDense: true,
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val),
                         ),
-                        onChanged: (val) => setState(() => _searchQuery = val),
                       ),
                     ),
                     Expanded(
@@ -374,10 +389,26 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              child: TvFocusable(
-                                focusScale: 1.02,
-                                borderRadius: BorderRadius.circular(10),
-                                onPressed: () => _playStream(stream),
+                              child: Focus(
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent &&
+                                      event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                                      index == streams.length - 1) {
+                                    _channelScrollController.animateTo(
+                                      0,
+                                      duration: const Duration(milliseconds: 200),
+                                      curve: Curves.easeOutCubic,
+                                    );
+                                    _firstChannelNode.requestFocus();
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
+                                child: TvFocusable(
+                                  focusNode: index == 0 ? _firstChannelNode : null,
+                                  focusScale: 1.02,
+                                  borderRadius: BorderRadius.circular(10),
+                                  onPressed: () => _playStream(stream),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: isCurrentPlaying
@@ -438,8 +469,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   ),
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          );
+                        },
                         );
                       },
                       loading: () => const Center(child: CircularProgressIndicator()),

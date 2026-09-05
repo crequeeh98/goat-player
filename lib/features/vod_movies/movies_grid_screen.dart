@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 
@@ -19,11 +20,15 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   String? _selectedCategory;
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  final ScrollController _movieScrollController = ScrollController();
+  final FocusNode _firstMovieNode = FocusNode();
   String _sortMode = 'default'; // default, asc, desc
 
   @override
   void dispose() {
     _searchController.dispose();
+    _movieScrollController.dispose();
+    _firstMovieNode.dispose();
     super.dispose();
   }
 
@@ -46,20 +51,32 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
             Text(l10n.movies),
             const SizedBox(width: 24),
             Expanded(
-              child: TextField(
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                       event.logicalKey == LogicalKeyboardKey.enter)) {
+                    FocusScope.of(context).nextFocus();
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
                   controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: AppLocalizations.of(context)!.searchMovies,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context)!.searchMovies,
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
                     border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
-                  filled: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  onChanged: (val) => setState(() => _searchQuery = val),
                 ),
-                onChanged: (val) => setState(() => _searchQuery = val),
               ),
             ),
           ],
@@ -137,6 +154,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         : {};
                         
                     return CustomScrollView(
+                      controller: _movieScrollController,
                       slivers: [
                         if (_searchQuery.isEmpty)
                           const SliverToBoxAdapter(
@@ -156,10 +174,26 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 final stream = streams[index];
                                 final progress = progressMap[stream.streamId];
                                 
-                                return TvFocusable(
-                                  focusScale: 1.05,
-                                  borderRadius: BorderRadius.circular(12),
-                                  onPressed: () {
+                                return Focus(
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                                        index >= streams.length - (isDesktop ? 6 : 3)) {
+                                      _movieScrollController.animateTo(
+                                        0,
+                                        duration: const Duration(milliseconds: 250),
+                                        curve: Curves.easeOutCubic,
+                                      );
+                                      _firstMovieNode.requestFocus();
+                                      return KeyEventResult.handled;
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
+                                  child: TvFocusable(
+                                    focusNode: index == 0 ? _firstMovieNode : null,
+                                    focusScale: 1.03,
+                                    borderRadius: BorderRadius.circular(12),
+                                    onPressed: () {
                                     Navigator.push(
                                       context,
                                       PageRouteBuilder(
@@ -240,8 +274,9 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       ],
                                     ),
                                   ),
-                                );
-                              },
+                                ),
+                              );
+                            },
                               childCount: streams.length,
                             ),
                           ),

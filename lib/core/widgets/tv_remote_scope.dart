@@ -1,6 +1,8 @@
+import 'dart:io' show exit;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:goat_player/core/utils/platform_utils.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../player/playback_controller.dart';
 import 'tv_focusable.dart';
@@ -11,15 +13,17 @@ import 'tv_focusable.dart';
 /// - Handles Smart TV remote Back key (Tizen 10009, webOS 461, Escape, Backspace).
 /// - Prioritizes dismissals: Drawers -> Modals -> Cinema minimization -> Exit App dialog.
 /// - Catches Media keys (Play/Pause, Fast Forward, Rewind).
-/// - Prevents accidental app termination on Smart TVs.
-class TvRemoteScope extends ConsumerWidget {
+/// - Prevents accidental app termination on Smart TVs and provides confirmation dialog.
+class TvRemoteScope extends ConsumerStatefulWidget {
   final Widget child;
   final bool isRoot;
+  final VoidCallback? onBackAtRoot;
 
   const TvRemoteScope({
     super.key,
     required this.child,
     this.isRoot = false,
+    this.onBackAtRoot,
   });
 
   static Future<bool> showTvExitDialog(BuildContext context) async {
@@ -66,7 +70,7 @@ class TvRemoteScope extends ConsumerWidget {
             TvFocusable(
               borderRadius: BorderRadius.circular(8),
               focusBorderColor: Colors.redAccent,
-              glowColor: const Color(0x66FF5252),
+              glowColor: const Color(0x33FF5252),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Container(
@@ -86,8 +90,25 @@ class TvRemoteScope extends ConsumerWidget {
     return confirmExit ?? false;
   }
 
-  KeyEventResult _handleRemoteKeys(FocusNode node, KeyEvent event, WidgetRef ref, BuildContext context) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+  @override
+  ConsumerState<TvRemoteScope> createState() => _TvRemoteScopeState();
+}
+
+class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleGlobalHardwareKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalHardwareKey);
+    super.dispose();
+  }
+
+  bool _handleGlobalHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent || !mounted) return false;
 
     final key = event.logicalKey;
 
@@ -96,18 +117,46 @@ class TvRemoteScope extends ConsumerWidget {
         key == LogicalKeyboardKey.mediaPlay ||
         key == LogicalKeyboardKey.mediaPause) {
       ref.read(playbackControllerProvider.notifier).togglePlayPause();
-      return KeyEventResult.handled;
+      return true;
     }
 
-    return KeyEventResult.ignored;
+    // Smart TV / Desktop Back key: Escape or Android/TV goBack
+    if (widget.isRoot &&
+        (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack)) {
+      // 1. If any modal dialog or secondary route is open, let the navigator pop it
+      final nav = Navigator.maybeOf(context);
+      if (nav != null && nav.canPop()) {
+        nav.pop();
+        return true;
+      }
+
+      // 2. If a root back callback is supplied (e.g. closing search or minimizing player)
+      if (widget.onBackAtRoot != null) {
+        widget.onBackAtRoot!();
+        return true;
+      }
+
+      // 3. Root Level Exit Confirmation
+      _promptExit();
+      return true;
+    }
+
+    return false;
+  }
+
+  void _promptExit() async {
+    final shouldExit = await TvRemoteScope.showTvExitDialog(context);
+    if (shouldExit && mounted) {
+      if (GoatPlatform.isDesktop) {
+        exit(0);
+      } else {
+        SystemNavigator.pop();
+      }
+    }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Focus(
-      canRequestFocus: false,
-      onKeyEvent: (node, event) => _handleRemoteKeys(node, event, ref, context),
-      child: child,
-    );
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
