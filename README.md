@@ -139,6 +139,35 @@ flutter build windows
 The compiled output will be located in:
 `build\windows\x64\runner\Release\`
 
+### 6. Build Samsung Tizen TV Package (.wgt)
+```powershell
+powershell -ExecutionPolicy Bypass -File tool/package_tizen.ps1
+```
+The generated `.wgt` package will be located in:
+`build/tizen_out/goat_player.wgt`
+
+**Installation on Samsung Smart TVs:**
+- Sideload via **Samsung Tizen Device Manager** (Connect to TV IP -> drag & drop `goat_player.wgt`).
+- Or install via SDB CLI:
+  ```bash
+  sdb connect <TV_IP>
+  sdb install build/tizen_out/goat_player.wgt
+  ```
+
+### 7. Build LG webOS TV Package (.ipk)
+```powershell
+powershell -ExecutionPolicy Bypass -File tool/package_webos.ps1
+```
+The generated `.ipk` package will be located in:
+`build/webos_out/com.goatplayer.tv_1.0.0_all.ipk`
+
+**Installation on LG Smart TVs:**
+- Sideload via [webOS Dev Manager](https://github.com/webosbrew/dev-manager) (1-click install via GUI).
+- Or install via webOS CLI (`ares-cli`):
+  ```bash
+  ares-install -d <device_name> build/webos_out/com.goatplayer.tv_1.0.0_all.ipk
+  ```
+
 ---
 
 ## 🗺️ Roadmap & Planned Features
@@ -192,15 +221,23 @@ The compiled output will be located in:
   - Clicking Continue Watching deep-links to the exact next episode in the Series Details modal with primary border highlight and auto-scroll.
   - Persistent SQLite watch progress bars on every episode card (in-progress red bar, completed green bar + checkmark).
 
-### 📺 Phase 2: Cross-Platform Expansion (Android, Fire TV, LG, Samsung)
-- [ ] **Android TV & Amazon Fire TV Enablement**:
-  - Full D-Pad focus traversal across main navigation, category rails, channel grids, and player controls.
-  - Standard TV remote button bindings (DPad Center = select/play, Back = return, Play/Pause toggle, Channel Up/Down).
-  - Android TV launcher banner, leanback intent configuration, and TV leanback manifest.
-- [ ] **Samsung Tizen TV**:
-  - Tizen Web app package build with hardware media player compatibility.
-- [ ] **LG webOS**:
-  - webOS Web App package configuration and hardware decoder integration.
+### 📺 Phase 2: Smart TV Expansion (Samsung Tizen & LG webOS) - Completed
+- [x] **Smart TV Remote & D-Pad Engine (`TvFocusable`)**:
+  - Pixel-perfect focus indicator with customizable glow, 1.4px border, and instant 30ms/70ms transitions to eliminate focus ghosting.
+  - Wrap-around list navigation: scrolling to the bottom of channel lists or movie/series grids restarts at the top.
+  - Smooth search flow: pressing `ArrowDown` or `Enter` in search fields navigates directly down into results/chips without requiring Tab.
+- [x] **Smart TV 3-Tier Back Key Interception (`TvRemoteScope`)**:
+  - Global TV remote Back key routing (LG keyCode 461, Tizen keyCode 10009, Escape) with localized Exit Confirmation Dialog at root.
+- [x] **Universal Media Player Abstraction (`GoatPlayerEngine`)**:
+  - Pluggable video engine architecture supporting `libmpv` (desktop/mobile), Samsung Tizen AVPlay, and LG webOS HTML5/Luna.
+- [x] **Samsung Tizen Packaging (`tool/package_tizen.ps1`)**:
+  - Automated `.wgt` package generation with W3C widget manifest, app icons, and TV remote key registrations.
+- [x] **LG webOS Packaging (`tool/package_webos.ps1`)**:
+  - Automated `.ipk` package generation via `ares-package -n` for 1-click install via LG webOS Dev Manager.
+
+### 📱 Phase 3: Android TV, Fire TV & Mobile Adaptations (Next Up)
+- [ ] **Android TV & Amazon Fire TV Leanback**:
+  - Leanback banner (`banner.png`), Leanback Intent filter, and D-Pad focus integration.
 - [ ] **Physical Mobile & Tablet Adaptations**:
   - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
   - Automatic landscape lock upon entering cinema playback.

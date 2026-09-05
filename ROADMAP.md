@@ -63,16 +63,50 @@ This document outlines the planned development phases, feature requirements, and
 
 ---
 
-## 📺 Phase 2: Cross-Platform Expansion (Android, Fire TV, LG, Samsung)
-- [ ] **Android TV & Amazon Fire TV Enablement**:
-  - Full D-Pad focus traversal across main navigation, category rails, channel grids, and player controls.
-  - Standard TV remote button bindings (DPad Center = select/play, Back = return, Play/Pause toggle, Channel Up/Down).
-  - Android TV launcher banner, leanback intent configuration, and TV leanback manifest.
-- [ ] **Samsung Tizen TV**:
-  - Tizen Web app package build with hardware media player compatibility.
-- [ ] **LG webOS**:
-  - webOS Web App package configuration and hardware decoder integration.
+## 📺 Phase 2: Smart TV Expansion (Samsung Tizen & LG webOS) - Completed
+
+### 🎯 Smart TV Remote Navigation & D-Pad Focus Engine
+- [x] **Universal D-Pad Remote Focus Traversal (`TvFocusable`)**:
+  - Pixel-perfect focus indicator with customizable glow, 1.4px illuminated primary border, and instant 30ms unfocus / 70ms focus transitions eliminating focus ghosting during fast scrolling.
+  - Automatic scroll-into-view on focus for channels, categories, and VOD cards.
+  - Wrap-around list navigation: pressing `ArrowDown` at the bottom of channel lists or movie/series grids restarts cleanly from the top item without bleeding into category rails.
+  - Smooth search flow: pressing `ArrowDown` or `Enter` in search fields navigates directly down into results/chips/grids without requiring Tab.
+- [x] **Smart TV 3-Tier Back Key Interception (`TvRemoteScope`)**:
+  - Global TV remote Back key (LG webOS keyCode 461, Samsung Tizen keyCode 10009, Escape) routing:
+    - *Priority 1*: Dismisses modals, overlays, search bars, and slides closed episode drawers.
+    - *Priority 2*: Minimizes cinema player to floating mini-player.
+    - *Priority 3*: At root dashboard, prompts with a localized TV Exit Confirmation Dialog (`TvExitDialog`) and cleanly terminates.
+- [x] **In-Player TV Remote HUD Controls**:
+  - Pressing `ArrowUp` or `ArrowDown` reveals or hides the entire player HUD (top bar, bottom bar, progress bar, play/pause HUD).
+  - Center Play/Pause HUD toggle via `Enter` / `Space`.
+  - Next episode skip via `N` hotkey and dedicated on-screen overlay button.
+
+### ⚡ Smart TV Media Engine Abstraction (`GoatPlayerEngine`)
+- [x] **Multi-Platform Player Architecture**:
+  - Standardized interface decoupling playback logic from platform video implementations.
+  - `MediaKitPlayerEngine`: High-performance hardware acceleration via `libmpv` for Windows, macOS, Linux, Android, and iOS.
+  - `TizenPlayerEngine`: Samsung AVPlay backend with native Tizen hardware media playback for MPEG-TS, HLS, and MP4.
+  - `WebOsPlayerEngine`: LG webOS HTML5 / Luna Media pipeline with automated CORS, HLS.js fallback, and remote key registration.
+
+### 📦 Samsung Tizen TV Packaging Pipeline (`.wgt`)
+- [x] **W3C Widget Packaging (`tool/package_tizen.ps1`)**:
+  - Automatic Flutter Web build with relative base-href patching (`<base href="./">`) for TV storage environments.
+  - Generates signed/unsigned `goat_player.wgt` ready for Samsung Tizen TVs via Tizen Device Manager or SDB CLI.
+  - TV input device key registration (`MediaPlay`, `MediaPause`, color keys, numbers) in `index.html`.
+
+### 📦 LG webOS TV Packaging Pipeline (`.ipk`)
+- [x] **webOS Application Package (`tool/package_webos.ps1`)**:
+  - Automatic staging with `appinfo.json`, `icon.png` (80x80), `largeIcon.png` (130x130), and splash screen.
+  - One-command packaging via `ares-package -n` (with auto-fallback to `npx @webos-tools/cli`) producing `com.goatplayer.tv_1.0.0_all.ipk`.
+  - 1-click sideload compatibility with **LG webOS Dev Manager** and `ares-install`.
+
+---
+
+## 📱 Phase 3: Android TV, Fire TV & Mobile Adaptations (Next Up)
+- [ ] **Android TV & Amazon Fire TV Leanback**:
+  - Android TV leanback banner (`banner.png`), Leanback Intent filter, and D-Pad focus integration.
 - [ ] **Physical Mobile & Tablet Adaptations**:
+  - Bottom navigation dock, touch gesture seek / volume controls, portrait-to-landscape auto-rotation.
   - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
   - Automatic landscape lock upon entering cinema playback.
 
