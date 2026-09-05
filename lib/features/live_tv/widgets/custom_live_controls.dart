@@ -167,12 +167,12 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _startHideTimer();
   }
 
-  void _toggleFullscreen(BuildContext context) {
+  void _toggleFullscreen(BuildContext context) async {
     final currentlyFull = isFullscreen(context);
+    if (widget.onEnterFullWidth != null) {
+      widget.onEnterFullWidth!();
+    }
     if (currentlyFull) {
-      if (widget.onEnterFullWidth != null) {
-        widget.onEnterFullWidth!();
-      }
       if (Platform.isAndroid || Platform.isIOS) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
@@ -191,7 +191,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       }
     }
-    toggleFullscreen(context);
+    await toggleFullscreen(context);
+    if (mounted && widget.onEnterFullWidth != null) {
+      widget.onEnterFullWidth!();
+    }
     _startHideTimer();
   }
 
@@ -321,9 +324,11 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         ? '$activeTitle - ${currentProgram.title}'
         : (currentStreamItem != null ? ChannelNameCleaner.clean(currentStreamItem.name) : activeTitle);
 
+    final isFullOrFullWidth = widget.isFullWidth || isFullscreen(context);
+
     return Focus(
       focusNode: _focusNode,
-      autofocus: true,
+      autofocus: isFullOrFullWidth,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           // Any remote interaction resets hide timer
@@ -336,6 +341,9 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
               _startHideTimer();
               return KeyEventResult.handled;
             } else if (isFullscreen(context)) {
+              if (widget.onEnterFullWidth != null) {
+                widget.onEnterFullWidth!();
+              }
               toggleFullscreen(context);
               if (widget.onEnterFullWidth != null) {
                 widget.onEnterFullWidth!();
@@ -349,10 +357,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             }
           }
 
-          // Channel Up: Next Channel or Toggle Overlay
-          if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-              event.logicalKey == LogicalKeyboardKey.pageUp ||
-              event.logicalKey == LogicalKeyboardKey.channelUp) {
+          // Channel Up: Next Channel or Toggle Overlay (ONLY in full-width or fullscreen, or dedicated TV CH+ key)
+          if (event.logicalKey == LogicalKeyboardKey.pageUp ||
+              event.logicalKey == LogicalKeyboardKey.channelUp ||
+              (isFullOrFullWidth && event.logicalKey == LogicalKeyboardKey.arrowUp)) {
             if (widget.streams != null && widget.streams!.length > 1) {
               _zapNext();
             } else {
@@ -362,10 +370,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             return KeyEventResult.handled;
           }
 
-          // Channel Down: Previous Channel or Toggle Overlay
-          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-              event.logicalKey == LogicalKeyboardKey.pageDown ||
-              event.logicalKey == LogicalKeyboardKey.channelDown) {
+          // Channel Down: Previous Channel or Toggle Overlay (ONLY in full-width or fullscreen, or dedicated TV CH- key)
+          if (event.logicalKey == LogicalKeyboardKey.pageDown ||
+              event.logicalKey == LogicalKeyboardKey.channelDown ||
+              (isFullOrFullWidth && event.logicalKey == LogicalKeyboardKey.arrowDown)) {
             if (widget.streams != null && widget.streams!.length > 1) {
               _zapPrevious();
             } else {

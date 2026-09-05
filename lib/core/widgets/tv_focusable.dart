@@ -60,6 +60,7 @@ class TvFocusable extends StatefulWidget {
   final double scrollAlignment;
   final EdgeInsetsGeometry? padding;
   final bool enabled;
+  final KeyEventResult Function(FocusNode node, KeyEvent event)? onKeyEvent;
 
   const TvFocusable({
     super.key,
@@ -78,6 +79,7 @@ class TvFocusable extends StatefulWidget {
     this.scrollAlignment = 0.5,
     this.padding,
     this.enabled = true,
+    this.onKeyEvent,
   }) : assert(child != null || builder != null, 'Either child or builder must be provided');
 
   @override
@@ -94,22 +96,37 @@ class _TvFocusableState extends State<TvFocusable> {
   @override
   void initState() {
     super.initState();
-    TvInputModeManager.instance.isKeyboardMode.addListener(_onInputModeChanged);
+    _effectiveNode.addListener(_handleFocusChange);
+    TvInputModeManager.instance.isKeyboardMode.addListener(_handleInputModeChange);
+  }
+
+  @override
+  void didUpdateWidget(TvFocusable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusNode != oldWidget.focusNode) {
+      oldWidget.focusNode?.removeListener(_handleFocusChange);
+      _effectiveNode.addListener(_handleFocusChange);
+    }
   }
 
   @override
   void dispose() {
-    TvInputModeManager.instance.isKeyboardMode.removeListener(_onInputModeChanged);
-    _internalNode?.dispose();
+    TvInputModeManager.instance.isKeyboardMode.removeListener(_handleInputModeChange);
+    _effectiveNode.removeListener(_handleFocusChange);
+    if (widget.focusNode == null) {
+      _internalNode?.dispose();
+    }
     super.dispose();
   }
 
-  void _onInputModeChanged() {
-    if (mounted) setState(() {});
+  void _handleInputModeChange() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
-  void _handleFocusChange(bool hasFocus) {
-    if (_isFocused == hasFocus) return;
+  void _handleFocusChange() {
+    final hasFocus = _effectiveNode.hasFocus;
     setState(() => _isFocused = hasFocus);
     widget.onFocusChange?.call(hasFocus);
 
@@ -128,6 +145,13 @@ class _TvFocusableState extends State<TvFocusable> {
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (widget.onKeyEvent != null) {
+      final customResult = widget.onKeyEvent!(node, event);
+      if (customResult != KeyEventResult.ignored) {
+        return customResult;
+      }
+    }
+
     if (!widget.enabled || widget.onPressed == null) {
       return KeyEventResult.ignored;
     }
@@ -156,8 +180,9 @@ class _TvFocusableState extends State<TvFocusable> {
 
     final effectiveRadius = widget.borderRadius ?? BorderRadius.circular(10);
     final isKeyboardMode = TvInputModeManager.instance.isKeyboardMode.value;
-    // In keyboard/TV remote mode, ignore lingering mouse hover to ensure only 1 active highlight
-    final isHighlighted = isKeyboardMode ? _isFocused : (_isFocused || _isHovered);
+    // In keyboard/TV remote mode: only the arrow-focused item is highlighted.
+    // In mouse mode: only the mouse-hovered item is highlighted (old arrow highlight clears immediately).
+    final isHighlighted = isKeyboardMode ? _isFocused : _isHovered;
     final scale = isHighlighted ? widget.focusScale : 1.0;
     // Fast response when highlighted, instant cleanup when losing focus to prevent ghosting
     final animDuration = isHighlighted
@@ -167,12 +192,21 @@ class _TvFocusableState extends State<TvFocusable> {
     return Focus(
       focusNode: _effectiveNode,
       autofocus: widget.autofocus,
-      onFocusChange: _handleFocusChange,
       onKeyEvent: _handleKeyEvent,
       child: MouseRegion(
         onEnter: (_) {
-          TvInputModeManager.instance.isKeyboardMode.value = false;
+          if (!TvInputModeManager.instance.isKeyboardMode.value) {
+            _effectiveNode.requestFocus();
+          }
           setState(() => _isHovered = true);
+        },
+        onHover: (_) {
+          if (!_isHovered) {
+            setState(() => _isHovered = true);
+          }
+          if (!_effectiveNode.hasFocus && !TvInputModeManager.instance.isKeyboardMode.value) {
+            _effectiveNode.requestFocus();
+          }
         },
         onExit: (_) => setState(() => _isHovered = false),
         cursor: widget.onPressed != null ? SystemMouseCursors.click : MouseCursor.defer,
@@ -206,7 +240,7 @@ class _TvFocusableState extends State<TvFocusable> {
               child: ClipRRect(
                 borderRadius: effectiveRadius,
                 child: widget.builder != null
-                    ? widget.builder!(context, _isFocused, _isHovered)
+                    ? widget.builder!(context, isHighlighted, isHighlighted)
                     : widget.child!,
               ),
             ),

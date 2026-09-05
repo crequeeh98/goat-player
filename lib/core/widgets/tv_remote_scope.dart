@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/core/utils/platform_utils.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../player/playback_controller.dart';
+import '../../features/live_tv/live_tv_controller.dart';
 import 'tv_focusable.dart';
 
 /// Root remote control listener and TV key event dispatcher.
@@ -137,6 +138,10 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
       // 1. If any modal dialog or secondary route is open, let the navigator pop it
       final nav = Navigator.maybeOf(context);
       if (nav != null && nav.canPop()) {
+        final activePlayback = ref.read(playbackControllerProvider);
+        if (activePlayback?.streamType == StreamType.live || ref.read(selectedLiveStreamProvider) != null) {
+          ref.read(isLiveFullWidthProvider.notifier).set(true);
+        }
         nav.pop();
         return true;
       }

@@ -103,7 +103,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       onBackAtRoot: () async {
         // Priority 0: If window is in OS fullscreen, restore windowed/full-width mode
         if (isFullscreen(context)) {
+          ref.read(isLiveFullWidthProvider.notifier).set(true);
           toggleFullscreen(context);
+          ref.read(isLiveFullWidthProvider.notifier).set(true);
           return;
         }
 
@@ -134,7 +136,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
           if (isFullscreen(context)) {
+            ref.read(isLiveFullWidthProvider.notifier).set(true);
             toggleFullscreen(context);
+            ref.read(isLiveFullWidthProvider.notifier).set(true);
             return;
           }
           if (ref.read(isLiveFullWidthProvider)) {
