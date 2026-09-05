@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +18,7 @@ import 'package:dio/dio.dart';
 import 'core/player/playback_controller.dart';
 import 'features/live_tv/live_tv_controller.dart';
 import 'core/remote_sync/remote_sync_service.dart';
+import 'core/utils/platform_utils.dart';
 
 // Global providers
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -90,10 +90,12 @@ final remoteSyncServiceProvider = Provider<RemoteSyncService>((ref) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  if (!GoatPlatform.isWeb) {
+    MediaKit.ensureInitialized();
+  }
   await RemoteSyncService.initialize();
   
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  if (GoatPlatform.isDesktop) {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
       size: Size(1280, 720),
