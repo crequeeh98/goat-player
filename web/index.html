@@ -33,14 +33,44 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <script>
+    // Smart TV Remote Key Registration & Interception (Samsung Tizen & LG webOS)
+    window.addEventListener('load', function() {
+      // 1. Samsung Tizen Remote Key Registration
+      if (window.tizen && window.tizen.tvinputdevice) {
+        try {
+          var tizenKeys = [
+            'MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop',
+            'MediaFastForward', 'MediaRewind',
+            'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue',
+            '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
+          ];
+          tizenKeys.forEach(function(keyName) {
+            try {
+              window.tizen.tvinputdevice.registerKey(keyName);
+            } catch (e) {}
+          });
+        } catch (e) {}
+      }
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+      // 2. Intercept LG webOS Back Key (keyCode 461) and Samsung Tizen Back Key (keyCode 10009)
+      window.addEventListener('keydown', function(e) {
+        if (e.keyCode === 461 || e.keyCode === 10009) {
+          // Dispatch standard Escape key event to Flutter engine
+          var event = new KeyboardEvent('keydown', {
+            key: 'Escape',
+            code: 'Escape',
+            keyCode: 27,
+            which: 27,
+            bubbles: true,
+            cancelable: true
+          });
+          document.dispatchEvent(event);
+          e.preventDefault();
+        }
+      });
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

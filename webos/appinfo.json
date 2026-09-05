@@ -1,0 +1,15 @@
+{
+  "id": "com.goatplayer.tv",
+  "version": "1.0.0",
+  "vendor": "GOATPlayer",
+  "type": "web",
+  "main": "index.html",
+  "title": "GOATPlayer",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgImage": "splash.png",
+  "resolution": "1920x1080",
+  "requiredVersion": "1.0.0",
+  "handlesRelaunch": true,
+  "disableBackHistoryAPI": true
+}

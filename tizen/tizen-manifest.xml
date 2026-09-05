@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns="http://tizen.org/ns/packages" package="com.goatplayer.tv" version="1.0.0" api-version="6.5">
+    <profile name="tv"/>
+    <ui-application appid="com.goatplayer.tv" exec="runner" type="cplusplus" multiple="false" task-manage="true" nodisplay="false">
+        <label>GOATPlayer</label>
+        <icon>icon.png</icon>
+    </ui-application>
+    <privileges>
+        <privilege>http://tizen.org/privilege/internet</privilege>
+        <privilege>http://tizen.org/privilege/tv.inputdevice</privilege>
+    </privileges>
+</manifest>
