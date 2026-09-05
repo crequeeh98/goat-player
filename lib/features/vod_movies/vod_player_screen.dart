@@ -772,7 +772,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       return KeyEventResult.handled;
                     }
                   }
-                  if (event.logicalKey == LogicalKeyboardKey.escape) {
+                  if (event.logicalKey == LogicalKeyboardKey.escape ||
+                      event.logicalKey == LogicalKeyboardKey.goBack) {
                     if (_isEpisodeDrawerOpen) {
                       setState(() => _isEpisodeDrawerOpen = false);
                       return KeyEventResult.handled;

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/core/utils/platform_utils.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../player/playback_controller.dart';
-import '../../features/live_tv/live_tv_controller.dart';
 import 'tv_focusable.dart';
 
 /// Root remote control listener and TV key event dispatcher.
@@ -135,24 +134,19 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
     // Smart TV / Desktop Back key: Escape or Android/TV goBack
     if (widget.isRoot &&
         (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack)) {
-      // 1. If any modal dialog or secondary route is open, let the navigator pop it
-      final nav = Navigator.maybeOf(context);
-      if (nav != null && nav.canPop()) {
-        final activePlayback = ref.read(playbackControllerProvider);
-        if (activePlayback?.streamType == StreamType.live || ref.read(selectedLiveStreamProvider) != null) {
-          ref.read(isLiveFullWidthProvider.notifier).set(true);
-        }
-        nav.pop();
-        return true;
+      // If HomeDashboard is NOT the current active route (e.g. VodPlayerScreen or a modal route is open above it),
+      // do not intercept here! Let the active route handle its own back key / escape.
+      if (ModalRoute.of(context)?.isCurrent != true) {
+        return false;
       }
 
-      // 2. If a root back callback is supplied (e.g. closing search or minimizing player)
+      // If a root back callback is supplied (e.g. restoring Live TV 3-column view, closing search, etc.)
       if (widget.onBackAtRoot != null) {
         widget.onBackAtRoot!();
         return true;
       }
 
-      // 3. Root Level Exit Confirmation
+      // Root Level Exit Confirmation
       _promptExit();
       return true;
     }

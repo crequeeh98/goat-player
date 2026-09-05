@@ -31,6 +31,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
   final FocusNode _firstChannelNode = FocusNode();
+  bool _focusFirstChannelOnNextBuild = false;
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
@@ -373,64 +374,56 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         final account = ref.read(activeAccountProvider);
                         final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
 
-                        return FocusScope(
-                          child: FocusTraversalGroup(
-                            policy: WidgetOrderTraversalPolicy(),
-                            child: ListView.builder(
-                              controller: _channelScrollController,
-                              cacheExtent: 2500.0,
-                              itemExtent: 64.0,
-                              itemCount: streams.length,
-                              itemBuilder: (context, index) {
-                                final stream = streams[index];
-                                final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
-                                final cleanName = ChannelNameCleaner.clean(stream.name);
-                                final isFavorite = favoriteIds.contains(stream.streamId);
-                                final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
-                                    (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
-                                    currentLive?.streamUrl == url ||
-                                    activePlayback?.streamUrl == url;
+                        return FocusTraversalGroup(
+                          policy: WidgetOrderTraversalPolicy(),
+                          child: ListView.builder(
+                            controller: _channelScrollController,
+                            cacheExtent: 2500.0,
+                            itemExtent: 64.0,
+                            itemCount: streams.length,
+                            itemBuilder: (context, index) {
+                              final stream = streams[index];
+                              final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
+                              final cleanName = ChannelNameCleaner.clean(stream.name);
+                              final isFavorite = favoriteIds.contains(stream.streamId);
+                              final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
+                                  (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
+                                  currentLive?.streamUrl == url ||
+                                  activePlayback?.streamUrl == url;
 
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  child: TvFocusable(
-                                    focusNode: index == 0 ? _firstChannelNode : null,
-                                    focusScale: 1.02,
-                                    borderRadius: BorderRadius.circular(10),
-                                    onPressed: () => _playStream(stream),
-                                    onKeyEvent: (node, event) {
-                                      if (event is KeyDownEvent) {
-                                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                          if (index >= streams.length - 1) {
-                                            _channelScrollController.jumpTo(0);
-                                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                                              _firstChannelNode.requestFocus();
-                                            });
-                                            return KeyEventResult.handled;
-                                          }
-                                          if (_channelScrollController.hasClients) {
-                                            final viewport = _channelScrollController.position.viewportDimension;
-                                            final offset = _channelScrollController.offset;
-                                            final nextItemBottom = (index + 2) * 64.0;
-                                            if (nextItemBottom > offset + viewport) {
-                                              _channelScrollController.jumpTo((nextItemBottom - viewport + 64.0).clamp(0.0, _channelScrollController.position.maxScrollExtent));
-                                            }
-                                          }
-                                        } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                                          if (index == 0) {
-                                            return KeyEventResult.handled;
-                                          }
-                                          if (_channelScrollController.hasClients) {
-                                            final offset = _channelScrollController.offset;
-                                            final prevItemTop = (index - 1) * 64.0;
-                                            if (prevItemTop < offset) {
-                                              _channelScrollController.jumpTo(prevItemTop.clamp(0.0, _channelScrollController.position.maxScrollExtent));
-                                            }
-                                          }
+                              if (index == 0 && _focusFirstChannelOnNextBuild) {
+                                _focusFirstChannelOnNextBuild = false;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) {
+                                    _firstChannelNode.requestFocus();
+                                  }
+                                });
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                child: TvFocusable(
+                                  focusNode: index == 0 ? _firstChannelNode : null,
+                                  focusScale: 1.02,
+                                  borderRadius: BorderRadius.circular(10),
+                                  onPressed: () => _playStream(stream),
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent) {
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                        if (index >= streams.length - 1) {
+                                          _channelScrollController.jumpTo(0);
+                                          _focusFirstChannelOnNextBuild = true;
+                                          setState(() {});
+                                          return KeyEventResult.handled;
+                                        }
+                                      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                        if (index == 0) {
+                                          return KeyEventResult.handled;
                                         }
                                       }
-                                      return KeyEventResult.ignored;
-                                    },
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: isCurrentPlaying
@@ -476,27 +469,26 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                       ),
                                       IconButton(
                                         icon: Icon(
-                                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                                          size: 20,
+                                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                                            size: 20,
+                                          ),
+                                          color: isFavorite ? Colors.red : Colors.white38,
+                                          onPressed: () async {
+                                            final acc = ref.read(activeAccountProvider);
+                                            if (acc != null) {
+                                              await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
+                                            }
+                                          },
                                         ),
-                                        color: isFavorite ? Colors.red : Colors.white38,
-                                        onPressed: () async {
-                                          final acc = ref.read(activeAccountProvider);
-                                          if (acc != null) {
-                                            await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
-                                          }
-                                        },
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (err, stack) => Center(child: Text('${AppLocalizations.of(context)!.error}$err')),
                     ),

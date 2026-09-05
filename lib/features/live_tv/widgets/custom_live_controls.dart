@@ -335,7 +335,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
           _startHideTimer();
 
           // Escape closes drawer if open, otherwise toggles fullscreen, otherwise exits full-width
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
+          if (event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack) {
             if (_isDrawerOpen) {
               setState(() => _isDrawerOpen = false);
               _startHideTimer();

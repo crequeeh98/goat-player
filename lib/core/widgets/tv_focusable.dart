@@ -130,14 +130,14 @@ class _TvFocusableState extends State<TvFocusable> {
     setState(() => _isFocused = hasFocus);
     widget.onFocusChange?.call(hasFocus);
 
-    if (hasFocus && widget.autoScroll && mounted) {
-      // Defer slightly so layout settles before animating scroll
+    // Auto-scroll strictly in keyboard/D-Pad mode; never fight mouse wheel or touchpad scrolling
+    if (hasFocus && widget.autoScroll && mounted && TvInputModeManager.instance.isKeyboardMode.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_effectiveNode.hasFocus) return;
+        if (!mounted || !_effectiveNode.hasFocus || !TvInputModeManager.instance.isKeyboardMode.value) return;
         Scrollable.ensureVisible(
           context,
           alignment: widget.scrollAlignment,
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 150),
           curve: Curves.easeOutCubic,
         );
       });
@@ -194,24 +194,19 @@ class _TvFocusableState extends State<TvFocusable> {
       autofocus: widget.autofocus,
       onKeyEvent: _handleKeyEvent,
       child: MouseRegion(
-        onEnter: (_) {
-          if (!TvInputModeManager.instance.isKeyboardMode.value) {
-            _effectiveNode.requestFocus();
-          }
-          setState(() => _isHovered = true);
-        },
+        onEnter: (_) => setState(() => _isHovered = true),
         onHover: (_) {
           if (!_isHovered) {
             setState(() => _isHovered = true);
-          }
-          if (!_effectiveNode.hasFocus && !TvInputModeManager.instance.isKeyboardMode.value) {
-            _effectiveNode.requestFocus();
           }
         },
         onExit: (_) => setState(() => _isHovered = false),
         cursor: widget.onPressed != null ? SystemMouseCursors.click : MouseCursor.defer,
         child: GestureDetector(
-          onTap: widget.onPressed,
+          onTap: () {
+            _effectiveNode.requestFocus();
+            widget.onPressed?.call();
+          },
           onLongPress: widget.onLongPress,
           behavior: HitTestBehavior.opaque,
           child: AnimatedScale(
