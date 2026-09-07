@@ -54,8 +54,14 @@
     var channelMenu = document.getElementById('live-channel-menu');
     if (channelMenu && channelMenu.style.display !== 'none') return channelMenu;
 
-    var activeModal = document.querySelector('.modal-overlay.active');
-    if (activeModal) return activeModal;
+    // If focus is currently inside an active modal, that modal is strictly the scope
+    if (_currentFocused) {
+      var currentModal = _currentFocused.closest ? _currentFocused.closest('.modal-overlay.active') : null;
+      if (currentModal) return currentModal;
+    }
+
+    var activeModals = document.querySelectorAll('.modal-overlay.active');
+    if (activeModals.length > 0) return activeModals[activeModals.length - 1];
 
     var openDrawer = document.querySelector('.slide-drawer.open');
     if (openDrawer) return openDrawer;
@@ -167,7 +173,8 @@
     }
 
     // 2. Active container or modal scope
-    var scope = getActiveScope();
+    var insideModal = current.closest ? current.closest('.modal-overlay.active') : null;
+    var scope = insideModal || getActiveScope();
     var candidates = getFocusableElements(scope);
     if (candidates.length <= 1) return null;
 
@@ -684,6 +691,37 @@
           if (typeof window.nextCategoryMenuPage === 'function') {
             window.nextCategoryMenuPage(false);
           }
+          return;
+        }
+      }
+
+      // Resume Playback Modal: strict horizontal and vertical trapping
+      if (_currentFocused && _currentFocused.closest && _currentFocused.closest('#modal-resume-playback')) {
+        if (_currentFocused.id === 'resume-confirm-btn') {
+          if (code === KEY_CODES.RIGHT) {
+            var stBtn = document.getElementById('resume-startover-btn');
+            if (stBtn) { e.preventDefault(); e.stopPropagation(); setFocus(stBtn); return; }
+          } else if (code === KEY_CODES.UP) {
+            var clBtn = document.getElementById('resume-close-btn');
+            if (clBtn) { e.preventDefault(); e.stopPropagation(); setFocus(clBtn); return; }
+          }
+        } else if (_currentFocused.id === 'resume-startover-btn') {
+          if (code === KEY_CODES.LEFT) {
+            var cfBtn = document.getElementById('resume-confirm-btn');
+            if (cfBtn) { e.preventDefault(); e.stopPropagation(); setFocus(cfBtn); return; }
+          } else if (code === KEY_CODES.UP) {
+            var clBtn2 = document.getElementById('resume-close-btn');
+            if (clBtn2) { e.preventDefault(); e.stopPropagation(); setFocus(clBtn2); return; }
+          }
+        } else if (_currentFocused.id === 'resume-close-btn') {
+          if (code === KEY_CODES.DOWN) {
+            var cfBtn2 = document.getElementById('resume-confirm-btn');
+            if (cfBtn2) { e.preventDefault(); e.stopPropagation(); setFocus(cfBtn2); return; }
+          }
+        }
+        if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT || code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          e.stopPropagation();
           return;
         }
       }

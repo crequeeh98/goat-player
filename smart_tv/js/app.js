@@ -196,7 +196,8 @@
   function openModal(modalEl, focusTarget) {
     if (!modalEl) return;
     if (window.SpatialNav) {
-      _lastFocusedBeforeModal = window.SpatialNav.getCurrent();
+      modalEl._prevFocused = window.SpatialNav.getCurrent();
+      _lastFocusedBeforeModal = modalEl._prevFocused;
     }
     modalEl.classList.add('active');
     if (window.SpatialNav) {
@@ -232,6 +233,10 @@
       if (tabSeries) tabSeries.classList.remove('active');
       executeMasterSearch('');
     }
+
+    var restoreFocus = modalEl._prevFocused;
+    modalEl._prevFocused = null;
+
     if (modalEl.id === 'login-modal') {
       _lastFocusedBeforeModal = null;
       var gridEl = document.getElementById('accounts-grid');
@@ -241,7 +246,9 @@
       } else if (topAddBtn && window.SpatialNav) {
         window.SpatialNav.setFocus(topAddBtn);
       }
-    } else if (_lastFocusedBeforeModal && window.SpatialNav) {
+    } else if (restoreFocus && restoreFocus.offsetParent !== null && window.SpatialNav) {
+      window.SpatialNav.setFocus(restoreFocus);
+    } else if (_lastFocusedBeforeModal && _lastFocusedBeforeModal.offsetParent !== null && window.SpatialNav) {
       window.SpatialNav.setFocus(_lastFocusedBeforeModal);
       _lastFocusedBeforeModal = null;
     }
@@ -2883,7 +2890,6 @@
 
   function openResumePlaybackModal(item, type, position, duration, onConfirm) {
     var modal = document.getElementById('modal-resume-playback');
-    var promptEl = document.getElementById('resume-playback-prompt');
     var confirmBtn = document.getElementById('resume-confirm-btn');
     var confirmText = document.getElementById('resume-confirm-text');
     var startOverBtn = document.getElementById('resume-startover-btn');
@@ -2891,12 +2897,8 @@
     if (!modal) return;
 
     var posFormatted = _player ? _player._formatTime(position) : (Math.floor(position / 60) + ' min');
-    var resumeFromLabel = window.TVI18n ? window.TVI18n.t('resume_from') : 'Resume from';
     var resumeLabel = window.TVI18n ? window.TVI18n.t('resume') : 'Resume';
     
-    if (promptEl) {
-      promptEl.textContent = resumeFromLabel + ' ' + posFormatted + '?';
-    }
     if (confirmText) {
       confirmText.textContent = resumeLabel + ' (' + posFormatted + ')';
     }
@@ -2915,10 +2917,7 @@
     if (startOverBtn) startOverBtn.onclick = doStartOver;
     if (closeBtn) closeBtn.onclick = function() { closeModal(modal); };
 
-    openModal(modal);
-    if (window.SpatialNav && confirmBtn) {
-      window.SpatialNav.setFocus(confirmBtn);
-    }
+    openModal(modal, confirmBtn);
   }
 
   function renderContinueWatching(type) {
@@ -5229,11 +5228,12 @@
         return true;
       }
 
-      // 4. If any Modal is active -> close modal
-      var activeModal = document.querySelector('.modal-overlay.active');
-      if (activeModal) {
-        closeModal(activeModal);
-        if (activeModal.id === 'login-modal' && window.TVSync) {
+      // 4. If any Modal is active -> close topmost modal
+      var activeModals = document.querySelectorAll('.modal-overlay.active');
+      if (activeModals.length > 0) {
+        var topModal = activeModals[activeModals.length - 1];
+        closeModal(topModal);
+        if (topModal.id === 'login-modal' && window.TVSync) {
           window.TVSync.stopPolling();
         }
         return true;

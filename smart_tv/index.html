@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="spatial-navigation" content="disabled">
   <title>GOATPlayer TV</title>
-  <link rel="stylesheet" href="css/style.css?v=1.0.5">
+  <link rel="stylesheet" href="css/style.css?v=1.0.6">
 </head>
 <body>
 
@@ -895,13 +895,14 @@
         <button id="resume-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
       </div>
       <div class="modal-body-resume">
-        <p id="resume-playback-prompt" class="resume-prompt">Resume playback?</p>
         <div class="resume-actions-row">
           <button id="resume-confirm-btn" class="btn-primary focusable">
-            <span class="btn-icon">▶</span> <span id="resume-confirm-text" data-i18n="resume">Resume</span>
+            <span class="btn-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+            <span id="resume-confirm-text" data-i18n="resume">Resume</span>
           </button>
           <button id="resume-startover-btn" class="btn-secondary focusable">
-            <span class="btn-icon">↺</span> <span data-i18n="start_over">Start from Beginning</span>
+            <span class="btn-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+            <span data-i18n="start_over">Start from Beginning</span>
           </button>
         </div>
       </div>
@@ -930,6 +931,6 @@
   <script src="js/diagnostics.js"></script>
   <script src="js/subtitles.js"></script>
   <script src="js/player.js"></script>
-  <script src="js/app.js?v=1.0.5"></script>
+  <script src="js/app.js?v=1.0.6"></script>
 </body>
 </html>
