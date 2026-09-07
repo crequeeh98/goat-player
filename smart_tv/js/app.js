@@ -234,6 +234,13 @@
     }
     if (modalEl.id === 'login-modal') {
       _lastFocusedBeforeModal = null;
+      var gridEl = document.getElementById('accounts-grid');
+      var topAddBtn = document.getElementById('accounts-add-btn');
+      if (gridEl && gridEl.style.display !== 'none' && gridEl.children.length > 0 && window.SpatialNav) {
+        window.SpatialNav.focusFirst(gridEl);
+      } else if (topAddBtn && window.SpatialNav) {
+        window.SpatialNav.setFocus(topAddBtn);
+      }
     } else if (_lastFocusedBeforeModal && window.SpatialNav) {
       window.SpatialNav.setFocus(_lastFocusedBeforeModal);
       _lastFocusedBeforeModal = null;
@@ -675,11 +682,13 @@
 
     gridEl.innerHTML = '';
 
+    var isAnyModalOpen = !!document.querySelector('.modal-overlay.active');
+
     if (accounts.length === 0) {
       gridEl.style.display = 'none';
       emptyEl.style.display = 'flex';
       var topAddBtn = document.getElementById('accounts-add-btn');
-      if (topAddBtn && window.SpatialNav) {
+      if (topAddBtn && window.SpatialNav && !isAnyModalOpen) {
         window.SpatialNav.setFocus(topAddBtn);
       }
       return;
@@ -779,7 +788,7 @@
       gridEl.appendChild(card);
     });
 
-    if (window.SpatialNav) window.SpatialNav.focusFirst(gridEl);
+    if (window.SpatialNav && !isAnyModalOpen) window.SpatialNav.focusFirst(gridEl);
   }
 
   function enterDashboardWithAccount(account, options) {
@@ -5442,32 +5451,33 @@
     if (e) {
       try { e.preventDefault(); e.stopPropagation(); } catch(err){}
     }
-    var modal = document.getElementById('login-modal');
-    if (modal) {
-      modal.classList.remove('active');
-    }
     if (window.TVSync) {
       window.TVSync.stopPolling();
       window.TVSync.closePairingSession(window.TVSync.getDeviceId());
     }
+    if (_remoteTimer) {
+      clearInterval(_remoteTimer);
+      _remoteTimer = null;
+    }
+    _lastAddedAccount = null;
+
+    var modal = document.getElementById('login-modal');
     if (modal) {
       closeModal(modal);
     }
 
-    var target = _lastAddedAccount;
-    _lastAddedAccount = null;
-
-    if (target) {
-      enterDashboardWithAccount(target, { showSplash: true });
-    } else {
-      renderAccountsList();
-      setTimeout(function() {
-        var gridEl = document.getElementById('accounts-grid');
-        if (gridEl && gridEl.children.length > 0 && window.SpatialNav) {
-          window.SpatialNav.focusFirst(gridEl);
+    renderAccountsList();
+    setTimeout(function() {
+      var gridEl = document.getElementById('accounts-grid');
+      if (gridEl && gridEl.style.display !== 'none' && gridEl.children.length > 0 && window.SpatialNav) {
+        window.SpatialNav.focusFirst(gridEl);
+      } else {
+        var addBtn = document.getElementById('accounts-add-btn');
+        if (addBtn && window.SpatialNav) {
+          window.SpatialNav.setFocus(addBtn);
         }
-      }, 100);
-    }
+      }
+    }, 100);
   }
 
   function initRemotePairing() {
@@ -5555,7 +5565,10 @@
                 handleRemoteDone(e);
               };
               if (window.SpatialNav) {
-                window.SpatialNav.focusElement(doneBtn);
+                window.SpatialNav.setFocus(doneBtn);
+                setTimeout(function() {
+                  window.SpatialNav.setFocus(doneBtn);
+                }, 50);
               }
             }
 
