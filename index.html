@@ -1368,10 +1368,16 @@
           .from('remote_devices')
           .select('*')
           .eq('device_id', deviceId)
-          .eq('pin', pin)
           .maybeSingle();
 
         if (error || !data) {
+          showToast(t('invalidPin'));
+          btn.disabled = false;
+          btn.innerText = t('btnConnect');
+          return false;
+        }
+
+        if (String(data.pin).trim() !== String(pin).trim()) {
           showToast(t('invalidPin'));
           btn.disabled = false;
           btn.innerText = t('btnConnect');
@@ -1394,7 +1400,7 @@
 
         // Successfully paired
         activeDeviceId = deviceId;
-        activePin = pin;
+        activePin = String(pin).trim();
         document.getElementById('deviceDisplay').innerText = deviceId;
         document.getElementById('deviceBanner').style.display = 'flex';
         document.getElementById('manualPairingSection').style.display = 'none';
@@ -1407,7 +1413,7 @@
           await supabaseClient.from('remote_devices').update({
             status: 'connected',
             updated_at: new Date().toISOString()
-          }).eq('device_id', deviceId).eq('pin', pin);
+          }).eq('device_id', deviceId);
         } catch(e){}
 
         // Extract and deduplicate playlists
@@ -1463,7 +1469,6 @@
       }
 
       if (!connected) {
-        closePlaylistModal();
         closeDeleteModal();
       }
 
@@ -1503,8 +1508,7 @@
         if (error || !data) return;
 
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
-        const pinChanged = Boolean(activePin && data.pin && String(data.pin).trim() !== String(activePin).trim());
-        const isDisconnected = data.status === 'disconnected' || isExpired || pinChanged;
+        const isDisconnected = data.status === 'disconnected' || isExpired;
 
         if (isDisconnected) {
           if (isDeviceConnected) {
@@ -1544,8 +1548,7 @@
           const newRecord = payload.new;
           if (newRecord) {
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
-            const pinChanged = Boolean(activePin && newRecord.pin && String(newRecord.pin).trim() !== String(activePin).trim());
-            const isDisconnected = newRecord.status === 'disconnected' || isExpired || pinChanged;
+            const isDisconnected = newRecord.status === 'disconnected' || isExpired;
 
             if (isDisconnected) {
               setDeviceConnectedState(false);
@@ -1592,10 +1595,11 @@
 
     // Modal Control
     function openPlaylistModal(mode, id = null) {
-      if (!isDeviceConnected) {
+      if (!activeDeviceId) {
         showToast(t('deviceDisconnectedToast'));
         return;
       }
+      setDeviceConnectedState(true);
       currentModalMode = mode;
       editingPlaylistId = id;
       const modal = document.getElementById('playlistModal');
@@ -1640,10 +1644,11 @@
       e.preventDefault();
       const btn = document.getElementById('btnSubmitModal');
 
-      if (!isDeviceConnected) {
+      if (!activeDeviceId) {
         showToast(t('deviceDisconnectedToast'));
         return;
       }
+      setDeviceConnectedState(true);
 
       btn.disabled = true;
 
@@ -1698,7 +1703,7 @@
 
           // Push to Supabase
           try {
-            await supabaseClient.from('remote_devices').update({
+            const res = await supabaseClient.from('remote_devices').update({
               sync_action: {
                 action_id: actionId,
                 action: 'add',
@@ -1713,8 +1718,22 @@
               username: username,
               password: password,
               playlists: activePlaylists,
+              status: 'linked',
               updated_at: new Date().toISOString()
-            }).eq('device_id', activeDeviceId).eq('pin', activePin);
+            }).eq('device_id', activeDeviceId);
+
+            if (res && res.error) {
+              console.warn('Sync action update returned error, attempting fallback:', res.error);
+              await supabaseClient.from('remote_devices').update({
+                playlist_name: playlistName,
+                server_url: serverUrl,
+                username: username,
+                password: password,
+                playlists: activePlaylists,
+                status: 'linked',
+                updated_at: new Date().toISOString()
+              }).eq('device_id', activeDeviceId);
+            }
           } catch (colErr) {
             // Fallback if sync_action column not created
             await supabaseClient.from('remote_devices').update({
@@ -1725,7 +1744,7 @@
               playlists: activePlaylists,
               status: 'linked',
               updated_at: new Date().toISOString()
-            }).eq('device_id', activeDeviceId).eq('pin', activePin);
+            }).eq('device_id', activeDeviceId);
           }
 
           showToast(t('playlistSentSuccess'));
@@ -1754,8 +1773,9 @@
               timestamp: Date.now()
             },
             playlists: activePlaylists,
+            status: 'connected',
             updated_at: new Date().toISOString()
-          }).eq('device_id', activeDeviceId).eq('pin', activePin);
+          }).eq('device_id', activeDeviceId);
 
           showToast(t('playlistUpdatedSuccess'));
         }
@@ -1770,7 +1790,7 @@
 
     // Delete Playlist
     function confirmDeletePlaylist(id) {
-      if (!isDeviceConnected) {
+      if (!activeDeviceId) {
         showToast(t('deviceDisconnectedToast'));
         return;
       }
@@ -1804,8 +1824,9 @@
             timestamp: Date.now()
           },
           playlists: activePlaylists,
+          status: 'connected',
           updated_at: new Date().toISOString()
-        }).eq('device_id', activeDeviceId).eq('pin', activePin);
+        }).eq('device_id', activeDeviceId);
 
         showToast(t('playlistDeletedSuccess'));
       } catch (err) {
