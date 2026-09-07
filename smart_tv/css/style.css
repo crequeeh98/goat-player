@@ -2282,18 +2282,18 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .channel-menu-footer {
-  padding: 16px 36px;
+  padding: 18px 48px;
   background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  gap: 56px;
+  gap: 140px;
 }
 
 .legend-key {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   font-size: 18px;
   font-weight: 700;
   color: #FFFFFF;
@@ -2301,8 +2301,8 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .color-dot {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
@@ -2436,12 +2436,12 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .category-menu-footer {
-  padding: 16px 36px;
+  padding: 18px 48px;
   background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  gap: 56px;
+  gap: 140px;
   font-size: 17px;
   color: var(--text-dim);
 }
@@ -2449,8 +2449,8 @@ body:not(.tab-live) #player-container.mode-preview {
 .category-menu-footer > span {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-size: 17px;
+  gap: 14px;
+  font-size: 18px;
   font-weight: 700;
   color: #FFFFFF;
   white-space: nowrap;
@@ -2462,7 +2462,7 @@ body:not(.tab-live) #player-container.mode-preview {
   color: #FFFFFF;
   font-size: 13px;
   font-weight: 800;
-  padding: 3px 10px;
+  padding: 3px 12px;
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   letter-spacing: 0.5px;
