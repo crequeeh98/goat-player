@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import '../../utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -78,7 +78,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
       );
       if (mounted) setState(() => _isExpanding = false);
     } else if (active.streamType == StreamType.live) {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (GoatPlatform.isMobile) {
         await Navigator.of(context).push(
           PageRouteBuilder(
             pageBuilder: (context, _, __) => MobilePlayerScreen(

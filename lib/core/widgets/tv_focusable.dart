@@ -13,10 +13,10 @@ class TvInputModeManager {
     GestureBinding.instance.pointerRouter.addGlobalRoute(_handlePointerEvent);
   }
 
-  final ValueNotifier<bool> isKeyboardMode = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> isKeyboardMode = ValueNotifier<bool>(true);
 
   bool _handleKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
+    if (event is KeyDownEvent || event is KeyUpEvent) {
       if (!isKeyboardMode.value) {
         isKeyboardMode.value = true;
       }
@@ -90,6 +90,7 @@ class _TvFocusableState extends State<TvFocusable> {
   FocusNode? _internalNode;
   bool _isHovered = false;
   bool _isFocused = false;
+  bool _handledKeyDown = false;
 
   FocusNode get _effectiveNode => widget.focusNode ?? (_internalNode ??= FocusNode());
 
@@ -98,6 +99,13 @@ class _TvFocusableState extends State<TvFocusable> {
     super.initState();
     _effectiveNode.addListener(_handleFocusChange);
     TvInputModeManager.instance.isKeyboardMode.addListener(_handleInputModeChange);
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          FocusScope.of(context).requestFocus(_effectiveNode);
+        }
+      });
+    }
   }
 
   @override
@@ -130,10 +138,10 @@ class _TvFocusableState extends State<TvFocusable> {
     setState(() => _isFocused = hasFocus);
     widget.onFocusChange?.call(hasFocus);
 
-    // Auto-scroll strictly in keyboard/D-Pad mode; never fight mouse wheel or touchpad scrolling
-    if (hasFocus && widget.autoScroll && mounted && TvInputModeManager.instance.isKeyboardMode.value) {
+    // Auto-scroll whenever an item gains focus to keep it in view
+    if (hasFocus && widget.autoScroll && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_effectiveNode.hasFocus || !TvInputModeManager.instance.isKeyboardMode.value) return;
+        if (!mounted || !_effectiveNode.hasFocus) return;
         Scrollable.ensureVisible(
           context,
           alignment: widget.scrollAlignment,
@@ -156,16 +164,26 @@ class _TvFocusableState extends State<TvFocusable> {
       return KeyEventResult.ignored;
     }
 
-    if (event is KeyDownEvent) {
-      final isSelectKey = event.logicalKey == LogicalKeyboardKey.select ||
-          event.logicalKey == LogicalKeyboardKey.enter ||
-          event.logicalKey == LogicalKeyboardKey.numpadEnter ||
-          event.logicalKey == LogicalKeyboardKey.space ||
-          event.logicalKey == LogicalKeyboardKey.gameButtonA;
+    final isSelectKey = event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter ||
+        event.logicalKey == LogicalKeyboardKey.space ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA;
 
-      if (isSelectKey) {
+    if (isSelectKey) {
+      if (event is KeyDownEvent) {
+        _handledKeyDown = true;
         widget.onPressed!();
         return KeyEventResult.handled;
+      } else if (event is KeyUpEvent) {
+        if (_handledKeyDown) {
+          _handledKeyDown = false;
+          return KeyEventResult.handled;
+        } else {
+          // KeyDown was swallowed or omitted by TV browser
+          widget.onPressed!();
+          return KeyEventResult.handled;
+        }
       }
     }
 
@@ -179,12 +197,10 @@ class _TvFocusableState extends State<TvFocusable> {
     }
 
     final effectiveRadius = widget.borderRadius ?? BorderRadius.circular(10);
-    final isKeyboardMode = TvInputModeManager.instance.isKeyboardMode.value;
-    // In keyboard/TV remote mode: only the arrow-focused item is highlighted.
-    // In mouse mode: only the mouse-hovered item is highlighted (old arrow highlight clears immediately).
-    final isHighlighted = isKeyboardMode ? _isFocused : _isHovered;
+    final isHighlighted = _isFocused || _isHovered;
+
+    // Rich profile with smooth scaling & glowing drop shadow
     final scale = isHighlighted ? widget.focusScale : 1.0;
-    // Fast response when highlighted, instant cleanup when losing focus to prevent ghosting
     final animDuration = isHighlighted
         ? const Duration(milliseconds: 70)
         : const Duration(milliseconds: 30);

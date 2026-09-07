@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 
@@ -7,100 +8,319 @@ import '../dashboard/home_dashboard.dart';
 import '../../main.dart'; // To access providers for now
 import '../../core/player/playback_controller.dart';
 import '../live_tv/live_tv_controller.dart';
+import '../../core/widgets/tv_focusable.dart';
+import '../../core/widgets/tv_remote_scope.dart';
 
-class AccountListScreen extends ConsumerWidget {
+class AccountListScreen extends ConsumerStatefulWidget {
   const AccountListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountListScreen> createState() => _AccountListScreenState();
+}
+
+class _AccountListScreenState extends ConsumerState<AccountListScreen> {
+  bool _isNavigating = false;
+  bool _hasNoAccounts = true;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleGlobalKey);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKey);
+    super.dispose();
+  }
+
+  void _openAddAccount() {
+    if (_isNavigating || !mounted) return;
+    _isNavigating = true;
+    print('[GOAT] Navigating to AddAccountScreen...');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddAccountScreen()),
+    ).then((_) {
+      if (mounted) {
+        setState(() => _isNavigating = false);
+      }
+    });
+  }
+
+  bool _handleGlobalKey(KeyEvent event) {
+    if ((event is! KeyDownEvent && event is! KeyUpEvent) || !mounted) return false;
+    final key = event.logicalKey;
+    final isSelect = key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.gameButtonA;
+
+    if (isSelect && _hasNoAccounts) {
+      print('[GOAT_KEY] Select/Enter (${event.runtimeType}) received on empty AccountListScreen -> triggering _openAddAccount()');
+      _openAddAccount();
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    print('[GOAT] AccountListScreen.build() executing');
     final l10n = AppLocalizations.of(context)!;
     final accountDao = ref.watch(accountDaoProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.accounts),
-      ),
-      body: StreamBuilder(
-        stream: accountDao.watchAllAccounts(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final accounts = snapshot.data ?? [];
-
-          if (accounts.isEmpty) {
-            return Center(
-              child: Text(
-                AppLocalizations.of(context)!.noAccountsAdded,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: accounts.length,
-            itemBuilder: (context, index) {
-              final account = accounts[index];
-              return ListTile(
-                leading: const CircleAvatar(
-                  child: Icon(Icons.person),
+    return TvRemoteScope(
+      isRoot: true,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.accounts),
+        ),
+        body: StreamBuilder(
+          stream: accountDao.watchAllAccounts(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 48),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Database Error: ${snapshot.error}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
                 ),
-                title: Text(account.playlistName ?? account.username),
-                subtitle: Text(account.serverUrl),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddAccountScreen(accountToEdit: account),
-                          ),
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        accountDao.deleteAccount(account);
-                        // Also wipe related DB entries for this account
-                        ref.read(categoryDaoProvider).clearCategories(account.id, 'live');
-                        ref.read(categoryDaoProvider).clearCategories(account.id, 'movie');
-                        ref.read(streamDaoProvider).clearAllStreams(account.id);
-                        ref.read(epgDaoProvider).clearPrograms(account.id);
-                      },
-                    ),
-                  ],
-                ),
-                onTap: () {
-                  ref.read(playbackControllerProvider.notifier).stop();
-                  ref.read(selectedLiveCategoryProvider.notifier).set(null);
-                  ref.read(selectedLiveStreamProvider.notifier).set(null);
-                  ref.read(isLiveFullWidthProvider.notifier).set(false);
-                  ref.read(activeAccountProvider.notifier).set(account);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HomeDashboard()),
-                  );
-                },
               );
-            },
-          );
-        },
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF7C3AED),
+                ),
+              );
+            }
+
+            final accounts = snapshot.data ?? [];
+            _hasNoAccounts = accounts.isEmpty;
+
+            if (accounts.isEmpty) {
+              return GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _openAddAccount,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.playlist_add_rounded,
+                            size: 48,
+                            color: Color(0xFFB388FF),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          l10n.noAccountsAdded,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l10n.localeName == 'de'
+                              ? 'Füge eine Playlist hinzu, um Live TV, Filme & Serien zu starten.'
+                              : 'Add a playlist to start watching Live TV, Movies & Series.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white60, fontSize: 14),
+                        ),
+                        const SizedBox(height: 32),
+                        TvFocusable(
+                          autofocus: true,
+                          borderRadius: BorderRadius.circular(14),
+                          focusScale: 1.05,
+                          onPressed: _openAddAccount,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _openAddAccount,
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C3AED),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      l10n.addAccount,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              itemCount: accounts.length,
+              itemBuilder: (context, index) {
+                final account = accounts[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: TvFocusable(
+                    autofocus: index == 0,
+                    borderRadius: BorderRadius.circular(12),
+                    onPressed: () {
+                      ref.read(playbackControllerProvider.notifier).stop();
+                      ref.read(selectedLiveCategoryProvider.notifier).set(null);
+                      ref.read(selectedLiveStreamProvider.notifier).set(null);
+                      ref.read(isLiveFullWidthProvider.notifier).set(false);
+                      ref.read(activeAccountProvider.notifier).set(account);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeDashboard()),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1730),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                          child: const Icon(Icons.person, color: Color(0xFFB388FF)),
+                        ),
+                        title: Text(
+                          account.playlistName ?? account.username,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                        subtitle: Text(
+                          account.serverUrl,
+                          style: const TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddAccountScreen(accountToEdit: account),
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.redAccent),
+                              onPressed: () {
+                                accountDao.deleteAccount(account);
+                                // Also wipe related DB entries for this account
+                                ref.read(categoryDaoProvider).clearCategories(account.id, 'live');
+                                ref.read(categoryDaoProvider).clearCategories(account.id, 'movie');
+                                ref.read(streamDaoProvider).clearAllStreams(account.id);
+                                ref.read(epgDaoProvider).clearPrograms(account.id);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        floatingActionButton: TvFocusable(
+          borderRadius: BorderRadius.circular(16),
+          onPressed: _openAddAccount,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _openAddAccount,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C3AED),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.add_rounded, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.addAccount,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddAccountScreen()),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: Text(l10n.addAccount),
-      ),
-    );
+    ),
+  ),
+);
   }
 }

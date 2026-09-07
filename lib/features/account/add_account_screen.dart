@@ -37,10 +37,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   Duration _remainingTime = Duration.zero;
   bool _playlistReceived = false;
   bool _isClosingSession = false;
+  late final RemoteSyncService _syncService;
 
   @override
   void initState() {
     super.initState();
+    _syncService = ref.read(remoteSyncServiceProvider);
     if (widget.accountToEdit != null) {
       _playlistNameController.text = widget.accountToEdit!.playlistName ?? '';
       _serverUrlController.text = widget.accountToEdit!.serverUrl;
@@ -51,7 +53,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 
   void _onModeChanged(AddAccountMode mode) {
     if (_selectedMode == AddAccountMode.remote && mode == AddAccountMode.manual && _session != null) {
-      ref.read(remoteSyncServiceProvider).closePairingSession(_session!.deviceId);
+      _syncService.closePairingSession(_session!.deviceId);
     }
     setState(() => _selectedMode = mode);
     if (mode == AddAccountMode.remote && _session == null) {
@@ -67,13 +69,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     });
 
     try {
-      final syncService = ref.read(remoteSyncServiceProvider);
-      final session = await syncService.startPairingSession();
+      final session = await _syncService.startPairingSession();
 
       _remoteSubscription?.cancel();
       _countdownTimer?.cancel();
 
-      _remoteSubscription = syncService.listenForRemoteEvents(session.deviceId).listen(
+      _remoteSubscription = _syncService.listenForRemoteEvents(session.deviceId).listen(
         (event) {
           if (!mounted) return;
           setState(() => _playlistReceived = true);
@@ -113,7 +114,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             _remainingTime = Duration.zero;
           });
           if (_session != null) {
-            ref.read(remoteSyncServiceProvider).closePairingSession(_session!.deviceId);
+            _syncService.closePairingSession(_session!.deviceId);
           }
         } else {
           setState(() {
@@ -190,8 +191,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     if (_session != null) {
       if (mounted) setState(() => _isClosingSession = true);
       try {
-        await ref
-            .read(remoteSyncServiceProvider)
+        await _syncService
             .closePairingSession(_session!.deviceId)
             .timeout(const Duration(seconds: 3));
       } catch (e) {
@@ -206,7 +206,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   @override
   void dispose() {
     if (_session != null) {
-      ref.read(remoteSyncServiceProvider).closePairingSession(_session!.deviceId);
+      _syncService.closePairingSession(_session!.deviceId);
     }
     _remoteSubscription?.cancel();
     _countdownTimer?.cancel();

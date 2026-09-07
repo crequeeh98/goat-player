@@ -27,6 +27,20 @@ class IsLiveFullWidth extends Notifier<bool> {
 }
 final isLiveFullWidthProvider = NotifierProvider<IsLiveFullWidth, bool>(IsLiveFullWidth.new);
 
+class SyncingCategories extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => <String>{};
+
+  void add(String categoryId) {
+    state = {...state, categoryId};
+  }
+
+  void remove(String categoryId) {
+    state = state.where((id) => id != categoryId).toSet();
+  }
+}
+final syncingCategoriesProvider = NotifierProvider<SyncingCategories, Set<String>>(SyncingCategories.new);
+
 final liveCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
   final account = ref.watch(activeAccountProvider);
   if (account == null) return const Stream.empty();
@@ -108,6 +122,7 @@ class LiveTvController {
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null) return;
     
+    _ref.read(syncingCategoriesProvider.notifier).add(categoryId);
     try {
       final rawStreams = await client.getLiveStreams(categoryId: categoryId);
       final dao = _ref.read(streamDaoProvider);
@@ -127,6 +142,8 @@ class LiveTvController {
       await dao.replaceStreamsByCategory(account.id, categoryId, companions);
     } catch (e) {
       debugPrint('Failed to sync live streams: $e');
+    } finally {
+      _ref.read(syncingCategoriesProvider.notifier).remove(categoryId);
     }
   }
 

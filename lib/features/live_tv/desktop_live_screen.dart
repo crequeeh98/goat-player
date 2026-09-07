@@ -14,6 +14,7 @@ import '../../core/utils/channel_name_cleaner.dart';
 import '../../core/utils/live_stream_matcher.dart';
 import '../../core/player/playback_controller.dart';
 import '../../core/widgets/tv_focusable.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../main.dart';
 
 class DesktopLiveScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
   final FocusNode _firstChannelNode = FocusNode();
+  final FocusNode _selectedCategoryNode = FocusNode();
+  final FocusNode _playerNode = FocusNode();
+  final Set<String> _syncedCategories = {};
   bool _focusFirstChannelOnNextBuild = false;
 
   String? _lastScrolledStreamId;
@@ -42,6 +46,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     _categoryScrollController.dispose();
     _channelScrollController.dispose();
     _firstChannelNode.dispose();
+    _selectedCategoryNode.dispose();
+    _playerNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -54,6 +60,18 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         ref.read(epgControllerProvider).syncEpgData();
       }
     });
+  }
+
+  void _selectCategory(String catId) {
+    setState(() {
+      _selectedCategory = catId;
+      _lastScrolledStreamId = null;
+    });
+    ref.read(selectedLiveCategoryProvider.notifier).set(catId);
+    if (catId != 'favorites') {
+      _syncedCategories.add(catId);
+      ref.read(liveTvControllerProvider).syncLiveStreams(catId);
+    }
   }
 
   void _scrollToActiveChannel(List<StreamItem> streams, String? activeId) {
@@ -106,7 +124,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void _playStream(StreamItem stream) {
     final activePlayback = ref.read(playbackControllerProvider);
     final effectiveCat = _selectedCategory ?? stream.categoryId;
-    
+
     // Prevent redundant reload if stream is already playing in the same category
     if (activePlayback != null &&
         activePlayback.streamType == StreamType.live &&
@@ -119,7 +137,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     if (account == null) return;
     final cleanName = ChannelNameCleaner.clean(stream.name);
     final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.ts';
+    final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
     final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
 
     ref.read(playbackControllerProvider.notifier).playLive(
@@ -263,18 +282,18 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               return Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 child: TvFocusable(
+                                  focusNode: isSelected ? _selectedCategoryNode : null,
+                                  autofocus: isSelected || (_selectedCategory == null && index == 0),
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedCategory = cat.categoryId;
-                                      _lastScrolledStreamId = null;
-                                    });
-                                    ref.read(selectedLiveCategoryProvider.notifier).set(cat.categoryId);
-                                    if (cat.categoryId != 'favorites') {
-                                      ref.read(liveTvControllerProvider).syncLiveStreams(cat.categoryId);
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                      _firstChannelNode.requestFocus();
+                                      return KeyEventResult.handled;
                                     }
+                                    return KeyEventResult.ignored;
                                   },
+                                  onPressed: () => _selectCategory(cat.categoryId),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: isSelected
@@ -352,7 +371,21 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                     )
                   : ref.watch(liveStreamsProvider(_selectedCategory!)).when(
                       data: (streams) {
+                        final isSyncing = ref.watch(syncingCategoriesProvider).contains(_selectedCategory);
+                        final hasSynced = _syncedCategories.contains(_selectedCategory);
                         if (streams.isEmpty) {
+                          if (isSyncing || (!hasSynced && _selectedCategory != 'favorites')) {
+                            return const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircularProgressIndicator(color: Color(0xFF7C3AED)),
+                                  SizedBox(height: 16),
+                                  Text('Loading channels...', style: TextStyle(color: Colors.white70)),
+                                ],
+                              ),
+                            );
+                          }
                           return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -374,56 +407,57 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         final account = ref.read(activeAccountProvider);
                         final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
 
-                        return FocusTraversalGroup(
-                          policy: WidgetOrderTraversalPolicy(),
-                          child: ListView.builder(
-                            controller: _channelScrollController,
-                            cacheExtent: 2500.0,
-                            itemExtent: 64.0,
-                            itemCount: streams.length,
-                            itemBuilder: (context, index) {
-                              final stream = streams[index];
-                              final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
-                              final cleanName = ChannelNameCleaner.clean(stream.name);
-                              final isFavorite = favoriteIds.contains(stream.streamId);
-                              final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
-                                  (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
-                                  currentLive?.streamUrl == url ||
-                                  activePlayback?.streamUrl == url;
+                        return ListView.builder(
+                          controller: _channelScrollController,
+                          cacheExtent: 500.0,
+                          itemExtent: 64.0,
+                          itemCount: streams.length,
+                          itemBuilder: (context, index) {
+                            final stream = streams[index];
+                            final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+                            final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
+                            final cleanName = ChannelNameCleaner.clean(stream.name);
+                            final isFavorite = favoriteIds.contains(stream.streamId);
+                            final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||
+                                (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
+                                currentLive?.streamUrl == url ||
+                                activePlayback?.streamUrl == url;
 
-                              if (index == 0 && _focusFirstChannelOnNextBuild) {
-                                _focusFirstChannelOnNextBuild = false;
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (mounted) {
-                                    _firstChannelNode.requestFocus();
-                                  }
-                                });
-                              }
+                            if (index == 0 && _focusFirstChannelOnNextBuild) {
+                              _focusFirstChannelOnNextBuild = false;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  _firstChannelNode.requestFocus();
+                                }
+                              });
+                            }
 
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                child: TvFocusable(
-                                  focusNode: index == 0 ? _firstChannelNode : null,
-                                  focusScale: 1.02,
-                                  borderRadius: BorderRadius.circular(10),
-                                  onPressed: () => _playStream(stream),
-                                  onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent) {
-                                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                        if (index >= streams.length - 1) {
-                                          _channelScrollController.jumpTo(0);
-                                          _focusFirstChannelOnNextBuild = true;
-                                          setState(() {});
-                                          return KeyEventResult.handled;
-                                        }
-                                      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                                        if (index == 0) {
-                                          return KeyEventResult.handled;
-                                        }
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              child: TvFocusable(
+                                focusNode: index == 0 ? _firstChannelNode : null,
+                                focusScale: 1.02,
+                                borderRadius: BorderRadius.circular(10),
+                                onPressed: () => _playStream(stream),
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent) {
+                                    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                      _selectedCategoryNode.requestFocus();
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                      _playerNode.requestFocus();
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                      if (index >= streams.length - 1) {
+                                        _channelScrollController.jumpTo(0);
+                                        _focusFirstChannelOnNextBuild = true;
+                                        setState(() {});
+                                        return KeyEventResult.handled;
                                       }
                                     }
-                                    return KeyEventResult.ignored;
-                                  },
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: isCurrentPlaying
@@ -486,9 +520,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 ),
                               );
                             },
-                          ),
-                        );
-                      },
+                          );
+                        },
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (err, stack) => Center(child: Text('${AppLocalizations.of(context)!.error}$err')),
                     ),
@@ -505,27 +538,42 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
                   child: currentLive != null
-                      ? VideoPreview(
-                          key: _videoPreviewKey,
-                          streamUrl: currentLive.streamUrl,
-                          streamId: currentLive.streamId,
-                          channelId: currentLive.channelId,
-                          channelName: currentLive.title,
-                          isFullWidth: _isFullWidth,
-                          streams: currentCategoryStreams,
-                          categoryName: categoryName,
-                          onSelectStream: _playStream,
-                          onZapNext: () => _zapNext(currentCategoryStreams),
-                          onZapPrevious: () => _zapPrevious(currentCategoryStreams),
-                          onToggleFullWidth: () {
+                      ? TvFocusable(
+                          focusNode: _playerNode,
+                          borderRadius: BorderRadius.zero,
+                          focusScale: 1.0,
+                          onPressed: () {
                             ref.read(isLiveFullWidthProvider.notifier).toggle();
                           },
-                          onEnsureFullWidth: () {
-                            if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _firstChannelNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
                           },
-                          onExitToPreview: () {
-                            if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
-                          },
+                          child: VideoPreview(
+                            key: _videoPreviewKey,
+                            streamUrl: currentLive.streamUrl,
+                            streamId: currentLive.streamId,
+                            channelId: currentLive.channelId,
+                            channelName: currentLive.title,
+                            isFullWidth: _isFullWidth,
+                            streams: currentCategoryStreams,
+                            categoryName: categoryName,
+                            onSelectStream: _playStream,
+                            onZapNext: () => _zapNext(currentCategoryStreams),
+                            onZapPrevious: () => _zapPrevious(currentCategoryStreams),
+                            onToggleFullWidth: () {
+                              ref.read(isLiveFullWidthProvider.notifier).toggle();
+                            },
+                            onEnsureFullWidth: () {
+                              if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
+                            },
+                            onExitToPreview: () {
+                              if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
+                            },
+                          ),
                         )
                       : Container(
                           color: Colors.black45,

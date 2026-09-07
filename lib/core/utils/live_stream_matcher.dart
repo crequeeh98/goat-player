@@ -17,7 +17,7 @@ class LiveStreamMatcher {
     // 1. Resolve streamId from streamUrl if not explicitly passed
     String? resolvedStreamId = streamId;
     if ((resolvedStreamId == null || resolvedStreamId.isEmpty) && streamUrl != null) {
-      final match = RegExp(r'/live/[^/]+/[^/]+/(\d+)\.ts').firstMatch(streamUrl);
+      final match = RegExp(r'/live/[^/]+/[^/]+/(\d+)\.(?:ts|m3u8)').firstMatch(streamUrl);
       if (match != null) {
         resolvedStreamId = match.group(1);
       }
@@ -37,7 +37,8 @@ class LiveStreamMatcher {
 
     // Priority 3: Match via streamUrl containing the streamId
     if (streamUrl != null && streamUrl.isNotEmpty) {
-      final idx = streams.indexWhere((s) => streamUrl.contains('/${s.streamId}.ts'));
+      final idx = streams.indexWhere((s) =>
+          streamUrl.contains('/${s.streamId}.ts') || streamUrl.contains('/${s.streamId}.m3u8'));
       if (idx != -1) return idx;
     }
 

@@ -1,0 +1,402 @@
+// GOATPlayer Smart TV - Localization & Translation Engine (EN / DE)
+(function() {
+  var TRANSLATIONS = {
+    en: {
+      accounts_title: 'GOATPlayer TV',
+      add_account: '+ Add Account',
+      edit_account: 'Edit Account',
+      no_accounts: 'No Accounts Added',
+      no_accounts_sub: 'Add a playlist to start watching Live TV, Movies & Series.',
+      manual_setup: 'Manual Setup',
+      link_via_web: 'Link via Web / QR Code',
+      playlist_name: 'Playlist Name',
+      optional: '(Optional)',
+      server_url: 'Server URL',
+      username: 'Username',
+      password: 'Password',
+      connect: 'Connect Playlist',
+      cancel: 'Cancel',
+      device_id: 'DEVICE ID',
+      pairing_pin: 'PAIRING PIN',
+      expires_in: 'Expires in',
+      new_code: 'New Code',
+      scan_qr_desc: 'Scan this QR code with your smartphone camera or visit goat-player.vercel.app on your PC / phone.',
+      live_tv: 'Live TV',
+      movies: 'Movies',
+      series: 'Series',
+      search: 'Search',
+      preferences: 'Preferences',
+      switch_account: 'Switch Account',
+      search_categories: 'Search categories...',
+      search_channels: 'Search channels...',
+      search_movies: 'Search movies...',
+      search_series: 'Search series...',
+      master_search_placeholder: 'Search across all Live TV, Movies & Series...',
+      search_min_chars: 'Type at least 2 characters to search...',
+      searching: 'Searching...',
+      no_results: 'No results found.',
+      favorites: 'Favorites',
+      watchlist: 'Watchlist',
+      select_category: 'Select Category',
+      select_channel: 'Select a channel to start watching',
+      epg_schedule: 'EPG Schedule',
+      loading_channels: 'Loading channels...',
+      loading_categories: 'Loading categories...',
+      loading_movies: 'Loading movies...',
+      loading_series: 'Loading series...',
+      no_channels: 'No channels found.',
+      no_movies: 'No movies found.',
+      no_series: 'No series found.',
+      sort: 'Sort:',
+      sort_newest: 'Newly Added',
+      sort_az: 'A-Z',
+      sort_za: 'Z-A',
+      play_movie: 'Play Movie',
+      play_episode: 'Play',
+      episodes: 'Episodes',
+      seasons: 'Season',
+      continue_watching: 'Continue Watching',
+      audio_track: 'Audio',
+      subtitles: 'Subtitles',
+      next_episode: 'Next Episode',
+      fullscreen: 'Fullscreen',
+      exit_confirm_title: 'Exit GOATPlayer TV',
+      exit_confirm_msg: 'Are you sure you want to close GOATPlayer TV?',
+      exit_btn: 'Exit App',
+      pref_title: 'Playback Preferences',
+      pref_audio: 'Preferred Audio Language',
+      pref_sub: 'Preferred Subtitles',
+      pref_lang_original: 'Original',
+      subtitles_off: 'Off',
+      save_prefs: 'Save Preferences',
+      lang_title: 'Language',
+      english: 'English',
+      german: 'German',
+      turkish: 'Turkish',
+      french: 'French',
+      spanish: 'Spanish',
+      now_playing: 'NOW PLAYING',
+      live_preview: 'LIVE PREVIEW',
+      channel_guide: 'Channel Guide',
+      no_epg_available: 'No upcoming programs listed for this channel.',
+      epg_select_channel: 'Select a channel to view upcoming program schedule.',
+      loading_schedule: 'Loading schedule...',
+      no_epg_schedule: 'No EPG program schedule available.',
+      add_account_sub: 'Connect your IPTV playlist to begin streaming',
+      placeholder_playlist: 'e.g. Living Room TV',
+      placeholder_server: 'http://example.com:8080',
+      placeholder_username: 'Username',
+      placeholder_password: 'Password',
+      generating_session: 'Generating session...',
+      waiting_for_playlist: 'Waiting for playlist from phone...',
+      session_expired: 'Session expired. Click "New Code" to refresh.',
+      connecting_server: 'Connecting to IPTV server...',
+      delete_confirm: 'Delete account "{name}"?',
+      account_added_toast: 'Account added: ',
+      playlist_received_toast: 'Playlist received: ',
+      playlist_received: 'Playlist received',
+      done: '✓ Done',
+      edit: 'Edit',
+      delete: 'Delete',
+      fav_added: 'Added to Favorites',
+      fav_removed: 'Removed from Favorites',
+      loading_episodes: 'Loading episodes...',
+      loading_movie_details: 'Loading movie details...',
+      loading_series_details: 'Loading series details...',
+      loading_seasons_episodes: 'Loading seasons & episodes...',
+      failed_load_categories: 'Failed to load categories.',
+      failed_load_details: 'Failed to load details.',
+      no_channels_in_category: 'No channels in this category.',
+      no_episodes_available: 'No episodes available.',
+      no_episodes_for_season: 'No episodes found for this season.',
+      no_description: 'No description available.',
+      in_watchlist: 'In Watchlist',
+      audio_tracks: 'Audio Tracks',
+      loading_tracks: 'Loading audio & subtitle tracks...',
+      no_audio_tracks: 'No additional audio tracks provided by stream',
+      subtitles_title: 'Subtitles',
+      subtitles_off: 'Off / Disabled',
+      no_subtitles_found: 'No subtitles available for this stream',
+      default_audio: 'Default Audio',
+      default_subtitles: 'None / Off',
+      season_prefix: 'Season ',
+      unit_channels: 'Channels',
+      unit_movies: 'Movies',
+      unit_shows: 'Shows',
+      resume_playback: 'Resume Playback',
+      resume_from: 'Resume from',
+      start_over: 'Start from Beginning',
+      resume: 'Resume',
+      prefs_saved: 'Preferences saved!',
+      lang_changed_de: 'Sprache auf Deutsch geändert',
+      lang_changed_en: 'Language set to English',
+      unmute_prompt: 'Audio muted - Press OK to unmute',
+      forced_sub_notice: ' (Active during foreign dialogue)',
+      sub_activated: 'Subtitles activated',
+      audio_activated: 'Audio track activated',
+      legend_favourite: 'Favourite',
+      legend_epg: 'EPG',
+      legend_groups: 'Groups',
+      page: 'Page',
+      current_programme_info: 'Current Programme Information',
+      next_programme: 'Next',
+      channel_group: 'Channel Group',
+      play_pause: 'Play / Pause',
+      select_group: 'Select Group',
+      back_return: 'Return',
+      splash_starting: 'Starting GOATPlayer TV...',
+      splash_connecting: 'Connecting to Playlist...',
+      splash_loading_all: 'Loading Live TV, Movies & Series...',
+      splash_sync_categories: 'Synchronizing Categories...',
+      splash_sync_channels: 'Loading Channels & Watchlist...',
+      splash_ready: 'Ready',
+      splash_tagline: 'Next-Generation IPTV Entertainment',
+      expires: 'Expires:',
+      unlimited: 'Unlimited',
+      expired: 'Expired',
+      connections: 'Connections',
+      active_connections_tooltip: 'Active / Allowed Connections'
+    },
+    de: {
+      accounts_title: 'GOATPlayer TV',
+      add_account: '+ Account hinzufügen',
+      edit_account: 'Account bearbeiten',
+      no_accounts: 'Keine Accounts hinzugefügt',
+      no_accounts_sub: 'Füge eine Playlist hinzu, um Live TV, Filme & Serien zu starten.',
+      manual_setup: 'Manuelle Einrichtung',
+      link_via_web: 'Per Web / QR-Code verbinden',
+      playlist_name: 'Playlist Name',
+      optional: '(Optional)',
+      server_url: 'Server URL',
+      username: 'Benutzername',
+      password: 'Passwort',
+      connect: 'Playlist verbinden',
+      cancel: 'Abbrechen',
+      device_id: 'GERÄTE-ID',
+      pairing_pin: 'KOPPLUNGS-PIN',
+      expires_in: 'Gültig für',
+      new_code: 'Neuer Code',
+      scan_qr_desc: 'Scanne diesen QR-Code mit der Smartphone-Kamera oder öffne goat-player.vercel.app auf dem PC / Handy.',
+      live_tv: 'Live TV',
+      movies: 'Filme',
+      series: 'Serien',
+      search: 'Suche',
+      preferences: 'Einstellungen',
+      switch_account: 'Konto wechseln',
+      search_categories: 'Kategorien suchen...',
+      search_channels: 'Sender suchen...',
+      search_movies: 'Filme suchen...',
+      search_series: 'Serien suchen...',
+      master_search_placeholder: 'In Live TV, Filmen & Serien suchen...',
+      search_min_chars: 'Mindestens 2 Zeichen eingeben...',
+      searching: 'Suche läuft...',
+      no_results: 'Keine Ergebnisse gefunden.',
+      favorites: 'Favoriten',
+      watchlist: 'Watchlist',
+      select_category: 'Kategorie wählen',
+      select_channel: 'Wähle einen Sender für die Vorschau',
+      epg_schedule: 'EPG Programm',
+      loading_channels: 'Lade Sender...',
+      loading_categories: 'Lade Kategorien...',
+      loading_movies: 'Lade Filme...',
+      loading_series: 'Lade Serien...',
+      loading_schedule: 'Lade Programm...',
+      loading_episodes: 'Lade Episoden...',
+      loading_movie_details: 'Lade Filmdetails...',
+      loading_series_details: 'Lade Seriendetails...',
+      loading_seasons_episodes: 'Lade Staffeln & Episoden...',
+      failed_load_categories: 'Fehler beim Laden der Kategorien.',
+      failed_load_details: 'Fehler beim Laden der Details.',
+      no_channels: 'Keine Sender gefunden.',
+      no_channels_in_category: 'Keine Sender in dieser Kategorie.',
+      no_movies: 'Keine Filme gefunden.',
+      no_series: 'Keine Serien gefunden.',
+      no_episodes_available: 'Keine Episoden verfügbar.',
+      no_episodes_for_season: 'Keine Episoden für diese Staffel gefunden.',
+      no_description: 'Keine Beschreibung verfügbar.',
+      in_watchlist: 'In Watchlist',
+      audio_tracks: 'Audiospuren',
+      subtitles_title: 'Untertitel',
+      subtitles_off: 'Aus',
+      default_audio: 'Standard Audio',
+      default_subtitles: 'Keine / Aus',
+      season_prefix: 'Staffel ',
+      unit_channels: 'Sender',
+      unit_movies: 'Filme',
+      unit_shows: 'Serien',
+      resume_playback: 'Wiedergabe fortsetzen',
+      resume_from: 'Fortsetzen bei',
+      start_over: 'Von Anfang an',
+      resume: 'Fortsetzen',
+      sort: 'Sortierung:',
+      sort_newest: 'Neu hinzugefügt',
+      sort_az: 'A-Z',
+      sort_za: 'Z-A',
+      play_movie: 'Film abspielen',
+      play_episode: 'Abspielen',
+      episodes: 'Episoden',
+      seasons: 'Staffel',
+      continue_watching: 'Weiterschauen',
+      audio_track: 'Audio',
+      subtitles: 'Untertitel',
+      next_episode: 'Nächste Episode',
+      fullscreen: 'Vollbild',
+      exit_confirm_title: 'GOATPlayer TV beenden',
+      exit_confirm_msg: 'Möchtest du GOATPlayer TV wirklich beenden?',
+      exit_btn: 'Beenden',
+      pref_title: 'Wiedergabeeinstellungen',
+      pref_audio: 'Bevorzugte Audiosprache',
+      pref_sub: 'Bevorzugte Untertitel',
+      pref_lang_original: 'Original',
+      subtitles_off: 'Aus',
+      save_prefs: 'Einstellungen speichern',
+      prefs_saved: 'Einstellungen gespeichert!',
+      lang_title: 'Sprache',
+      english: 'Englisch',
+      german: 'Deutsch',
+      turkish: 'Türkisch',
+      french: 'Französisch',
+      spanish: 'Spanisch',
+      now_playing: 'JETZT LIVE',
+      live_preview: 'LIVE VORSCHAU',
+      channel_guide: 'Programmübersicht',
+      no_epg_available: 'Keine Programminformationen verfügbar',
+      epg_select_channel: 'Wähle einen Sender, um das Programm anzuzeigen.',
+      no_epg_schedule: 'Keine Programminformationen verfügbar',
+      add_account_sub: 'Verbinde deine IPTV-Playlist, um mit dem Streaming zu beginnen',
+      placeholder_playlist: 'z.B. Wohnzimmer TV',
+      placeholder_server: 'http://beispiel.com:8080',
+      placeholder_username: 'Benutzername',
+      placeholder_password: 'Passwort',
+      generating_session: 'Sitzung wird erstellt...',
+      waiting_for_playlist: 'Warte auf Playlist vom Smartphone...',
+      session_expired: 'Sitzung abgelaufen. Klicke auf „Neuer Code“.',
+      connecting_server: 'Verbindung zum IPTV-Server wird hergestellt...',
+      delete_confirm: 'Konto „{name}“ wirklich löschen?',
+      account_added_toast: 'Konto hinzugefügt: ',
+      playlist_received_toast: 'Playlist empfangen: ',
+      playlist_received: 'Playlist empfangen',
+      done: '✓ Fertig',
+      edit: 'Bearbeiten',
+      delete: 'Löschen',
+      loading_schedule: 'Lade Programm...',
+      fav_added: 'Zu Favoriten hinzugefügt',
+      fav_removed: 'Aus Favoriten entfernt',
+      lang_changed_de: 'Sprache auf Deutsch geändert',
+      lang_changed_en: 'Language set to English',
+      legend_favourite: 'Favorit',
+      legend_epg: 'EPG',
+      legend_groups: 'Gruppen',
+      page: 'Seite',
+      current_programme_info: 'Sendungsinformation',
+      next_programme: 'Danach',
+      channel_group: 'Sendergruppe',
+      play_pause: 'Wiedergabe / Pause',
+      select_group: 'Wähle Gruppe',
+      back_return: 'Zurück',
+      splash_starting: 'GOATPlayer TV wird gestartet...',
+      splash_connecting: 'Verbindung zur Playlist...',
+      splash_loading_all: 'Live TV, Filme & Serien werden geladen...',
+      splash_sync_categories: 'Kategorien werden synchronisiert...',
+      splash_sync_channels: 'Sender & Watchlist werden geladen...',
+      splash_ready: 'Bereit',
+      splash_tagline: 'IPTV-Streaming der nächsten Generation',
+      expires: 'Ablauf:',
+      unlimited: 'Unbegrenzt',
+      expired: 'Abgelaufen',
+      connections: 'Verbindungen',
+      active_connections_tooltip: 'Aktive / Erlaubte Verbindungen',
+      audio_tracks: 'Audiospuren',
+      loading_tracks: 'Audiospuren & Untertitel werden geladen...',
+      no_audio_tracks: 'Keine weiteren Audiospuren vom Anbieter bereitgestellt',
+      subtitles_title: 'Untertitel',
+      subtitles_off: 'Aus / Deaktiviert',
+      no_subtitles_found: 'Keine Untertitel verfügbar',
+      default_audio: 'Standard-Audio',
+      resume_playback: 'Wiedergabe fortsetzen',
+      resume_from: 'Fortsetzen bei',
+      start_over: 'Von vorne beginnen',
+      resume: 'Fortsetzen',
+      unmute_prompt: 'Audio stummgeschaltet - OK drücken zum Aktivieren',
+      forced_sub_notice: ' (Aktiv bei Fremdsprachen)',
+      sub_activated: 'Untertitel aktiviert',
+      audio_activated: 'Audiospur aktiviert'
+    }
+  };
+
+  var _currentLang = 'en';
+
+  function initLang() {
+    var stored = localStorage.getItem('goat_pref_ui_lang');
+    if (stored === 'de' || stored === 'en') {
+      _currentLang = stored;
+    } else {
+      var navLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+      _currentLang = (navLang.indexOf('de') === 0) ? 'de' : 'en';
+    }
+  }
+
+  function setLanguage(lang) {
+    if (lang !== 'de' && lang !== 'en') return;
+    _currentLang = lang;
+    localStorage.setItem('goat_pref_ui_lang', lang);
+    applyTranslations();
+    try {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        var evt;
+        if (typeof CustomEvent === 'function') {
+          evt = new CustomEvent('tv-language-changed', { detail: { language: lang } });
+        } else {
+          evt = document.createEvent('CustomEvent');
+          evt.initCustomEvent('tv-language-changed', true, true, { language: lang });
+        }
+        window.dispatchEvent(evt);
+      }
+    } catch (e) {}
+  }
+
+  function getLanguage() {
+    return _currentLang;
+  }
+
+  function t(key) {
+    var dict = TRANSLATIONS[_currentLang] || TRANSLATIONS.en;
+    return dict[key] || TRANSLATIONS.en[key] || key;
+  }
+
+  function applyTranslations() {
+    // 1. Text elements with data-i18n
+    var elements = document.querySelectorAll('[data-i18n]');
+    elements.forEach(function(el) {
+      var key = el.getAttribute('data-i18n');
+      if (key) el.textContent = t(key);
+    });
+
+    // 2. Input placeholders with data-i18n-ph
+    var inputs = document.querySelectorAll('[data-i18n-ph]');
+    inputs.forEach(function(el) {
+      var key = el.getAttribute('data-i18n-ph');
+      if (key) el.setAttribute('placeholder', t(key));
+    });
+
+    // 3. Tooltips and titles with data-i18n-title
+    var titles = document.querySelectorAll('[data-i18n-title]');
+    titles.forEach(function(el) {
+      var key = el.getAttribute('data-i18n-title');
+      if (key) el.setAttribute('title', t(key));
+    });
+
+    // 4. Header language badge
+    var langLabel = document.getElementById('header-lang-label');
+    if (langLabel) langLabel.textContent = _currentLang.toUpperCase();
+  }
+
+  initLang();
+
+  window.TVI18n = {
+    setLanguage: setLanguage,
+    getLanguage: getLanguage,
+    t: t,
+    applyTranslations: applyTranslations
+  };
+})();

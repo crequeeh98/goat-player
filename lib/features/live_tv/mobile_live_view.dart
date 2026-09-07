@@ -1,5 +1,5 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import '../../core/utils/platform_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
@@ -203,7 +203,8 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                   final baseUrl = account?.serverUrl.endsWith('/') == true
                       ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
                       : account?.serverUrl;
-                  final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.ts';
+                  final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+                  final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -255,7 +256,7 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
 
   @override
   void dispose() {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (GoatPlatform.isMobile) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -272,7 +273,7 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
-        if (Platform.isAndroid || Platform.isIOS) {
+        if (GoatPlatform.isMobile) {
           SystemChrome.setPreferredOrientations([
             DeviceOrientation.portraitUp,
             DeviceOrientation.portraitDown,

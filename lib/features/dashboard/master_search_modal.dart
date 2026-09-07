@@ -11,6 +11,7 @@ import '../vod_series/series_detail_modal.dart';
 import '../../main.dart';
 import '../../core/player/playback_controller.dart';
 import '../../core/utils/channel_name_cleaner.dart';
+import '../../core/utils/platform_utils.dart';
 
 class MasterSearchModal extends ConsumerStatefulWidget {
   final VoidCallback? onClose;
@@ -207,7 +208,8 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                   final account = ref.read(activeAccountProvider);
                   if (account != null) {
                     final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-                    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.ts';
+                    final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+                    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
                     final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
                     ref.read(playbackControllerProvider.notifier).playLive(
                       title: ChannelNameCleaner.clean(stream.name),

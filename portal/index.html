@@ -854,7 +854,7 @@
         
         <div class="form-group">
           <label class="form-label" data-i18n="deviceIdLabel">Device ID</label>
-          <input type="text" id="inputDeviceId" class="form-input" placeholder="e.g. GP-8429-B712" style="text-transform: uppercase;" />
+          <input type="text" id="inputDeviceId" class="form-input" placeholder="GP-XXXX-XXXX" style="text-transform: uppercase;" />
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="pinLabel">6-Digit Pairing PIN</label>
@@ -1506,21 +1506,13 @@
 
         if (error || !data) return;
 
-        // If an add action was sent and TV has consumed it (or entered dashboard/closed modal):
-        if (pendingAddActionId && (!data.sync_action || data.status === 'disconnected' || data.status === 'synced')) {
+        // If an add action was sent and TV has acknowledged it, clear pending flag and merge playlists
+        if (pendingAddActionId && !data.sync_action) {
           pendingAddActionId = null;
           if (data.playlists && Array.isArray(data.playlists)) {
             activePlaylists = mergePlaylists(data.playlists, activePlaylists);
             renderPlaylists();
           }
-          setDeviceConnectedState(false);
-          try {
-            await supabaseClient.from('remote_devices').update({
-              status: 'disconnected',
-              pin_expires_at: new Date().toISOString()
-            }).eq('device_id', deviceId);
-          } catch(e){}
-          return;
         }
 
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
@@ -1562,21 +1554,13 @@
         }, async (payload) => {
           const newRecord = payload.new;
           if (newRecord) {
-            // Check if pending add action was completed by TV
-            if (pendingAddActionId && (!newRecord.sync_action || newRecord.status === 'disconnected' || newRecord.status === 'synced')) {
+            // Check if pending add action was completed/cleared by TV
+            if (pendingAddActionId && !newRecord.sync_action) {
               pendingAddActionId = null;
               if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
                 activePlaylists = mergePlaylists(newRecord.playlists, activePlaylists);
                 renderPlaylists();
               }
-              setDeviceConnectedState(false);
-              try {
-                await supabaseClient.from('remote_devices').update({
-                  status: 'disconnected',
-                  pin_expires_at: new Date().toISOString()
-                }).eq('device_id', deviceId);
-              } catch(e){}
-              return;
             }
 
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
@@ -1892,6 +1876,85 @@
       }
     }
 
+    function setupDeviceIdMask() {
+      const input = document.getElementById('inputDeviceId');
+      const pinInput = document.getElementById('inputPin');
+      if (!input) return;
+
+      function formatValue(raw) {
+        let clean = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        if (clean.startsWith('GP')) {
+          clean = clean.slice(2);
+        }
+        clean = clean.slice(0, 8);
+
+        if (clean.length === 0) {
+          return { formatted: 'GP-', cleanLength: 0 };
+        } else if (clean.length <= 4) {
+          return { formatted: 'GP-' + clean, cleanLength: clean.length };
+        } else {
+          return { formatted: 'GP-' + clean.slice(0, 4) + '-' + clean.slice(4), cleanLength: clean.length };
+        }
+      }
+
+      input.addEventListener('focus', () => {
+        if (!input.value) {
+          input.value = 'GP-';
+        }
+      });
+
+      input.addEventListener('blur', () => {
+        if (input.value === 'GP-') {
+          input.value = '';
+        }
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace') {
+          const start = input.selectionStart;
+          const end = input.selectionEnd;
+          if (start <= 3 && end <= 3) {
+            e.preventDefault();
+            return;
+          }
+          if (start === end && start === 8 && input.value.charAt(7) === '-') {
+            e.preventDefault();
+            const val = input.value;
+            input.value = val.slice(0, 6) + val.slice(7);
+            const res = formatValue(input.value);
+            input.value = res.formatted;
+            input.setSelectionRange(6, 6);
+            return;
+          }
+        }
+      });
+
+      input.addEventListener('input', () => {
+        const res = formatValue(input.value);
+        input.value = res.formatted;
+        if (res.cleanLength === 8 && pinInput) {
+          pinInput.focus();
+          pinInput.select();
+        }
+      });
+
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (pinInput) pinInput.focus();
+        }
+      });
+
+      if (pinInput) {
+        pinInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btnVerifyPairing').click();
+          }
+        });
+      }
+    }
+
     // Auto-init on page load
     window.addEventListener('DOMContentLoaded', async () => {
       // 1. Language Init
@@ -1899,7 +1962,10 @@
       const browserLang = (navigator.language || navigator.userLanguage || 'en').startsWith('de') ? 'de' : 'en';
       setLanguage(savedLang || browserLang);
 
-      // 2. Query Params Init (QR code auto-link)
+      // 2. Setup Device ID Input Mask
+      setupDeviceIdMask();
+
+      // 3. Query Params Init (QR code auto-link)
       const urlParams = new URLSearchParams(window.location.search);
       const urlDevice = urlParams.get('device');
       const urlPin = urlParams.get('pin');

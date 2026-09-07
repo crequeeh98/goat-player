@@ -106,6 +106,8 @@ class TvRemoteScope extends ConsumerStatefulWidget {
 }
 
 class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
+  int _lastBackTriggerTime = 0;
+
   @override
   void initState() {
     super.initState();
@@ -119,21 +121,51 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
   }
 
   bool _handleGlobalHardwareKey(KeyEvent event) {
-    if (event is! KeyDownEvent || !mounted) return false;
+    if (event is KeyDownEvent || event is KeyUpEvent) {
+      print('[GOAT_KEY] ${event.runtimeType}: ${event.logicalKey.keyLabel} (id: ${event.logicalKey.keyId})');
+    }
+    if ((event is! KeyDownEvent && event is! KeyUpEvent) || !mounted) return false;
 
     final key = event.logicalKey;
+
+    // Directional TV Keys: Auto-recover focus if focus is currently null or lost
+    final isArrowKey = key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight;
+
+    if (event is KeyDownEvent && isArrowKey) {
+      final primary = FocusManager.instance.primaryFocus;
+      if (primary == null || primary.context == null || primary == FocusScope.of(context)) {
+        final currentScope = FocusScope.of(context);
+        final target = currentScope.focusedChild ?? currentScope.traversalDescendants.firstOrNull;
+        if (target != null && target.canRequestFocus) {
+          target.requestFocus();
+          return true;
+        }
+      }
+    }
 
     // Media Keys: Play / Pause toggle
     if (key == LogicalKeyboardKey.mediaPlayPause ||
         key == LogicalKeyboardKey.mediaPlay ||
         key == LogicalKeyboardKey.mediaPause) {
-      ref.read(playbackControllerProvider.notifier).togglePlayPause();
+      if (event is KeyDownEvent) {
+        ref.read(playbackControllerProvider.notifier).togglePlayPause();
+      }
       return true;
     }
 
     // Smart TV / Desktop Back key: Escape or Android/TV goBack
     if (widget.isRoot &&
         (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack)) {
+      // Debounce back key to prevent double trigger if TV sends both KeyDown and KeyUp
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastBackTriggerTime < 350) {
+        return true;
+      }
+      _lastBackTriggerTime = now;
+
       // If HomeDashboard is NOT the current active route (e.g. VodPlayerScreen or a modal route is open above it),
       // do not intercept here! Let the active route handle its own back key / escape.
       if (ModalRoute.of(context)?.isCurrent != true) {

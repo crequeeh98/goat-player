@@ -1,10 +1,9 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
+import '../../utils/platform_utils.dart';
 import 'goat_player_engine.dart';
 import 'media_kit_player_engine.dart';
 import 'tizen_player_engine.dart';
-import 'webos_player_engine.dart';
 
 /// Factory responsible for instantiating the appropriate GoatPlayerEngine
 /// based on the runtime operating system and platform target.
@@ -23,17 +22,12 @@ class PlayerEngineFactory {
     }
 
     if (kIsWeb) {
-      return WebOsPlayerEngine();
+      return MediaKitPlayerEngine();
     }
 
-    try {
-      // Check if running in a Tizen environment
-      final isTizen = Platform.environment.containsKey('TIZEN_SDK') ||
-          Platform.operatingSystem == 'tizen';
-      if (isTizen) {
-        return TizenPlayerEngine();
-      }
-    } catch (_) {}
+    if (GoatPlatform.isTizen) {
+      return TizenPlayerEngine();
+    }
 
     // Default to MediaKitPlayerEngine (Windows, Android, macOS, Linux)
     return MediaKitPlayerEngine();

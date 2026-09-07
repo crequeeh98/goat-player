@@ -183,29 +183,30 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             tooltip: AppLocalizations.of(context)!.search,
             onPressed: _openSearch,
           ),
-          Consumer(
-            builder: (context, ref, child) {
-              final stageAsync = ref.watch(vpnStageProvider);
-              final isConnected = stageAsync.value == VpnStage.connected;
-              final localizedStatus = isConnected 
-                  ? AppLocalizations.of(context)!.vpnConnected 
-                  : AppLocalizations.of(context)!.vpnDisconnected;
-                  
-              return IconButton(
-                icon: Icon(
-                  isConnected ? Icons.security : Icons.shield_outlined,
-                  color: isConnected ? Colors.green : Colors.grey,
-                ),
-                tooltip: '${AppLocalizations.of(context)!.vpnStatus}: $localizedStatus',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const VpnImportDialog(),
-                  );
-                },
-              );
-            },
-          ),
+          if (!GoatPlatform.isWeb)
+            Consumer(
+              builder: (context, ref, child) {
+                final stageAsync = ref.watch(vpnStageProvider);
+                final isConnected = stageAsync.value == VpnStage.connected;
+                final localizedStatus = isConnected 
+                    ? AppLocalizations.of(context)!.vpnConnected 
+                    : AppLocalizations.of(context)!.vpnDisconnected;
+                    
+                return IconButton(
+                  icon: Icon(
+                    isConnected ? Icons.security : Icons.shield_outlined,
+                    color: isConnected ? Colors.green : Colors.grey,
+                  ),
+                  tooltip: '${AppLocalizations.of(context)!.vpnStatus}: $localizedStatus',
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const VpnImportDialog(),
+                    );
+                  },
+                );
+              },
+            ),
           // Dedicated Language Selection Button
           // Dedicated Language Selection Button
           Consumer(
@@ -315,6 +316,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                               ref.read(playbackControllerProvider.notifier).expand();
                             }
                           }
+                          if (GoatPlatform.isWeb) {
+                            if (idx == 1) ref.read(vodControllerProvider).syncVodCategories();
+                            if (idx == 2) ref.read(seriesControllerProvider).syncSeriesCategories();
+                          }
                           setState(() => _selectedIndex = idx);
                         },
                         labelType: NavigationRailLabelType.all,
@@ -355,17 +360,18 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 },
               ),
             ),
-          FloatingMiniPlayer(
-            onExpandLiveDesktop: () {
-              if (_isSearchOpen) {
-                _wasLiveExpandedBeforeSearch = false;
-                setState(() => _isSearchOpen = false);
-              }
-              ref.read(playbackControllerProvider.notifier).expand();
-              setState(() => _selectedIndex = 0);
-              ref.read(isLiveFullWidthProvider.notifier).set(true);
-            },
-          ),
+          if (!GoatPlatform.isWeb)
+            FloatingMiniPlayer(
+              onExpandLiveDesktop: () {
+                if (_isSearchOpen) {
+                  _wasLiveExpandedBeforeSearch = false;
+                  setState(() => _isSearchOpen = false);
+                }
+                ref.read(playbackControllerProvider.notifier).expand();
+                setState(() => _selectedIndex = 0);
+                ref.read(isLiveFullWidthProvider.notifier).set(true);
+              },
+            ),
         ],
       ),
       bottomNavigationBar: (!hideChrome && MediaQuery.of(context).size.width <= 800)

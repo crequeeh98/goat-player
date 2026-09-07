@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'connection/connection.dart' as connection;
 
 import 'tables.dart';
 import 'daos/account_dao.dart';
@@ -19,7 +18,7 @@ part 'app_database.g.dart';
   daos: [AccountDao, CategoryDao, StreamDao, EpgDao, PlaybackProgressDao, FavoriteDao],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : super(connection.openConnection());
 
   @override
   int get schemaVersion => 7;
@@ -55,10 +54,14 @@ class AppDatabase extends _$AppDatabase {
           }
         },
         beforeOpen: (details) async {
-          await customStatement('PRAGMA journal_mode = WAL;');
-          await customStatement('PRAGMA synchronous = NORMAL;');
-          await customStatement('PRAGMA cache_size = -64000;'); // 64MB RAM cache
-          await customStatement('PRAGMA temp_store = MEMORY;');
+          try {
+            await customStatement('PRAGMA journal_mode = WAL;');
+            await customStatement('PRAGMA synchronous = NORMAL;');
+            await customStatement('PRAGMA cache_size = -64000;'); // 64MB RAM cache
+            await customStatement('PRAGMA temp_store = MEMORY;');
+          } catch (e) {
+            debugPrint('Note: WAL / memory cache PRAGMA not supported on this platform: $e');
+          }
           await customStatement('CREATE INDEX IF NOT EXISTS idx_categories_account_type ON categories(account_id, type);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_cat ON streams(account_id, category_id);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_type ON streams(account_id, stream_type);');
@@ -67,18 +70,4 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('CREATE INDEX IF NOT EXISTS idx_favorites_lookup ON favorites(account_id, stream_id, stream_type);');
         },
       );
-
-  static QueryExecutor _openConnection() {
-    return driftDatabase(
-      name: 'goat_player_db',
-      native: const DriftNativeOptions(
-        databaseDirectory: _getDatabaseDirectory,
-      ),
-    );
-  }
-
-  static Future<Directory> _getDatabaseDirectory() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    return Directory('${appDir.path}/goat_player');
-  }
 }

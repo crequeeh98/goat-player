@@ -10,8 +10,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 # 1. Build Flutter Web target
 if (-not $SkipBuild) {
-    Write-Host "`n[1/3] Building Flutter Web release..." -ForegroundColor Yellow
-    flutter build web --release
+    Write-Host "`n[1/3] Building Flutter Web release with local assets (no CDN, CSP safe)..." -ForegroundColor Yellow
+    flutter build web --release --no-web-resources-cdn --csp
+    if ($LASTEXITCODE -ne 0) { throw "Flutter build web failed with exit code $LASTEXITCODE" }
 } else {
     Write-Host "`n[1/3] Skipping Flutter build (using existing build/web)..." -ForegroundColor Yellow
 }
@@ -26,6 +27,12 @@ New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 
 # Copy built web artifacts
 Copy-Item -Path "build/web/*" -Destination $StagingDir -Recurse -Force
+if (Test-Path "web/webOSTV.js") {
+    Copy-Item -Path "web/webOSTV.js" -Destination $StagingDir -Force
+}
+if (Test-Path "web/sql-asm.js") {
+    Copy-Item -Path "web/sql-asm.js" -Destination $StagingDir -Force
+}
 
 # Patch <base href="/"> to <base href="./"> in staging index.html for TV file: URLs
 $indexPath = Join-Path $StagingDir "index.html"
@@ -34,6 +41,24 @@ if (Test-Path $indexPath) {
     $content = $content -replace '<base href="\/">', '<base href="./">'
     Set-Content -Path $indexPath -Value $content -NoNewline
 }
+
+# Ensure flutter_bootstrap.js disables serviceWorker on file:// and points to local canvaskit/
+$bootstrapPath = Join-Path $StagingDir "flutter_bootstrap.js"
+if (Test-Path $bootstrapPath) {
+    $bsContent = Get-Content $bootstrapPath -Raw
+    # Remove serviceWorkerSettings block if present
+    $bsContent = $bsContent -replace 'serviceWorkerSettings:\s*\{[^}]*\},?', ''
+    # Ensure canvasKitBaseUrl is canvaskit/
+    if (-not ($bsContent -match 'canvasKitBaseUrl')) {
+        $bsContent = $bsContent -replace '_flutter\.loader\.load\(\s*\{?', '_flutter.loader.load({ config: { canvasKitBaseUrl: "canvaskit/" }, '
+    }
+    Set-Content -Path $bootstrapPath -Value $bsContent -NoNewline
+}
+
+# Transpile all JS loaders and CanvasKit to Chrome 68 (ES2018) for legacy webOS/Tizen browser engines
+Write-Host "Down-leveling JS to Chrome 68 (ES2018) syntax for TV compatibility..." -ForegroundColor Cyan
+python tool/transpile_tv_js.py $StagingDir
+
 
 # Copy webos descriptor and icons
 Copy-Item -Path "webos/appinfo.json" -Destination $StagingDir -Force

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import 'package:wireguard_flutter/wireguard_flutter.dart';
-import 'dart:io' show Platform;
+import '../../../core/utils/platform_utils.dart';
 import '../../../core/vpn/wireguard_service.dart';
 import '../../../../core/settings/locale_controller.dart';
 
@@ -109,7 +109,7 @@ class _VpnImportDialogState extends ConsumerState<VpnImportDialog> {
     } catch (e) {
       if (mounted) {
         String msg = e.toString();
-        if (Platform.isWindows && msg.contains('5')) {
+        if (GoatPlatform.isWindows && msg.contains('5')) {
           msg = isDe
               ? 'Administratorrechte erforderlich. Bitte starten Sie die App als Administrator, um WireGuard unter Windows zu aktivieren.'
               : 'Administrator rights required. Please run app as Administrator to activate WireGuard on Windows.';

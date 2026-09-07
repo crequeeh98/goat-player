@@ -279,13 +279,13 @@ class RemoteSyncService {
                 accountResult = await _accountDao.getAccountById(accountId);
               }
 
-              // ATOMIC UPDATE: sync playlists, clear action, and mark synced in ONE network call
+              // ATOMIC UPDATE: sync playlists, clear action, and keep status connected
               final playlistsJson = await getLocalPlaylistsJson();
               try {
                 await _client.from('remote_devices').update({
                   'playlists': playlistsJson,
                   'sync_action': null,
-                  'status': 'synced',
+                  'status': 'connected',
                   'updated_at': DateTime.now().toUtc().toIso8601String(),
                 }).eq('device_id', deviceId);
               } catch (_) {}
@@ -415,7 +415,7 @@ class RemoteSyncService {
             try {
               await _client.from('remote_devices').update({
                 'playlists': playlistsJson,
-                'status': 'synced',
+                'status': 'connected',
                 'updated_at': DateTime.now().toUtc().toIso8601String(),
               }).eq('device_id', deviceId);
             } catch (_) {}

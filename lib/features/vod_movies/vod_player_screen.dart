@@ -6,8 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:goat_player/core/database/app_database.dart';
 import 'package:goat_player/main.dart';
-
-import 'dart:io' show Platform;
+import '../../core/utils/platform_utils.dart';
 import '../../core/player/widgets/mobile_gesture_detector.dart';
 import '../../core/player/player_service.dart';
 import '../../core/player/playback_controller.dart';
@@ -229,7 +228,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     }
     
     // Auto-lock to landscape on mobile devices for cinema experience
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (GoatPlatform.isMobile) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
@@ -640,7 +639,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
   @override
   void dispose() {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (GoatPlatform.isMobile) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -971,7 +970,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                           onPressed: () => _playNextEpisode(),
                           icon: const Icon(Icons.skip_next, color: Colors.white),
                         ),
-                      if (Platform.isAndroid || Platform.isIOS)
+                      if (GoatPlatform.isMobile)
                         MaterialDesktopCustomButton(
                           onPressed: _cycleFit,
                           icon: const Icon(Icons.aspect_ratio, color: Colors.white),
@@ -982,7 +981,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                   child: Visibility(
                     visible: _isStreamReady,
                     maintainState: true,
-                    child: (Platform.isAndroid || Platform.isIOS)
+                    child: GoatPlatform.isMobile
                         ? MobileGestureDetector(
                             player: player,
                             enableSeek: false,

@@ -85,9 +85,13 @@ class PlayerService {
 
   void _scheduleLiveReconnect() {
     if (!_isLive || _isDisposed || lastOpenedUrl == null) return;
+    if (_reconnectAttempts >= 5) {
+      debugPrint('PlayerService: Max live reconnect attempts reached (5). Stopping auto-reconnect.');
+      return;
+    }
     if (_reconnectTimer != null && _reconnectTimer!.isActive) return;
 
-    final delayMs = (_reconnectAttempts == 0) ? 600 : 1500;
+    final delayMs = (_reconnectAttempts == 0) ? 800 : 2500;
     _reconnectTimer = Timer(Duration(milliseconds: delayMs), () async {
       if (!_isLive || _isDisposed || lastOpenedUrl == null) return;
       _reconnectAttempts++;

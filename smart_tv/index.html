@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="spatial-navigation" content="disabled">
+  <title>GOATPlayer TV</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ========================================================= -->
+  <!-- CREATIVE APP SPLASH SCREEN (Initial Boot & Dashboard Load) -->
+  <!-- ========================================================= -->
+  <div id="app-splash" class="app-splash active">
+    <!-- Ambient Background Lighting -->
+    <div class="splash-backdrop">
+      <div class="splash-glow-sphere-1"></div>
+      <div class="splash-glow-sphere-2"></div>
+      <div class="splash-grid-pattern"></div>
+    </div>
+
+    <div class="splash-container">
+      <!-- Central Glowing Logo with Orbiting Halo -->
+      <div class="splash-logo-wrap">
+        <div class="splash-logo-halo"></div>
+        <div class="splash-logo-ring"></div>
+        <div class="splash-logo-inner">
+          <img src="assets/logo.png" class="splash-logo-img" alt="GOATPlayer" />
+        </div>
+      </div>
+
+      <!-- App Title & Tagline -->
+      <div class="splash-branding">
+        <h1 class="splash-app-title">GOATPLAYER <span class="splash-tv-badge">TV</span></h1>
+        <p class="splash-app-tagline" data-i18n="splash_tagline">Next-Generation IPTV Entertainment</p>
+      </div>
+
+      <!-- Sleek Shimmering Progress Bar & Live Status -->
+      <div class="splash-loader-box">
+        <div class="splash-progress-track">
+          <div id="splash-progress-fill" class="splash-progress-fill" style="width: 15%;">
+            <div class="splash-progress-glow"></div>
+          </div>
+        </div>
+        <div class="splash-status-line">
+          <span class="splash-pulse-dot"></span>
+          <span id="splash-status-text" class="splash-status-text" data-i18n="splash_starting">Starting GOATPlayer TV...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMART IPTV STYLE: INFOBAR (Bottom zapping & info overlay) -->
+  <div id="live-infobar" class="live-infobar">
+    <!-- Main Infobar Box -->
+    <div class="infobar-box">
+      <!-- Top Progress Line -->
+      <div class="infobar-progress-track">
+        <div id="infobar-progress-fill" class="infobar-progress-fill" style="width: 0%;"></div>
+      </div>
+
+      <div class="infobar-content">
+        <!-- Left: Channel Number, Logo & Name -->
+        <div class="infobar-channel-meta">
+          <span id="infobar-channel-num" class="infobar-num">1</span>
+          <img id="infobar-channel-logo" class="infobar-logo" src="" alt="" style="display:none;" />
+          <span id="infobar-channel-name" class="infobar-name">Channel Name</span>
+          <span id="infobar-fav-icon" class="infobar-fav" style="display:none;">★</span>
+        </div>
+
+        <!-- Center: Current and Next Programme Lines -->
+        <div class="infobar-programs-col">
+          <div class="infobar-prog-row current">
+            <span id="infobar-cur-time" class="infobar-time">--:--</span>
+            <span id="infobar-cur-title" class="infobar-prog-title">--</span>
+            <span id="infobar-cur-duration" class="infobar-duration">+0</span>
+          </div>
+          <div class="infobar-prog-row next">
+            <span id="infobar-next-time" class="infobar-time">--:--</span>
+            <span id="infobar-next-title" class="infobar-prog-title">--</span>
+            <span id="infobar-next-duration" class="infobar-duration">+0</span>
+          </div>
+        </div>
+
+        <!-- Right: Current Clock Time & Live Badge -->
+        <div class="infobar-right-col">
+          <span id="infobar-clock" class="infobar-clock">12:00</span>
+          <span class="infobar-live-badge">LIVE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMART IPTV STYLE: CHANNEL MENU (Bouquet / Channel List with Pagination) -->
+  <div id="live-channel-menu" class="live-channel-menu interactive" style="display:none;">
+    <div class="channel-menu-box">
+      <!-- Header -->
+      <div class="channel-menu-header">
+        <div class="channel-menu-group-badge">
+          <span class="channel-group-icon">📺</span>
+          <span id="channel-menu-category-name">Channel Group</span>
+        </div>
+        <div class="channel-menu-page-info">
+          <span id="channel-menu-page-indicator">Page 1 / 1</span>
+          <span class="channel-menu-page-hint">◀ ▶</span>
+        </div>
+      </div>
+
+      <!-- Channel Rows List (10-12 per page) -->
+      <div id="channel-menu-list" class="channel-menu-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Color Button Legend Bar at Bottom -->
+      <div class="channel-menu-footer">
+        <div class="legend-key yellow">
+          <span class="color-dot yellow-dot"></span>
+          <span data-i18n="legend_favourite">Favourite</span>
+        </div>
+        <div class="legend-key green">
+          <span class="color-dot green-dot"></span>
+          <span data-i18n="legend_epg">EPG</span>
+        </div>
+        <div class="legend-key blue">
+          <span class="color-dot blue-dot"></span>
+          <span data-i18n="legend_groups">Groups</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMART IPTV STYLE: CATEGORY / BOUQUET MENU -->
+  <div id="live-category-menu" class="live-category-menu interactive" style="display:none;">
+    <div class="category-menu-box">
+      <div class="category-menu-header">
+        <div class="category-menu-title" data-i18n="legend_groups">Groups / Categories</div>
+        <div class="category-menu-page-info">
+          <span id="category-menu-page-indicator">Page 1 / 1</span>
+          <span class="channel-menu-page-hint">◀ ▶</span>
+        </div>
+      </div>
+      <div id="category-menu-list" class="category-menu-list">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="category-menu-footer">
+        <span><span class="hint-pill">OK</span> <span data-i18n="select_group">Select Group</span></span>
+        <span><span class="hint-pill">BACK</span> <span data-i18n="back_return">Return</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMART IPTV STYLE: CHANNEL FULL EPG -->
+  <div id="live-epg-overlay" class="live-epg-overlay interactive" style="display:none;">
+    <div class="epg-overlay-box">
+      <div class="epg-overlay-header">
+        <div id="epg-overlay-channel-title" class="epg-overlay-title">Channel EPG</div>
+        <button id="epg-overlay-close-btn" class="modal-close-btn focusable">✕</button>
+      </div>
+      <div id="epg-overlay-list" class="epg-overlay-list">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- SCREEN 1: ACCOUNT SELECTION SCREEN (Initial Landing View)  -->
+  <!-- ========================================================= -->
+  <div id="view-accounts" class="screen-view active">
+    <div class="accounts-container">
+      <div class="accounts-header">
+        <div class="accounts-brand">
+          <img src="assets/logo.png" class="brand-logo-large" alt="GOATPlayer" />
+          <h1 class="accounts-title" data-i18n="accounts_title">GOATPlayer TV</h1>
+        </div>
+        <button id="accounts-add-btn" class="btn-primary-large focusable" data-i18n="add_account">
+          + Add Account
+        </button>
+      </div>
+
+      <!-- When accounts exist -->
+      <div id="accounts-grid" class="accounts-grid"></div>
+
+      <!-- Empty State -->
+      <div id="accounts-empty" class="accounts-empty-state" style="display:none;">
+        <div class="empty-icon-circle">
+          <svg class="tv-icon-large" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="14" width="52" height="36" rx="4" ry="4" fill="rgba(124, 58, 237, 0.08)"/>
+            <polygon points="26,24 44,32 26,40" fill="currentColor" opacity="0.45"/>
+            <line x1="22" y1="56" x2="42" y2="56" stroke-width="3"/>
+            <line x1="32" y1="50" x2="32" y2="56" stroke-width="3"/>
+          </svg>
+        </div>
+        <h2 data-i18n="no_accounts">No Accounts Added</h2>
+        <p data-i18n="no_accounts_sub">Add a playlist to start watching Live TV, Movies & Series.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- SCREEN 2: MAIN APP DASHBOARD SHELL                         -->
+  <!-- ========================================================= -->
+  <div id="view-dashboard" class="screen-view">
+    <!-- Top Header Bar -->
+    <header id="header-bar" class="interactive">
+      <div class="header-left">
+        <div class="header-account-pill">
+          <span class="account-dot"></span>
+          <span id="header-account-name">Playlist</span>
+          <span class="header-pill-divider">|</span>
+          <div id="header-connections-badge" class="header-connections-badge" title="Active / Allowed Connections" data-i18n-title="active_connections_tooltip">
+            <span class="conn-icon"><svg width="15" height="15" class="tv-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span>
+            <span id="header-conn-text" class="conn-text">-- / --</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Master Search -->
+        <button id="header-search-btn" class="header-icon-btn focusable" title="Master Search">
+          <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <span class="label" data-i18n="search">Search</span>
+        </button>
+
+        <!-- Audio & Subtitle Preferences -->
+        <button id="header-pref-btn" class="header-icon-btn focusable" title="Playback Preferences">
+          <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+          <span class="label" data-i18n="preferences">Preferences</span>
+        </button>
+
+        <!-- Language Switcher -->
+        <button id="header-lang-btn" class="header-icon-btn focusable" title="Language">
+          <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+          <span id="header-lang-label">EN</span>
+        </button>
+
+        <!-- Switch Account -->
+        <button id="header-switch-btn" class="header-icon-btn focusable" title="Switch Account">
+          <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><line x1="21" y1="12" x2="9" y2="12"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span>
+          <span class="label" data-i18n="switch_account">Switch Account</span>
+        </button>
+
+        <!-- Live Clock -->
+        <span id="header-clock" class="header-clock">--:--</span>
+      </div>
+    </header>
+
+    <!-- App Body: Sidebar + Main Panels -->
+    <div id="dashboard-body">
+      <!-- Leftmost Vertical Navigation Rail -->
+      <nav id="sidebar-nav" class="interactive">
+        <div class="sidebar-logo">
+          <img src="assets/logo.png" alt="GOATPlayer" />
+        </div>
+
+        <div class="nav-destinations">
+          <button id="nav-btn-live" class="nav-rail-btn active focusable" data-tab="live">
+            <span class="nav-icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
+            <span class="nav-label" data-i18n="live_tv">Live TV</span>
+          </button>
+          <button id="nav-btn-movies" class="nav-rail-btn focusable" data-tab="movies">
+            <span class="nav-icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></span>
+            <span class="nav-label" data-i18n="movies">Movies</span>
+          </button>
+          <button id="nav-btn-series" class="nav-rail-btn focusable" data-tab="series">
+            <span class="nav-icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+            <span class="nav-label" data-i18n="series">Series</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Main Tab Content Switcher -->
+      <main id="main-content">
+        <!-- TAB 1: LIVE TV (Exact 3-Column Layout) -->
+        <div id="page-live" class="dashboard-page active">
+          <!-- Column 1 (Left 22%): Categories -->
+          <div id="live-col-categories" class="column-categories interactive">
+            <div class="search-box-container">
+              <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+              <input type="text" id="live-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." />
+              <button type="button" id="live-cat-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+            </div>
+            <div id="live-categories-list" class="col-list-scroll">
+              <div class="col-placeholder" data-i18n="loading_categories">Loading categories...</div>
+            </div>
+          </div>
+
+          <!-- Column 2 (Middle 38%): Channels List -->
+          <div id="live-col-channels" class="column-channels interactive">
+            <div class="channels-header">
+              <span id="live-selected-category-title" data-i18n="select_category">Select Category</span>
+              <span id="live-channels-count" class="badge-pill">0 Channels</span>
+            </div>
+            <div id="channels-loading-overlay" class="channels-loading-box" style="display:none;">
+              <div class="spinner"></div>
+              <span data-i18n="loading_channels">Loading channels...</span>
+            </div>
+            <div id="channels-virtual-container" style="flex:1; overflow:hidden;"></div>
+          </div>
+
+          <!-- Column 3 (Right 40%): Preview Player (Top) & EPG Schedule (Bottom) -->
+          <div id="live-col-right" class="column-right-preview interactive">
+            <!-- Top Right: Preview Player -->
+            <div id="preview-player-box" class="preview-box focusable">
+              <div id="preview-placeholder-msg" class="preview-placeholder">
+                <div class="preview-placeholder-icon">
+                  <svg class="preview-tv-svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="6" y="14" width="52" height="36" rx="4" ry="4" fill="rgba(124, 58, 237, 0.08)"/>
+                    <polygon points="26,24 44,32 26,40" fill="currentColor" opacity="0.45"/>
+                    <line x1="22" y1="56" x2="42" y2="56" stroke-width="3"/>
+                    <line x1="32" y1="50" x2="32" y2="56" stroke-width="3"/>
+                  </svg>
+                </div>
+                <span class="preview-placeholder-text" data-i18n="select_channel">Select a channel to start watching</span>
+              </div>
+
+            </div>
+
+            <!-- Bottom Right: EPG Schedule Timeline -->
+            <div id="epg-schedule-box" class="epg-box">
+              <div class="epg-box-header">
+                <span class="epg-box-title" data-i18n="epg_schedule">EPG Schedule</span>
+                <span id="epg-now-badge" class="epg-status-badge">Live</span>
+              </div>
+              <div id="epg-schedule-list" class="epg-timeline-list">
+                <div class="epg-empty-placeholder" data-i18n="epg_select_channel">Select a channel to view upcoming program schedule.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: MOVIES / VOD -->
+        <div id="page-movies" class="dashboard-page">
+          <!-- Left: Categories -->
+          <div class="column-categories interactive">
+            <div class="search-box-container">
+              <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+              <input type="text" id="movies-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." />
+              <button type="button" id="movies-cat-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+            </div>
+            <div id="movies-categories-list" class="col-list-scroll">
+              <div class="col-placeholder" data-i18n="loading_categories">Loading categories...</div>
+            </div>
+          </div>
+
+          <!-- Main Area: Search & Sort Bar + Poster Grid -->
+          <div class="vod-main-column interactive">
+            <div class="vod-top-bar">
+              <div class="vod-search-wrapper">
+                <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <input type="text" id="movies-search-input" class="vod-search-input focusable" data-i18n-ph="search_movies" placeholder="Search movies..." />
+                <button type="button" id="movies-search-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+              </div>
+              <div class="vod-sort-group">
+                <span class="sort-label" data-i18n="sort">Sort:</span>
+                <button id="movies-sort-btn" class="btn-sort focusable">
+                  <span id="movies-sort-text" data-i18n="sort_newest">Newly Added</span> ▾
+                </button>
+                <div id="movies-sort-dropdown" class="vod-sort-dropdown" style="display:none;">
+                  <button type="button" class="sort-opt-btn focusable active" data-sort="default">
+                    <span class="sort-opt-label" data-i18n="sort_newest">Newly Added</span>
+                    <span class="sort-opt-check">✓</span>
+                  </button>
+                  <button type="button" class="sort-opt-btn focusable" data-sort="asc">
+                    <span class="sort-opt-label" data-i18n="sort_az">A-Z</span>
+                    <span class="sort-opt-check" style="visibility:hidden;">✓</span>
+                  </button>
+                  <button type="button" class="sort-opt-btn focusable" data-sort="desc">
+                    <span class="sort-opt-label" data-i18n="sort_za">Z-A</span>
+                    <span class="sort-opt-check" style="visibility:hidden;">✓</span>
+                  </button>
+                </div>
+              </div>
+              <span id="movies-count-badge" class="badge-pill vod-count-badge">0 Movies</span>
+            </div>
+
+            <div id="movies-loading-overlay" class="vod-loading-box" style="display:none;">
+              <div class="spinner"></div>
+              <span data-i18n="loading_movies">Loading movies...</span>
+            </div>
+
+            <!-- Movies Continue Watching Rail -->
+            <div id="movies-continue-watching" class="continue-watching-section" style="display:none;">
+              <div class="cw-header">
+                <span class="cw-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <h3 class="cw-title" data-i18n="continue_watching">Continue Watching</h3>
+              </div>
+              <div id="movies-cw-rail" class="cw-rail"></div>
+            </div>
+
+            <div id="movies-grid-container" class="poster-grid"></div>
+          </div>
+        </div>
+
+        <!-- TAB 3: SERIES -->
+        <div id="page-series" class="dashboard-page">
+          <!-- Left: Categories -->
+          <div class="column-categories interactive">
+            <div class="search-box-container">
+              <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+              <input type="text" id="series-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." />
+              <button type="button" id="series-cat-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+            </div>
+            <div id="series-categories-list" class="col-list-scroll">
+              <div class="col-placeholder" data-i18n="loading_categories">Loading categories...</div>
+            </div>
+          </div>
+
+          <!-- Main Area: Search & Sort Bar + Poster Grid -->
+          <div class="vod-main-column interactive">
+            <div class="vod-top-bar">
+              <div class="vod-search-wrapper">
+                <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <input type="text" id="series-search-input" class="vod-search-input focusable" data-i18n-ph="search_series" placeholder="Search series..." />
+                <button type="button" id="series-search-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+              </div>
+              <div class="vod-sort-group">
+                <span class="sort-label" data-i18n="sort">Sort:</span>
+                <button id="series-sort-btn" class="btn-sort focusable">
+                  <span id="series-sort-text" data-i18n="sort_newest">Newly Added</span> ▾
+                </button>
+                <div id="series-sort-dropdown" class="vod-sort-dropdown" style="display:none;">
+                  <button type="button" class="sort-opt-btn focusable active" data-sort="default">
+                    <span class="sort-opt-label" data-i18n="sort_newest">Newly Added</span>
+                    <span class="sort-opt-check">✓</span>
+                  </button>
+                  <button type="button" class="sort-opt-btn focusable" data-sort="asc">
+                    <span class="sort-opt-label" data-i18n="sort_az">A-Z</span>
+                    <span class="sort-opt-check" style="visibility:hidden;">✓</span>
+                  </button>
+                  <button type="button" class="sort-opt-btn focusable" data-sort="desc">
+                    <span class="sort-opt-label" data-i18n="sort_za">Z-A</span>
+                    <span class="sort-opt-check" style="visibility:hidden;">✓</span>
+                  </button>
+                </div>
+              </div>
+              <span id="series-count-badge" class="badge-pill vod-count-badge">0 Shows</span>
+            </div>
+
+            <div id="series-loading-overlay" class="vod-loading-box" style="display:none;">
+              <div class="spinner"></div>
+              <span data-i18n="loading_series">Loading series...</span>
+            </div>
+
+            <!-- Series Continue Watching Rail -->
+            <div id="series-continue-watching" class="continue-watching-section" style="display:none;">
+              <div class="cw-header">
+                <span class="cw-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <h3 class="cw-title" data-i18n="continue_watching">Continue Watching</h3>
+              </div>
+              <div id="series-cw-rail" class="cw-rail"></div>
+            </div>
+
+            <div id="series-grid-container" class="poster-grid"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION BANNER -->
+  <div id="toast-banner" class="toast-banner">
+    <span id="toast-icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+    <span id="toast-message">Notification</span>
+  </div>
+
+  <!-- MODAL: ADD / EDIT ACCOUNT (Manual + QR Sync) -->
+  <div id="login-modal" class="modal-overlay interactive">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <img src="assets/logo.png" class="modal-logo" alt="GOATPlayer" />
+          <div>
+            <h2 id="modal-account-title" class="modal-title" data-i18n="add_account">Add Account</h2>
+            <p class="modal-subtitle" data-i18n="add_account_sub">Connect your IPTV playlist to begin streaming</p>
+          </div>
+        </div>
+        <button id="modal-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+
+      <!-- Segmented Tab Selector -->
+      <div class="tab-segmented-bar">
+        <button id="tab-btn-manual" class="tab-segment active focusable" data-nav-right="#tab-btn-remote" data-nav-down="#login-playlist-name" data-nav-up="#modal-close-btn">
+          <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/><line x1="10" y1="16" x2="14" y2="16"/></svg></span>
+          <span data-i18n="manual_setup">Manual Setup</span>
+        </button>
+        <button id="tab-btn-remote" class="tab-segment focusable" data-nav-left="#tab-btn-manual" data-nav-down="#login-playlist-name" data-nav-up="#modal-close-btn">
+          <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
+          <span data-i18n="link_via_web">Link via Web / QR Code</span>
+        </button>
+      </div>
+
+      <!-- View 1: Manual Setup Form -->
+      <div id="view-manual" class="modal-view active">
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="login-playlist-name"><span data-i18n="playlist_name">Playlist Name</span> <span class="label-optional" data-i18n="optional">(Optional)</span></label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+              <input id="login-playlist-name" class="form-input focusable" type="text" placeholder="e.g. Living Room TV" data-i18n-ph="placeholder_playlist" autocomplete="off" data-nav-up="#tab-btn-manual" data-nav-down="#login-server" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-server"><span data-i18n="server_url">Server URL</span> <span class="label-required">*</span></label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+              <input id="login-server" class="form-input focusable" type="text" placeholder="http://example.com:8080" data-i18n-ph="placeholder_server" required autocomplete="off" data-nav-up="#login-playlist-name" data-nav-down="#login-username" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-username"><span data-i18n="username">Username</span> <span class="label-required">*</span></label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+              <input id="login-username" class="form-input focusable" type="text" placeholder="Username" data-i18n-ph="placeholder_username" required autocomplete="off" data-nav-up="#login-server" data-nav-down="#login-password" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-password"><span data-i18n="password">Password</span> <span class="label-required">*</span></label>
+            <div class="input-wrapper">
+              <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+              <input id="login-password" class="form-input focusable" type="password" placeholder="Password" data-i18n-ph="placeholder_password" required autocomplete="off" data-nav-up="#login-username" data-nav-down="#login-submit-btn" />
+            </div>
+          </div>
+
+          <div id="login-status" class="login-status-msg"></div>
+
+          <div class="modal-actions">
+            <button id="login-cancel-btn" type="button" class="btn-secondary focusable" data-i18n="cancel" data-nav-up="#login-password" data-nav-right="#login-submit-btn">Cancel</button>
+            <button id="login-submit-btn" type="submit" class="btn-primary focusable" data-nav-up="#login-password" data-nav-left="#login-cancel-btn">
+              <span data-i18n="connect">Connect Playlist</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- View 2: Web / QR Code Remote Pairing -->
+      <div id="view-remote" class="modal-view">
+        <div class="remote-sync-container">
+          <p class="remote-instructions" data-i18n="scan_qr_desc">
+            Scan this QR code with your smartphone camera or visit goat-player.vercel.app on your PC / phone.
+          </p>
+
+          <div class="remote-content-row">
+            <div class="qr-card">
+              <div id="qrcode-box"></div>
+              <div id="qr-loading" class="qr-spinner-overlay" style="display:none;">
+                <div class="spinner"></div>
+                <span data-i18n="generating_session">Generating session...</span>
+              </div>
+            </div>
+
+            <div class="remote-info-card">
+              <div class="info-group">
+                <span class="info-label" data-i18n="device_id">DEVICE ID</span>
+                <div class="info-value-box">
+                  <span id="remote-device-id" class="device-id-text">GP-XXXX-XXXX</span>
+                </div>
+              </div>
+
+              <div class="info-group">
+                <span class="info-label" data-i18n="pairing_pin">PAIRING PIN</span>
+                <div class="pin-badge-box">
+                  <span id="remote-pin" class="pin-text">------</span>
+                </div>
+              </div>
+
+              <div class="info-status-row">
+                <span class="status-pulse-dot"></span>
+                <span id="remote-status-text" data-i18n="waiting_for_playlist">Waiting for playlist...</span>
+              </div>
+
+              <div class="countdown-badge">
+                <span class="countdown-label" data-i18n="expires_in">Expires in</span>
+                <span class="countdown-separator">:</span>
+                <span id="remote-countdown" class="countdown-time">20:00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 24px; display: flex; gap: 14px; justify-content: center;">
+            <button id="remote-done-btn" type="button" class="btn-primary focusable" style="display: none; background: #10B981; min-width: 150px;" data-nav-right="#remote-refresh-btn" data-nav-up="#tab-btn-remote">
+              <span data-i18n="done">✓ Done</span>
+            </button>
+            <button id="remote-refresh-btn" type="button" class="btn-secondary focusable" data-nav-left="#remote-done-btn" data-nav-up="#tab-btn-remote">
+              <span data-i18n="new_code">🔄 New Code</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MOVIE DETAIL -->
+  <div id="modal-movie-detail" class="modal-overlay interactive">
+    <div class="detail-modal-card">
+      <div class="detail-left">
+        <img id="movie-detail-poster" class="detail-poster" src="" />
+      </div>
+      <div class="detail-right">
+        <div class="detail-header">
+          <h2 id="movie-detail-title" class="detail-title">Movie Title</h2>
+          <button id="movie-detail-close-btn" class="modal-close-btn focusable">✕</button>
+        </div>
+
+        <div class="detail-meta-chips">
+          <span id="movie-detail-year" class="chip">2024</span>
+          <span id="movie-detail-rating" class="chip chip-gold">★ 8.5</span>
+          <span id="movie-detail-duration" class="chip">120m</span>
+          <span id="movie-detail-genre" class="chip">Action / Sci-Fi</span>
+        </div>
+
+        <p id="movie-detail-plot" class="detail-plot">Plot description...</p>
+
+        <div class="detail-actions">
+          <button id="movie-play-btn" class="btn-primary focusable">
+            <span class="btn-icon">▶</span>
+            <span data-i18n="play_movie">Play Movie</span>
+          </button>
+          <button id="movie-fav-btn" class="btn-secondary focusable">
+            <span class="btn-icon">★</span>
+            <span data-i18n="watchlist">Watchlist</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SERIES DETAIL (Season Selector & Episodes) -->
+  <div id="modal-series-detail" class="modal-overlay interactive">
+    <div class="series-modal-card">
+      <div class="series-top-section">
+        <img id="series-detail-poster" class="series-poster" src="" />
+        <div class="series-info">
+          <div class="detail-header">
+            <h2 id="series-detail-title" class="detail-title">Series Title</h2>
+            <button id="series-detail-close-btn" class="modal-close-btn focusable">✕</button>
+          </div>
+          <div class="detail-meta-chips">
+            <span id="series-detail-rating" class="chip chip-gold">★ 8.8</span>
+            <span id="series-detail-genre" class="chip">Drama</span>
+          </div>
+          <p id="series-detail-plot" class="detail-plot">Series plot description...</p>
+          <div class="detail-actions" style="margin-top: 14px;">
+            <button id="series-fav-btn" class="btn-secondary focusable">
+              <span class="btn-icon">★</span>
+              <span data-i18n="watchlist">Watchlist</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="series-season-tabs" class="season-tabs-bar"></div>
+      <div id="series-episodes-container" class="episodes-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: MASTER SEARCH -->
+  <div id="modal-master-search" class="modal-overlay interactive">
+    <div class="search-modal-card">
+      <div class="search-modal-header">
+        <div class="search-input-wrapper">
+          <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="master-search-input" class="search-modal-input focusable" data-i18n-ph="master_search_placeholder" placeholder="Search across all Live TV, Movies & Series..." />
+          <button type="button" id="master-search-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+        </div>
+        <button id="master-search-close-btn" class="modal-close-btn focusable">✕</button>
+      </div>
+
+      <div class="tab-segmented-bar" style="margin: 16px 0;">
+        <button id="search-tab-live" class="tab-segment active focusable" data-type="live">
+          <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
+          <span data-i18n="live_tv">Live TV</span> (<span id="search-count-live">0</span>)
+        </button>
+        <button id="search-tab-movies" class="tab-segment focusable" data-type="movies">
+          <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></span>
+          <span data-i18n="movies">Movies</span> (<span id="search-count-movies">0</span>)
+        </button>
+        <button id="search-tab-series" class="tab-segment focusable" data-type="series">
+          <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+          <span data-i18n="series">Series</span> (<span id="search-count-series">0</span>)
+        </button>
+      </div>
+
+      <div id="master-search-results" class="search-results-area">
+        <div class="search-placeholder" data-i18n="search_min_chars">Type at least 2 characters to search...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AUDIO & SUBTITLE PREFERENCES (Custom TV Button Grid) -->
+  <div id="modal-preferences" class="modal-overlay interactive">
+    <div class="modal-card modal-card-pref">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="pref_title">Playback Preferences</h2>
+        <button id="pref-close-btn" class="modal-close-btn focusable">✕</button>
+      </div>
+
+      <div class="pref-section">
+        <label class="pref-label" data-i18n="pref_audio">Preferred Audio Language</label>
+        <div id="pref-audio-group" class="pref-button-group">
+          <button class="pref-option-btn focusable active" data-val="original" data-i18n="pref_lang_original">Original</button>
+          <button class="pref-option-btn focusable" data-val="de" data-i18n="german">German</button>
+          <button class="pref-option-btn focusable" data-val="en" data-i18n="english">English</button>
+          <button class="pref-option-btn focusable" data-val="tr" data-i18n="turkish">Turkish</button>
+          <button class="pref-option-btn focusable" data-val="fr" data-i18n="french">French</button>
+          <button class="pref-option-btn focusable" data-val="es" data-i18n="spanish">Spanish</button>
+        </div>
+      </div>
+
+      <div class="pref-section">
+        <label class="pref-label" data-i18n="pref_sub">Preferred Subtitles</label>
+        <div id="pref-sub-group" class="pref-button-group">
+          <button class="pref-option-btn focusable active" data-val="off" data-i18n="subtitles_off">Off</button>
+          <button class="pref-option-btn focusable" data-val="de" data-i18n="german">German</button>
+          <button class="pref-option-btn focusable" data-val="en" data-i18n="english">English</button>
+          <button class="pref-option-btn focusable" data-val="tr" data-i18n="turkish">Turkish</button>
+          <button class="pref-option-btn focusable" data-val="fr" data-i18n="french">French</button>
+          <button class="pref-option-btn focusable" data-val="es" data-i18n="spanish">Spanish</button>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 24px;">
+        <button id="pref-save-btn" class="btn-primary focusable" data-i18n="save_prefs">Save Preferences</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LANGUAGE SWITCHER (Pure Monolingual Text) -->
+  <div id="modal-language" class="modal-overlay interactive">
+    <div class="modal-card modal-card-lang">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="lang_title">Language</h2>
+        <button id="lang-close-btn" class="modal-close-btn focusable">✕</button>
+      </div>
+
+      <div class="lang-options-list">
+        <button id="lang-opt-en" class="lang-option-btn focusable">
+          <span class="lang-check" id="check-en">✓</span>
+          <span class="lang-text" data-i18n="english">English</span>
+        </button>
+        <button id="lang-opt-de" class="lang-option-btn focusable">
+          <span class="lang-check" id="check-de">✓</span>
+          <span class="lang-text" data-i18n="german">Deutsch</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EXIT CONFIRMATION -->
+  <div id="exit-modal" class="modal-overlay interactive">
+    <div class="modal-card" style="width: 580px; padding: 40px 48px;">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="exit_confirm_title">Exit GOATPlayer TV</h2>
+      </div>
+      <p style="color: var(--text-dim); line-height: 1.6; font-size: 18px; margin: 18px 0 30px 0;" data-i18n="exit_confirm_msg">
+        Are you sure you want to close GOATPlayer TV?
+      </p>
+      <div class="modal-actions">
+        <button id="exit-cancel-btn" class="btn-secondary focusable" data-i18n="cancel">Cancel</button>
+        <button id="exit-confirm-btn" class="btn-danger focusable" data-i18n="exit_btn">Exit App</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DELETE ACCOUNT CONFIRMATION -->
+  <div id="delete-account-modal" class="modal-overlay interactive">
+    <div class="modal-card" style="width: 600px; padding: 40px 48px;">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="delete">Delete Account</h2>
+        <button id="delete-account-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+      <p id="delete-account-msg" style="color: var(--text-dim); line-height: 1.6; font-size: 20px; margin: 20px 0 32px 0;">
+        Are you sure you want to delete this account?
+      </p>
+      <div class="modal-actions">
+        <button id="delete-account-cancel-btn" class="btn-secondary focusable" data-i18n="cancel" data-nav-right="#delete-account-confirm-btn" data-nav-up="#delete-account-close-btn">Cancel</button>
+        <button id="delete-account-confirm-btn" class="btn-danger focusable" data-i18n="delete" data-nav-left="#delete-account-cancel-btn" data-nav-up="#delete-account-close-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- UNIVERSAL VIDEO PLAYER LAYER (Root DOM Node - Never Moved)-->
+  <!-- ========================================================= -->
+  <div id="player-container" class="mode-preview" style="display:none;">
+    <video id="player" playsinline webkit-playsinline preload="auto"></video>
+    <!-- Preview Mode Interactive Overlay -->
+    <div id="preview-overlay" class="preview-overlay">
+      <div class="preview-info">
+        <span id="preview-channel-name" class="preview-title">Channel Name</span>
+        <span id="preview-live-badge" class="preview-badge" style="display:none;" data-i18n="live_preview">LIVE PREVIEW</span>
+      </div>
+    </div>
+    <div id="player-loading-spinner" class="player-buffering-overlay" style="display:none;">
+      <div class="spinner"></div>
+    </div>
+    <!-- Crisp Cinema Subtitle Overlay -->
+    <div id="player-subtitle-overlay" class="player-subtitle-overlay" style="display:none;" aria-live="polite">
+      <span id="player-subtitle-text" class="player-subtitle-text"></span>
+    </div>
+    <!-- Autoplay Unmute Interactive Banner -->
+    <div id="player-unmute-banner" class="player-unmute-banner" style="display:none;">
+      <button id="player-unmute-btn" class="player-unmute-btn focusable" title="Unmute Audio">
+        <span class="unmute-icon">🔇</span>
+        <span class="unmute-text" data-i18n="unmute_prompt">Audio muted - Press OK to unmute</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- VOD FULLSCREEN CINEMA PLAYER HUD -->
+  <div id="player-hud-vod" class="player-hud interactive">
+    <div class="vod-hud-top">
+      <div style="display: flex; align-items: center; gap: 18px;">
+        <button id="vod-close-btn" class="hud-btn focusable" title="Back">✕</button>
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="vod-hud-badge" class="badge-pill" style="display:none;"></span>
+            <div id="vod-hud-title" class="vod-title">Video Title</div>
+          </div>
+          <div id="vod-hud-subtitle" class="vod-subtitle"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vod-timeline-container">
+      <span id="vod-time-current" class="vod-time">00:00</span>
+      <div id="vod-progress-bar" class="vod-progress-bar focusable" tabindex="0" role="slider">
+        <div id="vod-progress-fill" class="vod-progress-fill" style="width: 0%;">
+          <div class="vod-progress-thumb"></div>
+        </div>
+      </div>
+      <span id="vod-time-total" class="vod-time">00:00</span>
+    </div>
+
+    <div class="vod-controls-row">
+      <button id="vod-play-btn" class="hud-circle-btn play-main focusable" title="Play / Pause">
+        <span class="btn-icon"></span>
+      </button>
+      <button id="vod-next-ep-btn" class="hud-btn focusable" style="display:none;" title="Next Episode">
+        <span class="btn-icon"></span> <span data-i18n="next_episode">Next Episode</span>
+      </button>
+      <button id="vod-episodes-btn" class="hud-btn focusable" style="display:none;" title="Episodes">
+        <span class="btn-icon"></span> <span data-i18n="episodes">Episodes</span>
+      </button>
+      <button id="vod-audio-btn" class="hud-btn focusable" title="Audio">
+        <span class="btn-icon"></span> <span data-i18n="audio_track">Audio</span>
+      </button>
+      <button id="vod-sub-btn" class="hud-btn focusable" title="Subtitles">
+        <span class="btn-icon"></span> <span data-i18n="subtitles">Subtitles</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- IN-PLAYER SLIDE DRAWER: SERIES EPISODES -->
+  <div id="drawer-series-episodes" class="slide-drawer interactive">
+    <div class="drawer-header">
+      <div class="drawer-header-text">
+        <h3 id="drawer-series-title" class="drawer-title" data-i18n="episodes">Episodes</h3>
+        <div id="drawer-series-name" class="drawer-subtitle"></div>
+      </div>
+      <button id="drawer-series-close-btn" class="drawer-close-btn focusable" title="Close">✕</button>
+    </div>
+    <div id="drawer-season-tabs" class="season-tabs-bar"></div>
+    <div id="drawer-series-list" class="drawer-content"></div>
+  </div>
+
+  <!-- MODAL: AUDIO TRACK SELECTOR -->
+  <div id="modal-audio-selector" class="modal-overlay interactive">
+    <div class="modal-card modal-card-tracks">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="audio_tracks">Audio Tracks</h2>
+        <button id="audio-selector-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+      <div class="track-modal-scroll">
+        <div id="audio-selector-list" class="track-options-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SUBTITLE TRACK SELECTOR -->
+  <div id="modal-sub-selector" class="modal-overlay interactive">
+    <div class="modal-card modal-card-tracks">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="subtitles_title">Subtitles</h2>
+        <button id="sub-selector-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+      <div class="track-modal-scroll">
+        <div id="sub-selector-list" class="track-options-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: RESUME PLAYBACK -->
+  <div id="modal-resume-playback" class="modal-overlay interactive">
+    <div class="modal-card modal-card-resume">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="resume_playback">Resume Playback</h2>
+        <button id="resume-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+      <div class="modal-body-resume">
+        <p id="resume-playback-prompt" class="resume-prompt">Resume playback?</p>
+        <div class="resume-actions-row">
+          <button id="resume-confirm-btn" class="btn-primary focusable">
+            <span class="btn-icon">▶</span> <span id="resume-confirm-text" data-i18n="resume">Resume</span>
+          </button>
+          <button id="resume-startover-btn" class="btn-secondary focusable">
+            <span class="btn-icon">↺</span> <span data-i18n="start_over">Start from Beginning</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ON-SCREEN VOLUME INDICATOR -->
+  <div id="player-volume-indicator" class="player-volume-indicator" style="display:none;">
+    <span id="volume-indicator-icon" class="volume-ind-icon">🔊</span>
+    <div class="volume-ind-track">
+      <div id="volume-indicator-fill" class="volume-ind-fill" style="width: 100%;"></div>
+    </div>
+    <span id="volume-indicator-text" class="volume-ind-text">100%</span>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="js/hls.min.js"></script>
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/spatial_nav.js"></script>
+  <script src="js/virtual_list.js"></script>
+  <script src="js/diagnostics.js"></script>
+  <script src="js/subtitles.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

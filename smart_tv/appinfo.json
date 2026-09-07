@@ -1,0 +1,18 @@
+{
+  "id": "com.goatplayer.tv",
+  "version": "1.0.0",
+  "vendor": "GOATPlayer",
+  "type": "web",
+  "main": "index.html",
+  "title": "GOATPlayer TV",
+  "icon": "assets/icon.png",
+  "largeIcon": "assets/largeIcon.png",
+  "splashBackground": "assets/splash.png",
+  "bgColor": "#0D0914",
+  "iconColor": "#673AB7",
+  "resolution": "1920x1080",
+  "handlesRelaunch": false,
+  "disableBackHistoryAPI": true,
+  "supportSpatialNavigation": false,
+  "inspectable": true
+}

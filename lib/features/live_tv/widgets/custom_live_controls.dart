@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import '../../../core/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -173,7 +173,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       widget.onEnterFullWidth!();
     }
     if (currentlyFull) {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (GoatPlatform.isMobile) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
           DeviceOrientation.portraitDown,
@@ -183,7 +183,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     } else {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (GoatPlatform.isMobile) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,
@@ -490,7 +490,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                           right: 20,
                           child: Row(
                             children: [
-                              if (widget.onCycleFit != null && (Platform.isAndroid || Platform.isIOS))
+                              if (widget.onCycleFit != null && GoatPlatform.isMobile)
                                 IconButton(
                                   icon: const Icon(Icons.aspect_ratio, color: Colors.white),
                                   tooltip: 'Aspect Ratio',

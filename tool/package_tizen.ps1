@@ -10,8 +10,8 @@ Write-Host "==========================================" -ForegroundColor Cyan
 
 # 1. Build Web target (if not skipped)
 if (-not $SkipBuild) {
-    Write-Host "`n[1/3] Building Web release for Tizen..." -ForegroundColor Yellow
-    flutter build web --release
+    Write-Host "`n[1/3] Building Web release for Tizen with local assets (no CDN, CSP safe)..." -ForegroundColor Yellow
+    flutter build web --release --no-web-resources-cdn --csp
 } else {
     Write-Host "`n[1/3] Skipping Flutter build (using existing build/web)..." -ForegroundColor Yellow
 }
@@ -34,6 +34,22 @@ if (Test-Path $indexPath) {
     $content = $content -replace '<base href="\/">', '<base href="./">'
     Set-Content -Path $indexPath -Value $content -NoNewline
 }
+
+# Ensure flutter_bootstrap.js disables serviceWorker on file:// and points to local canvaskit/
+$bootstrapPath = Join-Path $StagingDir "flutter_bootstrap.js"
+if (Test-Path $bootstrapPath) {
+    $bsContent = Get-Content $bootstrapPath -Raw
+    $bsContent = $bsContent -replace 'serviceWorkerSettings:\s*\{[^}]*\},?', ''
+    if (-not ($bsContent -match 'canvasKitBaseUrl')) {
+        $bsContent = $bsContent -replace '_flutter\.loader\.load\(\s*\{?', '_flutter.loader.load({ config: { canvasKitBaseUrl: "canvaskit/" }, '
+    }
+    Set-Content -Path $bootstrapPath -Value $bsContent -NoNewline
+}
+
+# Transpile all JS loaders and CanvasKit to Chrome 68 (ES2018) for legacy webOS/Tizen browser engines
+Write-Host "Down-leveling JS to Chrome 68 (ES2018) syntax for TV compatibility..." -ForegroundColor Cyan
+python tool/transpile_tv_js.py $StagingDir
+
 
 # Copy Tizen config.xml and icon
 Copy-Item -Path "tizen/config.xml" -Destination $StagingDir -Force

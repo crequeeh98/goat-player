@@ -1,5 +1,5 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import '../../../core/utils/platform_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -140,7 +140,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
     return Container(
       color: Colors.black,
       child: Center(
-        child: (Platform.isAndroid || Platform.isIOS)
+        child: GoatPlatform.isMobile
             ? MobileGestureDetector(
                 player: playerService.player,
                 enableSeek: false,

@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -88,40 +91,127 @@ final remoteSyncServiceProvider = Provider<RemoteSyncService>((ref) {
   return RemoteSyncService(accountDao, categoryDao, streamDao, epgDao, prefs);
 });
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (!GoatPlatform.isWeb) {
-    MediaKit.ensureInitialized();
-  }
-  await RemoteSyncService.initialize();
-  
-  if (GoatPlatform.isDesktop) {
-    await windowManager.ensureInitialized();
-    WindowOptions windowOptions = const WindowOptions(
-      size: Size(1280, 720),
-      center: true,
-      title: 'GOATPlayer',
-    );
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-      // Add a tiny delay to ensure Windows finishes the show animation before maximizing.
-      // This prevents the viewport duplication bug and ensures maximize always works.
-      await Future.delayed(const Duration(milliseconds: 150));
-      await windowManager.maximize();
-    });
-  }
-  
-  final prefs = await SharedPreferences.getInstance();
+void main() {
+  print('[GOAT] main() starting...');
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    print('[GOAT] WidgetsFlutterBinding initialized.');
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
-      child: const MyApp(),
-    ),
-  );
+    PlatformDispatcher.instance.onError = (error, stack) {
+      print('[GOAT] Global Unhandled Platform Error: $error\n$stack');
+      return true;
+    };
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      print('[GOAT] Flutter Error: ${details.exception}');
+    };
+
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0D0914),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.deepPurpleAccent, size: 56),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'GOATPlayer - Application Error',
+                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    details.exceptionAsString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    };
+
+    if (!GoatPlatform.isWeb) {
+      MediaKit.ensureInitialized();
+    }
+
+    if (GoatPlatform.isDesktop) {
+      await windowManager.ensureInitialized();
+      WindowOptions windowOptions = const WindowOptions(
+        size: Size(1280, 720),
+        center: true,
+        title: 'GOATPlayer',
+      );
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+        await Future.delayed(const Duration(milliseconds: 150));
+        await windowManager.maximize();
+      });
+    }
+
+    // Load SharedPreferences with bulletproof fallback for file:// TV runtimes
+    SharedPreferences? prefs;
+    try {
+      print('[GOAT] Loading SharedPreferences...');
+      prefs = await SharedPreferences.getInstance().timeout(const Duration(milliseconds: 1500));
+      print('[GOAT] SharedPreferences loaded successfully.');
+    } catch (e) {
+      print('[GOAT] SharedPreferences warning: $e, using mock initial values');
+    }
+    if (prefs == null) {
+      // ignore: invalid_use_of_visible_for_testing_member
+      SharedPreferences.setMockInitialValues({});
+      prefs = await SharedPreferences.getInstance();
+      print('[GOAT] SharedPreferences in-memory instance ready.');
+    }
+
+    // Initialize RemoteSyncService (Supabase) for Web / QR code pairing
+    print('[GOAT] Initializing RemoteSyncService (Supabase)...');
+    try {
+      await RemoteSyncService.initialize();
+      print('[GOAT] RemoteSyncService initialized successfully.');
+    } catch (e) {
+      print('[GOAT] RemoteSyncService initialization warning: $e');
+    }
+
+    print('[GOAT] Calling runApp()...');
+    runApp(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: const MyApp(),
+      ),
+    );
+    print('[GOAT] runApp() invoked successfully.');
+  }, (error, stack) {
+    print('[GOAT] ZonedGuarded Unhandled Error: $error\n$stack');
+  });
+}
+
+class TvDirectionalFocusAction extends Action<DirectionalFocusIntent> {
+  @override
+  Object? invoke(DirectionalFocusIntent intent) {
+    final focus = primaryFocus;
+    if (focus != null) {
+      final success = focus.focusInDirection(intent.direction);
+      if (!success) {
+        if (intent.direction == TraversalDirection.down || intent.direction == TraversalDirection.right) {
+          focus.nextFocus();
+        } else if (intent.direction == TraversalDirection.up || intent.direction == TraversalDirection.left) {
+          focus.previousFocus();
+        }
+      }
+    }
+    return null;
+  }
 }
 
 class MyApp extends ConsumerWidget {
@@ -129,6 +219,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    print('[GOAT] MyApp.build() executing');
     final locale = ref.watch(localeControllerProvider);
 
     return MaterialApp(
@@ -139,8 +230,26 @@ class MyApp extends ConsumerWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
         colorSchemeSeed: Colors.deepPurple,
-        fontFamily: 'Inter',
       ),
+      shortcuts: {
+        ...WidgetsApp.defaultShortcuts,
+        const SingleActivator(LogicalKeyboardKey.arrowUp): const DirectionalFocusIntent(TraversalDirection.up),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): const DirectionalFocusIntent(TraversalDirection.down),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): const DirectionalFocusIntent(TraversalDirection.left),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): const DirectionalFocusIntent(TraversalDirection.right),
+        const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent(),
+        LogicalKeySet(LogicalKeyboardKey.arrowUp): const DirectionalFocusIntent(TraversalDirection.up),
+        LogicalKeySet(LogicalKeyboardKey.arrowDown): const DirectionalFocusIntent(TraversalDirection.down),
+        LogicalKeySet(LogicalKeyboardKey.arrowLeft): const DirectionalFocusIntent(TraversalDirection.left),
+        LogicalKeySet(LogicalKeyboardKey.arrowRight): const DirectionalFocusIntent(TraversalDirection.right),
+        LogicalKeySet(LogicalKeyboardKey.select): const ActivateIntent(),
+        LogicalKeySet(LogicalKeyboardKey.enter): const ActivateIntent(),
+      },
+      actions: {
+        ...WidgetsApp.defaultActions,
+        DirectionalFocusIntent: TvDirectionalFocusAction(),
+      },
       localizationsDelegates: [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
