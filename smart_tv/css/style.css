@@ -2089,9 +2089,9 @@ body:not(.tab-live) #player-container.mode-preview {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 1120px;
-  height: 810px;
-  min-height: 810px;
+  width: 1320px;
+  height: 820px;
+  min-height: 820px;
   box-sizing: border-box;
   background: rgba(14, 10, 26, 0.96) !important;
   border: 2px solid rgba(124, 58, 237, 0.45);
@@ -2112,7 +2112,7 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .channel-menu-header {
-  padding: 16px 26px;
+  padding: 16px 32px;
   background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -2149,12 +2149,12 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .channel-menu-list {
-  padding: 12px 18px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  height: 672px;
-  min-height: 672px;
+  height: 684px;
+  min-height: 684px;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -2221,8 +2221,8 @@ body:not(.tab-live) #player-container.mode-preview {
   font-size: 21px;
   font-weight: 700;
   color: #FFFFFF;
-  min-width: 210px;
-  max-width: 260px;
+  min-width: 260px;
+  max-width: 440px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2235,7 +2235,7 @@ body:not(.tab-live) #player-container.mode-preview {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-left: 8px;
+  padding-left: 12px;
 }
 
 .channel-menu-item.focused .channel-menu-epg {
@@ -2245,16 +2245,18 @@ body:not(.tab-live) #player-container.mode-preview {
 .channel-menu-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 20px;
   flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .channel-menu-duration {
   font-size: 16px;
   font-weight: 700;
   color: var(--accent-gold);
-  min-width: 38px;
+  min-width: 46px;
   text-align: right;
+  margin-right: 6px;
 }
 
 .channel-menu-item.focused .channel-menu-duration {
@@ -2262,7 +2264,7 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .channel-menu-prog-bar {
-  width: 58px;
+  width: 64px;
   height: 6px;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
@@ -2280,21 +2282,22 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .channel-menu-footer {
-  padding: 14px 28px;
+  padding: 16px 36px;
   background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  gap: 36px;
+  gap: 56px;
 }
 
 .legend-key {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 17px;
+  gap: 12px;
+  font-size: 18px;
   font-weight: 700;
   color: #FFFFFF;
+  white-space: nowrap;
 }
 
 .color-dot {
@@ -2302,6 +2305,7 @@ body:not(.tab-live) #player-container.mode-preview {
   height: 14px;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 .yellow-dot {
@@ -2325,9 +2329,9 @@ body:not(.tab-live) #player-container.mode-preview {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 780px;
-  height: 770px;
-  min-height: 770px;
+  width: 1320px;
+  height: 820px;
+  min-height: 820px;
   box-sizing: border-box;
   background: rgba(14, 10, 26, 0.96) !important;
   border: 2px solid rgba(59, 130, 246, 0.45);
@@ -2348,7 +2352,7 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .category-menu-header {
-  padding: 16px 26px;
+  padding: 16px 32px;
   background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -2363,24 +2367,24 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .category-menu-list {
-  padding: 12px 18px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  height: 636px;
-  min-height: 636px;
+  height: 684px;
+  min-height: 684px;
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .category-menu-item {
-  height: 56px;
-  min-height: 56px;
+  height: 60px;
+  min-height: 60px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid transparent;
@@ -2432,14 +2436,37 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .category-menu-footer {
-  padding: 14px 28px;
+  padding: 16px 36px;
   background: rgba(255, 255, 255, 0.03);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  gap: 24px;
-  font-size: 16px;
+  gap: 56px;
+  font-size: 17px;
   color: var(--text-dim);
+}
+
+.category-menu-footer > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+.hint-pill {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
 }
 
 /* SMART IPTV STYLE: CHANNEL FULL EPG OVERLAY */
