@@ -1318,6 +1318,38 @@
       return result;
     }
 
+    const pendingDeletedIds = new Set();
+
+    function mergePlaylists(serverList, currentList) {
+      const serverArr = Array.isArray(serverList) ? deduplicatePlaylists(serverList) : [];
+      // Clean up pendingDeletedIds that are no longer in serverArr
+      for (const delId of Array.from(pendingDeletedIds)) {
+        const stillInServer = serverArr.some(s => String(s.id !== undefined ? s.id : '') === String(delId));
+        if (!stillInServer) {
+          pendingDeletedIds.delete(delId);
+        }
+      }
+      const filteredServerArr = serverArr.filter(s => !pendingDeletedIds.has(String(s.id !== undefined ? s.id : '')));
+
+      if (!Array.isArray(currentList) || currentList.length === 0) {
+        return filteredServerArr;
+      }
+      const merged = [...filteredServerArr];
+      for (const local of currentList) {
+        if (pendingDeletedIds.has(String(local.id !== undefined ? local.id : ''))) continue;
+        const normServer = (local.server_url || '').trim().toLowerCase().replace(/\/+$/, '');
+        const normUser = (local.username || '').trim().toLowerCase();
+        const existsInServer = merged.some(s => 
+          (s.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer &&
+          (s.username || '').trim().toLowerCase() === normUser
+        );
+        if (!existsInServer) {
+          merged.push(local);
+        }
+      }
+      return deduplicatePlaylists(merged);
+    }
+
     // Pairing & Realtime
     async function verifyPairing(deviceId, pin) {
       const btn = document.getElementById('btnVerifyPairing');
@@ -1369,6 +1401,14 @@
         document.getElementById('playlistManagerSection').style.display = 'block';
 
         setDeviceConnectedState(true);
+
+        // Explicitly acknowledge connection in Supabase so it's not pending or disconnected
+        try {
+          await supabaseClient.from('remote_devices').update({
+            status: 'connected',
+            updated_at: new Date().toISOString()
+          }).eq('device_id', deviceId).eq('pin', pin);
+        } catch(e){}
 
         // Extract and deduplicate playlists
         if (data.playlists && Array.isArray(data.playlists)) {
@@ -1423,7 +1463,7 @@
       }
 
       if (!connected) {
-        closeModal();
+        closePlaylistModal();
         closeDeleteModal();
       }
 
@@ -1463,7 +1503,7 @@
         if (error || !data) return;
 
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
-        const pinChanged = Boolean(activePin && data.pin && data.pin !== activePin);
+        const pinChanged = Boolean(activePin && data.pin && String(data.pin).trim() !== String(activePin).trim());
         const isDisconnected = data.status === 'disconnected' || isExpired || pinChanged;
 
         if (isDisconnected) {
@@ -1475,9 +1515,9 @@
             setDeviceConnectedState(true);
           }
           if (data.playlists && Array.isArray(data.playlists)) {
-            const deduped = deduplicatePlaylists(data.playlists);
-            if (JSON.stringify(deduped) !== JSON.stringify(activePlaylists)) {
-              activePlaylists = deduped;
+            const merged = mergePlaylists(data.playlists, activePlaylists);
+            if (JSON.stringify(merged) !== JSON.stringify(activePlaylists)) {
+              activePlaylists = merged;
               renderPlaylists();
             }
           }
@@ -1504,7 +1544,7 @@
           const newRecord = payload.new;
           if (newRecord) {
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
-            const pinChanged = Boolean(activePin && newRecord.pin && newRecord.pin !== activePin);
+            const pinChanged = Boolean(activePin && newRecord.pin && String(newRecord.pin).trim() !== String(activePin).trim());
             const isDisconnected = newRecord.status === 'disconnected' || isExpired || pinChanged;
 
             if (isDisconnected) {
@@ -1514,8 +1554,11 @@
               setDeviceConnectedState(true);
             }
             if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
-              activePlaylists = deduplicatePlaylists(newRecord.playlists);
-              renderPlaylists();
+              const merged = mergePlaylists(newRecord.playlists, activePlaylists);
+              if (JSON.stringify(merged) !== JSON.stringify(activePlaylists)) {
+                activePlaylists = merged;
+                renderPlaylists();
+              }
             }
           }
         })
@@ -1536,6 +1579,7 @@
       activeDeviceId = '';
       activePin = '';
       activePlaylists = [];
+      pendingDeletedIds.clear();
       isDeviceConnected = false;
       document.getElementById('deviceBanner').style.display = 'none';
       document.getElementById('playlistManagerSection').style.display = 'none';
@@ -1668,6 +1712,7 @@
               server_url: serverUrl,
               username: username,
               password: password,
+              playlists: activePlaylists,
               updated_at: new Date().toISOString()
             }).eq('device_id', activeDeviceId).eq('pin', activePin);
           } catch (colErr) {
@@ -1677,6 +1722,7 @@
               server_url: serverUrl,
               username: username,
               password: password,
+              playlists: activePlaylists,
               status: 'linked',
               updated_at: new Date().toISOString()
             }).eq('device_id', activeDeviceId).eq('pin', activePin);
@@ -1707,6 +1753,7 @@
               password: password,
               timestamp: Date.now()
             },
+            playlists: activePlaylists,
             updated_at: new Date().toISOString()
           }).eq('device_id', activeDeviceId).eq('pin', activePin);
 
@@ -1744,6 +1791,7 @@
 
       try {
         const idToDelete = deletingPlaylistId;
+        pendingDeletedIds.add(String(idToDelete));
         // Optimistic local delete
         activePlaylists = activePlaylists.filter(p => (p.id !== undefined ? p.id : 0) !== idToDelete);
         renderPlaylists();
@@ -1755,6 +1803,7 @@
             id: idToDelete,
             timestamp: Date.now()
           },
+          playlists: activePlaylists,
           updated_at: new Date().toISOString()
         }).eq('device_id', activeDeviceId).eq('pin', activePin);
 
