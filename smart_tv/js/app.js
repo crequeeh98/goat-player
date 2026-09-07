@@ -43,6 +43,7 @@
   var _remoteTimer = null;
   var _qrCodeInstance = null;
   var _connectionPollTimer = null;
+  var _lastAddedAccount = null;
 
   // Modal Focus Management (Restores previous focus on modal close)
   var _lastFocusedBeforeModal = null;
@@ -231,7 +232,9 @@
       if (tabSeries) tabSeries.classList.remove('active');
       executeMasterSearch('');
     }
-    if (_lastFocusedBeforeModal && window.SpatialNav) {
+    if (modalEl.id === 'login-modal') {
+      _lastFocusedBeforeModal = null;
+    } else if (_lastFocusedBeforeModal && window.SpatialNav) {
       window.SpatialNav.setFocus(_lastFocusedBeforeModal);
       _lastFocusedBeforeModal = null;
     }
@@ -780,11 +783,22 @@
   }
 
   function enterDashboardWithAccount(account, options) {
+    // Explicitly close any open modal overlay (including login-modal)
+    var openModals = document.querySelectorAll('.modal-overlay.active');
+    openModals.forEach(function(m) {
+      m.classList.remove('active');
+    });
+
     if (options && options.showSplash) {
       showSplashScreen({ account: account });
     }
 
     function proceed() {
+      var remainingModals = document.querySelectorAll('.modal-overlay.active');
+      remainingModals.forEach(function(m) {
+        m.classList.remove('active');
+      });
+
       resetAllAccountState();
       _activeAccount = account;
       window._activeAccount = account;
@@ -5260,6 +5274,13 @@
       }
     });
 
+    var doneBtnInit = document.getElementById('remote-done-btn');
+    if (doneBtnInit) {
+      doneBtnInit.onclick = function(e) {
+        handleRemoteDone(e);
+      };
+    }
+
     var exitConfirm = document.getElementById('exit-confirm-btn');
     if (exitConfirm) exitConfirm.onclick = function() { exitApp(); };
 
@@ -5417,7 +5438,40 @@
     openModal(modal, document.getElementById('delete-account-cancel-btn'));
   }
 
+  function handleRemoteDone(e) {
+    if (e) {
+      try { e.preventDefault(); e.stopPropagation(); } catch(err){}
+    }
+    var modal = document.getElementById('login-modal');
+    if (modal) {
+      modal.classList.remove('active');
+    }
+    if (window.TVSync) {
+      window.TVSync.stopPolling();
+      window.TVSync.closePairingSession(window.TVSync.getDeviceId());
+    }
+    if (modal) {
+      closeModal(modal);
+    }
+
+    var target = _lastAddedAccount;
+    _lastAddedAccount = null;
+
+    if (target) {
+      enterDashboardWithAccount(target, { showSplash: true });
+    } else {
+      renderAccountsList();
+      setTimeout(function() {
+        var gridEl = document.getElementById('accounts-grid');
+        if (gridEl && gridEl.children.length > 0 && window.SpatialNav) {
+          window.SpatialNav.focusFirst(gridEl);
+        }
+      }, 100);
+    }
+  }
+
   function initRemotePairing() {
+    _lastAddedAccount = null;
     var qrLoading = document.getElementById('qr-loading');
     var qrBox = document.getElementById('qrcode-box');
     var devIdEl = document.getElementById('remote-device-id');
@@ -5484,6 +5538,8 @@
               expDate: event.account.expDate || (event.account.userInfo && event.account.userInfo.exp_date) || null,
               maxConnections: event.account.maxConnections || (event.account.userInfo && event.account.userInfo.max_connections) || null
             });
+            _lastAddedAccount = acc;
+
             if (window.TVSync && window.TVSync.pushPlaylists) {
               window.TVSync.pushPlaylists();
             }
@@ -5495,9 +5551,8 @@
             var doneBtn = document.getElementById('remote-done-btn');
             if (doneBtn) {
               doneBtn.style.display = 'inline-flex';
-              doneBtn.onclick = function() {
-                closeModal(document.getElementById('login-modal'));
-                renderAccountsList();
+              doneBtn.onclick = function(e) {
+                handleRemoteDone(e);
               };
               if (window.SpatialNav) {
                 window.SpatialNav.focusElement(doneBtn);

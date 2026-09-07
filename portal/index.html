@@ -1602,12 +1602,16 @@
       pendingAddActionId = null;
       pendingDeletedIds.clear();
       isDeviceConnected = false;
+      closePlaylistModal();
+      closeDeleteModal();
       document.getElementById('deviceBanner').style.display = 'none';
       document.getElementById('playlistManagerSection').style.display = 'none';
       document.getElementById('manualPairingSection').style.display = 'block';
       const btn = document.getElementById('btnVerifyPairing');
-      btn.disabled = false;
-      btn.innerText = t('btnConnect');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = t('btnConnect');
+      }
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -1621,39 +1625,66 @@
       editingPlaylistId = id !== null ? String(id) : null;
       const modal = document.getElementById('playlistModal');
       const title = document.getElementById('modalTitle');
-      const submitText = document.getElementById('btnSubmitModalText');
+      const btnSubmit = document.getElementById('btnSubmitModal');
       const tabBar = document.getElementById('modalTabBar');
 
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        let submitText = document.getElementById('btnSubmitModalText');
+        if (!submitText) {
+          btnSubmit.innerHTML = `<span id="btnSubmitModalText"></span>`;
+          submitText = document.getElementById('btnSubmitModalText');
+        }
+        submitText.innerText = (mode === 'edit') ? t('btnUpdatePlaylist') : t('btnSendToPlayer');
+      }
+
+      if (title) {
+        title.innerText = (mode === 'edit') ? t('modalEditTitle') : t('modalAddTitle');
+      }
+
       // Reset form
-      document.getElementById('playlistForm').reset();
-      document.getElementById('m3uFeedback').style.display = 'none';
+      const form = document.getElementById('playlistForm');
+      if (form) form.reset();
+      const feedback = document.getElementById('m3uFeedback');
+      if (feedback) feedback.style.display = 'none';
 
       if (mode === 'edit') {
-        title.innerText = t('modalEditTitle');
-        submitText.innerText = t('btnUpdatePlaylist');
-        tabBar.style.display = 'none';
+        if (tabBar) tabBar.style.display = 'none';
         switchTab('xtream');
 
         const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === String(id));
         if (pl) {
-          document.getElementById('playlistName').value = pl.playlist_name || '';
-          document.getElementById('serverUrl').value = pl.server_url || '';
-          document.getElementById('username').value = pl.username || '';
-          document.getElementById('password').value = pl.password || '';
+          const nameEl = document.getElementById('playlistName');
+          const serverEl = document.getElementById('serverUrl');
+          const userEl = document.getElementById('username');
+          const passEl = document.getElementById('password');
+          if (nameEl) nameEl.value = pl.playlist_name || '';
+          if (serverEl) serverEl.value = pl.server_url || '';
+          if (userEl) userEl.value = pl.username || '';
+          if (passEl) passEl.value = pl.password || '';
         }
       } else {
-        title.innerText = t('modalAddTitle');
-        submitText.innerText = t('btnSendToPlayer');
-        tabBar.style.display = 'flex';
+        if (tabBar) tabBar.style.display = 'flex';
         switchTab('xtream');
       }
 
-      modal.style.display = 'flex';
+      if (modal) modal.style.display = 'flex';
     }
 
     function closePlaylistModal() {
-      document.getElementById('playlistModal').style.display = 'none';
+      const modal = document.getElementById('playlistModal');
+      if (modal) modal.style.display = 'none';
       editingPlaylistId = null;
+      const btnSubmit = document.getElementById('btnSubmitModal');
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        let submitText = document.getElementById('btnSubmitModalText');
+        if (!submitText) {
+          btnSubmit.innerHTML = `<span id="btnSubmitModalText">${t('btnSendToPlayer')}</span>`;
+        } else {
+          submitText.innerText = t('btnSendToPlayer');
+        }
+      }
     }
 
     // Submit Playlist (Add or Edit)
@@ -1666,7 +1697,7 @@
         return;
       }
 
-      btn.disabled = true;
+      if (btn) btn.disabled = true;
 
       let serverUrl = '';
       let username = '';
@@ -1684,7 +1715,7 @@
           showToast(currentLang === 'de' 
             ? 'Bitte stelle sicher, dass deine M3U-URL Benutzername und Passwort enthält, oder nutze Xtream Codes.' 
             : 'Please ensure your M3U link contains username and password, or use Xtream Codes.');
-          btn.disabled = false;
+          if (btn) btn.disabled = false;
           return;
         }
       } else {
@@ -1695,7 +1726,8 @@
 
       try {
         if (currentModalMode === 'add') {
-          btn.innerText = t('sending');
+          const submitText = document.getElementById('btnSubmitModalText');
+          if (submitText) submitText.innerText = t('sending');
 
           // Optimistic local add only if not already present
           const normServer = serverUrl.trim().toLowerCase().replace(/\/+$/, '');
@@ -1766,7 +1798,8 @@
 
           showToast(t('playlistSentSuccess'));
         } else if (currentModalMode === 'edit') {
-          btn.innerText = t('updating');
+          const submitText = document.getElementById('btnSubmitModalText');
+          if (submitText) submitText.innerText = t('updating');
           const strEditId = String(editingPlaylistId);
           const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === strEditId);
           const oldServer = pl ? pl.server_url : serverUrl;
@@ -1812,7 +1845,7 @@
       } catch (err) {
         showToast('Error: ' + err.message);
       } finally {
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
       }
     });
 
