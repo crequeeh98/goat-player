@@ -1009,6 +1009,7 @@
     let realtimeChannel = null;
     let isDeviceConnected = false;
     let pollDeviceInterval = null;
+    let pendingAddActionId = null;
 
     // Translations Dictionary
     const i18n = {
@@ -1499,19 +1500,35 @@
       try {
         const { data, error } = await supabaseClient
           .from('remote_devices')
-          .select('status, pin, pin_expires_at, playlists')
+          .select('status, pin, pin_expires_at, playlists, sync_action')
           .eq('device_id', deviceId)
           .maybeSingle();
 
         if (error || !data) return;
 
+        // If an add action was sent and TV has consumed it (or entered dashboard/closed modal):
+        if (pendingAddActionId && (!data.sync_action || data.status === 'disconnected' || data.status === 'synced')) {
+          pendingAddActionId = null;
+          if (data.playlists && Array.isArray(data.playlists)) {
+            activePlaylists = mergePlaylists(data.playlists, activePlaylists);
+            renderPlaylists();
+          }
+          setDeviceConnectedState(false);
+          try {
+            await supabaseClient.from('remote_devices').update({
+              status: 'disconnected',
+              pin_expires_at: new Date().toISOString()
+            }).eq('device_id', deviceId);
+          } catch(e){}
+          return;
+        }
+
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
-        const isDisconnected = data.status === 'disconnected' || isExpired;
+        const pinChanged = Boolean(activePin && data.pin && String(data.pin).trim() !== String(activePin).trim());
+        const isDisconnected = data.status === 'disconnected' || isExpired || pinChanged;
 
         if (isDisconnected) {
-          if (isDeviceConnected) {
-            setDeviceConnectedState(false);
-          }
+          setDeviceConnectedState(false);
         } else {
           if (!isDeviceConnected) {
             setDeviceConnectedState(true);
@@ -1542,11 +1559,29 @@
           schema: 'public',
           table: 'remote_devices',
           filter: `device_id=eq.${deviceId}`
-        }, (payload) => {
+        }, async (payload) => {
           const newRecord = payload.new;
           if (newRecord) {
+            // Check if pending add action was completed by TV
+            if (pendingAddActionId && (!newRecord.sync_action || newRecord.status === 'disconnected' || newRecord.status === 'synced')) {
+              pendingAddActionId = null;
+              if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
+                activePlaylists = mergePlaylists(newRecord.playlists, activePlaylists);
+                renderPlaylists();
+              }
+              setDeviceConnectedState(false);
+              try {
+                await supabaseClient.from('remote_devices').update({
+                  status: 'disconnected',
+                  pin_expires_at: new Date().toISOString()
+                }).eq('device_id', deviceId);
+              } catch(e){}
+              return;
+            }
+
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
-            const isDisconnected = newRecord.status === 'disconnected' || isExpired;
+            const pinChanged = Boolean(activePin && newRecord.pin && String(newRecord.pin).trim() !== String(activePin).trim());
+            const isDisconnected = newRecord.status === 'disconnected' || isExpired || pinChanged;
 
             if (isDisconnected) {
               setDeviceConnectedState(false);
@@ -1580,6 +1615,7 @@
       activeDeviceId = '';
       activePin = '';
       activePlaylists = [];
+      pendingAddActionId = null;
       pendingDeletedIds.clear();
       isDeviceConnected = false;
       document.getElementById('deviceBanner').style.display = 'none';
@@ -1593,11 +1629,10 @@
 
     // Modal Control
     function openPlaylistModal(mode, id = null) {
-      if (!activeDeviceId) {
+      if (!activeDeviceId || !isDeviceConnected) {
         showToast(t('deviceDisconnectedToast'));
         return;
       }
-      setDeviceConnectedState(true);
       currentModalMode = mode;
       editingPlaylistId = id !== null ? String(id) : null;
       const modal = document.getElementById('playlistModal');
@@ -1642,11 +1677,10 @@
       e.preventDefault();
       const btn = document.getElementById('btnSubmitModal');
 
-      if (!activeDeviceId) {
+      if (!activeDeviceId || !isDeviceConnected) {
         showToast(t('deviceDisconnectedToast'));
         return;
       }
-      setDeviceConnectedState(true);
 
       btn.disabled = true;
 
@@ -1698,6 +1732,7 @@
           }
 
           const actionId = `add_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+          pendingAddActionId = actionId;
 
           // Push to Supabase
           try {
@@ -1799,11 +1834,10 @@
 
     // Delete Playlist
     function confirmDeletePlaylist(id) {
-      if (!activeDeviceId) {
+      if (!activeDeviceId || !isDeviceConnected) {
         showToast(t('deviceDisconnectedToast'));
         return;
       }
-      setDeviceConnectedState(true);
       deletingPlaylistId = id !== null ? String(id) : null;
       document.getElementById('deleteModal').style.display = 'flex';
     }
