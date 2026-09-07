@@ -1279,10 +1279,10 @@
               </div>
             </div>
             <div class="playlist-card-actions">
-              <button class="btn-action" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" onclick="openPlaylistModal('edit', ${id})" title="${t('btnEdit')}">
+              <button class="btn-action" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" data-id="${escapeHtml(String(id))}" onclick="openPlaylistModal('edit', this.dataset.id)" title="${t('btnEdit')}">
                 ✏️ <span>${t('btnEdit')}</span>
               </button>
-              <button class="btn-action delete" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" onclick="confirmDeletePlaylist(${id})" title="${t('btnDelete')}">
+              <button class="btn-action delete" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" data-id="${escapeHtml(String(id))}" onclick="confirmDeletePlaylist(this.dataset.id)" title="${t('btnDelete')}">
                 🗑️
               </button>
             </div>
@@ -1468,9 +1468,7 @@
         btnAdd.style.cursor = connected ? 'pointer' : 'not-allowed';
       }
 
-      if (!connected) {
-        closeDeleteModal();
-      }
+
 
       const cardActions = document.querySelectorAll('.playlist-card-actions button');
       cardActions.forEach(btn => {
@@ -1601,7 +1599,7 @@
       }
       setDeviceConnectedState(true);
       currentModalMode = mode;
-      editingPlaylistId = id;
+      editingPlaylistId = id !== null ? String(id) : null;
       const modal = document.getElementById('playlistModal');
       const title = document.getElementById('modalTitle');
       const submitText = document.getElementById('btnSubmitModalText');
@@ -1617,7 +1615,7 @@
         tabBar.style.display = 'none';
         switchTab('xtream');
 
-        const pl = activePlaylists.find(p => (p.id !== undefined ? p.id : 0) === id);
+        const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === String(id));
         if (pl) {
           document.getElementById('playlistName').value = pl.playlist_name || '';
           document.getElementById('serverUrl').value = pl.server_url || '';
@@ -1750,8 +1748,11 @@
           showToast(t('playlistSentSuccess'));
         } else if (currentModalMode === 'edit') {
           btn.innerText = t('updating');
-          // Optimistic local update
-          const pl = activePlaylists.find(p => (p.id !== undefined ? p.id : 0) === editingPlaylistId);
+          const strEditId = String(editingPlaylistId);
+          const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === strEditId);
+          const oldServer = pl ? pl.server_url : serverUrl;
+          const oldUser = pl ? pl.username : username;
+
           if (pl) {
             pl.playlist_name = playlistName;
             pl.server_url = serverUrl;
@@ -1761,11 +1762,13 @@
           renderPlaylists();
 
           const actionId = `edit_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-          await supabaseClient.from('remote_devices').update({
+          const updatePayload = {
             sync_action: {
               action_id: actionId,
               action: 'edit',
-              id: editingPlaylistId,
+              id: strEditId,
+              old_server_url: oldServer,
+              old_username: oldUser,
               playlist_name: playlistName,
               server_url: serverUrl,
               username: username,
@@ -1773,11 +1776,17 @@
               timestamp: Date.now()
             },
             playlists: activePlaylists,
-            status: 'connected',
+            status: 'linked',
             updated_at: new Date().toISOString()
-          }).eq('device_id', activeDeviceId);
+          };
 
-          showToast(t('playlistUpdatedSuccess'));
+          const res = await supabaseClient.from('remote_devices').update(updatePayload).eq('device_id', activeDeviceId);
+          if (res && res.error) {
+            console.error('Edit sync error:', res.error);
+            showToast('Error: ' + res.error.message);
+          } else {
+            showToast(t('playlistUpdatedSuccess'));
+          }
         }
 
         closePlaylistModal();
@@ -1794,7 +1803,8 @@
         showToast(t('deviceDisconnectedToast'));
         return;
       }
-      deletingPlaylistId = id;
+      setDeviceConnectedState(true);
+      deletingPlaylistId = id !== null ? String(id) : null;
       document.getElementById('deleteModal').style.display = 'flex';
     }
 
@@ -1804,31 +1814,42 @@
     }
 
     async function executeDeletePlaylist() {
-      if (deletingPlaylistId === null) return;
+      if (!deletingPlaylistId) return;
       const btn = document.getElementById('btnConfirmDelete');
       btn.disabled = true;
       btn.innerText = t('deleting');
 
       try {
-        const idToDelete = deletingPlaylistId;
-        pendingDeletedIds.add(String(idToDelete));
+        const idToDelete = String(deletingPlaylistId);
+        pendingDeletedIds.add(idToDelete);
+        const plToDelete = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === idToDelete);
+
         // Optimistic local delete
-        activePlaylists = activePlaylists.filter(p => (p.id !== undefined ? p.id : 0) !== idToDelete);
+        activePlaylists = activePlaylists.filter(p => (p.id !== undefined ? String(p.id) : '') !== idToDelete);
         renderPlaylists();
         closeDeleteModal();
 
-        await supabaseClient.from('remote_devices').update({
+        const actionId = `delete_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        const res = await supabaseClient.from('remote_devices').update({
           sync_action: {
+            action_id: actionId,
             action: 'delete',
             id: idToDelete,
+            server_url: plToDelete ? plToDelete.server_url : undefined,
+            username: plToDelete ? plToDelete.username : undefined,
             timestamp: Date.now()
           },
           playlists: activePlaylists,
-          status: 'connected',
+          status: 'linked',
           updated_at: new Date().toISOString()
         }).eq('device_id', activeDeviceId);
 
-        showToast(t('playlistDeletedSuccess'));
+        if (res && res.error) {
+          console.error('Delete sync error:', res.error);
+          showToast('Error deleting: ' + res.error.message);
+        } else {
+          showToast(t('playlistDeletedSuccess'));
+        }
       } catch (err) {
         showToast('Error deleting playlist: ' + err.message);
       } finally {
