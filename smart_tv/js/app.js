@@ -4026,15 +4026,32 @@
       langBtn.onclick = function() {
         var modal = document.getElementById('modal-language');
         var curLang = window.TVI18n ? window.TVI18n.getLanguage() : 'en';
-        document.getElementById('check-en').style.visibility = (curLang === 'en') ? 'visible' : 'hidden';
-        document.getElementById('check-de').style.visibility = (curLang === 'de') ? 'visible' : 'hidden';
-        openModal(modal, (curLang === 'de') ? document.getElementById('lang-opt-de') : document.getElementById('lang-opt-en'));
+        var optEn = document.getElementById('lang-opt-en');
+        var optDe = document.getElementById('lang-opt-de');
+        var checkEn = document.getElementById('check-en');
+        var checkDe = document.getElementById('check-de');
+        if (optEn) optEn.classList.toggle('selected', curLang === 'en');
+        if (optDe) optDe.classList.toggle('selected', curLang === 'de');
+        if (checkEn) {
+          checkEn.classList.toggle('visible', curLang === 'en');
+          checkEn.style.visibility = (curLang === 'en') ? 'visible' : 'hidden';
+          checkEn.style.opacity = (curLang === 'en') ? '1' : '0';
+        }
+        if (checkDe) {
+          checkDe.classList.toggle('visible', curLang === 'de');
+          checkDe.style.visibility = (curLang === 'de') ? 'visible' : 'hidden';
+          checkDe.style.opacity = (curLang === 'de') ? '1' : '0';
+        }
+        openModal(modal, (curLang === 'de') ? optDe : optEn);
       };
     }
 
     function onLanguageChanged() {
       // Re-render account cards with updated language date format (dd.mm.yyyy vs mm/dd/yyyy)
-      renderAccountsList();
+      var accountsView = document.getElementById('view-accounts');
+      if (accountsView && accountsView.classList.contains('active')) {
+        renderAccountsList();
+      }
 
       var favText = window.TVI18n ? window.TVI18n.t('favorites') : 'Favorites';
       var watchText = window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist';
@@ -4045,7 +4062,8 @@
         var liveTitleEl = document.getElementById('live-selected-category-title');
         if (liveTitleEl) liveTitleEl.textContent = favText;
       }
-      if (_liveCategories && _liveCategories.length > 0) {
+      var pageLive = document.getElementById('page-live');
+      if (pageLive && pageLive.classList.contains('active') && _liveCategories && _liveCategories.length > 0) {
         var liveCatSearch = document.getElementById('live-cat-search');
         var q = (liveCatSearch ? liveCatSearch.value : '').toLowerCase().trim();
         var filteredLive = q ? _liveCategories.filter(function(c) {
@@ -4062,7 +4080,8 @@
       if (_selectedMovieCategory && _selectedMovieCategory.category_id === 'favorites') {
         _selectedMovieCategory.category_name = watchText;
       }
-      if (_movieCategories && _movieCategories.length > 0) {
+      var pageMovies = document.getElementById('page-movies');
+      if (pageMovies && pageMovies.classList.contains('active') && _movieCategories && _movieCategories.length > 0) {
         var movieCatSearch = document.getElementById('movies-cat-search');
         var mq = (movieCatSearch ? movieCatSearch.value : '').toLowerCase().trim();
         var filteredMovies = mq ? _movieCategories.filter(function(c) {
@@ -4079,7 +4098,8 @@
       if (_selectedSeriesCategory && _selectedSeriesCategory.category_id === 'favorites') {
         _selectedSeriesCategory.category_name = watchText;
       }
-      if (_seriesCategories && _seriesCategories.length > 0) {
+      var pageSeries = document.getElementById('page-series');
+      if (pageSeries && pageSeries.classList.contains('active') && _seriesCategories && _seriesCategories.length > 0) {
         var seriesCatSearch = document.getElementById('series-cat-search');
         var sq = (seriesCatSearch ? seriesCatSearch.value : '').toLowerCase().trim();
         var filteredSeries = sq ? _seriesCategories.filter(function(c) {
@@ -4112,17 +4132,6 @@
         var seriesSortText = document.getElementById('series-sort-text');
         if (seriesSortText) seriesSortText.textContent = window.TVI18n ? window.TVI18n.t('sort_newest') : 'Newly Added';
       }
-
-      // 6. Refresh empty states if currently showing
-      if (_movieFilteredList && _movieFilteredList.length === 0) {
-        renderMovieGrid(true);
-      }
-      if (_seriesFilteredList && _seriesFilteredList.length === 0) {
-        renderSeriesGrid(true);
-      }
-      if (_liveStreams && _liveStreams.length === 0 && _virtualList) {
-        _virtualList.setItems([], _selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites');
-      }
     }
 
     window.addEventListener('tv-language-changed', onLanguageChanged);
@@ -4130,21 +4139,41 @@
     // Language Options (English / Deutsch)
     var langEn = document.getElementById('lang-opt-en');
     var langDe = document.getElementById('lang-opt-de');
+    function selectLanguage(targetLang) {
+      closeModal(document.getElementById('modal-language'));
+      var curLang = window.TVI18n ? window.TVI18n.getLanguage() : 'en';
+      if (curLang === targetLang) return;
+
+      var optEn = document.getElementById('lang-opt-en');
+      var optDe = document.getElementById('lang-opt-de');
+      var checkEn = document.getElementById('check-en');
+      var checkDe = document.getElementById('check-de');
+      if (optEn) optEn.classList.toggle('selected', targetLang === 'en');
+      if (optDe) optDe.classList.toggle('selected', targetLang === 'de');
+      if (checkEn) {
+        checkEn.classList.toggle('visible', targetLang === 'en');
+        checkEn.style.visibility = (targetLang === 'en') ? 'visible' : 'hidden';
+        checkEn.style.opacity = (targetLang === 'en') ? '1' : '0';
+      }
+      if (checkDe) {
+        checkDe.classList.toggle('visible', targetLang === 'de');
+        checkDe.style.visibility = (targetLang === 'de') ? 'visible' : 'hidden';
+        checkDe.style.opacity = (targetLang === 'de') ? '1' : '0';
+      }
+
+      if (window.TVI18n) window.TVI18n.setLanguage(targetLang);
+
+      var toastMsg = (targetLang === 'de')
+        ? (window.TVI18n ? window.TVI18n.t('lang_changed_de') : 'Sprache auf Deutsch geändert')
+        : (window.TVI18n ? window.TVI18n.t('lang_changed_en') : 'Language set to English');
+      showToast(toastMsg, '🌐');
+    }
+
     if (langEn) {
-      langEn.onclick = function() {
-        if (window.TVI18n) window.TVI18n.setLanguage('en');
-        closeModal(document.getElementById('modal-language'));
-        onLanguageChanged();
-        showToast(window.TVI18n ? window.TVI18n.t('lang_changed_en') : 'Language set to English', '🌐');
-      };
+      langEn.onclick = function() { selectLanguage('en'); };
     }
     if (langDe) {
-      langDe.onclick = function() {
-        if (window.TVI18n) window.TVI18n.setLanguage('de');
-        closeModal(document.getElementById('modal-language'));
-        onLanguageChanged();
-        showToast(window.TVI18n ? window.TVI18n.t('lang_changed_de') : 'Sprache auf Deutsch geändert', '🌐');
-      };
+      langDe.onclick = function() { selectLanguage('de'); };
     }
 
     // Switch Account Button
