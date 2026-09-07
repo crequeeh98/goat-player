@@ -1,5 +1,132 @@
 // Universal Smart TV Video Player: Seamless Preview & Fullscreen + VOD HUD
 (function() {
+  // Comprehensive Smart TV Platform Polyfills (webOS 3+, Tizen 3+, older Chromium)
+  if (!String.prototype.padStart) {
+    String.prototype.padStart = function(targetLength, padString) {
+      targetLength = targetLength >> 0;
+      var str = String(this);
+      padString = String(padString !== undefined ? padString : ' ');
+      if (str.length >= targetLength) return str;
+      targetLength = targetLength - str.length;
+      while (padString.length < targetLength) {
+        padString += padString;
+      }
+      return padString.slice(0, targetLength) + str;
+    };
+  }
+  if (!String.prototype.padEnd) {
+    String.prototype.padEnd = function(targetLength, padString) {
+      targetLength = targetLength >> 0;
+      var str = String(this);
+      padString = String(padString !== undefined ? padString : ' ');
+      if (str.length >= targetLength) return str;
+      targetLength = targetLength - str.length;
+      while (padString.length < targetLength) {
+        padString += padString;
+      }
+      return str + padString.slice(0, targetLength);
+    };
+  }
+  if (!String.prototype.startsWith) {
+    String.prototype.startsWith = function(search, pos) {
+      return this.substr(!pos || pos < 0 ? 0 : +pos, search.length) === search;
+    };
+  }
+  if (!String.prototype.endsWith) {
+    String.prototype.endsWith = function(search, this_len) {
+      if (this_len === undefined || this_len > this.length) this_len = this.length;
+      return this.substring(this_len - search.length, this_len) === search;
+    };
+  }
+  if (!String.prototype.includes) {
+    String.prototype.includes = function(search, start) {
+      if (typeof start !== 'number') start = 0;
+      if (start + search.length > this.length) return false;
+      return this.indexOf(search, start) !== -1;
+    };
+  }
+  if (!Array.prototype.find) {
+    Array.prototype.find = function(predicate) {
+      if (this == null) throw new TypeError('Array.prototype.find called on null or undefined');
+      if (typeof predicate !== 'function') throw new TypeError('predicate must be a function');
+      var list = Object(this);
+      var length = list.length >>> 0;
+      var thisArg = arguments[1];
+      for (var i = 0; i < length; i++) {
+        var value = list[i];
+        if (predicate.call(thisArg, value, i, list)) return value;
+      }
+      return undefined;
+    };
+  }
+  if (!Array.prototype.findIndex) {
+    Array.prototype.findIndex = function(predicate) {
+      if (this == null) throw new TypeError('Array.prototype.findIndex called on null or undefined');
+      if (typeof predicate !== 'function') throw new TypeError('predicate must be a function');
+      var list = Object(this);
+      var length = list.length >>> 0;
+      var thisArg = arguments[1];
+      for (var i = 0; i < length; i++) {
+        if (predicate.call(thisArg, list[i], i, list)) return i;
+      }
+      return -1;
+    };
+  }
+  if (!Array.prototype.includes) {
+    Array.prototype.includes = function(searchElement, fromIndex) {
+      if (this == null) throw new TypeError('Array.prototype.includes called on null or undefined');
+      var O = Object(this);
+      var len = parseInt(O.length, 10) || 0;
+      if (len === 0) return false;
+      var n = parseInt(fromIndex, 10) || 0;
+      var k = n >= 0 ? n : Math.max(0, len + n);
+      while (k < len) {
+        if (searchElement === O[k] || (searchElement !== searchElement && O[k] !== O[k])) return true;
+        k++;
+      }
+      return false;
+    };
+  }
+  if (typeof Object.assign !== 'function') {
+    Object.assign = function(target) {
+      if (target == null) throw new TypeError('Cannot convert undefined or null to object');
+      var to = Object(target);
+      for (var index = 1; index < arguments.length; index++) {
+        var nextSource = arguments[index];
+        if (nextSource != null) {
+          for (var nextKey in nextSource) {
+            if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+              to[nextKey] = nextSource[nextKey];
+            }
+          }
+        }
+      }
+      return to;
+    };
+  }
+
+  function normalizeEpisodeList(eps) {
+    if (!eps) return [];
+    if (Array.isArray(eps)) return eps;
+    if (typeof eps === 'object') {
+      var arr = [];
+      Object.keys(eps).forEach(function(k) {
+        if (eps[k] && typeof eps[k] === 'object') {
+          arr.push(eps[k]);
+        }
+      });
+      arr.sort(function(a, b) {
+        var aNum = parseInt(a.episode_num, 10);
+        var bNum = parseInt(b.episode_num, 10);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return 0;
+      });
+      return arr;
+    }
+    return [];
+  }
+  window.normalizeEpisodeList = normalizeEpisodeList;
+
   var _trackUpdateListeners = [];
   window.onTracksUpdated = function() {
     for (var i = 0; i < _trackUpdateListeners.length; i++) {
@@ -1072,9 +1199,9 @@
 
     var url = '';
     if (this.playbackType === 'series') {
-      url = window.TVApi.getSeriesStreamUrl(activeAccount, stream.id || stream.stream_id, ext);
+      url = window.TVApi.getSeriesStreamUrl(activeAccount, sId, ext);
     } else {
-      url = window.TVApi.getVodStreamUrl(activeAccount, stream.stream_id || stream.id, ext);
+      url = window.TVApi.getVodStreamUrl(activeAccount, sId, ext);
     }
 
     this._playMedia(url);
@@ -1170,9 +1297,7 @@
           if (sInfo.episodes && self.currentVodMeta) {
             var allEps = [];
             Object.keys(sInfo.episodes).forEach(function(sk) {
-              if (Array.isArray(sInfo.episodes[sk])) {
-                allEps = allEps.concat(sInfo.episodes[sk]);
-              }
+              allEps = allEps.concat(window.normalizeEpisodeList(sInfo.episodes[sk]));
             });
             var matchedEp = allEps.find(function(ep) {
               return String(ep.id || ep.stream_id) === String(sId);
@@ -1208,8 +1333,10 @@
     if (titleEl) titleEl.textContent = (this.playbackType === 'series' && meta && meta.seriesName) ? meta.seriesName : (title || stream.name || 'Video');
     if (subEl) subEl.textContent = subtitle || '';
     if (badgeEl) {
-      if (this.playbackType === 'series' && meta && meta.season && meta.episode) {
-        badgeEl.textContent = 'S' + String(meta.season).padStart(2, '0') + ' E' + String(meta.episode).padStart(2, '0');
+      if (this.playbackType === 'series' && meta && meta.season != null && meta.episode != null) {
+        var sPadded = String(meta.season || 1).padStart(2, '0');
+        var ePadded = String(meta.episode || 1).padStart(2, '0');
+        badgeEl.textContent = 'S' + sPadded + ' E' + ePadded;
         badgeEl.style.display = 'inline-block';
       } else {
         badgeEl.style.display = 'none';

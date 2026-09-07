@@ -279,7 +279,13 @@
               return; // Completed series finale removed from rail
             }
             item.isAdvanced = true;
-            item.episode = (item.episode || 1) + 1;
+            item.isCompleted = false;
+            if (item.nextSeason) {
+              item.season = parseInt(item.nextSeason, 10);
+              item.episode = parseInt(item.nextEpisodeNum, 10) || 1;
+            } else {
+              item.episode = (item.episode || 1) + 1;
+            }
             item.position = 0;
             item.title = item.nextEpisodeTitle || ('Episode ' + item.episode);
             if (item.nextStreamId) item.streamId = item.nextStreamId;

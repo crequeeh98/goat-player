@@ -1,5 +1,110 @@
 // GOATPlayer Smart TV - Complete Application Controller (Windows Recreation)
 (function() {
+  // Comprehensive Smart TV Platform Polyfills (webOS 3+, Tizen 3+, older Chromium)
+  if (!String.prototype.padStart) {
+    String.prototype.padStart = function(targetLength, padString) {
+      targetLength = targetLength >> 0;
+      var str = String(this);
+      padString = String(padString !== undefined ? padString : ' ');
+      if (str.length >= targetLength) return str;
+      targetLength = targetLength - str.length;
+      while (padString.length < targetLength) {
+        padString += padString;
+      }
+      return padString.slice(0, targetLength) + str;
+    };
+  }
+  if (!String.prototype.padEnd) {
+    String.prototype.padEnd = function(targetLength, padString) {
+      targetLength = targetLength >> 0;
+      var str = String(this);
+      padString = String(padString !== undefined ? padString : ' ');
+      if (str.length >= targetLength) return str;
+      targetLength = targetLength - str.length;
+      while (padString.length < targetLength) {
+        padString += padString;
+      }
+      return str + padString.slice(0, targetLength);
+    };
+  }
+  if (!String.prototype.startsWith) {
+    String.prototype.startsWith = function(search, pos) {
+      return this.substr(!pos || pos < 0 ? 0 : +pos, search.length) === search;
+    };
+  }
+  if (!String.prototype.endsWith) {
+    String.prototype.endsWith = function(search, this_len) {
+      if (this_len === undefined || this_len > this.length) this_len = this.length;
+      return this.substring(this_len - search.length, this_len) === search;
+    };
+  }
+  if (!String.prototype.includes) {
+    String.prototype.includes = function(search, start) {
+      if (typeof start !== 'number') start = 0;
+      if (start + search.length > this.length) return false;
+      return this.indexOf(search, start) !== -1;
+    };
+  }
+  if (!Array.prototype.find) {
+    Array.prototype.find = function(predicate) {
+      if (this == null) throw new TypeError('Array.prototype.find called on null or undefined');
+      if (typeof predicate !== 'function') throw new TypeError('predicate must be a function');
+      var list = Object(this);
+      var length = list.length >>> 0;
+      var thisArg = arguments[1];
+      for (var i = 0; i < length; i++) {
+        var value = list[i];
+        if (predicate.call(thisArg, value, i, list)) return value;
+      }
+      return undefined;
+    };
+  }
+  if (!Array.prototype.findIndex) {
+    Array.prototype.findIndex = function(predicate) {
+      if (this == null) throw new TypeError('Array.prototype.findIndex called on null or undefined');
+      if (typeof predicate !== 'function') throw new TypeError('predicate must be a function');
+      var list = Object(this);
+      var length = list.length >>> 0;
+      var thisArg = arguments[1];
+      for (var i = 0; i < length; i++) {
+        if (predicate.call(thisArg, list[i], i, list)) return i;
+      }
+      return -1;
+    };
+  }
+  if (!Array.prototype.includes) {
+    Array.prototype.includes = function(searchElement, fromIndex) {
+      if (this == null) throw new TypeError('Array.prototype.includes called on null or undefined');
+      var O = Object(this);
+      var len = parseInt(O.length, 10) || 0;
+      if (len === 0) return false;
+      var n = parseInt(fromIndex, 10) || 0;
+      var k = n >= 0 ? n : Math.max(0, len + n);
+      while (k < len) {
+        if (searchElement === O[k] || (searchElement !== searchElement && O[k] !== O[k])) return true;
+        k++;
+      }
+      return false;
+    };
+  }
+  if (typeof Object.assign !== 'function') {
+    Object.assign = function(target) {
+      if (target == null) throw new TypeError('Cannot convert undefined or null to object');
+      var to = Object(target);
+      for (var index = 1; index < arguments.length; index++) {
+        var nextSource = arguments[index];
+        if (nextSource != null) {
+          for (var nextKey in nextSource) {
+            if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+              to[nextKey] = nextSource[nextKey];
+            }
+          }
+        }
+      }
+      return to;
+    };
+  }
+
   var _activeAccount = null;
   var _currentTab = 'live'; // 'live' | 'movies' | 'series'
   
@@ -3635,6 +3740,20 @@
     var tabsEl = document.getElementById('series-season-tabs');
     var epContainer = document.getElementById('series-episodes-container');
 
+    // Auto-detect Continue Watching target season and episode if not explicitly passed
+    var sId = series.series_id || series.id;
+    if ((!targetSeason || !targetEpisodeNum) && window.TVStorage && _activeAccount) {
+      var cwList = window.TVStorage.getContinueWatching(_activeAccount.id, 'series');
+      var cwMatch = (cwList || []).find(function(item) {
+        return String(item.seriesId) === String(sId);
+      });
+      if (cwMatch) {
+        targetSeason = String(cwMatch.season || 1);
+        targetEpisodeNum = cwMatch.episode || 1;
+        console.log('[SeriesDetail] Autofocusing Continue Watching target: S' + targetSeason + ' E' + targetEpisodeNum);
+      }
+    }
+
     if (posterEl) posterEl.src = series.cover || 'assets/logo.png';
     if (titleEl) titleEl.textContent = series.name || 'Series';
     if (ratingEl) ratingEl.textContent = series.rating ? '★ ' + parseFloat(series.rating).toFixed(1) : '★ N/A';
@@ -3686,7 +3805,12 @@
 
     window.TVApi.getSeriesInfo(_activeAccount, series.series_id)
       .then(function(data) {
+        if (!data) {
+          if (plotEl) plotEl.textContent = window.TVI18n ? window.TVI18n.t('failed_load_details') : 'Failed to load series details.';
+          return;
+        }
         _currentSeriesDetails = data;
+        window._currentSeriesDetails = data;
         if (data.info && plotEl) {
           plotEl.textContent = data.info.plot || (window.TVI18n ? window.TVI18n.t('no_description') : 'No plot available.');
         }
@@ -3712,18 +3836,19 @@
               tabsEl.querySelectorAll('.season-tab-btn').forEach(function(b) { b.classList.remove('active'); });
               tabBtn.classList.add('active');
               _currentSeriesSeason = sKey;
-              renderSeriesEpisodes(episodes[sKey], series.name);
+              renderSeriesEpisodes(window.normalizeEpisodeList(episodes[sKey]), series.name);
             };
             tabsEl.appendChild(tabBtn);
           });
         }
 
         _currentSeriesSeason = selectedSeason;
-        renderSeriesEpisodes(episodes[selectedSeason], series.name);
+        var selectedEps = window.normalizeEpisodeList(episodes[selectedSeason]);
+        renderSeriesEpisodes(selectedEps, series.name);
 
         // Pre-probe first episode in background to ensure zero lag / no duplicate stream probing on play
-        if (episodes[selectedSeason] && episodes[selectedSeason].length > 0 && window.TVContainerProber && _activeAccount && window.TVApi) {
-          var firstEp = (targetEpisodeNum ? episodes[selectedSeason].find(function(e){ return String(e.episode_num) === String(targetEpisodeNum); }) : null) || episodes[selectedSeason][0];
+        if (selectedEps.length > 0 && window.TVContainerProber && _activeAccount && window.TVApi) {
+          var firstEp = (targetEpisodeNum ? selectedEps.find(function(e){ return String(e.episode_num) === String(targetEpisodeNum); }) : null) || selectedEps[0];
           if (firstEp) {
             var fExt = firstEp.container_extension || (data.info && data.info.container_extension) || series.container_extension || 'mp4';
             var fUrl = window.TVApi.getSeriesStreamUrl(_activeAccount, firstEp.id || firstEp.stream_id, fExt);
@@ -3735,6 +3860,16 @@
         if (targetEpisodeNum && epContainer) {
           setTimeout(function() {
             var targetCard = epContainer.querySelector('[data-episode-num="' + targetEpisodeNum + '"]');
+            if (!targetCard) {
+              var allCards = epContainer.querySelectorAll('.episode-card');
+              for (var c = 0; c < allCards.length; c++) {
+                var cNum = allCards[c].getAttribute('data-episode-num');
+                if (cNum && parseInt(cNum, 10) === parseInt(targetEpisodeNum, 10)) {
+                  targetCard = allCards[c];
+                  break;
+                }
+              }
+            }
             if (targetCard) {
               targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
               if (window.SpatialNav) {
@@ -3759,6 +3894,8 @@
     if (!epContainer) return;
     epContainer.innerHTML = '';
     if (drawerList) drawerList.innerHTML = '';
+
+    episodes = window.normalizeEpisodeList(episodes);
 
     if (!episodes || episodes.length === 0) {
       epContainer.innerHTML = '<div class="col-placeholder">' + (window.TVI18n ? window.TVI18n.t('no_episodes_for_season') : 'No episodes found for this season.') + '</div>';
@@ -3830,6 +3967,20 @@
           }
 
           var nextEpCand = (epIdx + 1 < episodes.length) ? episodes[epIdx + 1] : null;
+          var nextSeasonCand = null;
+          if (!nextEpCand && _currentSeriesDetails && _currentSeriesDetails.episodes) {
+            var allSKeys = Object.keys(_currentSeriesDetails.episodes);
+            var curSIdx = allSKeys.indexOf(String(sNum));
+            if (curSIdx >= 0 && curSIdx + 1 < allSKeys.length) {
+              var nextSKey = allSKeys[curSIdx + 1];
+              var nextSEps = window.normalizeEpisodeList(_currentSeriesDetails.episodes[nextSKey]);
+              if (nextSEps.length > 0) {
+                nextEpCand = nextSEps[0];
+                nextSeasonCand = nextSKey;
+              }
+            }
+          }
+
           var nextTitleCand = nextEpCand ? (nextEpCand.title || ('Episode ' + (nextEpCand.episode_num || (epIdx + 2)))) : '';
           var nextIdCand = nextEpCand ? (nextEpCand.id || nextEpCand.stream_id) : null;
 
@@ -3855,6 +4006,8 @@
             title: epTitle,
             nextEpisodeTitle: nextTitleCand,
             nextStreamId: nextIdCand,
+            nextSeason: nextSeasonCand,
+            nextEpisodeNum: nextEpCand ? (nextEpCand.episode_num || 1) : null,
             containerExtension: epExt,
             audioTracks: audioTracksMeta,
             subtitleTracks: subTracksMeta,
@@ -4705,7 +4858,7 @@
       if (!details || !details.episodes) return;
       var episodesMap = details.episodes;
       var sNum = String(meta.season || 1);
-      var curEps = episodesMap[sNum] || [];
+      var curEps = window.normalizeEpisodeList(episodesMap[sNum]);
       var curStreamId = String(meta.streamId);
       var curIdx = curEps.findIndex(function(e) {
         return String(e.id || e.stream_id) === curStreamId || (e.episode_num && parseInt(e.episode_num, 10) === parseInt(meta.episode, 10));
@@ -4736,7 +4889,7 @@
         var curSeasonIdx = allSKeys.indexOf(sNum);
         if (curSeasonIdx >= 0 && curSeasonIdx + 1 < allSKeys.length) {
           var nextSKey = allSKeys[curSeasonIdx + 1];
-          var nextSeasonEps = episodesMap[nextSKey];
+          var nextSeasonEps = window.normalizeEpisodeList(episodesMap[nextSKey]);
           if (nextSeasonEps && nextSeasonEps.length > 0) {
             var fe = nextSeasonEps[0];
             var feNum = fe.episode_num || 1;
@@ -4761,13 +4914,15 @@
       }
     }
 
-    if (_currentSeriesDetails && _currentSeriesDetails.episodes) {
-      proceedWithDetails(_currentSeriesDetails);
+    var cachedDetails = _currentSeriesDetails || window._currentSeriesDetails;
+    if (cachedDetails && cachedDetails.episodes) {
+      proceedWithDetails(cachedDetails);
     } else {
       var activeAcc = _activeAccount || (window.TVStorage ? window.TVStorage.getActiveAccount() : null);
       if (activeAcc && seriesId) {
         window.TVApi.getSeriesInfo(activeAcc, seriesId).then(function(details) {
           _currentSeriesDetails = details;
+          window._currentSeriesDetails = details;
           proceedWithDetails(details);
         });
       }
@@ -4817,13 +4972,13 @@
             tabsEl.querySelectorAll('.season-tab-btn').forEach(function(b) { b.classList.remove('active'); });
             tabBtn.classList.add('active');
             _currentSeriesSeason = sKey;
-            renderDrawerEpisodes(episodes[sKey], seriesName);
+            renderDrawerEpisodes(window.normalizeEpisodeList(episodes[sKey]), seriesName);
           };
           tabsEl.appendChild(tabBtn);
         });
       }
 
-      renderDrawerEpisodes(episodes[curSeason], seriesName);
+      renderDrawerEpisodes(window.normalizeEpisodeList(episodes[curSeason]), seriesName);
 
       setTimeout(function() {
         var playingEpCard = listEl ? (listEl.querySelector('.episode-card.playing-now') || listEl.querySelector('.episode-card')) : null;
@@ -4836,8 +4991,9 @@
       }, 80);
     }
 
-    if (_currentSeriesDetails && _currentSeriesDetails.episodes) {
-      populateDrawer(_currentSeriesDetails);
+    var cachedDetails = _currentSeriesDetails || window._currentSeriesDetails;
+    if (cachedDetails && cachedDetails.episodes) {
+      populateDrawer(cachedDetails);
     } else {
       var seriesId = (curVodMeta && curVodMeta.seriesId) || (_currentSeriesData && (_currentSeriesData.series_id || _currentSeriesData.id));
       var activeAcc = _activeAccount || (window.TVStorage ? window.TVStorage.getActiveAccount() : null);
@@ -4847,6 +5003,7 @@
         }
         window.TVApi.getSeriesInfo(activeAcc, seriesId).then(function(sInfo) {
           _currentSeriesDetails = sInfo;
+          window._currentSeriesDetails = sInfo;
           populateDrawer(sInfo);
         }).catch(function() {
           if (listEl) listEl.innerHTML = '<div class="col-placeholder">' + (window.TVI18n ? window.TVI18n.t('no_episodes_available') : 'No episodes available.') + '</div>';
@@ -4861,6 +5018,8 @@
     var listEl = document.getElementById('drawer-series-list');
     if (!listEl) return;
     listEl.innerHTML = '';
+
+    eps = window.normalizeEpisodeList(eps);
 
     if (!eps || eps.length === 0) {
       listEl.innerHTML = '<div class="col-placeholder">' + (window.TVI18n ? window.TVI18n.t('no_episodes_for_season') : 'No episodes found.') + '</div>';
@@ -4920,12 +5079,27 @@
           if (drawer) drawer.classList.remove('open');
 
           var isLastSeason = false;
-          if (_currentSeriesDetails && _currentSeriesDetails.episodes) {
-            var allSKeys = Object.keys(_currentSeriesDetails.episodes);
+          var curDetails = _currentSeriesDetails || window._currentSeriesDetails;
+          if (curDetails && curDetails.episodes) {
+            var allSKeys = Object.keys(curDetails.episodes);
             isLastSeason = (String(sNum) === String(allSKeys[allSKeys.length - 1]));
           }
 
           var nextEpCand = (epIdx + 1 < eps.length) ? eps[epIdx + 1] : null;
+          var nextSeasonCand = null;
+          if (!nextEpCand && curDetails && curDetails.episodes) {
+            var allSKeys = Object.keys(curDetails.episodes);
+            var curSIdx = allSKeys.indexOf(String(sNum));
+            if (curSIdx >= 0 && curSIdx + 1 < allSKeys.length) {
+              var nextSKey = allSKeys[curSIdx + 1];
+              var nextSEps = window.normalizeEpisodeList(curDetails.episodes[nextSKey]);
+              if (nextSEps.length > 0) {
+                nextEpCand = nextSEps[0];
+                nextSeasonCand = nextSKey;
+              }
+            }
+          }
+
           var nextTitleCand = nextEpCand ? (nextEpCand.title || ('Episode ' + (nextEpCand.episode_num || (epIdx + 2)))) : '';
           var nextIdCand = nextEpCand ? (nextEpCand.id || nextEpCand.stream_id) : null;
 
@@ -4939,6 +5113,8 @@
             title: epTitle,
             nextEpisodeTitle: nextTitleCand,
             nextStreamId: nextIdCand,
+            nextSeason: nextSeasonCand,
+            nextEpisodeNum: nextEpCand ? (nextEpCand.episode_num || 1) : null,
             containerExtension: ep.container_extension || (_currentSeriesData && _currentSeriesData.container_extension) || 'mp4',
             audioTracks: audioTracksMeta,
             subtitleTracks: subTracksMeta,
