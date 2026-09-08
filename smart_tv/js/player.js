@@ -637,6 +637,7 @@
     }
 
     var handleGlobalUnmute = function() {
+      if (self._isResuming) return; // Strict mute protection while resume seek is in progress
       if (self.videoEl && self.videoEl.muted && !self.videoEl.paused) {
         self.unmute();
       }
@@ -647,21 +648,23 @@
     this.videoEl.addEventListener('loadedmetadata', function() {
       logMediaState('loadedmetadata');
       self._setupTrackListeners();
-      self._applyPreferences();
-      self._tracksLoading = false;
-      if (window.onTracksUpdated) window.onTracksUpdated();
       if (self.playbackType === 'vod' || self.playbackType === 'series') {
         self._updateVodDuration();
         if (self._resumeTime > 0) {
           try {
             var target = self._resumeTime;
-            self._resumeTime = 0;
             if (!self.videoEl.duration || target < self.videoEl.duration) {
+              console.log('[TVPlayer] Performing resume seek in loadedmetadata to:', target);
               self.videoEl.currentTime = target;
             }
-          } catch(e){}
+          } catch(e){
+            console.warn('[TVPlayer] loadedmetadata resume seek error:', e);
+          }
         }
       }
+      self._applyPreferences();
+      self._tracksLoading = false;
+      if (window.onTracksUpdated) window.onTracksUpdated();
     });
 
     this._setupTrackListeners = function() {
@@ -790,10 +793,9 @@
       self._setupTrackListeners();
       self._tracksLoading = false;
       if (window.onTracksUpdated) window.onTracksUpdated();
-      if (self._resumeTime > 0) {
+      if (self._resumeTime > 0 && Math.abs((self.videoEl.currentTime || 0) - self._resumeTime) > 2) {
         try {
           var target2 = self._resumeTime;
-          self._resumeTime = 0;
           if (!self.videoEl.duration || target2 < self.videoEl.duration) {
             self.videoEl.currentTime = target2;
           }
@@ -804,12 +806,6 @@
     this.videoEl.addEventListener('timeupdate', function() {
       if (self.videoEl.currentTime > 0) {
         self._clearWatchdog();
-        if (self._isResuming && self.videoEl.currentTime >= 1) {
-          self._isResuming = false;
-          if (!self._userMuted && self.videoEl) {
-            self.videoEl.muted = false;
-          }
-        }
       }
     });
 
@@ -817,11 +813,41 @@
       logMediaState('seeked');
       self._setBuffering(false);
       self._clearWatchdog();
+      if (typeof self._clearSeekWatchdog === 'function') self._clearSeekWatchdog();
       self._saveCurrentProgress(false);
+
       if (self._isResuming) {
         self._isResuming = false;
+        self._resumeTime = 0;
         if (!self._userMuted && self.videoEl) {
           self.videoEl.muted = false;
+          if (typeof self.videoEl.volume === 'number' && self.videoEl.volume === 0) {
+            self.videoEl.volume = 1.0;
+          }
+        }
+      }
+
+      // If a seek was requested while this seek was executing, perform it now
+      if (self._queuedSeekTarget !== null && self._queuedSeekTarget !== undefined) {
+        var queued = self._queuedSeekTarget;
+        self._queuedSeekTarget = null;
+        try {
+          self._setBuffering(true);
+          if (typeof self._startSeekWatchdog === 'function') self._startSeekWatchdog();
+          self.videoEl.currentTime = queued;
+          return;
+        } catch(qe) {
+          console.warn('[TVPlayer] Queued seek execution error:', qe);
+        }
+      }
+
+      // Guarantee playback resumes after seek if stream was playing
+      if (!self._userPaused && self.videoEl && self.videoEl.paused) {
+        var sp = self.videoEl.play();
+        if (sp && typeof sp.catch === 'function') {
+          sp.catch(function(err) {
+            console.warn('[TVPlayer] Play after seeked rejected:', err);
+          });
         }
       }
     });
@@ -862,6 +888,7 @@
   };
 
   TVPlayer.prototype.unmute = function() {
+    if (this._isResuming) return; // Strict mute protection while resume seek is executing
     if (this.videoEl) {
       this.videoEl.muted = false;
       if (typeof this.videoEl.volume === 'number' && this.videoEl.volume === 0) {
@@ -1150,11 +1177,16 @@
     this._hasInitialSave = false;
     this._lastProgSave = null;
 
-    // Explicitly guarantee unmuted audio with full volume for VOD playback
+    // Explicitly guarantee unmuted audio with full volume for VOD playback only if NOT resuming
+    var willResume = meta && typeof meta.startPosition === 'number' && meta.startPosition > 0;
     if (this.videoEl) {
-      this.videoEl.muted = false;
-      if (typeof this.videoEl.volume === 'number' && this.videoEl.volume === 0) {
-        this.videoEl.volume = 1.0;
+      if (willResume) {
+        this.videoEl.muted = true;
+      } else {
+        this.videoEl.muted = false;
+        if (typeof this.videoEl.volume === 'number' && this.videoEl.volume === 0) {
+          this.videoEl.volume = 1.0;
+        }
       }
     }
 
@@ -1193,7 +1225,8 @@
     this._resumeTime = 0;
     this._didResumeSeek = false;
     this._isResuming = false;
-    if (meta && typeof meta.startPosition === 'number' && meta.startPosition > 0) {
+    this._queuedSeekTarget = null;
+    if (willResume) {
       this._resumeTime = meta.startPosition;
       this._didResumeSeek = true;
       this._isResuming = true;
@@ -1254,8 +1287,13 @@
     // Pre-resolve external subtitles in background for immediate availability
     if (window.TVSubtitles && typeof window.TVSubtitles.resolveExternalSubtitles === 'function') {
       window.TVSubtitles.resolveExternalSubtitles(this.currentVodMeta).then(function(extSubs) {
-        if (extSubs && extSubs.length > 0 && window.onTracksUpdated) {
-          window.onTracksUpdated();
+        if (extSubs && extSubs.length > 0) {
+          if (typeof self._applyPreferences === 'function') {
+            self._applyPreferences();
+          }
+          if (window.onTracksUpdated) {
+            window.onTracksUpdated();
+          }
         }
       }).catch(function(){});
     }
@@ -1971,14 +2009,43 @@
     this._pendingSeekTime = null;
 
     if (!this.videoEl) return;
+
+    // If an active seek is already executing on the hardware decoder, queue this seek
+    if (this.videoEl.seeking) {
+      this._queuedSeekTarget = target;
+      return;
+    }
+
     try {
       this._setBuffering(true);
       this._clearWatchdog();
+      this._startSeekWatchdog();
       this.videoEl.currentTime = target;
-      this._startWatchdog();
     } catch(e) {
       console.warn('[TVPlayer] Seek commit error:', e);
       this._setBuffering(false);
+      this._clearSeekWatchdog();
+    }
+  };
+
+  TVPlayer.prototype._startSeekWatchdog = function() {
+    this._clearSeekWatchdog();
+    var self = this;
+    this._seekWatchdogTimer = setTimeout(function() {
+      if (self.videoEl && self.videoEl.seeking) {
+        console.warn('[TVPlayer] Seek watchdog triggered (3.5s stall), recovering playback...');
+        self._setBuffering(false);
+        if (!self._userPaused && self.videoEl.paused) {
+          self.videoEl.play().catch(function(){});
+        }
+      }
+    }, 3500);
+  };
+
+  TVPlayer.prototype._clearSeekWatchdog = function() {
+    if (this._seekWatchdogTimer) {
+      clearTimeout(this._seekWatchdogTimer);
+      this._seekWatchdogTimer = null;
     }
   };
 
@@ -2414,7 +2481,7 @@
   window.TrackLanguageMatcher = TrackLanguageMatcher;
 
   TVPlayer.prototype._applyPreferences = function() {
-    if (this.videoEl) {
+    if (this.videoEl && !this._isResuming && !this._userMuted) {
       this.videoEl.muted = false;
       if (typeof this.videoEl.volume === 'number' && this.videoEl.volume === 0) {
         this.videoEl.volume = 1.0;
@@ -2753,6 +2820,7 @@
           }
           var isSubAct = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s);
           if (isSubAct) hasActive = true;
+          var sUrl = (typeof smtItem === 'object' && smtItem) ? (smtItem.url || smtItem.link || smtItem.file || smtItem.src || smtItem.path || '') : '';
 
           list.push({
             index: s,
@@ -2761,7 +2829,9 @@
             title: displayTitle,
             language: sLang,
             lang: sLang,
-            isEmbedded: true,
+            url: sUrl,
+            isExternal: !!sUrl,
+            isEmbedded: !sUrl,
             active: isSubAct
           });
         }
@@ -2780,6 +2850,7 @@
         }
         var isSubAct2 = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s2);
         if (isSubAct2) hasActive = true;
+        var sUrl2 = (typeof smtItem2 === 'object' && smtItem2) ? (smtItem2.url || smtItem2.link || smtItem2.file || smtItem2.src || smtItem2.path || '') : '';
 
         list.push({
           index: s2,
@@ -2788,11 +2859,40 @@
           title: displayTitle2,
           language: sLang2,
           lang: sLang2,
-          isEmbedded: true,
+          url: sUrl2,
+          isExternal: !!sUrl2,
+          isEmbedded: !sUrl2,
           active: isSubAct2
         });
       }
     }
+
+    // Also include external subtitles pre-resolved from Cinemeta/OpenSubtitles
+    if (window.TVSubtitles && typeof window.TVSubtitles.getCachedSubtitles === 'function' && this.currentVodMeta) {
+      var cachedExts = window.TVSubtitles.getCachedSubtitles(this.currentVodMeta) || [];
+      for (var e = 0; e < cachedExts.length; e++) {
+        var extItem = cachedExts[e];
+        var isAlreadyInList = list.some(function(item) {
+          return (extItem.url && item.url === extItem.url) || (item.lang === extItem.lang && item.name === extItem.name);
+        });
+        if (!isAlreadyInList) {
+          var isExtAct = (this._selectedSubTrackIndex === extItem.index || this._selectedSubTrackIndex === extItem.id);
+          if (isExtAct) hasActive = true;
+          list.push({
+            index: extItem.index,
+            id: extItem.id,
+            name: extItem.name,
+            title: extItem.title,
+            language: extItem.language || extItem.lang,
+            lang: extItem.lang || extItem.language,
+            url: extItem.url,
+            isExternal: true,
+            active: isExtAct
+          });
+        }
+      }
+    }
+
     console.log('[TrackDebug] getSubtitleTracks: total=' + list.length + ' (source=' + (hasHlsSubs ? 'HLS' : (hasVideoElSubs ? 'videoEl' : (metaSubs.length > 0 ? 'metaSubs' : 'none'))) + ', isOff=' + (!hasActive) + '):', list);
     return { tracks: list, isOff: !hasActive };
   };
@@ -2824,7 +2924,14 @@
     } else {
       this._selectedSubTrackIndex = index;
       var subInfo = this.getSubtitleTracks();
-      var trackObj = (subInfo.tracks && subInfo.tracks[index]) ? subInfo.tracks[index] : null;
+      var trackObj = null;
+      if (subInfo && subInfo.tracks) {
+        if (typeof index === 'number' && subInfo.tracks[index]) {
+          trackObj = subInfo.tracks[index];
+        } else {
+          trackObj = subInfo.tracks.find(function(t) { return t.index === index || t.id === index; });
+        }
+      }
 
       // Auto-fetch if track has an external URL
       if (trackObj && trackObj.url && window.TVSubtitles) {

@@ -5080,14 +5080,18 @@
   }
 
   function restoreMediaFocusAfterVod() {
-    if (!_lastMediaSourceCard) return;
-    var type = _lastMediaSourceCard.type;
-    var streamId = _lastMediaSourceCard.streamId;
-    var seriesId = _lastMediaSourceCard.seriesId;
+    var activePage = document.querySelector('.dashboard-page.active');
+    var pageId = activePage ? activePage.id : 'page-movies';
+    var isMovies = (pageId === 'page-movies');
+    var isSeries = (pageId === 'page-series');
 
-    setTimeout(function() {
+    var type = _lastMediaSourceCard ? _lastMediaSourceCard.type : (isSeries ? 'series' : 'movie');
+    var streamId = _lastMediaSourceCard ? _lastMediaSourceCard.streamId : null;
+    var seriesId = _lastMediaSourceCard ? _lastMediaSourceCard.seriesId : null;
+
+    function applyFocus() {
       var target = null;
-      if (type === 'movie') {
+      if (type === 'movie' || isMovies) {
         if (streamId) {
           target = document.querySelector('#movies-cw-rail [data-stream-id="' + streamId + '"]') ||
                    document.querySelector('#movies-grid-container [data-stream-id="' + streamId + '"]');
@@ -5095,9 +5099,10 @@
         if (!target) {
           target = document.querySelector('#movies-cw-rail .cw-card') ||
                    document.querySelector('#movies-grid-container .poster-card') ||
+                   document.getElementById('movies-search-input') ||
                    document.getElementById('nav-btn-movies');
         }
-      } else if (type === 'series') {
+      } else if (type === 'series' || isSeries) {
         if (seriesId) {
           target = document.querySelector('#series-grid-container [data-series-id="' + seriesId + '"]');
         }
@@ -5107,14 +5112,22 @@
         if (!target) {
           target = document.querySelector('#series-cw-rail .cw-card') ||
                    document.querySelector('#series-grid-container .poster-card') ||
+                   document.getElementById('series-search-input') ||
                    document.getElementById('nav-btn-series');
         }
       }
 
       if (target && window.SpatialNav) {
         window.SpatialNav.setFocus(target);
+        return true;
       }
-    }, 120);
+      return false;
+    }
+
+    if (!applyFocus()) {
+      setTimeout(applyFocus, 40);
+      setTimeout(applyFocus, 120);
+    }
   }
 
   function setupNavigationShortcuts() {
@@ -5168,7 +5181,17 @@
     
     if (vodProgressBar) {
       vodProgressBar.onclick = function(e) {
+        if (!e || e.clientX === undefined || e.clientX === 0 || (!e.pointerType && e.clientX < 10)) {
+          if (_player && typeof _player._commitPendingSeek === 'function') {
+            _player._commitPendingSeek();
+          }
+          if (_player && _player.videoEl && _player.videoEl.paused) {
+            _player.play();
+          }
+          return;
+        }
         var rect = vodProgressBar.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right) return;
         var ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         _player.seekToRatio(ratio);
       };

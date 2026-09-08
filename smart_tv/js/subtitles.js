@@ -138,6 +138,18 @@
     // Cache for resolved external subtitle lists
     _subResolveCache: {},
 
+    getCachedSubtitles: function(meta) {
+      if (!meta) return [];
+      var isSeries = (meta.type === 'series' || !!meta.seriesId || !!meta.season);
+      var title = meta.seriesName || meta.title || '';
+      var cleanTitle = title.replace(/^[0-9]+\.\s*/, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '').trim();
+      var sId = meta.streamId || meta.id || cleanTitle;
+      var season = meta.season || 1;
+      var episode = meta.episode || 1;
+      var cacheKey = (isSeries ? 's_' + sId + '_' + season + '_' + episode : 'm_' + sId);
+      return this._subResolveCache[cacheKey] || [];
+    },
+
     // Resolve external WebVTT / SRT subtitle tracks for Movie or Series
     resolveExternalSubtitles: function(meta) {
       if (!meta) return Promise.resolve([]);

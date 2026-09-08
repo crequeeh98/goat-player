@@ -2621,39 +2621,46 @@ body:not(.tab-live) #player-container.mode-preview {
 
 .vod-progress-bar {
   flex: 1;
-  height: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 5px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
   cursor: pointer;
   position: relative;
   outline: none;
+  border: none;
   transition: height 0.15s ease, background 0.15s ease;
 }
 
-.vod-progress-bar.focused {
-  height: 14px;
-  background: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 0 16px rgba(124, 58, 237, 0.65), inset 0 0 0 1px var(--primary-light);
+#vod-progress-bar.focusable.focused,
+.vod-progress-bar.focusable.focused {
+  height: 8px !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  background-color: rgba(255, 255, 255, 0.28) !important;
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .vod-progress-fill {
   height: 100%;
-  background: var(--primary-light);
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
   width: 0%;
-  border-radius: 5px;
+  border-radius: 4px;
   position: relative;
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
 }
 
 .vod-progress-thumb {
   position: absolute;
-  right: -8px;
+  right: -9px;
   top: 50%;
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: #FFFFFF;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.95), 0 2px 6px rgba(0, 0, 0, 0.6);
   display: none;
 }
 
@@ -2691,7 +2698,7 @@ body:not(.tab-live) #player-container.mode-preview {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 16px;
+  gap: 24px;
   z-index: 1;
 }
 
@@ -4481,8 +4488,9 @@ body:not(.tab-live) #player-container.mode-preview {
 /* TRACK SELECTOR MODAL & VOLUME OVERLAYS                    */
 /* ========================================================= */
 .modal-card-tracks {
-  width: 620px;
-  max-height: 75vh;
+  width: 740px;
+  max-width: 90vw;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
   padding: 36px 44px;
@@ -4496,49 +4504,64 @@ body:not(.tab-live) #player-container.mode-preview {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-right: 4px;
+  gap: 12px;
+  padding-right: 6px;
   margin-top: 16px;
 }
 
 .track-options-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
 }
 
 .track-opt-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  min-height: 68px;
+  flex-shrink: 0;
+  padding: 18px 28px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  border-radius: 16px;
   color: var(--text-color);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
+  line-height: 1.35;
   cursor: pointer;
   transition: all 0.12s ease;
   box-sizing: border-box;
-  gap: 16px;
+  gap: 20px;
+  word-break: break-word;
+  text-align: left;
+}
+
+.track-opt-btn span:first-child {
+  flex: 1;
+  text-align: left;
 }
 
 .track-opt-btn.active {
-  background: rgba(124, 58, 237, 0.35);
-  border-color: var(--primary-light);
-  color: #FFFFFF;
+  background: rgba(124, 58, 237, 0.45) !important;
+  border-color: var(--primary-light) !important;
+  color: #FFFFFF !important;
 }
 
 .track-opt-btn .track-check {
   display: flex;
   align-items: center;
+  justify-content: center;
   color: var(--primary-light);
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
 }
 
 .track-opt-btn .track-check .tv-icon-check {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 .player-volume-indicator {

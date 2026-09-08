@@ -561,6 +561,22 @@
         return;
       }
 
+      // Scrubber progress bar: commit pending seek and continue playing (never click to 0:00)
+      if (_currentFocused && _currentFocused.id === 'vod-progress-bar') {
+        e.preventDefault();
+        e.stopPropagation();
+        var p = window._goatPlayer || window._player;
+        if (p) {
+          if (typeof p._commitPendingSeek === 'function') {
+            p._commitPendingSeek();
+          }
+          if (p.videoEl && p.videoEl.paused) {
+            p.play();
+          }
+        }
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
       _currentFocused.click();
@@ -757,9 +773,10 @@
           if (code === KEY_CODES.ENTER) {
             e.preventDefault();
             e.stopPropagation();
-            if (window._goatPlayer) {
-              if (window._goatPlayer._commitPendingSeek) window._goatPlayer._commitPendingSeek();
-              window._goatPlayer.togglePlayPause();
+            var pl = window._goatPlayer || window._player;
+            if (pl) {
+              if (typeof pl._commitPendingSeek === 'function') pl._commitPendingSeek();
+              if (pl.videoEl && pl.videoEl.paused) pl.play();
             }
             return;
           }
