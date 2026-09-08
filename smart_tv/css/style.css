@@ -2662,18 +2662,45 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .vod-controls-row {
+  position: relative;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  width: 100%;
+  min-height: 72px;
+}
+
+.vod-controls-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.vod-controls-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.vod-controls-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  z-index: 1;
 }
 
 .hud-circle-btn.play-main {
   background: linear-gradient(135deg, var(--primary) 0%, #6D28D9 100%);
   border: 1px solid var(--primary-light);
   border-radius: 50%;
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -2682,29 +2709,38 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .hud-circle-btn.play-main .tv-icon {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   color: #FFFFFF;
 }
 
 .hud-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 12px 22px;
+  border-radius: 14px;
+  padding: 14px 24px;
   color: #FFFFFF;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
+.hud-btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  font-size: 18px;
+  line-height: 1;
+}
+
 .hud-btn .tv-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   color: var(--primary-light);
 }
 
@@ -2712,9 +2748,9 @@ body:not(.tab-live) #player-container.mode-preview {
 .slide-drawer {
   position: fixed;
   top: 0;
-  left: -580px;
+  left: -740px;
   right: auto;
-  width: 540px;
+  width: 680px;
   height: 100vh;
   background: linear-gradient(180deg, rgba(18, 12, 34, 0.98) 0%, rgba(10, 6, 20, 0.99) 100%);
   border-right: 1px solid rgba(124, 58, 237, 0.4);
@@ -4445,11 +4481,12 @@ body:not(.tab-live) #player-container.mode-preview {
 /* TRACK SELECTOR MODAL & VOLUME OVERLAYS                    */
 /* ========================================================= */
 .modal-card-tracks {
-  width: 520px;
+  width: 620px;
   max-height: 75vh;
   display: flex;
   flex-direction: column;
-  padding: 30px 36px;
+  padding: 36px 44px;
+  border-radius: 24px;
   box-sizing: border-box;
 }
 
@@ -4459,31 +4496,32 @@ body:not(.tab-live) #player-container.mode-preview {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding-right: 4px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .track-options-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .track-opt-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 16px 24px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: 14px;
   color: var(--text-color);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.12s ease;
   box-sizing: border-box;
+  gap: 16px;
 }
 
 .track-opt-btn.active {

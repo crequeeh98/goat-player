@@ -107,6 +107,7 @@
 
   var _activeAccount = null;
   var _currentTab = 'live'; // 'live' | 'movies' | 'series'
+  var _lastMediaSourceCard = null; // Track opened movie or series for focus restoration on back
   
   // Live TV State
   var _liveCategories = [];
@@ -3046,6 +3047,7 @@
       items.forEach(function(item) {
         var card = document.createElement('div');
         card.className = 'cw-card focusable';
+        card.setAttribute('data-stream-id', item.streamId);
         var pct = (item.duration > 0) ? Math.min(100, Math.round((item.position / item.duration) * 100)) : 0;
         var poster = item.posterUrl || 'assets/logo.png';
 
@@ -3083,6 +3085,7 @@
         }
 
         card.onclick = function() {
+          _lastMediaSourceCard = { type: 'movie', streamId: item.streamId };
           var fullMovie = (_movieStreams || []).find(function(m) { return String(m.stream_id) === String(item.streamId); });
           var targetMovie = fullMovie || {
             stream_id: item.streamId,
@@ -3131,6 +3134,8 @@
       sItems.forEach(function(item) {
         var card = document.createElement('div');
         card.className = 'cw-card focusable';
+        card.setAttribute('data-stream-id', item.streamId);
+        if (item.seriesId) card.setAttribute('data-series-id', item.seriesId);
         var sNum = item.season || 1;
         var eNum = item.episode || 1;
         var sPill = 'S' + String(sNum).padStart(2, '0') + ' E' + String(eNum).padStart(2, '0');
@@ -3173,6 +3178,7 @@
         }
 
         card.onclick = function() {
+          _lastMediaSourceCard = { type: 'series', streamId: item.streamId, seriesId: item.seriesId };
           var seriesId = item.seriesId;
           var fullSeries = (_seriesList || []).find(function(s) { return String(s.series_id) === String(seriesId); });
           var targetObj = fullSeries || {
@@ -3274,6 +3280,7 @@
       var card = document.createElement('div');
       card.className = 'poster-card focusable';
       card.setAttribute('data-movie-idx', i);
+      if (movie.stream_id) card.setAttribute('data-stream-id', movie.stream_id);
       var posterUrl = movie.stream_icon || '';
       var rating = movie.rating ? parseFloat(movie.rating).toFixed(1) : null;
       var movieName = (movie.name || 'Movie').replace(/^[0-9]+\.\s*/, '');
@@ -3305,6 +3312,7 @@
   }
 
   function openMovieDetail(movie) {
+    _lastMediaSourceCard = { type: 'movie', streamId: movie.stream_id || movie.id };
     var modal = document.getElementById('modal-movie-detail');
     var posterEl = document.getElementById('movie-detail-poster');
     var titleEl = document.getElementById('movie-detail-title');
@@ -3700,6 +3708,7 @@
       var card = document.createElement('div');
       card.className = 'poster-card focusable';
       card.setAttribute('data-series-idx', i);
+      if (series.series_id) card.setAttribute('data-series-id', series.series_id);
       var posterUrl = series.cover || '';
       var rating = series.rating ? parseFloat(series.rating).toFixed(1) : null;
       var seriesName = (series.name || 'Series').replace(/^[0-9]+\.\s*/, '');
@@ -3731,6 +3740,7 @@
   }
 
   function openSeriesDetail(series, targetSeason, targetEpisodeNum) {
+    _lastMediaSourceCard = { type: 'series', seriesId: series.series_id || series.id };
     _currentSeriesData = series;
     var modal = document.getElementById('modal-series-detail');
     var posterEl = document.getElementById('series-detail-poster');
@@ -4673,7 +4683,6 @@
       if (!listEl) return;
       listEl.innerHTML = '';
       var subData = _player ? _player.getSubtitleTracks() : { tracks: [], isOff: true };
-      console.log('[TrackDebug] openSubtitleSelectorModal: received ' + (subData && subData.tracks ? subData.tracks.length : 0) + ' tracks, isOff=' + (subData ? subData.isOff : true) + ':', subData);
       var curVodMeta = _player ? _player.currentVodMeta : null;
       var mediaId = (curVodMeta && (curVodMeta.seriesId || curVodMeta.streamId)) || '';
       var rememberedSub = (mediaId && window.TVStorage) ? window.TVStorage.getMediaSubtitleChoice(mediaId) : null;
@@ -4704,19 +4713,18 @@
       };
       listEl.appendChild(offBtn);
 
-      if (subData.tracks && subData.tracks.length > 0) {
-        subData.tracks.forEach(function(st) {
-          if (st.id === 'no') return;
+      var validTracks = (subData.tracks || []).filter(function(st) {
+        return st.id !== 'no' && st.id !== 'auto';
+      });
+
+      if (validTracks.length > 0) {
+        validTracks.forEach(function(st) {
           var sBtn = document.createElement('button');
           var isAct = !isOffActive && (st.active || (rememberedSub && (st.title === rememberedSub || st.name === rememberedSub || st.language === rememberedSub)));
           sBtn.className = 'track-opt-btn focusable ' + (isAct ? 'active' : '');
           var checkHtml = isAct ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
           var sLabel = st.title || st.name || st.language || st.id || ('Subtitle ' + (st.index + 1));
-          if (st.id === 'auto') sLabel = 'Auto / Automatisch';
-          var sBadge = st.isExternal 
-            ? ' <span class="track-tag" style="color:#00e5ff;font-size:0.8em;font-weight:bold;">[WebVTT]</span>' 
-            : (st.isEmbedded ? ' <span class="track-tag" style="opacity:0.6;font-size:0.8em;">[MKV]</span>' : '');
-          sBtn.innerHTML = '<span>' + sLabel + sBadge + '</span>' + checkHtml;
+          sBtn.innerHTML = '<span>' + sLabel + '</span>' + checkHtml;
           sBtn.onclick = function() {
             if (_player) _player.setSubtitleTrack(st.index);
             var choice = st.title || st.name || st.language || st.id;
@@ -4758,77 +4766,6 @@
         }
         listEl.appendChild(msgEl);
       }
-
-      // Automatically append resolved online WebVTT/SRT subtitles if available
-      if (curVodMeta && window.TVSubtitles && typeof window.TVSubtitles.resolveExternalSubtitles === 'function') {
-        window.TVSubtitles.resolveExternalSubtitles(curVodMeta).then(function(onlineTracks) {
-          if (!onlineTracks || onlineTracks.length === 0 || !listEl) return;
-          var emptyMsg = listEl.querySelector('.track-empty-msg');
-          if (emptyMsg && onlineTracks.length > 0) emptyMsg.style.display = 'none';
-
-          onlineTracks.forEach(function(ot) {
-            var exists = false;
-            listEl.querySelectorAll('.track-opt-btn').forEach(function(b) {
-              if (b.getAttribute('data-online-url') === ot.url) exists = true;
-            });
-            if (exists) return;
-
-            var oBtn = document.createElement('button');
-            oBtn.className = 'track-opt-btn focusable';
-            oBtn.setAttribute('data-online-url', ot.url);
-            var isAct = _player && _player._customSubtitles && _player._customSubtitles.some(function(cs) {
-              return cs.name === ot.title;
-            });
-            if (isAct) oBtn.classList.add('active');
-            var oCheck = isAct ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
-            var oBadge = ' <span class="track-tag" style="color:#00e5ff;font-size:0.8em;font-weight:bold;">[Online: ' + ot.lang.toUpperCase() + ']</span>';
-            oBtn.innerHTML = '<span>' + ot.title + oBadge + '</span>' + oCheck;
-            oBtn.onclick = function() {
-              if (_player && window.TVSubtitles) {
-                var isDe2 = window.TVI18n && window.TVI18n.getLanguage() === 'de';
-                showToast(isDe2 ? 'Lade Untertitel...' : 'Loading subtitles...', '⏳', 2000);
-                window.TVSubtitles.loadSubtitle(ot.url, ot.lang, ot.title, _player)
-                  .then(function() {
-                    renderSubtitleList();
-                    showToast((isDe2 ? 'Untertitel geladen: ' : 'Subtitles loaded: ') + ot.title, '✓', 3000);
-                  })
-                  .catch(function(err) {
-                    showToast((isDe2 ? 'Fehler beim Laden: ' : 'Load error: ') + err.message, '⚠️', 4000);
-                  });
-              }
-            };
-            if (loadBtn && loadBtn.parentNode === listEl) {
-              listEl.insertBefore(oBtn, loadBtn);
-            } else {
-              listEl.appendChild(oBtn);
-            }
-          });
-        }).catch(function(){});
-      }
-
-      // External Subtitle URL Loader button
-      var loadBtn = document.createElement('button');
-      loadBtn.className = 'track-opt-btn focusable';
-      loadBtn.style.borderTop = '1px solid rgba(255,255,255,0.12)';
-      loadBtn.style.marginTop = '8px';
-      var isDe = window.TVI18n && window.TVI18n.getLanguage() === 'de';
-      var loadTxt = isDe ? '🌐 Untertitel-URL (.vtt / .srt) laden...' : '🌐 Load Subtitle URL (.vtt / .srt)...';
-      loadBtn.innerHTML = '<span>' + loadTxt + '</span>';
-      loadBtn.onclick = function() {
-        var inputUrl = (typeof window.prompt === 'function') ? window.prompt(isDe ? 'WebVTT oder SRT Untertitel-URL eingeben:' : 'Enter WebVTT or SRT subtitle URL:') : null;
-        if (inputUrl && window.TVSubtitles) {
-          showToast(isDe ? 'Lade Untertitel...' : 'Loading subtitles...', '⏳', 2000);
-          window.TVSubtitles.loadSubtitle(inputUrl.trim(), 'de', 'External Subtitles', _player)
-            .then(function() {
-              renderSubtitleList();
-              showToast(isDe ? 'Untertitel erfolgreich aktiviert!' : 'Subtitles activated successfully!', '✓', 3000);
-            })
-            .catch(function(err) {
-              showToast((isDe ? 'Fehler beim Laden: ' : 'Load error: ') + err.message, '⚠️', 4000);
-            });
-        }
-      };
-      listEl.appendChild(loadBtn);
     }
 
     renderSubtitleList();
@@ -5142,6 +5079,44 @@
     });
   }
 
+  function restoreMediaFocusAfterVod() {
+    if (!_lastMediaSourceCard) return;
+    var type = _lastMediaSourceCard.type;
+    var streamId = _lastMediaSourceCard.streamId;
+    var seriesId = _lastMediaSourceCard.seriesId;
+
+    setTimeout(function() {
+      var target = null;
+      if (type === 'movie') {
+        if (streamId) {
+          target = document.querySelector('#movies-cw-rail [data-stream-id="' + streamId + '"]') ||
+                   document.querySelector('#movies-grid-container [data-stream-id="' + streamId + '"]');
+        }
+        if (!target) {
+          target = document.querySelector('#movies-cw-rail .cw-card') ||
+                   document.querySelector('#movies-grid-container .poster-card') ||
+                   document.getElementById('nav-btn-movies');
+        }
+      } else if (type === 'series') {
+        if (seriesId) {
+          target = document.querySelector('#series-grid-container [data-series-id="' + seriesId + '"]');
+        }
+        if (!target && streamId) {
+          target = document.querySelector('#series-cw-rail [data-stream-id="' + streamId + '"]');
+        }
+        if (!target) {
+          target = document.querySelector('#series-cw-rail .cw-card') ||
+                   document.querySelector('#series-grid-container .poster-card') ||
+                   document.getElementById('nav-btn-series');
+        }
+      }
+
+      if (target && window.SpatialNav) {
+        window.SpatialNav.setFocus(target);
+      }
+    }, 120);
+  }
+
   function setupNavigationShortcuts() {
     // VOD Player Scrubber & Buttons
     var playBtn = document.getElementById('vod-play-btn');
@@ -5163,6 +5138,7 @@
         _player.setMode('preview');
         renderContinueWatching('movie');
         renderContinueWatching('series');
+        restoreMediaFocusAfterVod();
       };
     }
     if (nextEpBtn) {
@@ -5333,8 +5309,23 @@
             e.preventDefault();
             _player.togglePlayPause();
           } else if (!isHudOpen) {
-            // When HUD is hidden, pressing any arrow or OK wakes the HUD and focuses Play/Pause
-            if (code === 37 || code === 38 || code === 39 || code === 40 || code === 13) {
+            // When HUD is hidden, ArrowLeft / ArrowRight directly seek and focus the scrubber
+            if (code === 37) { // Left -> Seek -10s
+              e.preventDefault();
+              _player.seekBy(-10);
+              var scrL = document.getElementById('vod-progress-bar');
+              if (scrL && window.SpatialNav) {
+                window.SpatialNav.setFocus(scrL);
+              }
+            } else if (code === 39) { // Right -> Seek +10s
+              e.preventDefault();
+              _player.seekBy(10);
+              var scrR = document.getElementById('vod-progress-bar');
+              if (scrR && window.SpatialNav) {
+                window.SpatialNav.setFocus(scrR);
+              }
+            } else if (code === 38 || code === 40 || code === 13) {
+              // Up, Down, OK -> wake HUD and focus Play/Pause
               e.preventDefault();
               _player.showHud();
               var pBtn = document.getElementById('vod-play-btn');
@@ -5431,6 +5422,7 @@
           _player.setMode('preview');
           renderContinueWatching('movie');
           renderContinueWatching('series');
+          restoreMediaFocusAfterVod();
         }
         return true;
       }

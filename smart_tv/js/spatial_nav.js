@@ -728,7 +728,7 @@
 
       // VOD HUD NAVIGATION & TIMELINE SCRUBBING
       if (_currentFocused && _currentFocused.closest('#player-hud-vod')) {
-        // 1. Scrubber bar focused: LEFT/RIGHT seeks 10s, DOWN moves to controls, UP moves to close
+        // 1. Scrubber bar focused: LEFT/RIGHT seeks, DOWN moves to Play button
         if (_currentFocused.id === 'vod-progress-bar') {
           if (code === KEY_CODES.LEFT) {
             e.preventDefault();
@@ -752,30 +752,20 @@
           if (code === KEY_CODES.UP) {
             e.preventDefault();
             e.stopPropagation();
-            var closeBtn = document.getElementById('vod-close-btn');
-            if (closeBtn) setFocus(closeBtn);
             return;
           }
           if (code === KEY_CODES.ENTER) {
             e.preventDefault();
             e.stopPropagation();
-            if (window._goatPlayer) window._goatPlayer.togglePlayPause();
+            if (window._goatPlayer) {
+              if (window._goatPlayer._commitPendingSeek) window._goatPlayer._commitPendingSeek();
+              window._goatPlayer.togglePlayPause();
+            }
             return;
           }
         }
 
-        // 2. Close button: DOWN moves to scrubber
-        if (_currentFocused.id === 'vod-close-btn') {
-          if (code === KEY_CODES.DOWN) {
-            e.preventDefault();
-            e.stopPropagation();
-            var scrubber = document.getElementById('vod-progress-bar');
-            if (scrubber) setFocus(scrubber);
-            return;
-          }
-        }
-
-        // 3. Controls row buttons: UP moves to scrubber, LEFT/RIGHT moves between visible buttons
+        // 2. Controls row buttons: UP moves to scrubber, LEFT/RIGHT moves between all visible buttons in row
         if (_currentFocused.closest('.vod-controls-row')) {
           if (code === KEY_CODES.UP) {
             e.preventDefault();
@@ -784,24 +774,25 @@
             if (scrubber) setFocus(scrubber);
             return;
           }
+          var rowEl = _currentFocused.closest('.vod-controls-row');
+          var allBtns = Array.prototype.slice.call(rowEl.querySelectorAll('.focusable')).filter(function(b) {
+            return b.offsetWidth > 0 && b.offsetHeight > 0 && window.getComputedStyle(b).display !== 'none';
+          });
+          var curIdx = allBtns.indexOf(_currentFocused);
           if (code === KEY_CODES.LEFT) {
             e.preventDefault();
             e.stopPropagation();
-            var prevBtn = _currentFocused.previousElementSibling;
-            while (prevBtn && (prevBtn.style.display === 'none' || !prevBtn.classList.contains('focusable'))) {
-              prevBtn = prevBtn.previousElementSibling;
+            if (curIdx > 0) {
+              setFocus(allBtns[curIdx - 1]);
             }
-            if (prevBtn) setFocus(prevBtn);
             return;
           }
           if (code === KEY_CODES.RIGHT) {
             e.preventDefault();
             e.stopPropagation();
-            var nextBtn = _currentFocused.nextElementSibling;
-            while (nextBtn && (nextBtn.style.display === 'none' || !nextBtn.classList.contains('focusable'))) {
-              nextBtn = nextBtn.nextElementSibling;
+            if (curIdx >= 0 && curIdx < allBtns.length - 1) {
+              setFocus(allBtns[curIdx + 1]);
             }
-            if (nextBtn) setFocus(nextBtn);
             return;
           }
         }

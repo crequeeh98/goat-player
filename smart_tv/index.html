@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="spatial-navigation" content="disabled">
   <title>GOATPlayer TV</title>
-  <link rel="stylesheet" href="css/style.css?v=1.0.7">
+  <link rel="stylesheet" href="css/style.css?v=1.0.8">
 </head>
 <body>
 
@@ -808,7 +808,6 @@
   <div id="player-hud-vod" class="player-hud interactive">
     <div class="vod-hud-top">
       <div style="display: flex; align-items: center; gap: 18px;">
-        <button id="vod-close-btn" class="hud-btn focusable" title="Back">✕</button>
         <div>
           <div style="display: flex; align-items: center; gap: 10px;">
             <span id="vod-hud-badge" class="badge-pill" style="display:none;"></span>
@@ -830,21 +829,26 @@
     </div>
 
     <div class="vod-controls-row">
-      <button id="vod-play-btn" class="hud-circle-btn play-main focusable" title="Play / Pause">
-        <span class="btn-icon"></span>
-      </button>
-      <button id="vod-next-ep-btn" class="hud-btn focusable" style="display:none;" title="Next Episode">
-        <span class="btn-icon"></span> <span data-i18n="next_episode">Next Episode</span>
-      </button>
-      <button id="vod-episodes-btn" class="hud-btn focusable" style="display:none;" title="Episodes">
-        <span class="btn-icon"></span> <span data-i18n="episodes">Episodes</span>
-      </button>
-      <button id="vod-audio-btn" class="hud-btn focusable" title="Audio">
-        <span class="btn-icon"></span> <span data-i18n="audio_track">Audio</span>
-      </button>
-      <button id="vod-sub-btn" class="hud-btn focusable" title="Subtitles">
-        <span class="btn-icon"></span> <span data-i18n="subtitles">Subtitles</span>
-      </button>
+      <div class="vod-controls-left"></div>
+      <div class="vod-controls-center">
+        <button id="vod-play-btn" class="hud-circle-btn play-main focusable" title="Play / Pause">
+          <span class="btn-icon"></span>
+        </button>
+      </div>
+      <div class="vod-controls-right">
+        <button id="vod-next-ep-btn" class="hud-btn focusable" style="display:none;" title="Next Episode">
+          <span class="btn-icon"></span> <span data-i18n="next_episode">Next Episode</span>
+        </button>
+        <button id="vod-episodes-btn" class="hud-btn focusable" style="display:none;" title="Episodes">
+          <span class="btn-icon"></span> <span data-i18n="episodes">Episodes</span>
+        </button>
+        <button id="vod-audio-btn" class="hud-btn focusable" title="Audio">
+          <span class="btn-icon"></span> <span data-i18n="audio_track">Audio</span>
+        </button>
+        <button id="vod-sub-btn" class="hud-btn focusable" title="Subtitles">
+          <span class="btn-icon"></span> <span data-i18n="subtitles">Subtitles</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -930,7 +934,7 @@
   <script src="js/virtual_list.js"></script>
   <script src="js/diagnostics.js"></script>
   <script src="js/subtitles.js"></script>
-  <script src="js/player.js?v=1.0.7"></script>
-  <script src="js/app.js?v=1.0.7"></script>
+  <script src="js/player.js?v=1.0.8"></script>
+  <script src="js/app.js?v=1.0.8"></script>
 </body>
 </html>
