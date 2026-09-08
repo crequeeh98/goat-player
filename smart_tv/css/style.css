@@ -2609,14 +2609,27 @@ body:not(.tab-live) #player-container.mode-preview {
 .vod-timeline-container {
   display: flex;
   align-items: center;
-  gap: 20px;
+}
+
+.vod-timeline-container > * + * {
+  margin-left: 28px !important;
 }
 
 .vod-time {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-dim);
-  min-width: 65px;
+  min-width: 80px;
+  box-sizing: border-box;
+}
+
+#vod-time-current {
+  text-align: left;
+}
+
+#vod-time-total {
+  text-align: right;
+  padding-left: 10px;
 }
 
 .vod-progress-bar {
@@ -2628,6 +2641,7 @@ body:not(.tab-live) #player-container.mode-preview {
   position: relative;
   outline: none;
   border: none;
+  margin: 0 8px;
   transition: height 0.15s ease, background 0.15s ease;
 }
 
@@ -2698,8 +2712,11 @@ body:not(.tab-live) #player-container.mode-preview {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 24px;
   z-index: 1;
+}
+
+.vod-controls-right > * + * {
+  margin-left: 32px !important;
 }
 
 .hud-circle-btn.play-main {

@@ -831,15 +831,18 @@
       if (self._queuedSeekTarget !== null && self._queuedSeekTarget !== undefined) {
         var queued = self._queuedSeekTarget;
         self._queuedSeekTarget = null;
+        self._lastTargetSeekTime = queued;
         try {
           self._setBuffering(true);
-          if (typeof self._startSeekWatchdog === 'function') self._startSeekWatchdog();
+          if (typeof self._startSeekWatchdog === 'function') self._startSeekWatchdog(queued);
           self.videoEl.currentTime = queued;
           return;
         } catch(qe) {
           console.warn('[TVPlayer] Queued seek execution error:', qe);
         }
       }
+
+      self._lastTargetSeekTime = null;
 
       // Guarantee playback resumes after seek if stream was playing
       if (!self._userPaused && self.videoEl && self.videoEl.paused) {
@@ -867,6 +870,23 @@
 
       console.warn('[TVPlayer:DiagnosticError] Category: ' + diagError + ' (code=' + code + ', ' + msg + ')');
 
+      // 1. Transient abort event: browser canceled request for new seek/data. Never treat as fatal error!
+      if (code === 1) {
+        console.log('[TVPlayer] Transient abort event ignored');
+        return;
+      }
+
+      // 2. Network drop during VOD playback or seek: seamlessly reconnect stream at current position
+      var hasPlayed = (self.videoEl.currentTime > 1) || (self._didResumeSeek && self._resumeTime > 0) || (self._lastTargetSeekTime && self._lastTargetSeekTime > 0);
+      if (code === 2 && hasPlayed && (self.playbackType === 'vod' || self.playbackType === 'series')) {
+        console.warn('[TVPlayer] Network dropped during VOD seek/playback, reconnecting stream at:', self.videoEl.currentTime);
+        var recTarget = (self._lastTargetSeekTime && self._lastTargetSeekTime > 0) ? self._lastTargetSeekTime : (self.videoEl.currentTime || 0);
+        if (typeof self._recoverSeekStall === 'function') {
+          self._recoverSeekStall(recTarget);
+        }
+        return;
+      }
+
       if (self.playbackType === 'live' && !self._retriedWithHls && window.Hls && window.Hls.isSupported() && self.currentStream) {
         var activeAccount = window.TVStorage ? window.TVStorage.getActiveAccount() : null;
         if (activeAccount) {
@@ -879,7 +899,7 @@
 
       if (self.playbackType === 'live' && !self._retriedWithTs) {
         self._fallbackToNativeTs();
-      } else if ((self.playbackType === 'vod' || self.playbackType === 'series') && !self._retriedAltExt && self.currentVodMeta) {
+      } else if ((self.playbackType === 'vod' || self.playbackType === 'series') && !hasPlayed && !self._retriedAltExt && self.currentVodMeta) {
         self._fallbackAltExt();
       } else {
         self._setBuffering(false);
@@ -1130,6 +1150,7 @@
     this.currentStream = channel;
     this.currentCategoryName = categoryName || this.currentCategoryName || 'Live TV';
     this._retriedWithTs = false;
+    this._userPaused = false;
     this._startWatchdog();
     this.currentChannelIndex = this.currentChannelList.findIndex(function(c) {
       return String(c.stream_id) === String(channel.stream_id);
@@ -1176,6 +1197,9 @@
     this._retriedAltExt = false;
     this._hasInitialSave = false;
     this._lastProgSave = null;
+    this._userPaused = false;
+    this._lastTargetSeekTime = null;
+    this._queuedSeekTarget = null;
 
     // Explicitly guarantee unmuted audio with full volume for VOD playback only if NOT resuming
     var willResume = meta && typeof meta.startPosition === 'number' && meta.startPosition > 0;
@@ -1193,13 +1217,23 @@
     var activeAccount = window.TVStorage ? window.TVStorage.getActiveAccount() : null;
     if (!activeAccount) return;
 
-    // Immediately reset HUD runtime and current time so previous movie duration never lingers
+    var knownDur = (meta && typeof meta.duration === 'number' && meta.duration > 0)
+      ? meta.duration
+      : (stream && typeof stream.duration_secs === 'number' && stream.duration_secs > 0
+        ? stream.duration_secs
+        : (stream && typeof stream.duration === 'number' && stream.duration > 0 ? stream.duration : 0));
+    var initialPos = willResume ? meta.startPosition : 0;
+
+    // Immediately reset & initialize HUD runtime and current time from metadata so there is zero flicker
     var curEl = document.getElementById('vod-time-current');
     var durEl = document.getElementById('vod-time-total');
     var barEl = document.getElementById('vod-progress-fill');
-    if (curEl) curEl.textContent = '00:00';
-    if (durEl) durEl.textContent = '--:--';
-    if (barEl) barEl.style.width = '0%';
+    if (curEl) curEl.textContent = this._formatTime(initialPos);
+    if (durEl) durEl.textContent = (knownDur > 0) ? this._formatTime(knownDur) : '--:--';
+    if (barEl) {
+      var initialPct = (knownDur > 0) ? Math.min(100, Math.max(0, (initialPos / knownDur) * 100)) : 0;
+      barEl.style.width = initialPct + '%';
+    }
 
     var sId = (meta && meta.streamId) || stream.stream_id || stream.id;
     var ext = (meta && (meta.containerExtension || meta.container_extension)) || stream.container_extension || 'mp4';
@@ -1214,11 +1248,15 @@
       posterUrl: stream.stream_icon || stream.cover || (meta && meta.posterUrl) || '',
       isFinale: !!(meta && meta.isFinale),
       containerExtension: ext,
+      duration: knownDur,
       audioTracks: (meta && meta.audioTracks) || [],
       subtitleTracks: (meta && meta.subtitleTracks) || []
     };
     if (this.currentVodMeta && !this.currentVodMeta.containerExtension) {
       this.currentVodMeta.containerExtension = ext;
+    }
+    if (this.currentVodMeta && (!this.currentVodMeta.duration || this.currentVodMeta.duration <= 0) && knownDur > 0) {
+      this.currentVodMeta.duration = knownDur;
     }
 
     // Only seek when explicitly instructed via startPosition (e.g. user confirmed Resume dialog)
@@ -1230,7 +1268,7 @@
       this._resumeTime = meta.startPosition;
       this._didResumeSeek = true;
       this._isResuming = true;
-      this._renderScrubProgress(this._resumeTime, (meta && meta.duration) ? meta.duration : 0);
+      this._renderScrubProgress(this._resumeTime, knownDur);
     }
 
     if (this.containerEl) this.containerEl.style.display = 'block';
@@ -1873,6 +1911,7 @@
     var self = this;
     if (this.playbackType === 'live') {
       if (this.videoEl.paused) {
+        this._userPaused = false;
         // Re-tune to live edge so user never falls behind
         var activeAccount = window.TVStorage ? window.TVStorage.getActiveAccount() : null;
         if (activeAccount && this.currentStream) {
@@ -1883,6 +1922,7 @@
         }
         this._updatePreviewPlayBtn(true);
       } else {
+        this._userPaused = true;
         this.videoEl.pause();
         this._updatePreviewPlayBtn(false);
       }
@@ -1890,13 +1930,30 @@
     }
 
     var btn = document.getElementById('vod-play-btn');
+
+    // If video is stuck in seeking state, user pressing play/pause is attempting to revive it
+    if (this.videoEl && this.videoEl.seeking && (this._pendingSeekTime === null || this._pendingSeekTime === undefined)) {
+      console.warn('[TVPlayer] Play/Pause clicked while video.seeking is stuck; initiating seek stall recovery');
+      this._userPaused = false;
+      var recTarget = (typeof this._lastTargetSeekTime === 'number' && this._lastTargetSeekTime >= 0) ? this._lastTargetSeekTime : (this.videoEl.currentTime || 0);
+      this._recoverSeekStall(recTarget);
+      if (btn) {
+        var iconSpan = btn.querySelector('.btn-icon') || btn;
+        iconSpan.innerHTML = window.TVIcons ? window.TVIcons.pause : '⏸';
+      }
+      this.showHud();
+      return;
+    }
+
     if (this.videoEl.paused) {
+      this._userPaused = false;
       this.videoEl.play().catch(function(){});
       if (btn) {
         var iconSpan = btn.querySelector('.btn-icon') || btn;
         iconSpan.innerHTML = window.TVIcons ? window.TVIcons.pause : '⏸';
       }
     } else {
+      this._userPaused = true;
       this.videoEl.pause();
       if (btn) {
         var iconSpan = btn.querySelector('.btn-icon') || btn;
@@ -1932,6 +1989,9 @@
   TVPlayer.prototype.seekBy = function(seconds) {
     if (!this.videoEl) return;
     var dur = this.videoEl.duration;
+    if ((!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) && this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
+      dur = this.currentVodMeta.duration;
+    }
     if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) return;
 
     var now = Date.now();
@@ -1975,12 +2035,15 @@
     var self = this;
     this._seekDebounceTimer = setTimeout(function() {
       self._commitPendingSeek();
-    }, 280);
+    }, 400);
   };
 
   TVPlayer.prototype.seekToRatio = function(ratio) {
     if (!this.videoEl) return;
     var dur = this.videoEl.duration;
+    if ((!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) && this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
+      dur = this.currentVodMeta.duration;
+    }
     if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) return;
 
     var target = Math.max(0, Math.min(dur, dur * ratio));
@@ -1995,7 +2058,7 @@
     var self = this;
     this._seekDebounceTimer = setTimeout(function() {
       self._commitPendingSeek();
-    }, 280);
+    }, 400);
   };
 
   TVPlayer.prototype._commitPendingSeek = function() {
@@ -2010,6 +2073,8 @@
 
     if (!this.videoEl) return;
 
+    this._lastTargetSeekTime = target;
+
     // If an active seek is already executing on the hardware decoder, queue this seek
     if (this.videoEl.seeking) {
       this._queuedSeekTarget = target;
@@ -2019,7 +2084,7 @@
     try {
       this._setBuffering(true);
       this._clearWatchdog();
-      this._startSeekWatchdog();
+      this._startSeekWatchdog(target);
       this.videoEl.currentTime = target;
     } catch(e) {
       console.warn('[TVPlayer] Seek commit error:', e);
@@ -2028,18 +2093,63 @@
     }
   };
 
-  TVPlayer.prototype._startSeekWatchdog = function() {
+  TVPlayer.prototype._recoverSeekStall = function(targetTime) {
+    if (!this.videoEl || !this.videoEl.src) return;
+    var self = this;
+    var target = (typeof targetTime === 'number' && !isNaN(targetTime) && targetTime >= 0)
+      ? targetTime
+      : ((typeof this._lastTargetSeekTime === 'number' && this._lastTargetSeekTime >= 0) ? this._lastTargetSeekTime : (this.videoEl.currentTime || 0));
+
+    console.warn('[TVPlayer] _recoverSeekStall executing for target position:', target);
+    this._clearSeekWatchdog();
+    this._setBuffering(true);
+
+    var currentSrc = this.videoEl.src;
+    this._isResuming = true;
+    this._resumeTime = target;
+    this._lastTargetSeekTime = target;
+
+    try {
+      this.videoEl.pause();
+    } catch(e){}
+
+    var onLoadedMeta = function() {
+      self.videoEl.removeEventListener('loadedmetadata', onLoadedMeta);
+      console.log('[TVPlayer] _recoverSeekStall: loadedmetadata received, restoring target currentTime:', target);
+      try {
+        if (target > 0) {
+          self.videoEl.currentTime = target;
+        }
+        if (!self._userPaused) {
+          self.videoEl.play().catch(function(err){
+            console.warn('[TVPlayer] Recovery play rejected:', err);
+          });
+        }
+      } catch(e) {
+        console.warn('[TVPlayer] Recovery seek failed:', e);
+      }
+    };
+
+    this.videoEl.addEventListener('loadedmetadata', onLoadedMeta);
+
+    try {
+      this.videoEl.src = currentSrc;
+      this.videoEl.load();
+    } catch(e) {
+      console.warn('[TVPlayer] Failed to reload src in _recoverSeekStall:', e);
+    }
+  };
+
+  TVPlayer.prototype._startSeekWatchdog = function(targetTime) {
     this._clearSeekWatchdog();
     var self = this;
+    var target = (typeof targetTime === 'number') ? targetTime : this._lastTargetSeekTime;
     this._seekWatchdogTimer = setTimeout(function() {
       if (self.videoEl && self.videoEl.seeking) {
-        console.warn('[TVPlayer] Seek watchdog triggered (3.5s stall), recovering playback...');
-        self._setBuffering(false);
-        if (!self._userPaused && self.videoEl.paused) {
-          self.videoEl.play().catch(function(){});
-        }
+        console.warn('[TVPlayer] Seek watchdog triggered (4s stall), recovering playback via _recoverSeekStall at:', target);
+        self._recoverSeekStall(target);
       }
-    }, 3500);
+    }, 4000);
   };
 
   TVPlayer.prototype._clearSeekWatchdog = function() {
@@ -2055,6 +2165,9 @@
     }
     var cur = this.videoEl.currentTime || 0;
     var dur = this.videoEl.duration;
+    if ((!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) && this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
+      dur = this.currentVodMeta.duration;
+    }
     var curSec = Math.floor(cur);
 
     // If HUD is not visible, skip heavy DOM updates unless 1 full second has passed
@@ -2071,6 +2184,8 @@
     if (durEl) {
       if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
         durEl.textContent = this._formatTime(dur);
+      } else if (this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
+        durEl.textContent = this._formatTime(this.currentVodMeta.duration);
       } else {
         durEl.textContent = '--:--';
       }
@@ -2134,7 +2249,12 @@
       clearTimeout(this._seekDebounceTimer);
       this._seekDebounceTimer = null;
     }
+    if (typeof this._clearSeekWatchdog === 'function') {
+      this._clearSeekWatchdog();
+    }
     this._pendingSeekTime = null;
+    this._queuedSeekTarget = null;
+    this._lastTargetSeekTime = null;
     this._consecutiveSeekCount = 0;
     this._clearWatchdog();
     this._retriedWithTs = false;

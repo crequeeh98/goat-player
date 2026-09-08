@@ -3101,6 +3101,7 @@
                 title: item.title || 'Movie',
                 posterUrl: item.posterUrl || '',
                 containerExtension: item.containerExtension || targetMovie.container_extension || 'mp4',
+                duration: item.duration || targetMovie.duration_secs || targetMovie.duration || 0,
                 startPosition: chosenPos,
                 audioTracks: item.audioTracks || [],
                 subtitleTracks: item.subtitleTracks || []
@@ -3206,6 +3207,7 @@
                 episode: item.episode || 1,
                 posterUrl: item.posterUrl || '',
                 containerExtension: item.containerExtension || 'mp4',
+                duration: item.duration || (epObj && (epObj.duration_secs || epObj.duration)) || 0,
                 startPosition: chosenPos,
                 audioTracks: item.audioTracks || [],
                 subtitleTracks: item.subtitleTracks || []
@@ -3385,12 +3387,14 @@
             }
           }
           var ext = (_currentVodInfo && _currentVodInfo.movie_data && _currentVodInfo.movie_data.container_extension) || movie.container_extension || 'mp4';
+          var mDur = (savedProg && savedProg.duration) || (movie && (movie.duration_secs || movie.duration)) || (_currentVodInfo && _currentVodInfo.info && _currentVodInfo.info.duration_secs) || 0;
           var meta = {
             streamId: sId,
             type: 'movie',
             title: movie.name || 'Movie',
             posterUrl: movie.stream_icon || '',
             containerExtension: ext,
+            duration: mDur,
             startPosition: startPos,
             audioTracks: audioMeta,
             subtitleTracks: subMeta
@@ -4026,6 +4030,7 @@
             episode: parseInt(epNum, 10) || (epIdx + 1),
             posterUrl: (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '',
             isFinale: isLastSeason && (epIdx === episodes.length - 1),
+            duration: (savedProg && savedProg.duration) || (ep && (ep.duration_secs || ep.duration)) || 0,
             startPosition: startPos
           };
 
@@ -4585,6 +4590,13 @@
       listEl.innerHTML = '';
       var audioTracks = _player ? _player.getAudioTracks() : [];
       console.log('[TrackDebug] openAudioSelectorModal: received ' + (audioTracks ? audioTracks.length : 0) + ' tracks:', audioTracks);
+      if (Array.isArray(audioTracks) && audioTracks.length > 1) {
+        audioTracks = audioTracks.slice().sort(function(a, b) {
+          var nameA = (a.title || a.name || a.language || a.id || ('Audio ' + (a.index + 1))).toLowerCase();
+          var nameB = (b.title || b.name || b.language || b.id || ('Audio ' + (b.index + 1))).toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+      }
       var curVodMeta = _player ? _player.currentVodMeta : null;
       var mediaId = (curVodMeta && (curVodMeta.seriesId || curVodMeta.streamId)) || '';
       var rememberedAudio = (mediaId && window.TVStorage) ? window.TVStorage.getMediaAudioChoice(mediaId) : null;
@@ -4717,6 +4729,14 @@
         return st.id !== 'no' && st.id !== 'auto';
       });
 
+      if (Array.isArray(validTracks) && validTracks.length > 1) {
+        validTracks = validTracks.slice().sort(function(a, b) {
+          var labelA = (a.title || a.name || a.language || a.id || ('Subtitle ' + (a.index + 1))).toLowerCase();
+          var labelB = (b.title || b.name || b.language || b.id || ('Subtitle ' + (b.index + 1))).toLowerCase();
+          return labelA.localeCompare(labelB);
+        });
+      }
+
       if (validTracks.length > 0) {
         validTracks.forEach(function(st) {
           var sBtn = document.createElement('button');
@@ -4816,6 +4836,7 @@
           nextEpisodeTitle: afterNext ? (afterNext.title || ('Episode ' + (afterNext.episode_num || (curIdx + 3)))) : '',
           nextStreamId: afterNext ? (afterNext.id || afterNext.stream_id) : null,
           episode: parseInt(nNum, 10) || (curIdx + 2),
+          duration: (nextEp && (nextEp.duration_secs || nextEp.duration)) || 0,
           audioTracks: extractAudioTracksFromInfo(nextEp),
           subtitleTracks: extractSubtitleTracksFromInfo(nextEp),
           isFinale: isLastSeason && (curIdx + 1 === curEps.length - 1),
@@ -4837,6 +4858,7 @@
               title: fe.title || ('Episode ' + feNum),
               season: parseInt(nextSKey, 10) || (meta.season + 1),
               episode: parseInt(feNum, 10) || 1,
+              duration: (fe && (fe.duration_secs || fe.duration)) || 0,
               audioTracks: extractAudioTracksFromInfo(fe),
               subtitleTracks: extractSubtitleTracksFromInfo(fe),
               isFinale: isNextLast && (nextSeasonEps.length === 1),
@@ -5060,6 +5082,7 @@
             episode: parseInt(epNum, 10) || (epIdx + 1),
             posterUrl: (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '',
             isFinale: isLastSeason && (epIdx === eps.length - 1),
+            duration: (epProg && epProg.duration) || (ep && (ep.duration_secs || ep.duration)) || 0,
             startPosition: startPos
           };
 
