@@ -3125,7 +3125,6 @@
     var v = Math.max(0, Math.min(1, level));
     this.videoEl.volume = v;
     if (v > 0) this.videoEl.muted = false;
-    this.showVolumeIndicator();
   };
 
   TVPlayer.prototype.volumeUp = function() {
@@ -3141,29 +3140,11 @@
   TVPlayer.prototype.toggleMute = function() {
     if (!this.videoEl) return;
     this.videoEl.muted = !this.videoEl.muted;
-    this.showVolumeIndicator();
   };
 
   TVPlayer.prototype.showVolumeIndicator = function() {
-    var indicator = document.getElementById('player-volume-indicator');
-    if (!indicator || !this.videoEl) return;
-    var pct = this.videoEl.muted ? 0 : Math.round(this.videoEl.volume * 100);
-    var fill = document.getElementById('volume-indicator-fill');
-    var txt = document.getElementById('volume-indicator-text');
-    var icon = document.getElementById('volume-indicator-icon');
-
-    if (fill) fill.style.width = pct + '%';
-    if (txt) txt.textContent = pct + '%';
-    if (icon) {
-      var isMuted = this.videoEl.muted || pct === 0;
-      icon.innerHTML = (window.TVIcons && (isMuted ? window.TVIcons.volumeMute : window.TVIcons.volumeHigh)) || (isMuted ? '🔇' : '🔊');
-    }
-
-    indicator.style.display = 'flex';
-    if (this._volTimer) clearTimeout(this._volTimer);
-    this._volTimer = setTimeout(function() {
-      indicator.style.display = 'none';
-    }, 2500);
+    // Volume bar removed for all platforms - native TV hardware handles volume HUD
+    return;
   };
 
   window.getLanguageDisplayName = function(c) {

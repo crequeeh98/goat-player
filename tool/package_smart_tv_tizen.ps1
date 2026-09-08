@@ -34,6 +34,15 @@ if ($tizenCmd) {
     if (Test-Path "$tempStaging/appinfo.json") {
         Remove-Item -Force "$tempStaging/appinfo.json"
     }
+    if (Test-Path "$tempStaging/Debug") {
+        Remove-Item -Recurse -Force "$tempStaging/Debug"
+    }
+    if (Test-Path "$tempStaging/.tizen-rds") {
+        Remove-Item -Recurse -Force "$tempStaging/.tizen-rds"
+    }
+    if (Test-Path "$tempStaging/tizen_web_project.yaml") {
+        Remove-Item -Force "$tempStaging/tizen_web_project.yaml"
+    }
 
     # Create .wgt ZIP archive
     Add-Type -AssemblyName System.IO.Compression.FileSystem

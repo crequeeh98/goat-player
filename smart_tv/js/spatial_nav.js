@@ -14,8 +14,77 @@
     ENTER: 13,
     RETURN_ESC: 27,
     WEBOS_BACK: 461,
-    TIZEN_BACK: 10009
+    TIZEN_BACK: 10009,
+    RED: 403,
+    GREEN: 404,
+    YELLOW: 405,
+    BLUE: 406
   };
+
+  // Register Samsung Tizen remote control keys (Color keys, Media keys, etc.)
+  function registerTizenKeys() {
+    try {
+      if (typeof window !== 'undefined' && window.tizen && window.tizen.tvinputdevice && typeof window.tizen.tvinputdevice.registerKey === 'function') {
+        var keysToRegister = [
+          'ColorF0Red',
+          'ColorF1Green',
+          'ColorF2Yellow',
+          'ColorF3Blue',
+          'MediaPlay',
+          'MediaPause',
+          'MediaPlayPause',
+          'MediaStop',
+          'MediaFastForward',
+          'MediaRewind',
+          'Info',
+          'Guide',
+          'ChannelUp',
+          'ChannelDown'
+        ];
+        for (var i = 0; i < keysToRegister.length; i++) {
+          try {
+            window.tizen.tvinputdevice.registerKey(keysToRegister[i]);
+          } catch(e) {}
+        }
+      }
+    } catch(err) {
+      console.warn('[Tizen] Key registration error:', err);
+    }
+  }
+
+  // Register Tizen remote keys immediately and on window load
+  registerTizenKeys();
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', registerTizenKeys);
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('load', registerTizenKeys);
+    window.registerTizenKeys = registerTizenKeys;
+  }
+
+  function isYellowKey(e, code) {
+    if (code === 405 || code === 70 || code === 89) return true;
+    var k = (e.key || '').toLowerCase();
+    return k === 'colorf2yellow' || k === 'yellow' || k === 'f' || k === 'y';
+  }
+
+  function isGreenKey(e, code) {
+    if (code === 404 || code === 71) return true;
+    var k = (e.key || '').toLowerCase();
+    return k === 'colorf1green' || k === 'green' || k === 'g';
+  }
+
+  function isBlueKey(e, code) {
+    if (code === 406 || code === 66) return true;
+    var k = (e.key || '').toLowerCase();
+    return k === 'colorf3blue' || k === 'blue' || k === 'b';
+  }
+
+  function isRedKey(e, code) {
+    if (code === 403 || code === 82) return true;
+    var k = (e.key || '').toLowerCase();
+    return k === 'colorf0red' || k === 'red' || k === 'r';
+  }
 
   function isInput(el) {
     if (!el) return false;
@@ -584,15 +653,21 @@
     }
 
     // Yellow Key (code 405 on Smart TV), 'F' or 'Y' Key: Toggle favorite on focused channel
-    if (!isEpgOverlayOpen && (code === 405 || code === 70 || code === 89 || (e.key && (e.key === 'ColorF2Yellow' || e.key.toLowerCase() === 'yellow' || e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'y')))) {
-      if (_currentFocused) {
-        var menuItem = _currentFocused.closest('.channel-menu-item');
+    if (!isEpgOverlayOpen && isYellowKey(e, code)) {
+      var chMenu = document.getElementById('live-channel-menu');
+      if (chMenu && chMenu.style.display !== 'none') {
+        var menuItem = (_currentFocused && _currentFocused.closest('.channel-menu-item')) ||
+                       chMenu.querySelector('.channel-menu-item.focused') ||
+                       chMenu.querySelector('.channel-menu-item.active-stream') ||
+                       chMenu.querySelector('.channel-menu-item');
         if (menuItem && typeof window.toggleChannelMenuFavorite === 'function') {
           e.preventDefault();
           e.stopPropagation();
           window.toggleChannelMenuFavorite(menuItem);
           return;
         }
+      }
+      if (_currentFocused) {
         var channelWrap = _currentFocused.closest('.channel-row-wrap');
         if (channelWrap) {
           e.preventDefault();
@@ -608,9 +683,13 @@
     }
 
     // Green Key (code 404 on Smart TV) or 'G' Key: Open EPG
-    if (!isEpgOverlayOpen && (code === 404 || code === 71 || (e.key && (e.key === 'ColorF1Green' || e.key.toLowerCase() === 'green' || e.key.toLowerCase() === 'g')))) {
-      if (_currentFocused) {
-        var menuItem = _currentFocused.closest('.channel-menu-item');
+    if (!isEpgOverlayOpen && isGreenKey(e, code)) {
+      var chMenu = document.getElementById('live-channel-menu');
+      if (chMenu && chMenu.style.display !== 'none') {
+        var menuItem = (_currentFocused && _currentFocused.closest('.channel-menu-item')) ||
+                       chMenu.querySelector('.channel-menu-item.focused') ||
+                       chMenu.querySelector('.channel-menu-item.active-stream') ||
+                       chMenu.querySelector('.channel-menu-item');
         if (menuItem && typeof window.openChannelMenuEpg === 'function') {
           e.preventDefault();
           e.stopPropagation();
@@ -618,16 +697,42 @@
           return;
         }
       }
+      if (_currentFocused) {
+        var channelWrap = _currentFocused.closest('.channel-row-wrap');
+        if (channelWrap) {
+          e.preventDefault();
+          e.stopPropagation();
+          var idx = parseInt(channelWrap.getAttribute('data-index'), 10);
+          var stream = (window._goatVirtualList && window._goatVirtualList.items) ? window._goatVirtualList.items[idx] : null;
+          if (stream && typeof window.openLiveEpgOverlay === 'function') {
+            window.openLiveEpgOverlay(stream);
+          }
+          return;
+        }
+      }
     }
 
-    // Blue Key (code 406 on Smart TV) or 'B' Key: Open Category Menu
-    if (!isEpgOverlayOpen && (code === 406 || code === 66 || (e.key && (e.key === 'ColorF3Blue' || e.key.toLowerCase() === 'blue' || e.key.toLowerCase() === 'b')))) {
+    // Blue Key (code 406 on Smart TV) or 'B' Key: Open Category Menu / Toggle
+    if (!isEpgOverlayOpen && isBlueKey(e, code)) {
       var cmEl = document.getElementById('live-channel-menu');
-      if (cmEl && cmEl.style.display !== 'none' && typeof window.openLiveCategoryMenu === 'function') {
+      var catEl = document.getElementById('live-category-menu');
+      if (catEl && catEl.style.display !== 'none') {
+        // Already in category menu -> Blue toggles back to channel menu
         e.preventDefault();
         e.stopPropagation();
-        window.openLiveCategoryMenu();
+        if (typeof window.closeLiveCategoryMenu === 'function') window.closeLiveCategoryMenu();
+        if (typeof window.openLiveChannelMenu === 'function') window.openLiveChannelMenu();
         return;
+      }
+      var isFullscreenLive = (window._goatPlayer && window._goatPlayer.currentMode === 'fullscreen' && window._goatPlayer.playbackType === 'live') ||
+                             (window._player && window._player.currentMode === 'fullscreen' && window._player.playbackType === 'live');
+      if ((cmEl && cmEl.style.display !== 'none') || isFullscreenLive) {
+        if (typeof window.openLiveCategoryMenu === 'function') {
+          e.preventDefault();
+          e.stopPropagation();
+          window.openLiveCategoryMenu();
+          return;
+        }
       }
     }
 
@@ -1692,6 +1797,7 @@
     },
     popBackHandler: function() {
       return _backCallbacks.pop();
-    }
+    },
+    registerTizenKeys: registerTizenKeys
   };
 })();

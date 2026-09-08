@@ -364,6 +364,9 @@
   }
 
   function init() {
+    if (typeof window.registerTizenKeys === 'function') {
+      window.registerTizenKeys();
+    }
     if (window.TVI18n) window.TVI18n.applyTranslations();
     initClock();
     initPlayer();
@@ -5358,6 +5361,12 @@
             // Blue Button -> Open Category Menu
             e.preventDefault();
             openLiveCategoryMenu();
+          } else if (code === 404 || code === 71 || (e.key && (e.key === 'ColorF1Green' || e.key.toLowerCase() === 'green' || e.key.toLowerCase() === 'g'))) {
+            // Green Button -> Open EPG for current stream in fullscreen
+            e.preventDefault();
+            if (_player && _player.currentStream) {
+              openLiveEpgOverlay(_player.currentStream);
+            }
           } else if (code === 405 || code === 70 || code === 89 || (e.key && (e.key === 'ColorF2Yellow' || e.key.toLowerCase() === 'yellow' || e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'y'))) {
             // Yellow Button -> Toggle favorite on currently playing channel
             e.preventDefault();
@@ -5430,20 +5439,7 @@
           // When HUD is open, SpatialNav handles arrow navigation and OK clicks across HUD buttons
         }
 
-        // Volume Controls (Fullscreen)
-        if (code === 175 || code === 447 || code === 187) { // Volume Up / Plus
-          e.preventDefault();
-          _player.volumeUp();
-          return;
-        } else if (code === 174 || code === 448 || code === 189) { // Volume Down / Minus
-          e.preventDefault();
-          _player.volumeDown();
-          return;
-        } else if (code === 173 || code === 449) { // Mute
-          e.preventDefault();
-          _player.toggleMute();
-          return;
-        }
+        // Volume keys are intentionally not intercepted so the physical TV remote & native TV HUD handle volume natively across all platforms
       }
     }, false);
 

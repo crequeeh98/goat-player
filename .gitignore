@@ -49,3 +49,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Smart TV / Tizen build artifacts
+smart_tv/Debug/
+smart_tv/.tizen-rds/
