@@ -924,6 +924,12 @@
   }
 
   TVPlayer.prototype.renderSubtitle = function(text) {
+    if (this.playbackType === 'live') {
+      if (!this._subOverlayEl) this._subOverlayEl = document.getElementById('player-subtitle-overlay');
+      if (this._subOverlayEl) this._subOverlayEl.style.display = 'none';
+      if (this._subTextEl) this._subTextEl.textContent = '';
+      return;
+    }
     var str = (text && String(text).trim()) || '';
     if (this._lastRenderedSubtitleText === str) return;
     this._lastRenderedSubtitleText = str;
@@ -1183,10 +1189,18 @@
     if (!channel) return;
     this.playbackType = 'live';
     this.currentStream = channel;
+    this.currentVodMeta = null;
     this.currentCategoryName = categoryName || this.currentCategoryName || 'Live TV';
     this._retriedWithTs = false;
     this._retriedWithHls = false;
     this._userPaused = false;
+    this._activeSubtitleCues = null;
+    this.renderSubtitle(null);
+    if (this.videoEl && this.videoEl.textTracks) {
+      for (var ti = 0; ti < this.videoEl.textTracks.length; ti++) {
+        try { this.videoEl.textTracks[ti].mode = 'disabled'; } catch(e){}
+      }
+    }
     this._startWatchdog();
     this.currentChannelIndex = this.currentChannelList.findIndex(function(c) {
       return String(c.stream_id) === String(channel.stream_id);
@@ -1604,6 +1618,21 @@
     self.hls.attachMedia(self.videoEl);
 
     var onHlsTracksReady = function(evtName) {
+      if (self.playbackType === 'live') {
+        if (self.hls) {
+          try {
+            self.hls.subtitleDisplay = false;
+            self.hls.subtitleTrack = -1;
+          } catch(e){}
+        }
+        if (self.videoEl && self.videoEl.textTracks) {
+          for (var ti = 0; ti < self.videoEl.textTracks.length; ti++) {
+            try { self.videoEl.textTracks[ti].mode = 'disabled'; } catch(e){}
+          }
+        }
+        self._activeSubtitleCues = null;
+        self.renderSubtitle(null);
+      }
       var aCount = (self.hls && self.hls.audioTracks) ? self.hls.audioTracks.length : 0;
       var sCount = (self.hls && self.hls.subtitleTracks) ? self.hls.subtitleTracks.length : 0;
       console.log('[TrackDebug] Hls event (' + (evtName || 'trackReady') + '): audioTracks=' + aCount + ', subtitleTracks=' + sCount);
@@ -2656,7 +2685,12 @@
       this.setAudioTrack(0);
     }
 
-    // 2. Subtitle track selection via TrackLanguageMatcher
+    // 2. Subtitle track selection via TrackLanguageMatcher (Strictly VOD only)
+    if (this.playbackType === 'live') {
+      this.setSubtitleTrack('off');
+      return;
+    }
+
     var rememberedSub = (mediaId && window.TVStorage) ? window.TVStorage.getMediaSubtitleChoice(mediaId) : null;
     var prefSub = (prefs && prefs.subtitleLanguage) ? prefs.subtitleLanguage : 'off';
     var targetSub = rememberedSub || prefSub;
@@ -2863,6 +2897,9 @@
   };
 
   TVPlayer.prototype.getSubtitleTracks = function() {
+    if (this.playbackType === 'live') {
+      return { current: null, tracks: [], isOff: true };
+    }
     var list = [];
     var hasActive = false;
     var metaSubs = (this.currentVodMeta && this.currentVodMeta.subtitleTracks) ? this.currentVodMeta.subtitleTracks : [];

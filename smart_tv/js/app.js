@@ -1084,9 +1084,30 @@
     if (dd) dd.style.display = 'none';
   }
 
+  function parseAddedTimestamp(val) {
+    if (window.TVApi && typeof window.TVApi.parseAddedTimestamp === 'function') {
+      return window.TVApi.parseAddedTimestamp(val);
+    }
+    if (!val) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    if (typeof val === 'string') {
+      var str = val.trim();
+      if (/^\d+$/.test(str)) {
+        var num = parseInt(str, 10);
+        return str.length >= 12 ? Math.floor(num / 1000) : num;
+      }
+      var isoStr = str.replace(' ', 'T');
+      var parsedMs = Date.parse(isoStr);
+      if (!isNaN(parsedMs)) return Math.floor(parsedMs / 1000);
+      var fallbackMs = Date.parse(str);
+      if (!isNaN(fallbackMs)) return Math.floor(fallbackMs / 1000);
+    }
+    return 0;
+  }
+
   // Helper for in-memory sorting of Movies
   function _sortVodList(list, sortMode) {
-    var items = list.slice();
+    var items = (list || []).slice();
     if (sortMode === 'asc') {
       items.sort(function(a, b) {
         return (a.name || '').toLowerCase().trim().localeCompare((b.name || '').toLowerCase().trim());
@@ -1097,9 +1118,9 @@
       });
     } else {
       items.sort(function(a, b) {
-        var addedA = parseInt(a.added || 0, 10);
-        var addedB = parseInt(b.added || 0, 10);
-        if (addedA !== addedB) return addedB - addedA;
+        var addedA = parseAddedTimestamp(a.added || a.last_modified);
+        var addedB = parseAddedTimestamp(b.added || b.last_modified);
+        if (addedA !== addedB) return addedB - addedA; // Newly added first
         return (a.name || '').toLowerCase().trim().localeCompare((b.name || '').toLowerCase().trim());
       });
     }
@@ -1108,7 +1129,7 @@
 
   // Helper for in-memory sorting of Series
   function _sortSeriesList(list, sortMode) {
-    var items = list.slice();
+    var items = (list || []).slice();
     if (sortMode === 'asc') {
       items.sort(function(a, b) {
         return (a.name || '').toLowerCase().trim().localeCompare((b.name || '').toLowerCase().trim());
@@ -1119,9 +1140,9 @@
       });
     } else {
       items.sort(function(a, b) {
-        var addedA = parseInt(a.last_modified || a.added || 0, 10);
-        var addedB = parseInt(b.last_modified || b.added || 0, 10);
-        if (addedA !== addedB) return addedB - addedA;
+        var addedA = parseAddedTimestamp(a.last_modified || a.added);
+        var addedB = parseAddedTimestamp(b.last_modified || b.added);
+        if (addedA !== addedB) return addedB - addedA; // Newly added first
         return (a.name || '').toLowerCase().trim().localeCompare((b.name || '').toLowerCase().trim());
       });
     }
@@ -1333,6 +1354,9 @@
 
           if (_movieSearchQuery) {
             executeMovieSearch();
+          } else if (_movieStreams && _movieStreams.length > 0) {
+            _movieStreams = _sortVodList(_movieStreams, _movieSortMode);
+            renderMovieGrid();
           } else {
             fetchCategoryMovies();
           }
@@ -1427,6 +1451,9 @@
 
           if (_seriesSearchQuery) {
             executeSeriesSearch();
+          } else if (_seriesList && _seriesList.length > 0) {
+            _seriesList = _sortSeriesList(_seriesList, _seriesSortMode);
+            renderSeriesGrid();
           } else {
             fetchCategorySeries();
           }
@@ -2550,9 +2577,9 @@
       }
       if (_allAccountVodStreams && _allAccountVodStreams.length > 0) {
         if (overlay) overlay.style.display = 'none';
-        _movieStreams = _allAccountVodStreams.filter(function(m) {
+        _movieStreams = _sortVodList(_allAccountVodStreams.filter(function(m) {
           return favIds.indexOf(String(m.stream_id)) >= 0;
-        });
+        }), _movieSortMode);
         renderMovieGrid();
         return;
       }
@@ -2560,9 +2587,9 @@
         .then(function(all) {
           if (overlay) overlay.style.display = 'none';
           _allAccountVodStreams = all;
-          _movieStreams = all.filter(function(m) {
+          _movieStreams = _sortVodList(all.filter(function(m) {
             return favIds.indexOf(String(m.stream_id)) >= 0;
-          });
+          }), _movieSortMode);
           renderMovieGrid();
         })
         .catch(function() {
@@ -3664,9 +3691,9 @@
       }
       if (_allAccountSeriesStreams && _allAccountSeriesStreams.length > 0) {
         if (overlay) overlay.style.display = 'none';
-        _seriesList = _allAccountSeriesStreams.filter(function(s) {
+        _seriesList = _sortSeriesList(_allAccountSeriesStreams.filter(function(s) {
           return favIds.indexOf(String(s.series_id)) >= 0;
-        });
+        }), _seriesSortMode);
         renderSeriesGrid();
         return;
       }
@@ -3674,9 +3701,9 @@
         .then(function(all) {
           if (overlay) overlay.style.display = 'none';
           _allAccountSeriesStreams = all;
-          _seriesList = all.filter(function(s) {
+          _seriesList = _sortSeriesList(all.filter(function(s) {
             return favIds.indexOf(String(s.series_id)) >= 0;
-          });
+          }), _seriesSortMode);
           renderSeriesGrid();
         })
         .catch(function() {

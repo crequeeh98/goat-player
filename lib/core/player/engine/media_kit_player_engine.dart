@@ -121,6 +121,9 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     );
 
     if (!_isDisposed) {
+      if (isLive) {
+        await player.setSubtitleTrack(SubtitleTrack.no());
+      }
       await player.play();
     }
   }

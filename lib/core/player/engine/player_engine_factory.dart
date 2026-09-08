@@ -21,15 +21,7 @@ class PlayerEngineFactory {
       return _engineOverride!;
     }
 
-    if (kIsWeb) {
-      return MediaKitPlayerEngine();
-    }
-
-    if (GoatPlatform.isTizen) {
-      return TizenPlayerEngine();
-    }
-
-    // Default to MediaKitPlayerEngine (Windows, Android, macOS, Linux)
+    // Flutter app uses MediaKitPlayerEngine on all supported platforms (Windows, Android, etc.)
     return MediaKitPlayerEngine();
   }
 }

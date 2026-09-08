@@ -25,6 +25,7 @@ import '../../core/player/widgets/floating_mini_player.dart';
 import '../../core/player/playback_controller.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'master_search_modal.dart';
+import 'account_connection_provider.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
@@ -161,15 +162,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         child: Scaffold(
           appBar: hideChrome ? null : AppBar(
             title: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset('assets/logo.png', width: 32, height: 32),
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset('assets/logo.png', width: 32, height: 32),
+                ),
+                const SizedBox(width: 12),
+                _buildAccountHeaderPill(),
+              ],
             ),
-            const SizedBox(width: 12),
-            const Text('GOATPlayer'),
-          ],
-        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(
@@ -404,6 +405,108 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     ),
   );
 }
+
+  Widget _buildAccountHeaderPill() {
+    final account = ref.watch(activeAccountProvider);
+    if (account == null) {
+      return const Text('GOATPlayer', style: TextStyle(fontWeight: FontWeight.bold));
+    }
+
+    final displayName = (account.playlistName != null && account.playlistName!.trim().isNotEmpty)
+        ? account.playlistName!.trim()
+        : account.username;
+
+    final connInfo = ref.watch(accountConnectionInfoProvider);
+    final isWarning = connInfo.active >= connInfo.max && connInfo.max > 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.6),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              displayName,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '|',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white24,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: isWarning
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isWarning
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+                    : Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.wifi,
+                  size: 13,
+                  color: isWarning ? const Color(0xFFF59E0B) : const Color(0xFFA78BFA),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  connInfo.isLoading && connInfo.active == 0 && connInfo.max == 1
+                      ? '-- / --'
+                      : '${connInfo.active} / ${connInfo.max}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isWarning ? const Color(0xFFF59E0B) : Colors.white70,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildGermanFlag() {
     return Container(

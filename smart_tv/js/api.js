@@ -19,6 +19,24 @@
     });
   }
 
+  function parseAddedTimestamp(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    if (typeof val === 'string') {
+      var str = val.trim();
+      if (/^\d+$/.test(str)) {
+        var num = parseInt(str, 10);
+        return str.length >= 12 ? Math.floor(num / 1000) : num;
+      }
+      var isoStr = str.replace(' ', 'T');
+      var parsedMs = Date.parse(isoStr);
+      if (!isNaN(parsedMs)) return Math.floor(parsedMs / 1000);
+      var fallbackMs = Date.parse(str);
+      if (!isNaN(fallbackMs)) return Math.floor(fallbackMs / 1000);
+    }
+    return 0;
+  }
+
   function sortVod(array, mode) {
     var items = (array || []).slice();
     if (mode === 'asc') {
@@ -32,8 +50,8 @@
     } else {
       // Default: newly added first
       return items.sort(function(a, b) {
-        var addedA = parseInt(a.added, 10) || 0;
-        var addedB = parseInt(b.added, 10) || 0;
+        var addedA = parseAddedTimestamp(a.added || a.last_modified);
+        var addedB = parseAddedTimestamp(b.added || b.last_modified);
         if (addedA !== addedB) return addedB - addedA;
         return (a.name || '').toLowerCase().trim().localeCompare((b.name || '').toLowerCase().trim());
       });
@@ -63,6 +81,7 @@
   window.TVApi = {
     normalizeUrl: normalizeUrl,
     decodeBase64: decodeBase64,
+    parseAddedTimestamp: parseAddedTimestamp,
 
     authenticate: function(serverUrl, username, password) {
       var base = normalizeUrl(serverUrl);

@@ -12,6 +12,6 @@ class GoatPlatform {
   static bool get isMacOS => !kIsWeb && Platform.isMacOS;
   static bool get isDesktop => isWindows || isLinux || isMacOS;
   static bool get isMobile => isAndroid || isIOS;
-  static bool get isTizen => !kIsWeb && (Platform.environment.containsKey('TIZEN_SDK') || Platform.operatingSystem == 'tizen');
-  static bool get isWebOS => kIsWeb;
+  static bool get isTizen => false; // Smart TV is purely in /smart_tv web app
+  static bool get isWebOS => false;
 }
