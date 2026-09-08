@@ -11,8 +11,8 @@ if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
-$oldIpk = Join-Path $OutputDir "com.goatplayer.tv_1.0.0_all.ipk"
-if (Test-Path $oldIpk) { Remove-Item -Force $oldIpk }
+# Clean stale ipk files
+Get-ChildItem -Path $OutputDir -Filter "*.ipk" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 Write-Host "`nPackaging smart_tv directory into webOS IPK..." -ForegroundColor Yellow
 
