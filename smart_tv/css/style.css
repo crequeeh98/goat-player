@@ -1231,6 +1231,20 @@ body.hud-active .player-subtitle-overlay,
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65);
 }
 
+.player-subtitle-text i,
+.player-subtitle-text em {
+  font-style: italic;
+}
+
+.player-subtitle-text b,
+.player-subtitle-text strong {
+  font-weight: 800;
+}
+
+.player-subtitle-text u {
+  text-decoration: underline;
+}
+
 /* In preview mode, scale down subtitles proportionately */
 #player-container.mode-preview .player-subtitle-overlay {
   bottom: 6%;

@@ -170,56 +170,34 @@
       }
 
       var controller = (typeof AbortController === 'function') ? new AbortController() : null;
+      var timeoutId = null;
+      if (controller) {
+        timeoutId = setTimeout(function() {
+          try { controller.abort(); } catch(e){}
+        }, 3500);
+      }
+
       var rangeOpts = {
         method: 'GET',
-        headers: { 'Range': 'bytes=0-262143' }
+        headers: { 'Range': 'bytes=0-131071' }
       };
       if (controller) rangeOpts.signal = controller.signal;
 
       return fetch(url, rangeOpts).then(function(res) {
+        if (timeoutId) clearTimeout(timeoutId);
         if (!res.ok && res.status !== 206 && res.status !== 200) {
           throw new Error('HTTP status ' + res.status);
         }
         return res.arrayBuffer();
-      }).catch(function(err) {
-        console.warn('[TrackDebug] Range fetch notice (falling back to stream reader):', err && err.message ? err.message : err);
-        var fallbackOpts = { method: 'GET' };
-        var fallbackController = (typeof AbortController === 'function') ? new AbortController() : null;
-        if (fallbackController) fallbackOpts.signal = fallbackController.signal;
-        return fetch(url, fallbackOpts).then(function(res) {
-          if (!res.ok) throw new Error('HTTP status ' + res.status);
-          if (res.body && typeof res.body.getReader === 'function') {
-            var reader = res.body.getReader();
-            var chunks = [];
-            var bytesLoaded = 0;
-            var maxBytes = 262144;
-            function pump() {
-              return reader.read().then(function(result) {
-                if (result.done || !result.value) {
-                  if (fallbackController) { try { fallbackController.abort(); } catch(e){} }
-                  return combineChunks(chunks, bytesLoaded);
-                }
-                chunks.push(result.value);
-                bytesLoaded += result.value.byteLength;
-                if (bytesLoaded >= maxBytes) {
-                  try { reader.cancel(); } catch(e){}
-                  if (fallbackController) { try { fallbackController.abort(); } catch(e){} }
-                  return combineChunks(chunks, bytesLoaded);
-                }
-                return pump();
-              });
-            }
-            return pump();
-          } else {
-            return res.arrayBuffer();
-          }
-        });
       }).then(function(buf) {
-        if (controller) { try { controller.abort(); } catch(e){} }
         var demuxed = TVContainerProber.parseBuffer(buf);
         _containerTrackCache[cleanKey] = demuxed;
         console.log('[TrackDebug] TVContainerProber demuxed: audios=' + demuxed.audios.length + ', subs=' + demuxed.subs.length);
         return demuxed;
+      }).catch(function(err) {
+        if (timeoutId) clearTimeout(timeoutId);
+        console.log('[TrackDebug] TVContainerProber skipped:', err && err.message ? err.message : err);
+        return { audios: [], subs: [] };
       });
     },
 
@@ -806,6 +784,7 @@
     this.videoEl.addEventListener('timeupdate', function() {
       if (self.videoEl.currentTime > 0) {
         self._clearWatchdog();
+        self._setBuffering(false);
       }
     });
 
@@ -919,6 +898,31 @@
     if (banner) banner.style.display = 'none';
   };
 
+  function formatSubtitleHtml(raw) {
+    if (!raw) return '';
+    var s = String(raw).trim();
+    // 1. Remove ASS override tags like {\i1}, {\an8}, {\pos(x,y)}, etc.
+    s = s.replace(/\{[^}]*\}/g, '');
+    // 2. Remove metadata/styling tags like <font...>, </font>, <color...>, <v...>, <c...>, <ruby>, <rt>
+    s = s.replace(/<\/?(font|color|v|c|ruby|rt)[^>]*>/gi, '');
+    // 3. Escape HTML special characters for strict security
+    s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    // 4. Safely restore allowed typography formatting tags
+    s = s.replace(/&lt;i&gt;/gi, '<i>')
+         .replace(/&lt;\/i&gt;/gi, '</i>')
+         .replace(/&lt;em&gt;/gi, '<em>')
+         .replace(/&lt;\/em&gt;/gi, '</em>')
+         .replace(/&lt;b&gt;/gi, '<b>')
+         .replace(/&lt;\/b&gt;/gi, '</b>')
+         .replace(/&lt;strong&gt;/gi, '<strong>')
+         .replace(/&lt;\/strong&gt;/gi, '</strong>')
+         .replace(/&lt;u&gt;/gi, '<u>')
+         .replace(/&lt;\/u&gt;/gi, '</u>');
+    // 5. Convert line breaks
+    s = s.replace(/\r?\n/g, '<br>');
+    return s;
+  }
+
   TVPlayer.prototype.renderSubtitle = function(text) {
     var str = (text && String(text).trim()) || '';
     if (this._lastRenderedSubtitleText === str) return;
@@ -932,7 +936,7 @@
       this._subOverlayEl.style.display = 'none';
       this._subTextEl.textContent = '';
     } else {
-      this._subTextEl.textContent = str;
+      this._subTextEl.innerHTML = formatSubtitleHtml(str);
       this._subOverlayEl.style.display = 'flex';
     }
   };
@@ -1293,47 +1297,34 @@
     var hasSubMeta = this.currentVodMeta.subtitleTracks && this.currentVodMeta.subtitleTracks.length > 0;
     console.log('[TrackDebug] playVod: type=' + this.playbackType + ', sId=' + sId + ', hasAudioMeta=' + hasAudioMeta + ' (' + (this.currentVodMeta.audioTracks ? this.currentVodMeta.audioTracks.length : 0) + '), hasSubMeta=' + hasSubMeta + ' (' + (this.currentVodMeta.subtitleTracks ? this.currentVodMeta.subtitleTracks.length : 0) + ')');
 
-    // In parallel, probe container headers (MKV EBML / MP4 boxes) directly from the stream URL
+    // If container tracks were already demuxed and cached, apply immediately without new socket fetches
     if (url && window.TVContainerProber) {
-      window.TVContainerProber.probeStream(url).then(function(demuxed) {
-        if (!self.currentVodMeta || String(self.currentVodMeta.streamId) !== String(sId)) return;
-        var updated = false;
-        if (demuxed.audios && demuxed.audios.length > 0) {
-          if (!self.currentVodMeta.audioTracks || self.currentVodMeta.audioTracks.length === 0 || demuxed.audios.length > self.currentVodMeta.audioTracks.length) {
-            console.log('[TrackDebug] Container probe enriched audios: ' + (self.currentVodMeta.audioTracks ? self.currentVodMeta.audioTracks.length : 0) + ' -> ' + demuxed.audios.length);
-            self.currentVodMeta.audioTracks = demuxed.audios;
-            updated = true;
-          }
+      var cachedTracks = window.TVContainerProber.getCachedTracks(url);
+      if (cachedTracks) {
+        if (cachedTracks.audios && cachedTracks.audios.length > 0 && (!self.currentVodMeta.audioTracks || cachedTracks.audios.length > self.currentVodMeta.audioTracks.length)) {
+          self.currentVodMeta.audioTracks = cachedTracks.audios;
         }
-        if (demuxed.subs && demuxed.subs.length > 0) {
-          if (!self.currentVodMeta.subtitleTracks || self.currentVodMeta.subtitleTracks.length === 0 || demuxed.subs.length > self.currentVodMeta.subtitleTracks.length) {
-            console.log('[TrackDebug] Container probe enriched subs: ' + (self.currentVodMeta.subtitleTracks ? self.currentVodMeta.subtitleTracks.length : 0) + ' -> ' + demuxed.subs.length);
-            self.currentVodMeta.subtitleTracks = demuxed.subs;
-            updated = true;
-          }
+        if (cachedTracks.subs && cachedTracks.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || cachedTracks.subs.length > self.currentVodMeta.subtitleTracks.length)) {
+          self.currentVodMeta.subtitleTracks = cachedTracks.subs;
         }
-        if (updated) {
-          self._tracksLoading = false;
-          self._applyPreferences();
-          if (window.onTracksUpdated) window.onTracksUpdated();
-        }
-      }).catch(function(err) {
-        console.log('[TrackDebug] Container probe notice:', err && err.message ? err.message : err);
-      });
+      }
     }
 
-    // Pre-resolve external subtitles in background for immediate availability
+    // Pre-resolve external subtitles with brief deferral to allow hardware video decoder initial bandwidth priority
     if (window.TVSubtitles && typeof window.TVSubtitles.resolveExternalSubtitles === 'function') {
-      window.TVSubtitles.resolveExternalSubtitles(this.currentVodMeta).then(function(extSubs) {
-        if (extSubs && extSubs.length > 0) {
-          if (typeof self._applyPreferences === 'function') {
-            self._applyPreferences();
+      setTimeout(function() {
+        if (!self.currentVodMeta || String(self.currentVodMeta.streamId) !== String(sId)) return;
+        window.TVSubtitles.resolveExternalSubtitles(self.currentVodMeta).then(function(extSubs) {
+          if (extSubs && extSubs.length > 0) {
+            if (typeof self._applyPreferences === 'function') {
+              self._applyPreferences();
+            }
+            if (window.onTracksUpdated) {
+              window.onTracksUpdated();
+            }
           }
-          if (window.onTracksUpdated) {
-            window.onTracksUpdated();
-          }
-        }
-      }).catch(function(){});
+        }).catch(function(){});
+      }, 1500);
     }
 
     if ((!hasAudioMeta || !hasSubMeta) && activeAccount) {
@@ -1509,20 +1500,6 @@
       while (self.videoEl.firstChild) {
         self.videoEl.removeChild(self.videoEl.firstChild);
       }
-      var srcEl = document.createElement('source');
-      srcEl.src = url;
-      if (explicitMime) {
-        srcEl.type = explicitMime;
-      } else if (url.indexOf('.mkv') !== -1) {
-        srcEl.type = 'video/x-matroska';
-      } else if (url.indexOf('.mp4') !== -1) {
-        srcEl.type = 'video/mp4';
-      } else if (url.indexOf('.m3u8') !== -1) {
-        srcEl.type = 'application/vnd.apple.mpegurl';
-      } else if (url.indexOf('.ts') !== -1) {
-        srcEl.type = 'video/mp2t';
-      }
-      self.videoEl.appendChild(srcEl);
     } catch(e){}
 
     self.videoEl.src = url;
