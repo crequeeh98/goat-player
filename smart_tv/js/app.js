@@ -142,6 +142,9 @@
   var _allAccountLiveStreams = null;
   var _allAccountVodStreams = null;
   var _allAccountSeriesStreams = null;
+  var _fetchingMasterLivePromise = null;
+  var _fetchingMasterMoviesPromise = null;
+  var _fetchingMasterSeriesPromise = null;
 
   // Player & Sync
   var _player = null;
@@ -618,6 +621,9 @@
     _allAccountLiveStreams = null;
     _allAccountVodStreams = null;
     _allAccountSeriesStreams = null;
+    _fetchingMasterLivePromise = null;
+    _fetchingMasterMoviesPromise = null;
+    _fetchingMasterSeriesPromise = null;
     var masterInput = document.getElementById('master-search-input');
     if (masterInput) masterInput.value = '';
     var masterResults = document.getElementById('master-search-results');
@@ -984,38 +990,65 @@
       });
   }
 
+  function ensureMasterTabData(tab) {
+    if (!_activeAccount) return Promise.resolve([]);
+    if (tab === 'live') {
+      if (_allAccountLiveStreams) return Promise.resolve(_allAccountLiveStreams);
+      if (!_fetchingMasterLivePromise) {
+        _fetchingMasterLivePromise = window.TVApi.getLiveStreams(_activeAccount, 'all').then(function(s) {
+          if (Array.isArray(s)) {
+            s.forEach(function(item) { item._searchName = (item.name || '').toLowerCase(); });
+            _allAccountLiveStreams = s;
+          }
+          _fetchingMasterLivePromise = null;
+          return _allAccountLiveStreams || [];
+        }).catch(function() {
+          _fetchingMasterLivePromise = null;
+          return [];
+        });
+      }
+      return _fetchingMasterLivePromise;
+    } else if (tab === 'movies') {
+      if (_allAccountVodStreams) return Promise.resolve(_allAccountVodStreams);
+      if (!_fetchingMasterMoviesPromise) {
+        _fetchingMasterMoviesPromise = window.TVApi.getVodStreams(_activeAccount, 'all').then(function(s) {
+          if (Array.isArray(s)) {
+            s.forEach(function(item) { item._searchName = (item.name || '').toLowerCase(); });
+            _allAccountVodStreams = s;
+          }
+          _fetchingMasterMoviesPromise = null;
+          return _allAccountVodStreams || [];
+        }).catch(function() {
+          _fetchingMasterMoviesPromise = null;
+          return [];
+        });
+      }
+      return _fetchingMasterMoviesPromise;
+    } else if (tab === 'series') {
+      if (_allAccountSeriesStreams) return Promise.resolve(_allAccountSeriesStreams);
+      if (!_fetchingMasterSeriesPromise) {
+        _fetchingMasterSeriesPromise = window.TVApi.getSeries(_activeAccount, 'all').then(function(s) {
+          if (Array.isArray(s)) {
+            s.forEach(function(item) { item._searchName = (item.name || '').toLowerCase(); });
+            _allAccountSeriesStreams = s;
+          }
+          _fetchingMasterSeriesPromise = null;
+          return _allAccountSeriesStreams || [];
+        }).catch(function() {
+          _fetchingMasterSeriesPromise = null;
+          return [];
+        });
+      }
+      return _fetchingMasterSeriesPromise;
+    }
+    return Promise.resolve([]);
+  }
+
   function prefetchMasterSearchData(account) {
     if (!account) return;
-    if (!_allAccountLiveStreams) {
-      window.TVApi.getLiveStreams(account).then(function(streams) {
-        if (Array.isArray(streams)) {
-          streams.forEach(function(s) { s._searchName = (s.name || '').toLowerCase(); });
-          _allAccountLiveStreams = streams;
-          var mi = document.getElementById('master-search-input');
-          if (mi && mi.value.trim().length >= 2) executeMasterSearch(mi.value.toLowerCase().trim());
-        }
-      }).catch(function(){});
-    }
-    if (!_allAccountVodStreams) {
-      window.TVApi.getVodStreams(account, 'all').then(function(streams) {
-        if (Array.isArray(streams)) {
-          streams.forEach(function(m) { m._searchName = (m.name || '').toLowerCase(); });
-          _allAccountVodStreams = streams;
-          var mi = document.getElementById('master-search-input');
-          if (mi && mi.value.trim().length >= 2) executeMasterSearch(mi.value.toLowerCase().trim());
-        }
-      }).catch(function(){});
-    }
-    if (!_allAccountSeriesStreams) {
-      window.TVApi.getSeries(account, 'all').then(function(series) {
-        if (Array.isArray(series)) {
-          series.forEach(function(s) { s._searchName = (s.name || '').toLowerCase(); });
-          _allAccountSeriesStreams = series;
-          var mi = document.getElementById('master-search-input');
-          if (mi && mi.value.trim().length >= 2) executeMasterSearch(mi.value.toLowerCase().trim());
-        }
-      }).catch(function(){});
-    }
+    ensureMasterTabData('live');
+    ensureMasterTabData('movies');
+    ensureMasterTabData('series');
   }
 
   // =========================================================
@@ -4101,16 +4134,9 @@
 
         openModal(modal, mi);
 
-        // Lazily fetch live streams for master search if not yet loaded
-        if (_activeAccount && !_allAccountLiveStreams) {
-          window.TVApi.getLiveStreams(_activeAccount, 'all').then(function(s) {
-            if (Array.isArray(s)) {
-              _allAccountLiveStreams = s;
-              var inputEl = document.getElementById('master-search-input');
-              if (inputEl && inputEl.value.trim().length >= 2) executeMasterSearch(inputEl.value.toLowerCase().trim());
-            }
-          }).catch(function(){});
-        }
+        // Lazily ensure active tab data for master search is loading or cached
+        ensureMasterTabData(_searchTab);
+
         if (mi && mi.value.trim().length >= 2) {
           executeMasterSearch(mi.value.toLowerCase().trim());
         } else {
@@ -4375,29 +4401,6 @@
           btn.classList.add('active');
           _searchTab = st.type;
           var curQ = masterInput ? masterInput.value.toLowerCase().trim() : '';
-
-          if (_activeAccount) {
-            if (_searchTab === 'movies' && !_allAccountVodStreams) {
-              executeMasterSearch(curQ);
-              window.TVApi.getVodStreams(_activeAccount, 'all').then(function(s) {
-                if (Array.isArray(s)) {
-                  _allAccountVodStreams = s;
-                  if (_searchTab === 'movies') executeMasterSearch(masterInput ? masterInput.value.toLowerCase().trim() : '');
-                }
-              }).catch(function(){});
-              return;
-            } else if (_searchTab === 'series' && !_allAccountSeriesStreams) {
-              executeMasterSearch(curQ);
-              window.TVApi.getSeries(_activeAccount, 'all').then(function(s) {
-                if (Array.isArray(s)) {
-                  _allAccountSeriesStreams = s;
-                  if (_searchTab === 'series') executeMasterSearch(masterInput ? masterInput.value.toLowerCase().trim() : '');
-                }
-              }).catch(function(){});
-              return;
-            }
-          }
-
           executeMasterSearch(curQ);
         };
       }
@@ -4414,32 +4417,40 @@
     var countSeriesEl = document.getElementById('search-count-series');
 
     if (!query || query.length < 2) {
-      if (countLiveEl) countLiveEl.textContent = '0';
-      if (countMoviesEl) countMoviesEl.textContent = '0';
-      if (countSeriesEl) countSeriesEl.textContent = '0';
+      if (countLiveEl) countLiveEl.textContent = _allAccountLiveStreams ? '0' : '--';
+      if (countMoviesEl) countMoviesEl.textContent = _allAccountVodStreams ? '0' : '--';
+      if (countSeriesEl) countSeriesEl.textContent = _allAccountSeriesStreams ? '0' : '--';
       var minCharsText = window.TVI18n ? window.TVI18n.t('search_min_chars') : 'Type at least 2 characters to search...';
       resultsArea.innerHTML = '<div class="search-placeholder">' + minCharsText + '</div>';
+      // Pre-fetch active tab in background so it's ready when user starts typing
+      ensureMasterTabData(_searchTab);
       return;
     }
 
-    var searchingText = window.TVI18n ? window.TVI18n.t('searching') : 'Searching...';
     var noMatchesText = window.TVI18n ? window.TVI18n.t('no_results') : 'No results found.';
     var playText = window.TVI18n ? window.TVI18n.t('play_episode') : 'Play';
     var playIcon = window.TVIcons ? window.TVIcons.play : '▶';
     var tvIcon = window.TVIcons ? window.TVIcons.tv : '📺';
 
     if (_searchTab === 'live') {
-      var allLive = _allAccountLiveStreams || _liveStreams || [];
-      var isLiveLoading = !_allAccountLiveStreams && (!_liveStreams || _liveStreams.length === 0);
-      if (isLiveLoading) {
+      if (!_allAccountLiveStreams) {
+        if (countLiveEl) countLiveEl.textContent = '...';
+        var liveSearchText = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Sender werden gesucht...' : 'Searching Live TV...';
         resultsArea.innerHTML = 
           '<div class="search-placeholder">' +
             '<div class="spinner" style="width:36px;height:36px;margin:0 auto 12px auto;border-width:3px;"></div>' +
-            '<span>' + searchingText + '</span>' +
+            '<span>' + liveSearchText + '</span>' +
           '</div>';
+        ensureMasterTabData('live').then(function() {
+          if (_searchTab === 'live') {
+            var mi = document.getElementById('master-search-input');
+            var curQ = mi ? mi.value.toLowerCase().trim() : '';
+            executeMasterSearch(curQ);
+          }
+        });
         return;
       }
-      var liveMatches = allLive.filter(function(s) {
+      var liveMatches = _allAccountLiveStreams.filter(function(s) {
         var n = s._searchName || (s._searchName = (s.name || '').toLowerCase());
         return n.indexOf(query) >= 0;
       });
@@ -4504,17 +4515,24 @@
         resultsArea.appendChild(item);
       });
     } else if (_searchTab === 'movies') {
-      var allVod = _allAccountVodStreams || _movieStreams || [];
-      var isVodLoading = !_allAccountVodStreams && (!_movieStreams || _movieStreams.length === 0);
-      if (isVodLoading) {
+      if (!_allAccountVodStreams) {
+        if (countMoviesEl) countMoviesEl.textContent = '...';
+        var movSearchText = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Filme werden gesucht...' : 'Searching movies...';
         resultsArea.innerHTML = 
           '<div class="search-placeholder">' +
             '<div class="spinner" style="width:36px;height:36px;margin:0 auto 12px auto;border-width:3px;"></div>' +
-            '<span>' + searchingText + '</span>' +
+            '<span>' + movSearchText + '</span>' +
           '</div>';
+        ensureMasterTabData('movies').then(function() {
+          if (_searchTab === 'movies') {
+            var mi = document.getElementById('master-search-input');
+            var curQ = mi ? mi.value.toLowerCase().trim() : '';
+            executeMasterSearch(curQ);
+          }
+        });
         return;
       }
-      var movieMatches = allVod.filter(function(m) {
+      var movieMatches = _allAccountVodStreams.filter(function(m) {
         var n = m._searchName || (m._searchName = (m.name || '').toLowerCase());
         return n.indexOf(query) >= 0;
       });
@@ -4551,17 +4569,24 @@
         resultsArea.appendChild(row);
       });
     } else if (_searchTab === 'series') {
-      var allSeries = _allAccountSeriesStreams || _seriesList || [];
-      var isSeriesLoading = !_allAccountSeriesStreams && (!_seriesList || _seriesList.length === 0);
-      if (isSeriesLoading) {
+      if (!_allAccountSeriesStreams) {
+        if (countSeriesEl) countSeriesEl.textContent = '...';
+        var serSearchText = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Serien werden gesucht...' : 'Searching series...';
         resultsArea.innerHTML = 
           '<div class="search-placeholder">' +
             '<div class="spinner" style="width:36px;height:36px;margin:0 auto 12px auto;border-width:3px;"></div>' +
-            '<span>' + searchingText + '</span>' +
+            '<span>' + serSearchText + '</span>' +
           '</div>';
+        ensureMasterTabData('series').then(function() {
+          if (_searchTab === 'series') {
+            var mi = document.getElementById('master-search-input');
+            var curQ = mi ? mi.value.toLowerCase().trim() : '';
+            executeMasterSearch(curQ);
+          }
+        });
         return;
       }
-      var seriesMatches = allSeries.filter(function(s) {
+      var seriesMatches = _allAccountSeriesStreams.filter(function(s) {
         var n = s._searchName || (s._searchName = (s.name || '').toLowerCase());
         return n.indexOf(query) >= 0;
       });

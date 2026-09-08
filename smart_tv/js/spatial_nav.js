@@ -1201,7 +1201,7 @@
         }
       }
 
-      // 0b. From Sidebar Navigation Rail -> pressing RIGHT moves to active Category, UP/DOWN wraps circularly
+      // 0b. From Sidebar Navigation Rail -> pressing RIGHT moves to active Category, UP/DOWN navigates rail with circular wrap
       if (_currentFocused.classList.contains('nav-rail-btn')) {
         if (code === KEY_CODES.RIGHT) {
           var activePage = document.querySelector('.dashboard-page.active');
@@ -1212,29 +1212,35 @@
             return;
           }
         } else if (code === KEY_CODES.UP) {
+          e.preventDefault();
           var railBtns = [
             document.getElementById('nav-btn-live'),
             document.getElementById('nav-btn-movies'),
             document.getElementById('nav-btn-series')
           ].filter(Boolean);
           var idx = railBtns.indexOf(_currentFocused);
-          if (idx === 0) {
-            e.preventDefault();
+          if (idx <= 0) {
             setFocus(railBtns[railBtns.length - 1]);
-            return;
+          } else {
+            setFocus(railBtns[idx - 1]);
           }
+          return;
         } else if (code === KEY_CODES.DOWN) {
+          e.preventDefault();
           var railBtns = [
             document.getElementById('nav-btn-live'),
             document.getElementById('nav-btn-movies'),
             document.getElementById('nav-btn-series')
           ].filter(Boolean);
           var idx = railBtns.indexOf(_currentFocused);
-          if (idx === railBtns.length - 1) {
-            e.preventDefault();
+          if (idx >= railBtns.length - 1) {
             setFocus(railBtns[0]);
-            return;
+          } else if (idx >= 0) {
+            setFocus(railBtns[idx + 1]);
+          } else {
+            setFocus(railBtns[0]);
           }
+          return;
         }
       }
 

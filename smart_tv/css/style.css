@@ -588,6 +588,10 @@ input.focusable.focused,
   color: var(--primary-light);
 }
 
+.header-account-pill > * + * {
+  margin-left: 14px !important;
+}
+
 .account-dot {
   width: 10px;
   height: 10px;
@@ -608,7 +612,7 @@ input.focusable.focused,
 .header-connections-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 15px;
   font-weight: 600;
   color: var(--text-dim);
@@ -619,10 +623,15 @@ input.focusable.focused,
   transition: all 0.3s ease;
 }
 
+.header-connections-badge > * + * {
+  margin-left: 10px !important;
+}
+
 .header-connections-badge .conn-icon {
   display: flex;
   align-items: center;
   color: var(--primary-light);
+  margin-right: 2px;
 }
 
 .header-connections-badge svg {
@@ -725,6 +734,10 @@ input.focusable.focused,
   gap: 26px;
   width: 100%;
   align-items: center;
+}
+
+.nav-destinations > * + * {
+  margin-top: 26px !important;
 }
 
 .nav-rail-btn {
