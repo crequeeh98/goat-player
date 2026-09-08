@@ -1053,16 +1053,49 @@
   TVPlayer.prototype._startWatchdog = function() {
     this._clearWatchdog();
     var self = this;
-    // Watchdog: If live stream doesn't start within 16s (allowing for server-side transcode/tune-in), attempt recovery
+    // Watchdog: Live streams should start playing within 4.5 seconds.
+    // VOD streams can take up to 8 seconds for server seeking / large headers.
+    var timeoutMs = (self.playbackType === 'live') ? 4500 : 8000;
+
     this._bufferWatchdog = setTimeout(function() {
-      if (self.playbackType === 'live' && !self._retriedWithTs && self.currentStream) {
-        console.warn('[TVPlayer] Live stream buffering timeout (16s), attempting stream recovery');
-        self._fallbackToNativeTs();
-      } else if ((self.playbackType === 'vod' || self.playbackType === 'series') && self.currentStream) {
-        console.warn('[TVPlayer] VOD buffering timeout (16s)');
+      if (self.playbackType === 'live' && self.currentStream) {
+        var activeAccount = window.TVStorage ? window.TVStorage.getActiveAccount() : null;
+        if (!activeAccount) {
+          self._setBuffering(false);
+          return;
+        }
+
+        // Recovery Step 1: If we started with native HLS and it stalled without error, try Hls.js
+        if (!self._retriedWithHls && window.Hls && window.Hls.isSupported()) {
+          console.warn('[TVPlayer] Live stream buffering timeout (4.5s) on native engine. Retrying with Hls.js fallback...');
+          var hlsUrl = window.TVApi.getLiveStreamUrl(activeAccount, self.currentStream.stream_id || self.currentStream.id, true);
+          self._playHls(hlsUrl);
+          return;
+        }
+
+        // Recovery Step 2: If HLS stalled or has already been tried, try raw MPEG-TS (.ts)
+        if (!self._retriedWithTs) {
+          console.warn('[TVPlayer] Live stream buffering timeout on HLS engine. Retrying with direct MPEG-TS (.ts) fallback...');
+          self._fallbackToNativeTs();
+          return;
+        }
+
+        // Recovery Step 3: All fallbacks exhausted -> stop spinner and notify user
+        console.warn('[TVPlayer] All live stream recovery strategies timed out (channel offline or server timeout)');
         self._setBuffering(false);
+        if (typeof showToast === 'function') {
+          var isDe = window.TVI18n && window.TVI18n.getLanguage() === 'de';
+          showToast(isDe ? 'Sender antwortet nicht (Server-Timeout)' : 'Channel not responding (Server timeout)', '⚠️', 4000);
+        }
+      } else if ((self.playbackType === 'vod' || self.playbackType === 'series') && self.currentStream) {
+        console.warn('[TVPlayer] VOD buffering timeout');
+        if (!self._retriedAltExt && self.currentVodMeta) {
+          self._fallbackAltExt();
+        } else {
+          self._setBuffering(false);
+        }
       }
-    }, 16000);
+    }, timeoutMs);
   };
 
   TVPlayer.prototype._clearWatchdog = function() {
@@ -1077,36 +1110,34 @@
     this._retriedWithTs = true;
     this._clearWatchdog();
 
-    var canPlayNativeTs = !!(this.videoEl && (this.videoEl.canPlayType('video/mp2t') || this.videoEl.canPlayType('video/ts')));
-    if (!canPlayNativeTs) {
-      console.warn('[TVPlayer] Host environment does not support native MPEG-TS container playback directly. Performing in-engine HLS recovery instead.');
-      if (this.hls) {
-        try {
-          this.hls.recoverMediaError();
-          this.hls.startLoad();
-        } catch(e) {
-          console.warn('[TVPlayer] Hls recovery error:', e);
-        }
-      }
-      return;
-    }
-
-    console.log('[TVPlayer] Codec/Audio fallback: switching to native MPEG-TS stream');
+    console.log('[TVPlayer] Codec/Audio fallback: switching to direct MPEG-TS (.ts) stream for:', this.currentStream.name);
     if (this.hls) {
       try { this.hls.destroy(); } catch(e){}
       this.hls = null;
     }
-    var activeAccount = window.TVStorage.getActiveAccount();
+    var activeAccount = window.TVStorage ? window.TVStorage.getActiveAccount() : null;
     if (activeAccount) {
-      var tsUrl = window.TVApi.getLiveStreamUrl(activeAccount, this.currentStream.stream_id, false);
+      var tsUrl = window.TVApi.getLiveStreamUrl(activeAccount, this.currentStream.stream_id || this.currentStream.id, false);
       try {
         this.videoEl.pause();
+        while (this.videoEl.firstChild) {
+          this.videoEl.removeChild(this.videoEl.firstChild);
+        }
         this.videoEl.removeAttribute('src');
         this.videoEl.src = tsUrl;
         this.videoEl.load();
-        this.videoEl.play().catch(function(err) {
-          console.warn('[TVPlayer] Native TS fallback play error:', err);
-        });
+        this._startWatchdog();
+        var playPromise = this.videoEl.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          var self = this;
+          playPromise.catch(function(err) {
+            console.warn('[TVPlayer] Direct TS fallback play error:', err);
+            if (err && err.name === 'NotAllowedError') {
+              self.videoEl.muted = true;
+              self.videoEl.play().catch(function(){});
+            }
+          });
+        }
       } catch(e) {
         console.warn('[TVPlayer] Error loading TS fallback:', e);
       }
@@ -1154,6 +1185,7 @@
     this.currentStream = channel;
     this.currentCategoryName = categoryName || this.currentCategoryName || 'Live TV';
     this._retriedWithTs = false;
+    this._retriedWithHls = false;
     this._userPaused = false;
     this._startWatchdog();
     this.currentChannelIndex = this.currentChannelList.findIndex(function(c) {
@@ -1471,18 +1503,25 @@
 
     var isHls = url.indexOf('.m3u8') !== -1 || url.indexOf('/live/') !== -1 || (self.playbackType === 'live' && url.indexOf('.ts') === -1);
     var canNativeHls = !!(self.videoEl && (self.videoEl.canPlayType('application/vnd.apple.mpegurl') || self.videoEl.canPlayType('application/x-mpegURL')));
+    var plat = (window.MediaDiagnostics && window.MediaDiagnostics.detectPlatform) ? window.MediaDiagnostics.detectPlatform() : {};
+    var isTizen = plat.isTizen || /Tizen/i.test(navigator.userAgent || '') || (typeof window !== 'undefined' && !!window.tizen);
 
-    // Smart TV Native Media Pipeline First Strategy:
-    // On real Smart TVs with native HLS hardware support (webOS TV / Tizen TV), hand playback directly
-    // to the native HTML5 <video> hardware pipeline (0 MB JS RAM overhead, 0% CPU).
-    // If native HLS is NOT supported (webOS Simulator / desktop Chromium), route directly to Hls.js
-    // without attempting a doomed native playback call that burns an HTTP connection and causes IPTV HTTP 509 errors.
+    // Smart TV Live HLS Pipeline Strategy:
+    // 1. Samsung Tizen: HTML5 <video> native HLS has severe compatibility problems with AC3/EAC3 audio,
+    //    timestamp discontinuities, and IPTV streams, resulting in infinite spinning.
+    //    Hls.js using Media Source Extensions (MSE) handles these streams smoothly and feeds clean fMP4
+    //    directly into Tizen's hardware video decoder.
+    // 2. LG webOS: Real webOS TV uses the native GStreamer pipeline which handles HLS natively.
+    // 3. Fallbacks: If native stalls or HLS fails, automatic fallback switches to raw MPEG-TS (.ts) or Hls.js within 4.5s.
     if (isHls) {
-      if (canNativeHls) {
-        console.log('[TVPlayer] Playing HLS stream via native Smart TV hardware pipeline');
+      if (isTizen && window.Hls && window.Hls.isSupported()) {
+        console.log('[TVPlayer] Samsung Tizen detected: routing Live HLS stream to Hls.js MSE pipeline');
+        self._playHls(url);
+      } else if (canNativeHls && !isTizen) {
+        console.log('[TVPlayer] Playing HLS stream via native Smart TV hardware pipeline (webOS)');
         self._playNative(url, 'application/vnd.apple.mpegurl');
       } else if (window.Hls && window.Hls.isSupported()) {
-        console.log('[TVPlayer] Native HLS not supported on this host (simulator/Chromium), using Hls.js directly');
+        console.log('[TVPlayer] Playing HLS stream via Hls.js MSE pipeline');
         self._playHls(url);
       } else {
         self._playNative(url, 'application/vnd.apple.mpegurl');
@@ -1530,11 +1569,13 @@
   TVPlayer.prototype._playHls = function(url) {
     var self = this;
     this._retriedWithHls = true;
+    this._networkRetryCount = 0;
+    this._mediaRecoverCount = 0;
     if (this.hls) {
       try { this.hls.destroy(); } catch(e){}
       this.hls = null;
     }
-    console.log('[TVPlayer] Starting Hls.js fallback player engine for:', url);
+    console.log('[TVPlayer] Starting Hls.js player engine for:', url);
 
     self.hls = new window.Hls({
       maxBufferLength: 15,
@@ -1550,12 +1591,13 @@
       nudgeOffset: 0.1,
       nudgeMaxRetry: 5,
       maxFragLookUpTolerance: 0.25,
-      manifestLoadingTimeOut: 15000,
-      manifestLoadingMaxRetry: 4,
-      fragLoadingTimeOut: 20000,
-      fragLoadingMaxRetry: 4,
-      levelLoadingTimeOut: 15000,
-      levelLoadingMaxRetry: 4,
+      manifestLoadingTimeOut: 5000,
+      manifestLoadingMaxRetry: 2,
+      fragLoadingTimeOut: 7000,
+      fragLoadingMaxRetry: 2,
+      levelLoadingTimeOut: 5000,
+      levelLoadingMaxRetry: 2,
+      startFragPrefetch: true,
       fpsDroppedMonitoringPeriod: 0
     });
     self.hls.loadSource(url);
@@ -1600,8 +1642,8 @@
       if (!data.fatal) {
         if (data.details === 'bufferStalledError') {
           try {
-            if (self.videoEl && self.videoEl.currentTime > 0) {
-              self.videoEl.currentTime += 0.1;
+            if (self.videoEl) {
+              self.videoEl.currentTime = (self.videoEl.currentTime || 0) + 0.1;
             }
           } catch(e){}
         }
@@ -1611,7 +1653,7 @@
       switch(data.type) {
         case window.Hls.ErrorTypes.NETWORK_ERROR:
           console.warn('[TVPlayer:DiagnosticError] Category: NETWORK_ERROR (details=' + data.details + ')');
-          if (self._networkRetryCount < 3) {
+          if (self._networkRetryCount < 1) {
             self._networkRetryCount++;
             self.hls.startLoad();
           } else if (!self._retriedWithTs && self.playbackType === 'live') {
