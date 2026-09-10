@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example.goatplayer" "\0"
-            VALUE "FileDescription", "goat_player" "\0"
+            VALUE "FileDescription", "GOATPlayer" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "goat_player" "\0"
+            VALUE "InternalName", "GOATPlayer" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example.goatplayer. All rights reserved." "\0"
-            VALUE "OriginalFilename", "goat_player.exe" "\0"
-            VALUE "ProductName", "goat_player" "\0"
+            VALUE "OriginalFilename", "GOATPlayer.exe" "\0"
+            VALUE "ProductName", "GOATPlayer" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
