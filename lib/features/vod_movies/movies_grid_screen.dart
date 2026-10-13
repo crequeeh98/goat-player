@@ -7,6 +7,7 @@ import 'movie_detail_modal.dart';
 import 'vod_controller.dart';
 import '../dashboard/widgets/continue_watching_rail.dart';
 import '../dashboard/progress_provider.dart';
+import '../dashboard/dashboard_state.dart';
 import '../../core/widgets/tv_focusable.dart';
 
 class MoviesGridScreen extends ConsumerStatefulWidget {
@@ -37,67 +38,30 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     super.initState();
     Future.microtask(() {
       ref.read(vodControllerProvider).syncVodCategories();
+      ref.read(vodControllerProvider).syncAllVodStreams();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(dashboardTabResetProvider, (_, __) {
+      _searchController.clear();
+      if (mounted) {
+        setState(() {
+          _searchQuery = '';
+          _selectedCategory = null;
+        });
+        if (_movieScrollController.hasClients) {
+          _movieScrollController.jumpTo(0);
+        }
+      }
+    });
+
     final l10n = AppLocalizations.of(context)!;
     
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Text(l10n.movies),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Focus(
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent &&
-                      (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                       event.logicalKey == LogicalKeyboardKey.enter)) {
-                    FocusScope.of(context).nextFocus();
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                  decoration: InputDecoration(
-                    hintText: AppLocalizations.of(context)!.searchMovies,
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  onChanged: (val) => setState(() => _searchQuery = val),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            tooltip: AppLocalizations.of(context)!.sortMovies,
-            onSelected: (val) => setState(() => _sortMode = val),
-            itemBuilder: (context) => [
-              PopupMenuItem(value: 'default', child: Text(AppLocalizations.of(context)!.defaultAdded)),
-              PopupMenuItem(value: 'asc', child: Text(AppLocalizations.of(context)!.aToZ)),
-              PopupMenuItem(value: 'desc', child: Text(AppLocalizations.of(context)!.zToA)),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 800;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 800;
           
           final hasSearch = _searchQuery.trim().isNotEmpty;
           final provider = hasSearch 
@@ -155,6 +119,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         
                     return CustomScrollView(
                       controller: _movieScrollController,
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       slivers: [
                         if (_searchQuery.isEmpty)
                           const SliverToBoxAdapter(
@@ -197,9 +162,9 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       PageRouteBuilder(
                                         opaque: false,
                                         barrierDismissible: true,
-                                        barrierColor: Colors.black87,
-                                        transitionDuration: const Duration(milliseconds: 400),
-                                        reverseTransitionDuration: const Duration(milliseconds: 400),
+                                        barrierColor: Colors.black54,
+                                        transitionDuration: const Duration(milliseconds: 300),
+                                        reverseTransitionDuration: const Duration(milliseconds: 300),
                                         pageBuilder: (context, animation, secondaryAnimation) => MovieDetailModal(
                                           movieName: stream.name,
                                           streamId: stream.streamId,
@@ -287,120 +252,263 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                 );
 
           if (isDesktop) {
-            return Row(
-              children: [
-                Expanded(
-                  flex: 20,
-                  child: Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-                    child: ref.watch(vodCategoriesProvider).when(
-                      data: (categories) {
-                        return ListView.builder(
-                          itemExtent: 46.0,
-                          itemCount: categories.length,
-                          itemBuilder: (context, index) {
-                            final cat = categories[index];
-                            final isSelected = _selectedCategory == cat.categoryId;
-                            final isFavorites = cat.categoryId == 'favorites';
+            return Scaffold(
+              appBar: AppBar(
+                title: Row(
+                  children: [
+                    Text(l10n.movies),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: Focus(
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                               event.logicalKey == LogicalKeyboardKey.enter)) {
+                            FocusScope.of(context).nextFocus();
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: TextField(
+                          controller: _searchController,
+                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                          decoration: InputDecoration(
+                            hintText: l10n.searchMovies,
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.sort),
+                    tooltip: l10n.sortMovies,
+                    onSelected: (val) => setState(() => _sortMode = val),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(value: 'default', child: Text(l10n.defaultAdded)),
+                      PopupMenuItem(value: 'asc', child: Text(l10n.aToZ)),
+                      PopupMenuItem(value: 'desc', child: Text(l10n.zToA)),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              body: Row(
+                children: [
+                  Expanded(
+                    flex: 20,
+                    child: Container(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                      child: ref.watch(vodCategoriesProvider).when(
+                        data: (categories) {
+                          return ListView.builder(
+                            itemExtent: 46.0,
+                            itemCount: categories.length,
+                            itemBuilder: (context, index) {
+                              final cat = categories[index];
+                              final isSelected = _selectedCategory == cat.categoryId;
+                              final isFavorites = cat.categoryId == 'favorites';
 
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              child: TvFocusable(
-                                focusScale: 1.02,
-                                borderRadius: BorderRadius.circular(8),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedCategory = cat.categoryId;
-                                    _searchController.clear();
-                                    _searchQuery = '';
-                                  });
-                                  if (!isFavorites) {
-                                    ref.read(vodControllerProvider).syncVodStreams(cat.categoryId);
-                                  }
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.28)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border(
-                                      left: BorderSide(
-                                        color: isSelected
-                                            ? const Color(0xFFB388FF)
-                                            : Colors.transparent,
-                                        width: 3.5,
-                                      ),
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isFavorites
-                                            ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
-                                            : (isSelected ? Icons.movie : Icons.folder_outlined),
-                                        size: 18,
-                                        color: isFavorites
-                                            ? Colors.amber
-                                            : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          cat.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: isSelected ? Colors.white : Colors.white70,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                            fontSize: 13.5,
-                                          ),
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                child: TvFocusable(
+                                  focusScale: 1.02,
+                                  borderRadius: BorderRadius.circular(8),
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedCategory = cat.categoryId;
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                    if (!isFavorites) {
+                                      ref.read(vodControllerProvider).syncVodStreams(cat.categoryId);
+                                    }
+                                  },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.28)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: isSelected
+                                              ? const Color(0xFFB388FF)
+                                              : Colors.transparent,
+                                          width: 3.5,
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isFavorites
+                                              ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
+                                              : (isSelected ? Icons.movie : Icons.folder_outlined),
+                                          size: 18,
+                                          color: isFavorites
+                                              ? Colors.amber
+                                              : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            isFavorites ? l10n.favorites : cat.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isSelected ? Colors.white : Colors.white70,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                              fontSize: 13.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (err, stack) => Center(child: Text('Error: $err')),
+                              );
+                            },
+                          );
+                        },
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (err, stack) => Center(child: Text('Error: $err')),
+                      ),
                     ),
                   ),
-                ),
-                const VerticalDivider(width: 1, thickness: 1),
-                Expanded(flex: 80, child: content),
-              ],
+                  const VerticalDivider(width: 1, thickness: 1),
+                  Expanded(flex: 80, child: content),
+                ],
+              ),
             );
           } else {
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: l10n.searchMovies,
+                            prefixIcon: const Icon(Icons.search, size: 20, color: Colors.white54),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18, color: Colors.white54),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                            ),
+                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.sort, color: Colors.white70),
+                        tooltip: l10n.sortMovies,
+                        onSelected: (val) => setState(() => _sortMode = val),
+                        itemBuilder: (context) => [
+                          PopupMenuItem(value: 'default', child: Text(l10n.defaultAdded)),
+                          PopupMenuItem(value: 'asc', child: Text(l10n.aToZ)),
+                          PopupMenuItem(value: 'desc', child: Text(l10n.zToA)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, thickness: 0.5, color: Colors.white12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: ref.watch(vodCategoriesProvider).when(
                     data: (categories) {
-                      if (categories.isEmpty) return Text(AppLocalizations.of(context)!.noCategoriesAvailable);
+                      if (categories.isEmpty) return Text(l10n.noCategoriesAvailable);
                       
                       return DropdownButtonFormField<String>(
                         decoration: InputDecoration(
-                          labelText: 'Category',
-                          suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          labelText: l10n.category,
+                          filled: true,
+                          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                          ),
                         ),
                         isExpanded: true,
                         value: _selectedCategory,
                         items: categories.map((cat) {
+                          final isFavorites = cat.categoryId == 'favorites';
+                          final displayName = isFavorites ? l10n.favorites : cat.name;
                           return DropdownMenuItem(
                             value: cat.categoryId,
-                            child: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            child: Row(
+                              children: [
+                                if (isFavorites) ...[
+                                  const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                                  const SizedBox(width: 8),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isFavorites ? Colors.amber : null,
+                                      fontWeight: isFavorites ? FontWeight.bold : null,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) {
-                            setState(() => _selectedCategory = val);
+                            setState(() {
+                              _selectedCategory = val;
+                              _searchController.clear();
+                              _searchQuery = '';
+                            });
                             if (val != 'favorites') {
                               ref.read(vodControllerProvider).syncVodStreams(val);
                             }
@@ -409,7 +517,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                       );
                     },
                     loading: () => const LinearProgressIndicator(),
-                    error: (err, stack) => Text('Error: '),
+                    error: (err, stack) => Text('Error: $err'),
                   ),
                 ),
                 Expanded(child: content),
@@ -417,7 +525,6 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
             );
           }
         },
-      ),
-    );
+      );
   }
 }

@@ -10,6 +10,8 @@ import '../../core/player/playback_controller.dart';
 import '../live_tv/live_tv_controller.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_remote_scope.dart';
+import '../../core/database/app_database.dart';
+import '../../core/utils/platform_utils.dart';
 
 class AccountListScreen extends ConsumerStatefulWidget {
   const AccountListScreen({super.key});
@@ -25,6 +27,12 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   @override
   void initState() {
     super.initState();
+    if (GoatPlatform.isMobile) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
     HardwareKeyboard.instance.addHandler(_handleGlobalKey);
   }
 
@@ -43,6 +51,12 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
       MaterialPageRoute(builder: (_) => const AddAccountScreen()),
     ).then((_) {
       if (mounted) {
+        if (GoatPlatform.isMobile) {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+          ]);
+        }
         setState(() => _isNavigating = false);
       }
     });
@@ -65,53 +79,121 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
     return false;
   }
 
+  Future<void> _confirmDelete(BuildContext context, Account account) async {
+    final l10n = AppLocalizations.of(context)!;
+    final displayName = (account.playlistName != null && account.playlistName!.trim().isNotEmpty)
+        ? account.playlistName!.trim()
+        : account.username;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1730),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
+            const SizedBox(width: 12),
+            Text(l10n.localeName == 'de' ? 'Konto löschen?' : 'Delete Account?'),
+          ],
+        ),
+        content: Text(
+          l10n.localeName == 'de'
+              ? 'Möchtest du das Konto "$displayName" wirklich löschen? Alle zugehörigen Favoriten und Daten werden entfernt.'
+              : 'Are you sure you want to delete the account "$displayName"? All related data and favorites will be removed.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: Colors.white60),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              l10n.localeName == 'de' ? 'Löschen' : 'Delete',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final accountDao = ref.read(accountDaoProvider);
+      await accountDao.deleteAccount(account);
+      ref.read(categoryDaoProvider).clearCategories(account.id, 'live');
+      ref.read(categoryDaoProvider).clearCategories(account.id, 'movie');
+      ref.read(streamDaoProvider).clearAllStreams(account.id);
+      ref.read(epgDaoProvider).clearPrograms(account.id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     print('[GOAT] AccountListScreen.build() executing');
     final l10n = AppLocalizations.of(context)!;
     final accountDao = ref.watch(accountDaoProvider);
 
-    return TvRemoteScope(
-      isRoot: true,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.accounts),
-        ),
-        body: StreamBuilder(
-          stream: accountDao.watchAllAccounts(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 48),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Database Error: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70),
+    return StreamBuilder<List<Account>>(
+      stream: accountDao.watchAllAccounts(),
+      builder: (context, snapshot) {
+        final accounts = snapshot.data ?? [];
+        _hasNoAccounts = accounts.isEmpty;
+
+        return TvRemoteScope(
+          isRoot: true,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(l10n.accounts),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.add_rounded, size: 26),
+                  tooltip: l10n.addAccount,
+                  onPressed: _openAddAccount,
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+            body: Builder(
+              builder: (context) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 48),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Database Error: ${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            }
+                    ),
+                  );
+                }
 
-            if (!snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF7C3AED),
-                ),
-              );
-            }
+                if (!snapshot.hasData) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF7C3AED),
+                    ),
+                  );
+                }
 
-            final accounts = snapshot.data ?? [];
-            _hasNoAccounts = accounts.isEmpty;
-
-            if (accounts.isEmpty) {
+                if (accounts.isEmpty) {
               return GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _openAddAccount,
@@ -205,10 +287,14 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               itemCount: accounts.length,
               itemBuilder: (context, index) {
                 final account = accounts[index];
+                final displayName = (account.playlistName != null && account.playlistName!.trim().isNotEmpty)
+                    ? account.playlistName!.trim()
+                    : account.username;
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: TvFocusable(
@@ -232,28 +318,62 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         leading: CircleAvatar(
                           backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.3),
                           child: const Icon(Icons.person, color: Color(0xFFB388FF)),
                         ),
                         title: Text(
-                          account.playlistName ?? account.username,
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: Colors.white,
                           ),
                         ),
-                        subtitle: Text(
-                          account.serverUrl,
-                          style: const TextStyle(color: Colors.white54, fontSize: 13),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                const Icon(Icons.account_circle_outlined, size: 13, color: Color(0xFFB388FF)),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    account.username,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(Icons.link_rounded, size: 13, color: Colors.white38),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    account.serverUrl,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                              tooltip: l10n.localeName == 'de' ? 'Bearbeiten' : 'Edit',
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -265,14 +385,8 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.redAccent),
-                              onPressed: () {
-                                accountDao.deleteAccount(account);
-                                // Also wipe related DB entries for this account
-                                ref.read(categoryDaoProvider).clearCategories(account.id, 'live');
-                                ref.read(categoryDaoProvider).clearCategories(account.id, 'movie');
-                                ref.read(streamDaoProvider).clearAllStreams(account.id);
-                                ref.read(epgDaoProvider).clearPrograms(account.id);
-                              },
+                              tooltip: l10n.localeName == 'de' ? 'Löschen' : 'Delete',
+                              onPressed: () => _confirmDelete(context, account),
                             ),
                           ],
                         ),
@@ -284,43 +398,47 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
             );
           },
         ),
-        floatingActionButton: TvFocusable(
-          borderRadius: BorderRadius.circular(16),
-          onPressed: _openAddAccount,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _openAddAccount,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+        floatingActionButton: _hasNoAccounts
+            ? null
+            : TvFocusable(
+                borderRadius: BorderRadius.circular(16),
+                onPressed: _openAddAccount,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _openAddAccount,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_rounded, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.addAccount,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, color: Colors.white),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.addAccount,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
-    ),
-  ),
-);
+    );
+      },
+    );
   }
 }

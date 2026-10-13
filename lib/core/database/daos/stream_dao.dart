@@ -41,14 +41,24 @@ class StreamDao extends DatabaseAccessor<AppDatabase> with _$StreamDaoMixin {
   }
 
   Stream<List<StreamItem>> watchStreamsByQuery(int accountId, String streamType, String query) {
+    final cleanQuery = '%${query.trim().toLowerCase()}%';
     return (select(streams)
-          ..where((s) => s.accountId.equals(accountId) & s.streamType.equals(streamType) & s.name.like('%$query%'))
+          ..where((s) => s.accountId.equals(accountId) & s.streamType.equals(streamType) & s.name.lower().like(cleanQuery))
           ..orderBy([(s) => OrderingTerm(expression: s.name)]))
         .watch()
         .map((list) {
           final seen = <String>{};
           return list.where((item) => seen.add(item.streamId)).toList();
         });
+  }
+
+  Future<void> replaceStreamsByType(int accountId, String streamType, List<StreamsCompanion> streamList) async {
+    await transaction(() async {
+      await (delete(streams)..where((s) => s.accountId.equals(accountId) & s.streamType.equals(streamType))).go();
+      await batch((batch) {
+        batch.insertAll(streams, streamList, mode: InsertMode.insertOrReplace);
+      });
+    });
   }
 
   Future<void> clearStreamsByType(int accountId, String streamType) {

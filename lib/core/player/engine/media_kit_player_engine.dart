@@ -203,11 +203,15 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
 
   @override
   Future<void> jumpToLiveEdge() async {
-    if (_lastOpenedUrl != null && !_isDisposed) {
-      await open(_lastOpenedUrl!, isLive: true);
-    } else if (!_isDisposed) {
-      await player.play();
+    if (_isDisposed) return;
+    try {
+      if (player.state.duration > const Duration(seconds: 5)) {
+        await player.seek(player.state.duration - const Duration(seconds: 2));
+      }
+    } catch (e) {
+      debugPrint('MediaKitPlayerEngine jumpToLiveEdge error: $e');
     }
+    await player.play();
   }
 
   @override

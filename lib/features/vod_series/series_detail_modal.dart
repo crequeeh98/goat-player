@@ -288,22 +288,35 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
       backdropUrl = widget.coverUrl;
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final isMobile = screenWidth < 600;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: isMobile 
-          ? const EdgeInsets.symmetric(horizontal: 8, vertical: 24)
-          : const EdgeInsets.all(16),
+          ? const EdgeInsets.symmetric(horizontal: 24, vertical: 36)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Container(
-        width: isMobile ? double.infinity : 600,
+        width: isMobile ? double.infinity : 540,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
+          maxWidth: 540,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
         ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.65),
+              blurRadius: 28,
+              spreadRadius: 2,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -387,7 +400,9 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
             Flexible(
               child: SingleChildScrollView(
                 controller: _contentScrollController,
-                padding: const EdgeInsets.all(24.0),
+                padding: isMobile 
+                    ? const EdgeInsets.fromLTRB(16, 14, 16, 14)
+                    : const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -397,7 +412,9 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                         Expanded(
                           child: Text(
                             widget.seriesName, 
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)
+                            style: (isMobile 
+                                ? Theme.of(context).textTheme.titleLarge 
+                                : Theme.of(context).textTheme.headlineMedium)?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
                         Consumer(
@@ -406,7 +423,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                             return IconButton(
                               icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
                               color: isFavorite ? Colors.red : null,
-                              iconSize: 32,
+                              iconSize: isMobile ? 26 : 32,
                               onPressed: () async {
                                 final account = ref.read(activeAccountProvider);
                                 if (account != null) {

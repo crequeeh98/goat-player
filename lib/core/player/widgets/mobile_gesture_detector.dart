@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
-enum _GestureType { none, brightness, volume, seek }
+enum _GestureType { none, seek }
 
 class MobileGestureDetector extends StatefulWidget {
   final Player player;
@@ -10,6 +10,7 @@ class MobileGestureDetector extends StatefulWidget {
   final bool enableSeek;
   final VoidCallback? onSingleTap;
   final VoidCallback? onDoubleTap;
+  final VoidCallback? onPullDown;
 
   const MobileGestureDetector({
     super.key,
@@ -18,6 +19,7 @@ class MobileGestureDetector extends StatefulWidget {
     this.enableSeek = true,
     this.onSingleTap,
     this.onDoubleTap,
+    this.onPullDown,
   });
 
   @override
@@ -28,11 +30,8 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
   _GestureType _activeGesture = _GestureType.none;
   Timer? _hudDismissTimer;
 
-  // Brightness (software overlay 0.0 to 1.0)
-  static double _currentBrightness = 0.8;
-
-  // Volume (0.0 to 100.0)
-  double _currentVolume = 100.0;
+  // Pull-down tracking
+  double _verticalDragDistance = 0.0;
 
   // Seek
   Duration _initialPosition = Duration.zero;
@@ -46,17 +45,6 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
   Timer? _skipRightTimer;
 
   @override
-  void initState() {
-    super.initState();
-    _currentVolume = widget.player.state.volume;
-    widget.player.stream.volume.listen((vol) {
-      if (mounted) {
-        setState(() => _currentVolume = vol);
-      }
-    });
-  }
-
-  @override
   void dispose() {
     _hudDismissTimer?.cancel();
     _skipLeftTimer?.cancel();
@@ -64,31 +52,22 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
     super.dispose();
   }
 
-  void _onVerticalDragStart(DragStartDetails details, BoxConstraints constraints) {
-    _hudDismissTimer?.cancel();
-    final isLeft = details.localPosition.dx < (constraints.maxWidth / 2);
-    if (isLeft) {
-      _activeGesture = _GestureType.brightness;
-    } else {
-      _activeGesture = _GestureType.volume;
-    }
-    setState(() {});
+  void _onVerticalDragStart(DragStartDetails details) {
+    _verticalDragDistance = 0.0;
   }
 
-  void _onVerticalDragUpdate(DragUpdateDetails details, BoxConstraints constraints) {
-    final sensitivity = 1.0 / (constraints.maxHeight * 0.75);
-    final delta = -details.primaryDelta! * sensitivity;
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    _verticalDragDistance += details.primaryDelta ?? 0.0;
+  }
 
-    if (_activeGesture == _GestureType.brightness) {
-      setState(() {
-        _currentBrightness = (_currentBrightness + delta).clamp(0.1, 1.0);
-      });
-    } else if (_activeGesture == _GestureType.volume) {
-      setState(() {
-        _currentVolume = (_currentVolume + (delta * 100)).clamp(0.0, 100.0);
-        widget.player.setVolume(_currentVolume);
-      });
+  void _onVerticalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0.0;
+    if (_verticalDragDistance > 40 || velocity > 250) {
+      if (widget.onPullDown != null) {
+        widget.onPullDown!();
+      }
     }
+    _verticalDragDistance = 0.0;
   }
 
   void _onHorizontalDragStart(DragStartDetails details, BoxConstraints constraints) {
@@ -155,15 +134,6 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
           children: [
             widget.child,
 
-            // Software Brightness Dimmer Overlay
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 1.0 - _currentBrightness),
-                ),
-              ),
-            ),
-
             // Gesture Area
             Positioned.fill(
               child: GestureDetector(
@@ -176,9 +146,9 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
                     widget.player.playOrPause();
                   }
                 },
-                onVerticalDragStart: (d) => _onVerticalDragStart(d, constraints),
-                onVerticalDragUpdate: (d) => _onVerticalDragUpdate(d, constraints),
-                onVerticalDragEnd: _onDragEnd,
+                onVerticalDragStart: _onVerticalDragStart,
+                onVerticalDragUpdate: _onVerticalDragUpdate,
+                onVerticalDragEnd: _onVerticalDragEnd,
                 onHorizontalDragStart: (d) => _onHorizontalDragStart(d, constraints),
                 onHorizontalDragUpdate: (d) => _onHorizontalDragUpdate(d, constraints),
                 onHorizontalDragEnd: _onDragEnd,
@@ -234,8 +204,8 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
                 ),
               ),
 
-            // Active Gesture HUD (Brightness, Volume, Seek)
-            if (_activeGesture != _GestureType.none)
+            // Active Gesture HUD (Seek)
+            if (_activeGesture == _GestureType.seek)
               Center(
                 child: IgnorePointer(
                   child: Container(
@@ -257,64 +227,6 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
 
   Widget _buildHudContent() {
     switch (_activeGesture) {
-      case _GestureType.brightness:
-        final pct = (_currentBrightness * 100).toInt();
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              pct > 50 ? Icons.brightness_high : (pct > 20 ? Icons.brightness_medium : Icons.brightness_low),
-              color: Colors.amber,
-              size: 38,
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: 120,
-              child: LinearProgressIndicator(
-                value: _currentBrightness,
-                backgroundColor: Colors.white24,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
-                minHeight: 6,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$pct%',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-          ],
-        );
-
-      case _GestureType.volume:
-        final pct = _currentVolume.toInt();
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              pct == 0 ? Icons.volume_off : (pct < 50 ? Icons.volume_down : Icons.volume_up),
-              color: Colors.lightBlueAccent,
-              size: 38,
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: 120,
-              child: LinearProgressIndicator(
-                value: _currentVolume / 100.0,
-                backgroundColor: Colors.white24,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
-                minHeight: 6,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$pct%',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-          ],
-        );
-
       case _GestureType.seek:
         final sign = _seekDelta.inSeconds >= 0 ? '+' : '';
         final totalStr = _formatDuration(widget.player.state.duration);

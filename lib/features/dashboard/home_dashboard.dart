@@ -26,6 +26,7 @@ import '../../core/player/playback_controller.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'master_search_modal.dart';
 import 'account_connection_provider.dart';
+import 'dashboard_state.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
@@ -40,6 +41,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   bool _wasLiveExpandedBeforeSearch = false;
 
   void _openSearch() async {
+    ref.read(dashboardTabResetProvider.notifier).reset();
+    ref.read(selectedLiveCategoryProvider.notifier).set(null);
     final active = ref.read(playbackControllerProvider);
     _wasLiveExpandedBeforeSearch = active != null && active.streamType == StreamType.live && !active.isMinimized;
     if (_wasLiveExpandedBeforeSearch) {
@@ -51,6 +54,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   void _closeSearch() async {
+    ref.read(dashboardTabResetProvider.notifier).reset();
+    ref.read(selectedLiveCategoryProvider.notifier).set(null);
     setState(() => _isSearchOpen = false);
     final active = ref.read(playbackControllerProvider);
     if (_wasLiveExpandedBeforeSearch && _selectedIndex == 0 && active != null && active.streamType == StreamType.live) {
@@ -63,18 +68,118 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     }
   }
 
+  Future<void> _handleSwitchAccount() async {
+    if (GoatPlatform.isMobile) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
+    ref.read(playbackControllerProvider.notifier).stop();
+    ref.read(selectedLiveCategoryProvider.notifier).set(null);
+    ref.read(selectedLiveStreamProvider.notifier).set(null);
+    ref.read(isLiveFullWidthProvider.notifier).set(false);
+    final playerService = ref.read(playerServiceProvider);
+    await playerService.player.stop();
+    await Future.delayed(const Duration(milliseconds: 50));
+    
+    ref.read(activeAccountProvider.notifier).set(null);
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AccountListScreen()),
+      );
+    }
+  }
+
+  void _showLanguageDialog() {
+    final currentLocale = ref.read(localeControllerProvider);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.language, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                AppLocalizations.of(ctx)!.changeLanguage,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: _buildUsFlag(),
+              title: Text(AppLocalizations.of(ctx)!.english),
+              trailing: currentLocale.languageCode == 'en' ? const Icon(Icons.check, color: Colors.green) : null,
+              onTap: () {
+                ref.read(localeControllerProvider.notifier).setLocale('en');
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: _buildGermanFlag(),
+              title: Text(AppLocalizations.of(ctx)!.german),
+              trailing: currentLocale.languageCode == 'de' ? const Icon(Icons.check, color: Colors.green) : null,
+              onTap: () {
+                ref.read(localeControllerProvider.notifier).setLocale('de');
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(ctx)!.close),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
-    // Stagger category syncs to keep UI thread and database connection completely snappy
+    if (GoatPlatform.isMobile) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+    // Smooth, non-blocking background sync pipeline:
+    // Allow the UI to render and settle smoothly on startup before checking background updates
     Future.microtask(() async {
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (!mounted) return;
       await ref.read(liveTvControllerProvider).syncLiveCategories();
+      if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      ref.read(vodControllerProvider).syncVodCategories();
+      await ref.read(vodControllerProvider).syncVodCategories();
+      if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      ref.read(seriesControllerProvider).syncSeriesCategories();
+      await ref.read(seriesControllerProvider).syncSeriesCategories();
+
+      // Defer full-library heavy background syncs by 5s so initial navigation is 100% fluid
+      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+      await ref.read(liveTvControllerProvider).syncAllLiveStreams();
+      if (!mounted) return;
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      await ref.read(vodControllerProvider).syncAllVodStreams();
+      if (!mounted) return;
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      await ref.read(seriesControllerProvider).syncAllSeriesStreams();
     });
   }
 
@@ -98,6 +203,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
     final isLiveFullWidth = ref.watch(isLiveFullWidthProvider);
     final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
 
     return TvRemoteScope(
       isRoot: true,
@@ -160,15 +266,18 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           }
         },
         child: Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: hideChrome ? null : AppBar(
+            titleSpacing: isCompact ? 8 : null,
             title: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.asset('assets/logo.png', width: 32, height: 32),
+                  child: Image.asset('assets/logo.png', width: isCompact ? 28 : 32, height: isCompact ? 28 : 32),
                 ),
-                const SizedBox(width: 12),
-                _buildAccountHeaderPill(),
+                SizedBox(width: isCompact ? 8 : 12),
+                Flexible(child: _buildAccountHeaderPill(isCompact)),
               ],
             ),
         bottom: PreferredSize(
@@ -178,114 +287,185 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             height: 1.0,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: AppLocalizations.of(context)!.search,
-            onPressed: _openSearch,
-          ),
-          if (!GoatPlatform.isWeb)
-            Consumer(
-              builder: (context, ref, child) {
-                final stageAsync = ref.watch(vpnStageProvider);
-                final isConnected = stageAsync.value == VpnStage.connected;
-                final localizedStatus = isConnected 
-                    ? AppLocalizations.of(context)!.vpnConnected 
-                    : AppLocalizations.of(context)!.vpnDisconnected;
-                    
-                return IconButton(
-                  icon: Icon(
-                    isConnected ? Icons.security : Icons.shield_outlined,
-                    color: isConnected ? Colors.green : Colors.grey,
+        actions: isCompact
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: AppLocalizations.of(context)!.search,
+                  onPressed: _openSearch,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.language),
+                  tooltip: AppLocalizations.of(context)!.changeLanguage,
+                  onPressed: _showLanguageDialog,
+                ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final stageAsync = ref.watch(vpnStageProvider);
+                    final isConnected = stageAsync.value == VpnStage.connected;
+                    final localizedStatus = isConnected 
+                        ? AppLocalizations.of(context)!.vpnConnected 
+                        : AppLocalizations.of(context)!.vpnDisconnected;
+
+                    return PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (action) {
+                        if (action == 'vpn') {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const VpnImportDialog(),
+                          );
+                        } else if (action == 'playback') {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const PlaybackSettingsDialog(),
+                          );
+                        } else if (action == 'switch') {
+                          _handleSwitchAccount();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        if (!GoatPlatform.isWeb)
+                          PopupMenuItem(
+                            value: 'vpn',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isConnected ? Icons.security : Icons.shield_outlined,
+                                  size: 20,
+                                  color: isConnected ? Colors.green : Colors.grey,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'VPN ($localizedStatus)',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          ),
+                        PopupMenuItem(
+                          value: 'playback',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.tune, size: 20),
+                              const SizedBox(width: 12),
+                              Text(
+                                AppLocalizations.of(context)?.playbackPreferences ?? 'Playback Settings',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'switch',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.logout, size: 20),
+                              const SizedBox(width: 12),
+                              Text(
+                                AppLocalizations.of(context)!.switchAccount,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: AppLocalizations.of(context)!.search,
+                  onPressed: _openSearch,
+                ),
+                if (!GoatPlatform.isWeb)
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final stageAsync = ref.watch(vpnStageProvider);
+                      final isConnected = stageAsync.value == VpnStage.connected;
+                      final localizedStatus = isConnected 
+                          ? AppLocalizations.of(context)!.vpnConnected 
+                          : AppLocalizations.of(context)!.vpnDisconnected;
+                          
+                      return IconButton(
+                        icon: Icon(
+                          isConnected ? Icons.security : Icons.shield_outlined,
+                          color: isConnected ? Colors.green : Colors.grey,
+                        ),
+                        tooltip: '${AppLocalizations.of(context)!.vpnStatus}: $localizedStatus',
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => const VpnImportDialog(),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  tooltip: '${AppLocalizations.of(context)!.vpnStatus}: $localizedStatus',
+                Consumer(
+                  builder: (context, ref, child) {
+                    final currentLocale = ref.watch(localeControllerProvider);
+                    return PopupMenuButton<String>(
+                      icon: const Icon(Icons.language),
+                      tooltip: AppLocalizations.of(context)!.changeLanguage,
+                      onSelected: (lang) {
+                        ref.read(localeControllerProvider.notifier).setLocale(lang);
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'en',
+                          child: Row(
+                            children: [
+                              _buildUsFlag(),
+                              const SizedBox(width: 12),
+                              Text(AppLocalizations.of(context)!.english),
+                              if (currentLocale.languageCode == 'en') ...[
+                                const Spacer(),
+                                const Icon(Icons.check, size: 16, color: Colors.green),
+                              ],
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'de',
+                          child: Row(
+                            children: [
+                              _buildGermanFlag(),
+                              const SizedBox(width: 12),
+                              Text(AppLocalizations.of(context)!.german),
+                              if (currentLocale.languageCode == 'de') ...[
+                                const Spacer(),
+                                const Icon(Icons.check, size: 16, color: Colors.green),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  tooltip: AppLocalizations.of(context)?.playbackPreferences ?? 'Playback Preferences',
                   onPressed: () {
                     showDialog(
                       context: context,
-                      builder: (context) => const VpnImportDialog(),
+                      builder: (context) => const PlaybackSettingsDialog(),
                     );
                   },
-                );
-              },
-            ),
-          // Dedicated Language Selection Button
-          // Dedicated Language Selection Button
-          Consumer(
-            builder: (context, ref, child) {
-              final currentLocale = ref.watch(localeControllerProvider);
-              return PopupMenuButton<String>(
-                icon: const Icon(Icons.language),
-                tooltip: AppLocalizations.of(context)!.changeLanguage,
-                onSelected: (lang) {
-                  ref.read(localeControllerProvider.notifier).setLocale(lang);
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'en',
-                    child: Row(
-                      children: [
-                        _buildUsFlag(),
-                        const SizedBox(width: 12),
-                        Text(AppLocalizations.of(context)!.english),
-                        if (currentLocale.languageCode == 'en') ...[
-                          const Spacer(),
-                          const Icon(Icons.check, size: 16, color: Colors.green),
-                        ],
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'de',
-                    child: Row(
-                      children: [
-                        _buildGermanFlag(),
-                        const SizedBox(width: 12),
-                        Text(AppLocalizations.of(context)!.german),
-                        if (currentLocale.languageCode == 'de') ...[
-                          const Spacer(),
-                          const Icon(Icons.check, size: 16, color: Colors.green),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: AppLocalizations.of(context)?.playbackPreferences ?? 'Playback Preferences',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => const PlaybackSettingsDialog(),
-              );
-            },
-          ),
-          // Dedicated Konto Wechseln / Door Logout Button on the far right
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: AppLocalizations.of(context)!.switchAccount,
-            onPressed: () async {
-              ref.read(playbackControllerProvider.notifier).stop();
-              ref.read(selectedLiveCategoryProvider.notifier).set(null);
-              ref.read(selectedLiveStreamProvider.notifier).set(null);
-              ref.read(isLiveFullWidthProvider.notifier).set(false);
-              final playerService = ref.read(playerServiceProvider);
-              await playerService.player.stop();
-              await Future.delayed(const Duration(milliseconds: 50));
-              
-              ref.read(activeAccountProvider.notifier).set(null);
-              if (context.mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AccountListScreen()),
-                );
-              }
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  tooltip: AppLocalizations.of(context)!.switchAccount,
+                  onPressed: _handleSwitchAccount,
+                ),
+                const SizedBox(width: 8),
+              ],
       ),
       body: Stack(
         children: [
@@ -306,6 +486,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       NavigationRail(
                         selectedIndex: _selectedIndex,
                         onDestinationSelected: (idx) {
+                          if (_selectedIndex != idx) {
+                            ref.read(dashboardTabResetProvider.notifier).reset();
+                            ref.read(selectedLiveCategoryProvider.notifier).set(null);
+                          }
                           if (_selectedIndex == 0 && idx != 0) {
                             final active = ref.read(playbackControllerProvider);
                             if (active != null && active.streamType == StreamType.live) {
@@ -354,6 +538,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 onClose: _closeSearch,
                 onSelectTab: (idx) {
                   _wasLiveExpandedBeforeSearch = false;
+                  ref.read(dashboardTabResetProvider.notifier).reset();
                   setState(() {
                     _isSearchOpen = false;
                     _selectedIndex = idx;
@@ -375,21 +560,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             ),
         ],
       ),
-      bottomNavigationBar: (!hideChrome && MediaQuery.of(context).size.width <= 800)
+      bottomNavigationBar: (!hideChrome && MediaQuery.sizeOf(context).width <= 800)
           ? SafeArea(
               child: BottomNavigationBar(
                 currentIndex: _selectedIndex,
                 onTap: (idx) {
-                  if (_selectedIndex == 0 && idx != 0) {
-                    final active = ref.read(playbackControllerProvider);
-                    if (active != null && active.streamType == StreamType.live) {
-                      ref.read(playbackControllerProvider.notifier).minimize();
-                    }
-                  } else if (_selectedIndex != 0 && idx == 0) {
-                    final active = ref.read(playbackControllerProvider);
-                    if (active != null && active.streamType == StreamType.live) {
-                      ref.read(playbackControllerProvider.notifier).expand();
-                    }
+                  if (_selectedIndex != idx) {
+                    ref.read(dashboardTabResetProvider.notifier).reset();
+                    ref.read(selectedLiveCategoryProvider.notifier).set(null);
                   }
                   setState(() => _selectedIndex = idx);
                 },
@@ -406,7 +584,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   );
 }
 
-  Widget _buildAccountHeaderPill() {
+  Widget _buildAccountHeaderPill(bool isCompact) {
     final account = ref.watch(activeAccountProvider);
     if (account == null) {
       return const Text('GOATPlayer', style: TextStyle(fontWeight: FontWeight.bold));
@@ -420,7 +598,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     final isWarning = connInfo.active >= connInfo.max && connInfo.max > 0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 10, vertical: isCompact ? 3 : 4),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
@@ -430,45 +608,45 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: isCompact ? 6 : 8,
+            height: isCompact ? 6 : 8,
             decoration: BoxDecoration(
               color: const Color(0xFF10B981),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF10B981).withValues(alpha: 0.6),
-                  blurRadius: 6,
+                  blurRadius: isCompact ? 4 : 6,
                   spreadRadius: 1,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isCompact ? 5 : 8),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
+            constraints: BoxConstraints(maxWidth: isCompact ? 80 : 160),
             child: Text(
               displayName,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
+              style: TextStyle(
+                fontSize: isCompact ? 12 : 13,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isCompact ? 4 : 8),
             child: Text(
               '|',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: isCompact ? 11 : 13,
                 color: Colors.white24,
               ),
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: EdgeInsets.symmetric(horizontal: isCompact ? 5 : 8, vertical: 2),
             decoration: BoxDecoration(
               color: isWarning
                   ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
@@ -485,16 +663,16 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               children: [
                 Icon(
                   Icons.wifi,
-                  size: 13,
+                  size: isCompact ? 11 : 13,
                   color: isWarning ? const Color(0xFFF59E0B) : const Color(0xFFA78BFA),
                 ),
-                const SizedBox(width: 5),
+                SizedBox(width: isCompact ? 3 : 5),
                 Text(
                   connInfo.isLoading && connInfo.active == 0 && connInfo.max == 1
                       ? '-- / --'
                       : '${connInfo.active} / ${connInfo.max}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: isCompact ? 11 : 12,
                     fontWeight: FontWeight.w600,
                     color: isWarning ? const Color(0xFFF59E0B) : Colors.white70,
                     fontFeatures: const [FontFeature.tabularFigures()],

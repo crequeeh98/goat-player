@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../../core/database/app_database.dart';
 import 'package:drift/drift.dart';
 import '../../core/utils/title_sanitizer.dart';
+import '../../core/settings/locale_controller.dart';
 
 class SelectedLiveCategory extends Notifier<String?> {
   @override
@@ -88,11 +89,19 @@ class LiveTvController {
   
   LiveTvController(this._ref);
 
-  Future<void> syncLiveCategories() async {
+  Future<void> syncLiveCategories({bool force = false}) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null) return;
     
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastSync = prefs.getInt('last_sync_categories_live_${account.id}') ?? 0;
+    if (!force && (nowMs - lastSync < 6 * 60 * 60 * 1000)) {
+      debugPrint('Live categories synced recently. Skipping.');
+      return;
+    }
+
     try {
       final rawCategories = await client.getLiveCategories();
       final dao = _ref.read(categoryDaoProvider);
@@ -112,6 +121,7 @@ class LiveTvController {
       }
       
       await dao.replaceCategories(account.id, 'live', companions);
+      await prefs.setInt('last_sync_categories_live_${account.id}', nowMs);
     } catch (e) {
       debugPrint('Failed to sync live categories: $e');
     }
@@ -147,11 +157,23 @@ class LiveTvController {
     }
   }
 
-  Future<void> syncAllLiveStreams() async {
+  bool _isSyncingAll = false;
+
+  Future<void> syncAllLiveStreams({bool force = false}) async {
+    if (_isSyncingAll) return;
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null) return;
     
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastSync = prefs.getInt('last_sync_all_live_${account.id}') ?? 0;
+    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+      debugPrint('Live streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
+      return;
+    }
+
+    _isSyncingAll = true;
     try {
       debugPrint('Syncing ALL Live streams...');
       final rawStreams = await client.getLiveStreams();
@@ -161,11 +183,13 @@ class LiveTvController {
       
       final companions = await compute(_mapLiveStreams, {'accountId': account.id, 'streams': rawStreams});
       
-      await dao.clearStreamsByType(account.id, 'live');
-      await dao.insertStreams(companions);
+      await dao.replaceStreamsByType(account.id, 'live', companions);
+      await prefs.setInt('last_sync_all_live_${account.id}', nowMs);
       debugPrint('Finished syncing ALL Live streams.');
     } catch (e) {
       debugPrint('Failed to sync all live streams: $e');
+    } finally {
+      _isSyncingAll = false;
     }
   }
 }
@@ -181,7 +205,7 @@ List<StreamsCompanion> _mapLiveStreams(Map<String, dynamic> data) {
       epgChannelId: s['epg_channel_id'] != null && s['epg_channel_id'].toString().isNotEmpty 
           ? Value(s['epg_channel_id'].toString()) 
           : const Value.absent(),
-      name: TitleSanitizer.sanitize(s['name']?.toString() ?? 'Unknown'),
+      name: TitleSanitizer.sanitizeLiveTvChannel(s['name']?.toString() ?? 'Unknown'),
       streamType: 'live',
       categoryId: s['category_id']?.toString() ?? 'unknown',
       streamIcon: s['stream_icon'] != null && s['stream_icon'].toString().isNotEmpty 

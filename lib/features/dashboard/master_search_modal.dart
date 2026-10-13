@@ -8,6 +8,7 @@ import '../vod_series/series_controller.dart';
 import '../live_tv/live_tv_controller.dart';
 import '../vod_movies/movie_detail_modal.dart';
 import '../vod_series/series_detail_modal.dart';
+import '../live_tv/mobile_live_view.dart';
 import '../../main.dart';
 import '../../core/player/playback_controller.dart';
 import '../../core/utils/channel_name_cleaner.dart';
@@ -36,6 +37,11 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    Future.microtask(() {
+      ref.read(liveTvControllerProvider).syncAllLiveStreams();
+      ref.read(vodControllerProvider).syncAllVodStreams();
+      ref.read(seriesControllerProvider).syncAllSeriesStreams();
+    });
   }
 
   @override
@@ -68,7 +74,8 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
             }
           },
           child: Scaffold(
-        appBar: AppBar(
+            resizeToAvoidBottomInset: false,
+            appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: _handleBack,
@@ -156,6 +163,7 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
         }
         
         return ListView.builder(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.only(bottom: 120),
           itemCount: streams.length,
           itemBuilder: (context, index) {
@@ -172,17 +180,28 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                       errorBuilder: (_,__,___) => const Icon(Icons.tv),
                     )
                   : const Icon(Icons.tv),
-              title: Text(stream.name),
+              title: Text(
+                type == 'live' ? ChannelNameCleaner.clean(stream.name) : stream.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                type.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: type == 'live' ? Colors.redAccent : Colors.blueAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onTap: () {
                 if (type == 'movie') {
-                  ref.read(selectedLiveStreamProvider.notifier).set(null);
                   Navigator.push(
                     context,
                     PageRouteBuilder(
                       opaque: false,
                       barrierDismissible: true,
-                      barrierColor: Colors.black87,
-                      pageBuilder: (context, animation, secondaryAnimation) => MovieDetailModal(
+                      barrierColor: Colors.black54,
+                      pageBuilder: (context, _, _) => MovieDetailModal(
                         movieName: stream.name,
                         streamId: stream.streamId,
                         posterUrl: stream.streamIcon,
@@ -196,8 +215,8 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                     PageRouteBuilder(
                       opaque: false,
                       barrierDismissible: true,
-                      barrierColor: Colors.black87,
-                      pageBuilder: (context, animation, secondaryAnimation) => SeriesDetailModal(
+                      barrierColor: Colors.black54,
+                      pageBuilder: (context, _, _) => SeriesDetailModal(
                         seriesName: stream.name,
                         seriesId: stream.streamId,
                         coverUrl: stream.streamIcon,
@@ -206,13 +225,42 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                   );
                 } else if (type == 'live') {
                   final account = ref.read(activeAccountProvider);
+                  final isMobile = MediaQuery.sizeOf(context).width <= 800;
+                  final cleanTitle = ChannelNameCleaner.clean(stream.name);
+                  final baseUrl = account?.serverUrl.endsWith('/') == true
+                      ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
+                      : account?.serverUrl;
+                  final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+                  final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
+                  final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+
+                  if (isMobile) {
+                    if (widget.onSelectTab != null) {
+                      widget.onSelectTab!(0);
+                    }
+                    if (widget.onClose != null) {
+                      widget.onClose!();
+                    }
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => MobilePlayerScreen(
+                          streamUrl: url,
+                          channelId: epgChannelId,
+                          channelName: cleanTitle,
+                          streamId: stream.streamId,
+                          categoryId: stream.categoryId,
+                        ),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    );
+                    return;
+                  }
+
                   if (account != null) {
-                    final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-                    final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-                    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
-                    final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
                     ref.read(playbackControllerProvider.notifier).playLive(
-                      title: ChannelNameCleaner.clean(stream.name),
+                      title: cleanTitle,
                       url: url,
                       channelId: epgChannelId,
                       streamId: stream.streamId,

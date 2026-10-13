@@ -42,9 +42,12 @@ class TvRemoteScope extends ConsumerStatefulWidget {
             children: [
               const Icon(Icons.exit_to_app, color: Color(0xFFB388FF), size: 28),
               const SizedBox(width: 12),
-              Text(
-                l10n?.close ?? 'Exit GOATPlayer',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  l10n?.exitApp ?? 'Exit GOATPlayer',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -54,13 +57,11 @@ class TvRemoteScope extends ConsumerStatefulWidget {
                 : 'Are you sure you want to exit GOATPlayer?',
             style: const TextStyle(color: Colors.white70, fontSize: 16),
           ),
-          actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           actions: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SizedBox(
-                  width: 125,
+                Expanded(
                   child: TvFocusable(
                     autofocus: true,
                     borderRadius: BorderRadius.circular(8),
@@ -68,15 +69,14 @@ class TvRemoteScope extends ConsumerStatefulWidget {
                     onPressed: () => Navigator.of(ctx).pop(false),
                     child: Center(
                       child: Text(
-                        l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel',
+                        l10n?.cancel ?? (l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel'),
                         style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                SizedBox(
-                  width: 125,
+                Expanded(
                   child: TvFocusable(
                     borderRadius: BorderRadius.circular(8),
                     focusBorderColor: Colors.redAccent,

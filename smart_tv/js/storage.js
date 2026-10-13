@@ -32,7 +32,97 @@
     delete _memStore[key];
   }
 
+  function parseDurationSecs(raw) {
+    if (raw === null || raw === undefined || raw === '') return 0;
+    if (typeof raw === 'number') {
+      if (isNaN(raw) || !isFinite(raw) || raw <= 10) return 0;
+      return (raw < 360) ? Math.floor(raw * 60) : Math.floor(raw);
+    }
+    var str = String(raw).trim().toLowerCase();
+    if (!str || str === '0' || str === 'null' || str === 'undefined') return 0;
+
+    // "1h 45m" or "1h45m" or "1 h 45 min" or "2h"
+    var hmMatch = str.match(/^(\d+)\s*h(?:ours?|rs?)?(?:\s*(\d+)\s*(?:m|mins?|minutes?)?)?$/);
+    if (hmMatch) {
+      var hours = parseInt(hmMatch[1], 10) || 0;
+      var mins = parseInt(hmMatch[2], 10) || 0;
+      return (hours * 3600) + (mins * 60);
+    }
+
+    // "90 min" or "90 mins" or "90m" or "90 minutes"
+    var minMatch = str.match(/^(\d+)\s*(?:min|mins|minutes|m)$/);
+    if (minMatch) {
+      var mOnly = parseInt(minMatch[1], 10) || 0;
+      return mOnly * 60;
+    }
+
+    // "HH:MM:SS" (e.g. "01:30:00")
+    var timeMatch = str.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+    if (timeMatch) {
+      var h = parseInt(timeMatch[1], 10) || 0;
+      var m = parseInt(timeMatch[2], 10) || 0;
+      var s = parseInt(timeMatch[3], 10) || 0;
+      return (h * 3600) + (m * 60) + s;
+    }
+
+    // "HH:MM" or "MM:SS" (e.g. "01:30" or "90:00")
+    var shortMatch = str.match(/^(\d{1,3}):(\d{2})$/);
+    if (shortMatch) {
+      var part1 = parseInt(shortMatch[1], 10) || 0;
+      var part2 = parseInt(shortMatch[2], 10) || 0;
+      if (part1 <= 10) {
+        return (part1 * 3600) + (part2 * 60);
+      } else {
+        return (part1 * 60) + part2;
+      }
+    }
+
+    // Numeric string (e.g. "5400" or "90" or "5400.0")
+    if (/^\d+(\.\d+)?$/.test(str)) {
+      var num = parseFloat(str);
+      if (isNaN(num) || !isFinite(num) || num <= 10) return 0;
+      return (num < 360) ? Math.floor(num * 60) : Math.floor(num);
+    }
+    return 0;
+  }
+
+  function extractDurationFromInfo(info) {
+    if (!info) return 0;
+    var candidates = [];
+    if (info.info) {
+      candidates.push(info.info.duration_secs);
+      candidates.push(info.info.duration);
+      candidates.push(info.info.runtime);
+      candidates.push(info.info.episode_run_time);
+      candidates.push(info.info.movie_duration);
+    }
+    if (info.movie_data) {
+      candidates.push(info.movie_data.duration_secs);
+      candidates.push(info.movie_data.duration);
+      candidates.push(info.movie_data.runtime);
+      candidates.push(info.movie_data.episode_run_time);
+    }
+    candidates.push(info.duration_secs);
+    candidates.push(info.duration);
+    candidates.push(info.runtime);
+    candidates.push(info.episode_run_time);
+
+    for (var i = 0; i < candidates.length; i++) {
+      var val = candidates[i];
+      if (val !== undefined && val !== null && val !== '' && val !== 0 && val !== '0') {
+        var parsed = parseDurationSecs(val);
+        if (parsed > 100) return parsed;
+      }
+    }
+    return 0;
+  }
+
+  window.parseDurationSecs = parseDurationSecs;
+  window.extractDurationFromInfo = extractDurationFromInfo;
+
   window.TVStorage = {
+    parseDurationSecs: parseDurationSecs,
+    extractDurationFromInfo: extractDurationFromInfo,
     // Accounts Management
     getAccounts: function() {
       try {
@@ -181,7 +271,20 @@
       if (!accId || !streamId) return null;
       try {
         var raw = getItem('goat_prog_' + accId + '_' + streamId);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        var item = JSON.parse(raw);
+        if (item) {
+          if (item.duration !== undefined) {
+            item.duration = parseDurationSecs(item.duration);
+          }
+          if (item.duration > 0 && (item.duration < 100 || item.duration <= item.position)) {
+            item.duration = 0;
+          }
+          if (item.duration > 30 && (item.position / item.duration) < 0.92) {
+            item.isCompleted = false;
+          }
+        }
+        return item;
       } catch(e) {
         return null;
       }
@@ -195,16 +298,39 @@
         item = {
           streamId: String(streamIdOrData),
           position: Math.floor(pos || 0),
-          duration: Math.floor(dur || 0),
+          duration: parseDurationSecs(dur),
           updatedAt: Date.now()
         };
       }
       if (!item.streamId) return;
       item.containerExtension = item.containerExtension || item.container_extension || (typeof streamIdOrData === 'object' && (streamIdOrData.containerExtension || streamIdOrData.container_extension)) || 'mp4';
       item.position = Math.floor(item.position || 0);
-      item.duration = Math.floor(item.duration || 0);
+      item.duration = parseDurationSecs(item.duration);
+      if (item.duration > 0 && item.duration < 100) {
+        item.duration = 0;
+      }
       item.updatedAt = item.updatedAt || Date.now();
-      item.isCompleted = item.isCompleted || (item.duration > 0 && (item.position / item.duration) >= 0.95);
+
+      // If duration is missing/0, attempt to preserve existing known duration
+      if (!item.duration || item.duration <= 0) {
+        try {
+          var existingRaw = getItem('goat_prog_' + accId + '_' + item.streamId);
+          if (existingRaw) {
+            var exObj = JSON.parse(existingRaw);
+            if (exObj && exObj.duration) {
+              var pDur = parseDurationSecs(exObj.duration);
+              if (pDur >= 100) {
+                item.duration = pDur;
+              }
+            }
+          }
+        } catch(e){}
+      }
+
+      if (item.duration > 30 && (item.position / item.duration) < 0.92) {
+        item.isCompleted = false;
+      }
+      item.isCompleted = !!item.isCompleted || (item.duration > 30 && (item.position / item.duration) >= 0.95);
 
       // Save individual progress record
       setItem('goat_prog_' + accId + '_' + item.streamId, JSON.stringify(item));
@@ -243,7 +369,14 @@
       if (type === 'movie') {
         return list.filter(function(item) {
           if (item.type !== 'movie') return false;
-          var isComp = item.isCompleted || (item.duration > 0 && (item.position / item.duration) >= 0.95);
+          item.duration = parseDurationSecs(item.duration);
+          if (item.duration > 0 && (item.duration < 100 || item.duration <= item.position)) {
+            item.duration = 0;
+          }
+          if (item.duration > 30 && (item.position / item.duration) < 0.92) {
+            item.isCompleted = false;
+          }
+          var isComp = item.isCompleted || (item.duration > 30 && (item.position / item.duration) >= 0.95);
           return !isComp && item.position >= 3;
         }).sort(function(a, b) {
           return (b.updatedAt || 0) - (a.updatedAt || 0);
@@ -252,7 +385,15 @@
 
       if (type === 'series') {
         var seriesItems = list.filter(function(item) {
-          return item.type === 'series' && (item.position >= 3 || item.isCompleted);
+          if (item.type !== 'series') return false;
+          item.duration = parseDurationSecs(item.duration);
+          if (item.duration > 0 && (item.duration < 100 || item.duration <= item.position)) {
+            item.duration = 0;
+          }
+          if (item.duration > 30 && (item.position / item.duration) < 0.92) {
+            item.isCompleted = false;
+          }
+          return item.position >= 3 || item.isCompleted;
         });
 
         var grouped = {};
@@ -273,7 +414,14 @@
         var result = [];
         Object.keys(grouped).forEach(function(k) {
           var item = Object.assign({}, grouped[k]);
-          var isComp = item.isCompleted || (item.duration > 0 && (item.position / item.duration) >= 0.95);
+          item.duration = parseDurationSecs(item.duration);
+          if (item.duration > 0 && (item.duration < 100 || item.duration <= item.position)) {
+            item.duration = 0;
+          }
+          if (item.duration > 30 && (item.position / item.duration) < 0.92) {
+            item.isCompleted = false;
+          }
+          var isComp = item.isCompleted || (item.duration > 30 && (item.position / item.duration) >= 0.95);
           if (isComp) {
             if (item.isFinale) {
               return; // Completed series finale removed from rail

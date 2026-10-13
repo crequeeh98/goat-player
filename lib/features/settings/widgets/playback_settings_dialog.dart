@@ -65,9 +65,23 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
     return AlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.tune, size: 22),
-          const SizedBox(width: 10),
-          Text(l10n?.playbackPreferences ?? 'Playback Preferences'),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.tune, size: 22, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              l10n?.playbackPreferences ?? 'Playback Settings',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              maxLines: 2,
+              softWrap: true,
+            ),
+          ),
         ],
       ),
       content: SingleChildScrollView(

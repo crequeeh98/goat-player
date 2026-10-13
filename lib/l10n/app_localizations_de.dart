@@ -277,7 +277,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get done => 'Fertig';
 
   @override
-  String get playbackPreferences => 'Wiedergabe- & Spracheinstellungen';
+  String get playbackPreferences => 'Wiedergabe-Einstellungen';
+
+  @override
+  String get exitApp => 'App beenden';
 
   @override
   String get preferredAudioLanguage => 'Bevorzugte Audiosprache';
@@ -324,4 +327,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get subtitlesOff => 'Aus';
+
+  @override
+  String get category => 'Kategorie';
+
+  @override
+  String get searchCategories => 'Kategorien durchsuchen...';
 }

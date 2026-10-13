@@ -35,6 +35,7 @@ class CustomLiveControls extends ConsumerStatefulWidget {
   final VoidCallback? onZapPrevious;
   final VoidCallback? onZapNext;
   final String? categoryName;
+  final VoidCallback? onPullDown;
 
   const CustomLiveControls({
     super.key,
@@ -55,6 +56,7 @@ class CustomLiveControls extends ConsumerStatefulWidget {
     this.onZapPrevious,
     this.onZapNext,
     this.categoryName,
+    this.onPullDown,
   });
 
   @override
@@ -77,6 +79,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   StreamSubscription? _playingSub;
   StreamSubscription? _drawerChannelChangeSub;
   String? _channelChangingToStreamId;
+  double _verticalDragDistance = 0.0;
 
   @override
   void initState() {
@@ -260,7 +263,13 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
   void _toggleDrawer() {
     final isFull = isFullscreen(context);
-    final canShowDrawer = (isFull || widget.isFullWidth) && (widget.streams != null && widget.streams!.isNotEmpty);
+    final activePlayback = ref.read(playbackControllerProvider);
+    final categoryId = activePlayback?.categoryId ?? ref.read(selectedLiveCategoryProvider);
+    final fallbackStreams = categoryId != null ? ref.read(liveStreamsProvider(categoryId)).asData?.value : null;
+    final availableStreams = (widget.streams != null && widget.streams!.isNotEmpty)
+        ? widget.streams!
+        : (fallbackStreams ?? const <StreamItem>[]);
+    final canShowDrawer = (isFull || widget.isFullWidth) && availableStreams.isNotEmpty;
     if (!canShowDrawer) return;
 
     setState(() {
@@ -278,7 +287,6 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isFull = isFullscreen(context);
-    final canShowDrawer = (isFull || widget.isFullWidth) && (widget.streams != null && widget.streams!.isNotEmpty);
 
     // Dynamically watch active playback state so fullscreen mode immediately updates
     // on channel zap without relying on frozen constructor parameters
@@ -297,6 +305,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     final availableStreams = (widget.streams != null && widget.streams!.isNotEmpty)
         ? widget.streams!
         : (fallbackStreams ?? const <StreamItem>[]);
+    final canShowDrawer = (isFull || widget.isFullWidth) && availableStreams.isNotEmpty;
 
     // Look up active stream item and real-time EPG data for OSD Banner & title display
     StreamItem? currentStreamItem;
@@ -418,6 +427,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
           }
         },
         child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
               if (!_focusNode.hasFocus) _focusNode.requestFocus();
               if (_isDrawerOpen) {
@@ -425,15 +435,30 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 _startHideTimer();
                 return;
               }
-              if (!_showOverlay) {
-                setState(() => _showOverlay = true);
+              setState(() => _showOverlay = !_showOverlay);
+              if (_showOverlay) {
                 _startHideTimer();
+              } else {
+                _hideTimer?.cancel();
               }
               if (widget.onSingleTap != null) {
                 widget.onSingleTap!();
               }
             },
             onDoubleTap: () => _toggleFullscreen(context),
+            onVerticalDragStart: (d) {
+              _verticalDragDistance = 0.0;
+            },
+            onVerticalDragUpdate: (d) {
+              _verticalDragDistance += d.primaryDelta ?? 0.0;
+            },
+            onVerticalDragEnd: (d) {
+              final velocity = d.primaryVelocity ?? 0.0;
+              if (_verticalDragDistance > 40 || velocity > 250) {
+                widget.onPullDown?.call();
+              }
+              _verticalDragDistance = 0.0;
+            },
             child: Stack(
               children: [
                 // 1. Dark gradient overlay
@@ -484,72 +509,79 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                             ),
                           ),
 
-                        // TOP RIGHT: Volume & Aspect Ratio
+                        // TOP RIGHT: Controls (Aspect Ratio & Desktop Fullscreen Volume)
                         Positioned(
-                          top: 20,
-                          right: 20,
+                          top: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
+                          right: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
                           child: Row(
                             children: [
-                              if (widget.onCycleFit != null && GoatPlatform.isMobile)
+                              // Aspect Ratio only in fullscreen mode
+                              if (widget.onCycleFit != null && GoatPlatform.isMobile && isFull)
                                 IconButton(
-                                  icon: const Icon(Icons.aspect_ratio, color: Colors.white),
+                                  icon: const Icon(Icons.aspect_ratio, color: Colors.white, size: 22),
                                   tooltip: 'Aspect Ratio',
+                                  visualDensity: VisualDensity.compact,
                                   onPressed: () {
                                     widget.onCycleFit!();
                                     _startHideTimer();
                                   },
                                 ),
-                              IconButton(
-                                icon: Icon(
-                                  _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  if (_volume > 0) {
-                                    setState(() => _volume = 0);
-                                    widget.state.widget.controller.player.setVolume(0);
-                                  } else {
-                                    setState(() => _volume = 100);
-                                    widget.state.widget.controller.player.setVolume(100);
-                                  }
-                                  _startHideTimer();
-                                },
-                              ),
-                              Listener(
-                                onPointerSignal: (pointerSignal) {
-                                  if (pointerSignal is PointerScrollEvent) {
-                                    final delta = pointerSignal.scrollDelta.dy;
-                                    final newVol = (_volume - (delta > 0 ? 5 : -5)).clamp(0.0, 100.0);
-                                    setState(() => _volume = newVol);
-                                    widget.state.widget.controller.player.setVolume(newVol);
+                              // Volume control only on desktop fullscreen
+                              if (!GoatPlatform.isMobile && isFull) ...[
+                                IconButton(
+                                  icon: Icon(
+                                    _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                  visualDensity: VisualDensity.standard,
+                                  onPressed: () {
+                                    if (_volume > 0) {
+                                      setState(() => _volume = 0);
+                                      widget.state.widget.controller.player.setVolume(0);
+                                    } else {
+                                      setState(() => _volume = 100);
+                                      widget.state.widget.controller.player.setVolume(100);
+                                    }
                                     _startHideTimer();
-                                  }
-                                },
-                                child: SizedBox(
-                                  width: 95,
-                                  child: SliderTheme(
-                                    data: SliderTheme.of(context).copyWith(
-                                      activeTrackColor: Colors.white,
-                                      inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
-                                      thumbColor: Colors.white,
-                                      overlayColor: Colors.white.withValues(alpha: 0.15),
-                                      trackHeight: 3.0,
-                                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
-                                    ),
-                                    child: Slider(
-                                      value: _volume.clamp(0.0, 100.0),
-                                      min: 0.0,
-                                      max: 100.0,
-                                      onChanged: (v) {
-                                        setState(() => _volume = v);
-                                        widget.state.widget.controller.player.setVolume(v);
-                                        _startHideTimer();
-                                      },
+                                  },
+                                ),
+                                Listener(
+                                  onPointerSignal: (pointerSignal) {
+                                    if (pointerSignal is PointerScrollEvent) {
+                                      final delta = pointerSignal.scrollDelta.dy;
+                                      final newVol = (_volume - (delta > 0 ? 5 : -5)).clamp(0.0, 100.0);
+                                      setState(() => _volume = newVol);
+                                      widget.state.widget.controller.player.setVolume(newVol);
+                                      _startHideTimer();
+                                    }
+                                  },
+                                  child: SizedBox(
+                                    width: 95,
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        activeTrackColor: Colors.white,
+                                        inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
+                                        thumbColor: Colors.white,
+                                        overlayColor: Colors.white.withValues(alpha: 0.15),
+                                        trackHeight: 3.0,
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                                      ),
+                                      child: Slider(
+                                        value: _volume.clamp(0.0, 100.0),
+                                        min: 0.0,
+                                        max: 100.0,
+                                        onChanged: (v) {
+                                          setState(() => _volume = v);
+                                          widget.state.widget.controller.player.setVolume(v);
+                                          _startHideTimer();
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
@@ -561,24 +593,24 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                             children: [
                               if (widget.onZapPrevious != null) ...[
                                 IconButton(
-                                  iconSize: 48,
+                                  iconSize: (GoatPlatform.isMobile && !isFull) ? 36 : 48,
                                   color: Colors.white70,
                                   icon: const Icon(Icons.skip_previous),
                                   tooltip: l10n?.previousChannel ?? 'Previous Channel (CH -)',
                                   onPressed: _zapPrevious,
                                 ),
-                                const SizedBox(width: 20),
+                                const SizedBox(width: 16),
                               ],
                               IconButton(
-                                iconSize: 80,
+                                iconSize: (GoatPlatform.isMobile && !isFull) ? 56 : 76,
                                 color: Colors.white,
                                 icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
                                 onPressed: _togglePlayPause,
                               ),
                               if (widget.onZapNext != null) ...[
-                                const SizedBox(width: 20),
+                                const SizedBox(width: 16),
                                 IconButton(
-                                  iconSize: 48,
+                                  iconSize: (GoatPlatform.isMobile && !isFull) ? 36 : 48,
                                   color: Colors.white70,
                                   icon: const Icon(Icons.skip_next),
                                   tooltip: l10n?.nextChannel ?? 'Next Channel (CH +)',
@@ -592,8 +624,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                         // BOTTOM LEFT: In-Player EPG Drawer Button (Only in Full-Width or Fullscreen)
                         if (canShowDrawer)
                           Positioned(
-                            bottom: 20,
-                            left: 20,
+                            bottom: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
+                            left: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
                             child: IconButton(
                               icon: const Icon(Icons.format_list_bulleted, color: Colors.white, size: 28),
                               tooltip: l10n?.epgDrawer ?? 'Channel List & EPG',
@@ -601,35 +633,37 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                             ),
                           ),
 
-                        // BOTTOM CENTER: Title & Current Show
-                        Positioned(
-                          bottom: 24,
-                          left: 90,
-                          right: 90,
-                          child: Text(
-                            displayTitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
+                        // BOTTOM CENTER: Title & Current Show (Only in Fullscreen or Desktop, not mobile portrait where AppBar already has it)
+                        if (isFullOrFullWidth || !GoatPlatform.isMobile)
+                          Positioned(
+                            bottom: 24,
+                            left: 90,
+                            right: 90,
+                            child: Text(
+                              displayTitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
 
                         // BOTTOM RIGHT: Fullscreen Toggle
                         Positioned(
-                          bottom: 20,
-                          right: 20,
+                          bottom: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
+                          right: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
                           child: IconButton(
                             icon: Icon(
                               isFull ? Icons.fullscreen_exit : Icons.fullscreen,
                               color: Colors.white,
-                              size: 32,
+                              size: (GoatPlatform.isMobile && !isFull) ? 26 : 32,
                             ),
+                            visualDensity: (GoatPlatform.isMobile && !isFull) ? VisualDensity.compact : VisualDensity.standard,
                             onPressed: () => _toggleFullscreen(context),
                           ),
                         ),
@@ -638,17 +672,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                   ),
                 ),
 
-                // 3. In-Player OSD Channel Info Banner (Appears on zap)
-                if (_showOsdBanner && currentStreamItem != null)
+                // 3. In-Player OSD Channel Info Banner (Appears on zap, only in fullscreen)
+                if (_showOsdBanner && currentStreamItem != null && isFull)
                   Positioned(
-                    top: 40,
-                    left: 0,
-                    right: 0,
+                    top: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)) ? 8 : 40,
+                    left: 12,
+                    right: 12,
                     child: Center(
                       child: InPlayerOsdBanner(
                         stream: currentStreamItem,
                         currentProgram: currentProgram,
                         channelNumber: channelIndex,
+                        isCompact: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)),
                       ),
                     ),
                   ),

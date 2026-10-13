@@ -307,6 +307,7 @@ class InPlayerOsdBanner extends StatelessWidget {
   final EpgProgram? currentProgram;
   final EpgProgram? nextProgram;
   final int channelNumber;
+  final bool isCompact;
 
   const InPlayerOsdBanner({
     super.key,
@@ -314,6 +315,7 @@ class InPlayerOsdBanner extends StatelessWidget {
     this.currentProgram,
     this.nextProgram,
     required this.channelNumber,
+    this.isCompact = false,
   });
 
   String _formatTime(DateTime dt) {
@@ -337,15 +339,18 @@ class InPlayerOsdBanner extends StatelessWidget {
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(isCompact ? 10 : 14),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          width: 520,
-          padding: const EdgeInsets.all(14),
+          width: isCompact ? null : 520,
+          constraints: isCompact ? const BoxConstraints(maxWidth: 340) : null,
+          padding: isCompact
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
+              : const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: const Color(0xE614141E),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(isCompact ? 10 : 14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             boxShadow: const [
               BoxShadow(color: Colors.black87, blurRadius: 20, offset: Offset(0, 6)),
@@ -355,8 +360,8 @@ class InPlayerOsdBanner extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Channel Logo
-              ChannelIcon(iconUrl: stream.streamIcon, channelName: cleanName, size: 52),
-              const SizedBox(width: 14),
+              ChannelIcon(iconUrl: stream.streamIcon, channelName: cleanName, size: isCompact ? 30 : 52),
+              SizedBox(width: isCompact ? 8 : 14),
 
               // Channel Info & EPG
               Expanded(
@@ -368,33 +373,47 @@ class InPlayerOsdBanner extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isCompact ? 4 : 6,
+                            vertical: isCompact ? 1 : 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.redAccent,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(isCompact ? 3 : 4),
                           ),
                           child: Text(
                             '$channelNumber',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: isCompact ? 9 : 11,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: isCompact ? 6 : 8),
                         Expanded(
                           child: Text(
                             cleanName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: isCompact ? 12 : 16,
+                            ),
                           ),
                         ),
                         if (timeRange != null)
                           Text(
                             timeRange,
-                            style: const TextStyle(color: Colors.white60, fontSize: 11),
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: isCompact ? 9 : 11,
+                            ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: isCompact ? 2 : 5),
 
                     // Current Program
                     if (currentProgram != null) ...[
@@ -402,23 +421,27 @@ class InPlayerOsdBanner extends StatelessWidget {
                         currentProgram!.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isCompact ? 10 : 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: isCompact ? 2 : 4),
                       if (progress != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(2),
                           child: LinearProgressIndicator(
                             value: progress,
-                            minHeight: 3.0,
+                            minHeight: isCompact ? 2.0 : 3.0,
                             backgroundColor: Colors.white12,
                             valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
                           ),
                         ),
                     ],
 
-                    // Next Program Preview
-                    if (nextProgram != null) ...[
+                    // Next Program Preview (Omitted in compact preview mode)
+                    if (!isCompact && nextProgram != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Danach: ${nextProgram!.title} (${_formatTime(nextProgram!.startTime)})',

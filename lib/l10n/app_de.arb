@@ -88,7 +88,8 @@
   "copiedToClipboard": "In die Zwischenablage kopiert",
   "copied": "Kopiert!",
   "done": "Fertig",
-  "playbackPreferences": "Wiedergabe- & Spracheinstellungen",
+  "playbackPreferences": "Wiedergabe-Einstellungen",
+  "exitApp": "App beenden",
   "preferredAudioLanguage": "Bevorzugte Audiosprache",
   "preferredSubtitleLanguage": "Bevorzugte Untertitel",
   "playbackPreferencesHint": "Wird bei Filmen und Serien automatisch angewendet, sofern verfügbar. Manuelle Track-Änderungen während der Wiedergabe werden pro Titel gespeichert.",
@@ -103,5 +104,7 @@
   "langRussian": "Russisch",
   "langArabic": "Arabisch",
   "langDefault": "Original / Standard",
-  "subtitlesOff": "Aus"
+  "subtitlesOff": "Aus",
+  "category": "Kategorie",
+  "searchCategories": "Kategorien durchsuchen..."
 }

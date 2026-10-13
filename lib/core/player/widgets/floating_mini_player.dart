@@ -55,46 +55,49 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
 
-    if (active.streamType == StreamType.movie || active.streamType == StreamType.series) {
-      await Navigator.of(context).push(
-        PageRouteBuilder(
-          pageBuilder: (context, _, __) => VodPlayerScreen(
-            streamUrl: active.streamUrl,
-            title: active.title,
-            streamId: active.streamId,
-            streamType: active.streamType == StreamType.movie ? 'movie' : 'series',
-            seriesId: active.seriesId,
-            coverUrl: active.coverUrl,
-            startPosition: null,
-            seasonsWithEpisodes: active.seasonsWithEpisodes,
-            currentSeason: active.currentSeason,
-            episodeNum: active.episodeNum,
-            seriesName: active.seriesName,
-            episodeTitle: active.episodeTitle,
-          ),
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-        ),
-      );
-      if (mounted) setState(() => _isExpanding = false);
-    } else if (active.streamType == StreamType.live) {
-      if (GoatPlatform.isMobile) {
+    try {
+      if (active.streamType == StreamType.movie || active.streamType == StreamType.series) {
         await Navigator.of(context).push(
           PageRouteBuilder(
-            pageBuilder: (context, _, __) => MobilePlayerScreen(
-              channelName: active.title,
+            pageBuilder: (context, _, __) => VodPlayerScreen(
               streamUrl: active.streamUrl,
-              channelId: active.channelId,
+              title: active.title,
+              streamId: active.streamId,
+              streamType: active.streamType == StreamType.movie ? 'movie' : 'series',
+              seriesId: active.seriesId,
+              coverUrl: active.coverUrl,
+              startPosition: null,
+              seasonsWithEpisodes: active.seasonsWithEpisodes,
+              currentSeason: active.currentSeason,
+              episodeNum: active.episodeNum,
+              seriesName: active.seriesName,
+              episodeTitle: active.episodeTitle,
             ),
             transitionDuration: Duration.zero,
             reverseTransitionDuration: Duration.zero,
           ),
         );
-        if (mounted) setState(() => _isExpanding = false);
-      } else {
-        widget.onExpandLiveDesktop?.call();
-        if (mounted) setState(() => _isExpanding = false);
+      } else if (active.streamType == StreamType.live) {
+        if (GoatPlatform.isMobile) {
+          await Navigator.of(context).push(
+            PageRouteBuilder(
+              pageBuilder: (context, _, __) => MobilePlayerScreen(
+                channelName: active.title,
+                streamUrl: active.streamUrl,
+                channelId: active.channelId,
+                streamId: active.streamId,
+                categoryId: active.categoryId,
+              ),
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+            ),
+          );
+        } else {
+          widget.onExpandLiveDesktop?.call();
+        }
       }
+    } finally {
+      if (mounted) setState(() => _isExpanding = false);
     }
   }
 
@@ -106,7 +109,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
     }
 
     final playerService = ref.watch(playerServiceProvider);
-    final size = MediaQuery.of(context).size;
+    final size = MediaQuery.sizeOf(context);
     final isDesktop = size.width > 800;
 
     if (isDesktop) {
@@ -166,8 +169,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
                     onPanUpdate: (details) {
                       setState(() {
                         _desktopPosition = Offset(
-                          (_desktopPosition.dx - details.delta.dx).clamp(16.0, MediaQuery.of(context).size.width - _cardWidth - 16.0),
-                          (_desktopPosition.dy - details.delta.dy).clamp(16.0, MediaQuery.of(context).size.height - _cardHeight - 16.0),
+                          (_desktopPosition.dx - details.delta.dx).clamp(16.0, MediaQuery.sizeOf(context).width - _cardWidth - 16.0),
+                          (_desktopPosition.dy - details.delta.dy).clamp(16.0, MediaQuery.sizeOf(context).height - _cardHeight - 16.0),
                         );
                       });
                     },
@@ -191,8 +194,8 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
                               onPanUpdate: (details) {
                                 setState(() {
                                   _desktopPosition = Offset(
-                                    (_desktopPosition.dx - details.delta.dx).clamp(16.0, MediaQuery.of(context).size.width - _cardWidth - 16.0),
-                                    (_desktopPosition.dy - details.delta.dy).clamp(16.0, MediaQuery.of(context).size.height - _cardHeight - 16.0),
+                                    (_desktopPosition.dx - details.delta.dx).clamp(16.0, MediaQuery.sizeOf(context).width - _cardWidth - 16.0),
+                                    (_desktopPosition.dy - details.delta.dy).clamp(16.0, MediaQuery.sizeOf(context).height - _cardHeight - 16.0),
                                   );
                                 });
                               },
@@ -256,7 +259,10 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
 
                           // Center: Play/Pause Button
                           Center(
-                            child: _PlayPauseButton(player: playerService.player),
+                            child: _PlayPauseButton(
+                              player: playerService.player,
+                              onPlayPause: () => playerService.playOrPause(),
+                            ),
                           ),
 
                           // Bottom Controls Section
@@ -397,11 +403,12 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
     final streamTypeLabel = active.streamType == StreamType.live
         ? (l10n?.liveTv ?? 'Live TV')
         : (l10n?.vodPlayback ?? 'VOD Playback');
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Positioned(
       left: 8,
       right: 8,
-      bottom: 8,
+      bottom: 8 + bottomPadding,
       height: 62,
       child: Material(
         color: Colors.transparent,
@@ -457,11 +464,12 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
                         ),
                       ),
 
-                      // Volume Control
-                      _MiniPlayerVolumeControl(player: playerService.player),
-
                       // Play / Pause
-                      _PlayPauseButton(player: playerService.player, iconSize: 28),
+                      _PlayPauseButton(
+                        player: playerService.player,
+                        iconSize: 28,
+                        onPlayPause: () => playerService.playOrPause(),
+                      ),
 
                       // Close
                       IconButton(
@@ -520,8 +528,13 @@ class _ResizeCornerPainter extends CustomPainter {
 class _PlayPauseButton extends StatefulWidget {
   final dynamic player;
   final double iconSize;
+  final VoidCallback? onPlayPause;
 
-  const _PlayPauseButton({required this.player, this.iconSize = 46});
+  const _PlayPauseButton({
+    required this.player,
+    this.iconSize = 46,
+    this.onPlayPause,
+  });
 
   @override
   State<_PlayPauseButton> createState() => _PlayPauseButtonState();
@@ -553,7 +566,11 @@ class _PlayPauseButtonState extends State<_PlayPauseButton> {
       color: Colors.white,
       icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
       onPressed: () {
-        widget.player.playOrPause();
+        if (widget.onPlayPause != null) {
+          widget.onPlayPause!();
+        } else {
+          widget.player.playOrPause();
+        }
       },
     );
   }

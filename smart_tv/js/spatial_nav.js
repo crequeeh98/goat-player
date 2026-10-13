@@ -92,6 +92,19 @@
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   }
 
+  function getClearButtonForInput(inputEl) {
+    if (!inputEl) return null;
+    var id = inputEl.id;
+    if (id === 'live-cat-search') return document.getElementById('live-cat-clear-btn');
+    if (id === 'movies-cat-search') return document.getElementById('movies-cat-clear-btn');
+    if (id === 'movies-search-input') return document.getElementById('movies-search-clear-btn');
+    if (id === 'series-cat-search') return document.getElementById('series-cat-clear-btn');
+    if (id === 'series-search-input') return document.getElementById('series-search-clear-btn');
+    if (id === 'master-search-input') return document.getElementById('master-search-clear-btn');
+    var parent = inputEl.parentElement;
+    return parent ? parent.querySelector('.search-clear-btn') : null;
+  }
+
   function getFocusableElements(container) {
     var root = container || document;
     var elements = root.querySelectorAll('.focusable, button:not([disabled]), input:not([disabled]), [tabindex="0"]');
@@ -454,6 +467,20 @@
         try { document.activeElement.blur(); } catch(err){}
         return;
       }
+      // Red button on TV remote clears the active search field immediately!
+      var isRemoteRed = (code === 403 || (e.key && (e.key.toLowerCase().indexOf('red') !== -1 || e.key.toLowerCase() === 'colorf0red')));
+      if (isRemoteRed) {
+        e.preventDefault();
+        e.stopPropagation();
+        var cBtn = getClearButtonForInput(document.activeElement);
+        if (cBtn) {
+          cBtn.click();
+        } else {
+          document.activeElement.value = '';
+          document.activeElement.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        return;
+      }
       // When user is in an input and presses navigation arrows (DOWN, UP, LEFT, RIGHT),
       // blur the input and allow spatial navigation to immediately navigate away!
       if (code === KEY_CODES.DOWN || code === KEY_CODES.UP || code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT) {
@@ -652,6 +679,34 @@
       return;
     }
 
+    // Red Key (code 403 on Smart TV, or 'R' Key):
+    // 1. Remove focused Continue Watching card
+    // 2. Clear focused search input field
+    if (!isEpgOverlayOpen && isRedKey(e, code)) {
+      var actEl = document.activeElement;
+      var curInput = (actEl && isInput(actEl)) ? actEl : (_currentFocused && isInput(_currentFocused) ? _currentFocused : null);
+      if (curInput) {
+        var clearBtn = getClearButtonForInput(curInput);
+        if (clearBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          clearBtn.click();
+          return;
+        }
+      }
+
+      var cwCard = _currentFocused ? _currentFocused.closest('.cw-card') : null;
+      if (cwCard) {
+        e.preventDefault();
+        e.stopPropagation();
+        var remBtn = cwCard.querySelector('.cw-remove-btn');
+        if (remBtn) {
+          remBtn.click();
+        }
+        return;
+      }
+    }
+
     // Yellow Key (code 405 on Smart TV), 'F' or 'Y' Key: Toggle favorite on focused channel
     if (!isEpgOverlayOpen && isYellowKey(e, code)) {
       var chMenu = document.getElementById('live-channel-menu');
@@ -760,14 +815,14 @@
             window.nextChannelMenuPage(false);
           }
           return;
-        } else if (code === KEY_CODES.LEFT) {
+        } else if (code === KEY_CODES.LEFT || code === 428 || code === 34 || (e.key && e.key === 'ChannelDown')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.prevChannelMenuPage === 'function') {
             window.prevChannelMenuPage(false);
           }
           return;
-        } else if (code === KEY_CODES.RIGHT) {
+        } else if (code === KEY_CODES.RIGHT || code === 427 || code === 33 || (e.key && e.key === 'ChannelUp')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.nextChannelMenuPage === 'function') {
@@ -799,14 +854,14 @@
             window.nextCategoryMenuPage(false);
           }
           return;
-        } else if (code === KEY_CODES.LEFT) {
+        } else if (code === KEY_CODES.LEFT || code === 428 || code === 34 || (e.key && e.key === 'ChannelDown')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.prevCategoryMenuPage === 'function') {
             window.prevCategoryMenuPage(false);
           }
           return;
-        } else if (code === KEY_CODES.RIGHT) {
+        } else if (code === KEY_CODES.RIGHT || code === 427 || code === 33 || (e.key && e.key === 'ChannelUp')) {
           e.preventDefault();
           e.stopPropagation();
           if (typeof window.nextCategoryMenuPage === 'function') {
@@ -1135,6 +1190,11 @@
       if (_currentFocused.id === 'movies-search-input') {
         if (code === KEY_CODES.DOWN) {
           e.preventDefault();
+          var mCw = document.getElementById('movies-continue-watching');
+          if (mCw && mCw.style.display !== 'none') {
+            var firstCw = mCw.querySelector('.cw-card');
+            if (firstCw) { setFocus(firstCw); return; }
+          }
           var firstPoster = document.querySelector('#movies-grid-container .poster-card');
           if (firstPoster) { setFocus(firstPoster); return; }
         } else if (code === KEY_CODES.UP) {
@@ -1159,6 +1219,11 @@
           if (movInput) { setFocus(movInput); return; }
         } else if (code === KEY_CODES.DOWN) {
           e.preventDefault();
+          var mCw = document.getElementById('movies-continue-watching');
+          if (mCw && mCw.style.display !== 'none') {
+            var firstCw = mCw.querySelector('.cw-card');
+            if (firstCw) { setFocus(firstCw); return; }
+          }
           var firstPoster = document.querySelector('#movies-grid-container .poster-card');
           if (firstPoster) { setFocus(firstPoster); return; }
         } else if (code === KEY_CODES.UP) {
@@ -1191,6 +1256,11 @@
       if (_currentFocused.id === 'series-search-input') {
         if (code === KEY_CODES.DOWN) {
           e.preventDefault();
+          var sCw = document.getElementById('series-continue-watching');
+          if (sCw && sCw.style.display !== 'none') {
+            var firstCw = sCw.querySelector('.cw-card');
+            if (firstCw) { setFocus(firstCw); return; }
+          }
           var firstPoster = document.querySelector('#series-grid-container .poster-card');
           if (firstPoster) { setFocus(firstPoster); return; }
         } else if (code === KEY_CODES.UP) {
@@ -1215,6 +1285,11 @@
           if (serInput) { setFocus(serInput); return; }
         } else if (code === KEY_CODES.DOWN) {
           e.preventDefault();
+          var sCw = document.getElementById('series-continue-watching');
+          if (sCw && sCw.style.display !== 'none') {
+            var firstCw = sCw.querySelector('.cw-card');
+            if (firstCw) { setFocus(firstCw); return; }
+          }
           var firstPoster = document.querySelector('#series-grid-container .poster-card');
           if (firstPoster) { setFocus(firstPoster); return; }
         } else if (code === KEY_CODES.UP) {

@@ -128,14 +128,14 @@ class ContinueWatchingRail extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 6.0),
               child: Text(
                 AppLocalizations.of(context)!.continueWatching,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             SizedBox(
-              height: 235,
+              height: 175,
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
@@ -149,16 +149,16 @@ class ContinueWatchingRail extends ConsumerWidget {
                   final subtitle = _getEpisodeSubtitle(context, item, isAdvanced);
 
                   return Padding(
-                    padding: const EdgeInsets.only(right: 14),
+                    padding: const EdgeInsets.only(right: 10),
                     child: SizedBox(
-                      width: 140,
+                      width: 104,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: TvFocusable(
                               focusScale: 1.04,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(8),
                               onPressed: () {
                                 if (type == 'movie') {
                                   Navigator.push(
@@ -167,11 +167,15 @@ class ContinueWatchingRail extends ConsumerWidget {
                                       opaque: false,
                                       barrierDismissible: true,
                                       barrierColor: Colors.black54,
+                                      transitionDuration: const Duration(milliseconds: 250),
+                                      reverseTransitionDuration: const Duration(milliseconds: 250),
                                       pageBuilder: (context, _, __) => MovieDetailModal(
                                         movieName: item.title,
                                         streamId: item.streamId,
                                         posterUrl: item.coverUrl,
                                       ),
+                                      transitionsBuilder: (context, animation, _, child) =>
+                                          FadeTransition(opacity: animation, child: child),
                                     ),
                                   );
                                 } else {
@@ -181,6 +185,8 @@ class ContinueWatchingRail extends ConsumerWidget {
                                       opaque: false,
                                       barrierDismissible: true,
                                       barrierColor: Colors.black54,
+                                      transitionDuration: const Duration(milliseconds: 250),
+                                      reverseTransitionDuration: const Duration(milliseconds: 250),
                                       pageBuilder: (context, _, __) => SeriesDetailModal(
                                         seriesName: seriesTitle,
                                         seriesId: item.seriesId ?? item.streamId,
@@ -189,12 +195,14 @@ class ContinueWatchingRail extends ConsumerWidget {
                                         initialEpisodeId: isAdvanced ? null : item.streamId,
                                         targetEpisodeNum: isAdvanced ? ((item.episode ?? 1) + 1) : item.episode,
                                       ),
+                                      transitionsBuilder: (context, animation, _, child) =>
+                                          FadeTransition(opacity: animation, child: child),
                                     ),
                                   );
                                 }
                               },
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(8),
                                 child: Stack(
                                   fit: StackFit.expand,
                                   children: [
@@ -202,29 +210,29 @@ class ContinueWatchingRail extends ConsumerWidget {
                                         ? Image.network(
                                             item.coverUrl!,
                                             fit: BoxFit.cover,
-                                            cacheWidth: 280,
-                                            cacheHeight: 420,
-                                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.movie, size: 32)),
+                                            cacheWidth: 220,
+                                            cacheHeight: 330,
+                                            errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.movie, size: 28)),
                                           )
-                                        : Container(color: Colors.grey[800], child: const Icon(Icons.movie, size: 32)),
+                                        : Container(color: Colors.grey[800], child: const Icon(Icons.movie, size: 28)),
 
                                     // S/E Badge on Top-Left of Poster
                                     if (badge.isNotEmpty)
                                       Positioned(
-                                        top: 8,
-                                        left: 8,
+                                        top: 6,
+                                        left: 6,
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.78),
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: Colors.black.withValues(alpha: 0.8),
+                                            borderRadius: BorderRadius.circular(3),
                                             border: Border.all(color: Colors.white24, width: 0.5),
                                           ),
                                           child: Text(
                                             badge,
                                             style: const TextStyle(
                                               color: Colors.white,
-                                              fontSize: 10,
+                                              fontSize: 9,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: 0.5,
                                             ),
@@ -238,25 +246,25 @@ class ContinueWatchingRail extends ConsumerWidget {
                                       left: 0,
                                       right: 0,
                                       child: ClipRRect(
-                                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
                                         child: LinearProgressIndicator(
                                           value: isAdvanced ? 0.0 : (item.duration > 0 ? item.position / item.duration : 0.0),
                                           backgroundColor: Colors.black54,
                                           color: Colors.redAccent,
-                                          minHeight: 4,
+                                          minHeight: 3.5,
                                         ),
                                       ),
                                     ),
 
                                     // Play Button Icon Overlay
                                     const Center(
-                                      child: Icon(Icons.play_circle_fill, size: 48, color: Colors.white70),
+                                      child: Icon(Icons.play_circle_fill, size: 34, color: Colors.white70),
                                     ),
 
                                     // Delete / Remove Card Button
                                     Positioned(
-                                      top: 4,
-                                      right: 4,
+                                      top: 3,
+                                      right: 3,
                                       child: Material(
                                         color: Colors.black54,
                                         shape: const CircleBorder(),
@@ -271,8 +279,8 @@ class ContinueWatchingRail extends ConsumerWidget {
                                             }
                                           },
                                           child: const Padding(
-                                            padding: EdgeInsets.all(4.0),
-                                            child: Icon(Icons.close, size: 16, color: Colors.white),
+                                            padding: EdgeInsets.all(3.0),
+                                            child: Icon(Icons.close, size: 13, color: Colors.white),
                                           ),
                                         ),
                                       ),
@@ -282,21 +290,21 @@ class ContinueWatchingRail extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 5),
                           // Title
                           Text(
                             seriesTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                           ),
                           if (subtitle.isNotEmpty) ...[
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 1),
                             Text(
                               subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: Colors.white60),
+                              style: const TextStyle(fontSize: 10, color: Colors.white60),
                             ),
                           ],
                         ],
@@ -306,7 +314,7 @@ class ContinueWatchingRail extends ConsumerWidget {
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0),
               child: Divider(
@@ -315,7 +323,7 @@ class ContinueWatchingRail extends ConsumerWidget {
                 color: Colors.white12,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
           ],
         );
       },

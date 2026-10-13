@@ -25,6 +25,7 @@ class VideoPreview extends ConsumerStatefulWidget {
   final VoidCallback? onZapPrevious;
   final VoidCallback? onZapNext;
   final String? categoryName;
+  final VoidCallback? onPullDown;
 
   const VideoPreview({
     super.key,
@@ -41,6 +42,7 @@ class VideoPreview extends ConsumerStatefulWidget {
     this.onZapPrevious,
     this.onZapNext,
     this.categoryName,
+    this.onPullDown,
   });
 
   @override
@@ -134,6 +136,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
         onZapPrevious: widget.onZapPrevious,
         onZapNext: widget.onZapNext,
         categoryName: widget.categoryName,
+        onPullDown: widget.onPullDown,
       ),
     );
 
@@ -144,6 +147,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
             ? MobileGestureDetector(
                 player: playerService.player,
                 enableSeek: false,
+                onPullDown: widget.onPullDown,
                 child: video,
               )
             : video,

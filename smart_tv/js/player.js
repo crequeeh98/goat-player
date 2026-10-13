@@ -127,6 +127,38 @@
   }
   window.normalizeEpisodeList = normalizeEpisodeList;
 
+  function parseDurationSecs(raw) {
+    if (window.TVStorage && window.TVStorage.parseDurationSecs) {
+      return window.TVStorage.parseDurationSecs(raw);
+    }
+    if (raw === null || raw === undefined || raw === '') return 0;
+    if (typeof raw === 'number') {
+      if (isNaN(raw) || !isFinite(raw) || raw <= 0) return 0;
+      return (raw < 300) ? Math.floor(raw * 60) : Math.floor(raw);
+    }
+    var str = String(raw).trim();
+    if (!str) return 0;
+    var timeMatch = str.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+    if (timeMatch) {
+      var h = parseInt(timeMatch[1], 10) || 0;
+      var m = parseInt(timeMatch[2], 10) || 0;
+      var s = parseInt(timeMatch[3], 10) || 0;
+      return (h * 3600) + (m * 60) + s;
+    }
+    var shortMatch = str.match(/^(\d{1,3}):(\d{2})$/);
+    if (shortMatch) {
+      var sm = parseInt(shortMatch[1], 10) || 0;
+      var ss = parseInt(shortMatch[2], 10) || 0;
+      return (sm * 60) + ss;
+    }
+    if (/^\d+(\.\d+)?$/.test(str)) {
+      var num = parseFloat(str);
+      if (isNaN(num) || !isFinite(num) || num <= 0) return 0;
+      return (num < 300) ? Math.floor(num * 60) : Math.floor(num);
+    }
+    return 0;
+  }
+
   var _trackUpdateListeners = [];
   window.onTracksUpdated = function() {
     for (var i = 0; i < _trackUpdateListeners.length; i++) {
@@ -465,6 +497,22 @@
       if (!moov) return { audios: [], subs: [] };
 
       var moovBoxes = parseBox(moov.start, moov.end);
+      var mvhd = moovBoxes.find(function(b) { return b.type === 'mvhd'; });
+      var containerDuration = 0;
+      if (mvhd && mvhd.start + 16 <= mvhd.end) {
+        var v = view.getUint8(mvhd.start);
+        var timescaleOffset = (v === 1) ? (mvhd.start + 20) : (mvhd.start + 12);
+        var durationOffset = (v === 1) ? (mvhd.start + 24) : (mvhd.start + 16);
+        if (durationOffset + (v === 1 ? 8 : 4) <= mvhd.end) {
+          var timescale = view.getUint32(timescaleOffset);
+          var durationVal = (v === 1)
+            ? (view.getUint32(durationOffset) * 0x100000000 + view.getUint32(durationOffset + 4))
+            : view.getUint32(durationOffset);
+          if (timescale > 0 && durationVal > 0) {
+            containerDuration = Math.floor(durationVal / timescale);
+          }
+        }
+      }
       var traks = moovBoxes.filter(function(b) { return b.type === 'trak'; });
 
       traks.forEach(function(trak, tIdx) {
@@ -544,7 +592,7 @@
         }
       });
 
-      return { audios: audioList, subs: subList };
+      return { audios: audioList, subs: subList, duration: containerDuration };
     }
   };
   window.TVContainerProber = TVContainerProber;
@@ -643,6 +691,12 @@
       self._applyPreferences();
       self._tracksLoading = false;
       if (window.onTracksUpdated) window.onTracksUpdated();
+    });
+
+    this.videoEl.addEventListener('durationchange', function() {
+      if (self.playbackType === 'vod' || self.playbackType === 'series') {
+        self._updateVodDuration();
+      }
     });
 
     this._setupTrackListeners = function() {
@@ -1038,14 +1092,22 @@
     if (!activeAccount) return;
 
     var curPos = Math.floor(this.videoEl.currentTime || 0);
-    var durFromEl = Math.floor(this.videoEl.duration || 0);
-    var totalDur = (isFinite(durFromEl) && durFromEl > 0) ? durFromEl : Math.floor(this.currentVodMeta.duration || 0);
+    var durFromEl = this.videoEl.duration;
+    var validElDur = (durFromEl && !isNaN(durFromEl) && isFinite(durFromEl) && durFromEl > 100) ? Math.floor(durFromEl) : 0;
+    // Reject bogus video.duration that is just reflecting currentTime
+    if (validElDur > 0 && Math.abs(validElDur - curPos) < 2) {
+      validElDur = 0;
+    }
+    var metaDur = parseDurationSecs(this.currentVodMeta.duration);
+    var totalDur = (validElDur > 100) ? validElDur : metaDur;
     if (curPos < 2 && !forceCompleted) return;
 
     this.currentVodMeta.position = curPos;
-    if (totalDur > 0) this.currentVodMeta.duration = totalDur;
+    if (totalDur > 100) {
+      this.currentVodMeta.duration = totalDur;
+    }
     this.currentVodMeta.updatedAt = Date.now();
-    this.currentVodMeta.isCompleted = forceCompleted || (totalDur > 0 && (curPos / totalDur) >= 0.95);
+    this.currentVodMeta.isCompleted = forceCompleted || (totalDur > 100 && (curPos / totalDur) >= 0.95);
     window.TVStorage.saveProgress(activeAccount.id, this.currentVodMeta);
   };
 
@@ -1182,15 +1244,64 @@
 
   TVPlayer.prototype.setChannelList = function(list) {
     this.currentChannelList = list || [];
+    if (this.currentStream && this.currentChannelList.length > 0) {
+      var self = this;
+      var curId = String(self.currentStream.stream_id || self.currentStream.id);
+      this.currentChannelIndex = this.currentChannelList.findIndex(function(c) {
+        return String(c.stream_id || c.id) === curId;
+      });
+    }
   };
 
   // Play Live Stream
-  TVPlayer.prototype.playLive = function(channel, categoryName, startFullscreen) {
+  TVPlayer.prototype.playLive = function(channel, categoryOrName, startFullscreen) {
     if (!channel) return;
     this.playbackType = 'live';
     this.currentStream = channel;
     this.currentVodMeta = null;
-    this.currentCategoryName = categoryName || this.currentCategoryName || 'Live TV';
+
+    if (categoryOrName && typeof categoryOrName === 'object') {
+      this.currentCategory = categoryOrName;
+      this.currentCategoryId = String(categoryOrName.category_id);
+      this.currentCategoryName = categoryOrName.category_name || 'Live TV';
+    } else if (typeof categoryOrName === 'string') {
+      this.currentCategoryName = categoryOrName;
+      if (categoryOrName.toLowerCase().indexOf('fav') !== -1) {
+        this.currentCategoryId = 'favorites';
+        this.currentCategory = { category_id: 'favorites', category_name: categoryOrName };
+      } else if (channel && channel.category_id && window._liveCategories) {
+        var found = window._liveCategories.find(function(c) { return String(c.category_id) === String(channel.category_id); });
+        if (found) {
+          this.currentCategory = found;
+          this.currentCategoryId = String(found.category_id);
+        } else {
+          this.currentCategoryId = String(channel.category_id);
+          this.currentCategory = { category_id: channel.category_id, category_name: categoryOrName };
+        }
+      } else if (window._selectedLiveCategory && String(window._selectedLiveCategory.category_id) !== 'favorites') {
+        this.currentCategory = window._selectedLiveCategory;
+        this.currentCategoryId = String(window._selectedLiveCategory.category_id);
+      } else {
+        this.currentCategoryId = '';
+        this.currentCategory = { category_id: '', category_name: categoryOrName };
+      }
+    } else if (window._selectedLiveCategory) {
+      this.currentCategory = window._selectedLiveCategory;
+      this.currentCategoryId = String(window._selectedLiveCategory.category_id);
+      this.currentCategoryName = window._selectedLiveCategory.category_name || 'Live TV';
+    } else if (channel && channel.category_id && window._liveCategories) {
+      var foundCat = window._liveCategories.find(function(c) { return String(c.category_id) === String(channel.category_id); });
+      if (foundCat) {
+        this.currentCategory = foundCat;
+        this.currentCategoryId = String(foundCat.category_id);
+        this.currentCategoryName = foundCat.category_name || 'Live TV';
+      }
+    }
+
+    if (this.currentCategory) {
+      window._selectedLiveCategory = this.currentCategory;
+    }
+
     this._retriedWithTs = false;
     this._retriedWithHls = false;
     this._userPaused = false;
@@ -1202,8 +1313,9 @@
       }
     }
     this._startWatchdog();
+    var chId = String(channel.stream_id || channel.id);
     this.currentChannelIndex = this.currentChannelList.findIndex(function(c) {
-      return String(c.stream_id) === String(channel.stream_id);
+      return String(c.stream_id || c.id) === chId;
     });
 
     var activeAccount = window.TVStorage.getActiveAccount();
@@ -1267,11 +1379,10 @@
     var activeAccount = window.TVStorage ? window.TVStorage.getActiveAccount() : null;
     if (!activeAccount) return;
 
-    var knownDur = (meta && typeof meta.duration === 'number' && meta.duration > 0)
-      ? meta.duration
-      : (stream && typeof stream.duration_secs === 'number' && stream.duration_secs > 0
-        ? stream.duration_secs
-        : (stream && typeof stream.duration === 'number' && stream.duration > 0 ? stream.duration : 0));
+    var rawDur = (meta && (meta.duration || meta.duration_secs)) ||
+      (stream && (stream.duration_secs || stream.duration)) ||
+      (stream && stream.info && (stream.info.duration_secs || stream.info.duration)) || 0;
+    var knownDur = parseDurationSecs(rawDur);
     var initialPos = willResume ? meta.startPosition : 0;
 
     // Immediately reset & initialize HUD runtime and current time from metadata so there is zero flicker
@@ -1302,11 +1413,16 @@
       audioTracks: (meta && meta.audioTracks) || [],
       subtitleTracks: (meta && meta.subtitleTracks) || []
     };
-    if (this.currentVodMeta && !this.currentVodMeta.containerExtension) {
-      this.currentVodMeta.containerExtension = ext;
-    }
-    if (this.currentVodMeta && (!this.currentVodMeta.duration || this.currentVodMeta.duration <= 0) && knownDur > 0) {
-      this.currentVodMeta.duration = knownDur;
+    if (this.currentVodMeta) {
+      if (!this.currentVodMeta.containerExtension) {
+        this.currentVodMeta.containerExtension = ext;
+      }
+      var metaDur = parseDurationSecs(this.currentVodMeta.duration);
+      if (metaDur > 0) {
+        this.currentVodMeta.duration = metaDur;
+      } else if (knownDur > 0) {
+        this.currentVodMeta.duration = knownDur;
+      }
     }
 
     // Only seek when explicitly instructed via startPosition (e.g. user confirmed Resume dialog)
@@ -1347,6 +1463,10 @@
     if (url && window.TVContainerProber) {
       var cachedTracks = window.TVContainerProber.getCachedTracks(url);
       if (cachedTracks) {
+        if (cachedTracks.duration > 100 && (!self.currentVodMeta.duration || self.currentVodMeta.duration <= 100)) {
+          self.currentVodMeta.duration = cachedTracks.duration;
+          self._updateVodDuration();
+        }
         if (cachedTracks.audios && cachedTracks.audios.length > 0 && (!self.currentVodMeta.audioTracks || cachedTracks.audios.length > self.currentVodMeta.audioTracks.length)) {
           self.currentVodMeta.audioTracks = cachedTracks.audios;
         }
@@ -1373,7 +1493,7 @@
       }, 1500);
     }
 
-    if ((!hasAudioMeta || !hasSubMeta) && activeAccount) {
+    if ((!hasAudioMeta || !hasSubMeta || !this.currentVodMeta.duration || this.currentVodMeta.duration <= 100) && activeAccount) {
       this._tracksLoading = true;
       if (this.playbackType === 'vod') {
         console.log('[TrackDebug] Background fetch: requesting getVodInfo for sId:', sId);
@@ -1383,6 +1503,14 @@
           var aTracks = window.extractAudioTracksFromInfo ? window.extractAudioTracksFromInfo(info) : [];
           var sTracks = window.extractSubtitleTracksFromInfo ? window.extractSubtitleTracksFromInfo(info) : [];
           console.log('[TrackDebug] Background getVodInfo extracted: audio=' + aTracks.length + ', subs=' + sTracks.length);
+          var infoDur = (window.extractDurationFromInfo && window.extractDurationFromInfo(info)) || parseDurationSecs((info.info && (info.info.duration_secs || info.info.duration || info.info.runtime)) || (info.movie_data && (info.movie_data.duration_secs || info.movie_data.duration || info.movie_data.runtime)));
+          if (infoDur > 100 && (!self.currentVodMeta.duration || self.currentVodMeta.duration <= 100)) {
+            self.currentVodMeta.duration = infoDur;
+            self._updateVodDuration();
+            if (self.videoEl && self.videoEl.currentTime >= 2) {
+              self._saveCurrentProgress(false);
+            }
+          }
           if (aTracks.length > 0 && (!self.currentVodMeta.audioTracks || self.currentVodMeta.audioTracks.length === 0 || aTracks.length > self.currentVodMeta.audioTracks.length)) {
             self.currentVodMeta.audioTracks = aTracks;
           }
@@ -1429,6 +1557,14 @@
               var epAudio = window.extractAudioTracksFromInfo ? window.extractAudioTracksFromInfo(matchedEp) : [];
               var epSubs = window.extractSubtitleTracksFromInfo ? window.extractSubtitleTracksFromInfo(matchedEp) : [];
               console.log('[TrackDebug] Background getSeriesInfo extracted for ep ' + sId + ': audio=' + epAudio.length + ', subs=' + epSubs.length);
+              var epDur = (window.extractDurationFromInfo && window.extractDurationFromInfo(matchedEp)) || parseDurationSecs((matchedEp.info && (matchedEp.info.duration_secs || matchedEp.info.duration || matchedEp.info.runtime)) || (matchedEp.duration_secs || matchedEp.duration));
+              if (epDur > 100 && (!self.currentVodMeta.duration || self.currentVodMeta.duration <= 100)) {
+                self.currentVodMeta.duration = epDur;
+                self._updateVodDuration();
+                if (self.videoEl && self.videoEl.currentTime >= 2) {
+                  self._saveCurrentProgress(false);
+                }
+              }
               if (epAudio.length > 0 && (!self.currentVodMeta.audioTracks || self.currentVodMeta.audioTracks.length === 0 || epAudio.length > self.currentVodMeta.audioTracks.length)) {
                 self.currentVodMeta.audioTracks = epAudio;
               }
@@ -2213,8 +2349,8 @@
     }
     var cur = this.videoEl.currentTime || 0;
     var dur = this.videoEl.duration;
-    if ((!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) && this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
-      dur = this.currentVodMeta.duration;
+    if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 30) {
+      dur = (this.currentVodMeta && this.currentVodMeta.duration > 0) ? parseDurationSecs(this.currentVodMeta.duration) : 0;
     }
     var curSec = Math.floor(cur);
 
@@ -2227,16 +2363,25 @@
   };
 
   TVPlayer.prototype._updateVodDuration = function() {
-    var dur = this.videoEl.duration;
+    var dur = this.videoEl ? this.videoEl.duration : 0;
     var durEl = document.getElementById('vod-time-total');
-    if (durEl) {
-      if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
-        durEl.textContent = this._formatTime(dur);
-      } else if (this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
-        durEl.textContent = this._formatTime(this.currentVodMeta.duration);
-      } else {
-        durEl.textContent = '--:--';
+    var curPos = this.videoEl ? Math.floor(this.videoEl.currentTime || 0) : 0;
+    var validDur = 0;
+    if (dur && !isNaN(dur) && isFinite(dur) && dur > 100 && (curPos < 2 || Math.abs(dur - curPos) > 2)) {
+      validDur = Math.floor(dur);
+      if (this.currentVodMeta) {
+        this.currentVodMeta.duration = validDur;
       }
+    } else if (this.currentVodMeta && this.currentVodMeta.duration > 0) {
+      validDur = parseDurationSecs(this.currentVodMeta.duration);
+      if (validDur > 100) {
+        this.currentVodMeta.duration = validDur;
+      } else {
+        validDur = 0;
+      }
+    }
+    if (durEl) {
+      durEl.textContent = (validDur > 0) ? this._formatTime(validDur) : '--:--';
     }
   };
 
@@ -2269,7 +2414,7 @@
     if (this.currentChannelIndex < 0) this.currentChannelIndex = 0;
     var nextIdx = (this.currentChannelIndex + 1) % list.length;
     this.currentChannelIndex = nextIdx;
-    this.playLive(list[nextIdx], this.currentCategoryName, true);
+    this.playLive(list[nextIdx], this.currentCategory || this.currentCategoryName, true);
   };
 
   TVPlayer.prototype.zapPrev = function() {
@@ -2283,16 +2428,21 @@
     if (this.currentChannelIndex < 0 && this.currentStream) {
       var self = this;
       this.currentChannelIndex = list.findIndex(function(c) {
-        return String(c.stream_id) === String(self.currentStream.stream_id);
+        return String(c.stream_id || c.id) === String(self.currentStream.stream_id || self.currentStream.id);
       });
     }
     if (this.currentChannelIndex < 0) this.currentChannelIndex = 0;
     var prevIdx = (this.currentChannelIndex - 1 + list.length) % list.length;
     this.currentChannelIndex = prevIdx;
-    this.playLive(list[prevIdx], this.currentCategoryName, true);
+    this.playLive(list[prevIdx], this.currentCategory || this.currentCategoryName, true);
   };
 
   TVPlayer.prototype.stop = function(keepOsd) {
+    if (this.playbackType === 'vod' || this.playbackType === 'series') {
+      try {
+        this._saveCurrentProgress(false);
+      } catch(e){}
+    }
     if (this._seekDebounceTimer) {
       clearTimeout(this._seekDebounceTimer);
       this._seekDebounceTimer = null;

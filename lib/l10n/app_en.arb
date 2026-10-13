@@ -88,7 +88,8 @@
   "copiedToClipboard": "Copied to clipboard",
   "copied": "Copied!",
   "done": "Done",
-  "playbackPreferences": "Playback & Language Preferences",
+  "playbackPreferences": "Playback Settings",
+  "exitApp": "Exit App",
   "preferredAudioLanguage": "Preferred Audio Language",
   "preferredSubtitleLanguage": "Preferred Subtitles",
   "playbackPreferencesHint": "Automatically applied to movies and series when available. Manual track adjustments during playback are remembered per title.",
@@ -103,5 +104,7 @@
   "langRussian": "Russian",
   "langArabic": "Arabic",
   "langDefault": "Original / Default",
-  "subtitlesOff": "Off"
+  "subtitlesOff": "Off",
+  "category": "Category",
+  "searchCategories": "Search categories..."
 }

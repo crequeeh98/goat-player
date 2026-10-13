@@ -128,11 +128,27 @@ class PlayerService {
     await engine.jumpToLiveEdge();
   }
 
-  Future<void> play() async => engine.play();
+  Future<void> play() async {
+    if (_isLive) {
+      await jumpToLiveEdge();
+    } else {
+      await engine.play();
+    }
+  }
 
   Future<void> pause() async => engine.pause();
 
-  Future<void> playOrPause() async => engine.playOrPause();
+  Future<void> playOrPause() async {
+    if (_isLive) {
+      if (player.state.playing) {
+        await engine.pause();
+      } else {
+        await jumpToLiveEdge();
+      }
+    } else {
+      await engine.playOrPause();
+    }
+  }
 
   Future<void> seek(Duration position) async => engine.seek(position);
 

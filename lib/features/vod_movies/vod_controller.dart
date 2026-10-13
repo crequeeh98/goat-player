@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../../core/database/app_database.dart';
 import 'package:drift/drift.dart';
 import '../../core/utils/title_sanitizer.dart';
+import '../../core/settings/locale_controller.dart';
 
 final vodCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
   final account = ref.watch(activeAccountProvider);
@@ -52,11 +53,19 @@ class VodController {
   
   VodController(this._ref);
 
-  Future<void> syncVodCategories() async {
+  Future<void> syncVodCategories({bool force = false}) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null) return;
     
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastSync = prefs.getInt('last_sync_categories_vod_${account.id}') ?? 0;
+    if (!force && (nowMs - lastSync < 6 * 60 * 60 * 1000)) {
+      debugPrint('VOD categories synced recently. Skipping.');
+      return;
+    }
+
     try {
       debugPrint('Syncing VOD categories...');
       final rawCategories = await client.getVodCategories();
@@ -79,6 +88,7 @@ class VodController {
       }
       
       await dao.replaceCategories(account.id, 'movie', companions);
+      await prefs.setInt('last_sync_categories_vod_${account.id}', nowMs);
     } catch (e) {
       debugPrint('Failed to sync vod categories: $e');
     }
@@ -115,11 +125,23 @@ class VodController {
     }
   }
 
-  Future<void> syncAllVodStreams() async {
+  bool _isSyncingAll = false;
+
+  Future<void> syncAllVodStreams({bool force = false}) async {
+    if (_isSyncingAll) return;
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null) return;
     
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastSync = prefs.getInt('last_sync_all_vod_${account.id}') ?? 0;
+    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+      debugPrint('VOD streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
+      return;
+    }
+
+    _isSyncingAll = true;
     try {
       debugPrint('Syncing ALL VOD streams...');
       final rawStreams = await client.getVodStreams();
@@ -129,11 +151,13 @@ class VodController {
       
       final companions = await compute(_mapVodStreams, {'accountId': account.id, 'streams': rawStreams});
       
-      await dao.clearStreamsByType(account.id, 'movie');
-      await dao.insertStreams(companions);
+      await dao.replaceStreamsByType(account.id, 'movie', companions);
+      await prefs.setInt('last_sync_all_vod_${account.id}', nowMs);
       debugPrint('Finished syncing ALL VOD streams.');
     } catch (e) {
       debugPrint('Failed to sync all vod streams: $e');
+    } finally {
+      _isSyncingAll = false;
     }
   }
 }

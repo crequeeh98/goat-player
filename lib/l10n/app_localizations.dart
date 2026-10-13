@@ -629,8 +629,14 @@ abstract class AppLocalizations {
   /// No description provided for @playbackPreferences.
   ///
   /// In en, this message translates to:
-  /// **'Playback & Language Preferences'**
+  /// **'Playback Settings'**
   String get playbackPreferences;
+
+  /// No description provided for @exitApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit App'**
+  String get exitApp;
 
   /// No description provided for @preferredAudioLanguage.
   ///
@@ -721,6 +727,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Off'**
   String get subtitlesOff;
+
+  /// No description provided for @category.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get category;
+
+  /// No description provided for @searchCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Search categories...'**
+  String get searchCategories;
 }
 
 class _AppLocalizationsDelegate

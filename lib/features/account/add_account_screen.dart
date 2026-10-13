@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../main.dart';
 import '../../core/database/app_database.dart';
 import '../../core/remote_sync/remote_sync_service.dart';
+import '../../core/utils/platform_utils.dart';
 
 enum AddAccountMode { manual, remote }
 
@@ -42,6 +43,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   @override
   void initState() {
     super.initState();
+    if (GoatPlatform.isMobile) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+    }
     _syncService = ref.read(remoteSyncServiceProvider);
     if (widget.accountToEdit != null) {
       _playlistNameController.text = widget.accountToEdit!.playlistName ?? '';
@@ -236,13 +243,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             onPressed: _isClosingSession ? null : _handleCloseAndPop,
           ),
         ),
-      body: Center(
+      body: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
             child: isEditing
-                ? _buildManualForm(l10n)
+                ? SingleChildScrollView(child: _buildManualForm(l10n))
                 : Column(
                     children: [
                       // Mode Selector (Manual vs Remote)
@@ -250,18 +258,35 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                         segments: [
                           ButtonSegment(
                             value: AddAccountMode.manual,
-                            icon: const Icon(Icons.keyboard_outlined),
-                            label: Text(l10n.manualSetup),
+                            icon: const Icon(Icons.keyboard_outlined, size: 18),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                l10n.manualSetup,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ),
                           ),
                           ButtonSegment(
                             value: AddAccountMode.remote,
-                            icon: const Icon(Icons.qr_code_2),
-                            label: Text(l10n.linkViaWeb),
+                            icon: const Icon(Icons.qr_code_2, size: 18),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                l10n.linkViaWeb,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ),
                           ),
                         ],
                         selected: {_selectedMode},
                         onSelectionChanged: (set) => _onModeChanged(set.first),
                         style: SegmentedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
                           selectedBackgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
                           selectedForegroundColor: Theme.of(context).colorScheme.primary,
                         ),
@@ -389,226 +414,256 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       return const SizedBox.shrink();
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Text(
-            l10n.scanWithPhone,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: Colors.white70),
-          ),
-          const SizedBox(height: 16),
-
-          // QR Code Card
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                  blurRadius: 24,
-                  spreadRadius: 2,
-                ),
-              ],
+    return SafeArea(
+      top: false,
+      bottom: true,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          children: [
+            Text(
+              l10n.scanWithPhone,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Colors.white70),
             ),
-            child: QrImageView(
-              data: _session!.qrUrl,
-              version: QrVersions.auto,
-              size: 180,
-              backgroundColor: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
-          // Device ID & PIN Box
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+            // QR Code Card (Compact 135px)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                    blurRadius: 18,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: QrImageView(
+                data: _session!.qrUrl,
+                version: QrVersions.auto,
+                size: 135,
+                backgroundColor: Colors.white,
               ),
             ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(l10n.deviceId, style: const TextStyle(fontSize: 12, color: Colors.white60)),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SelectableText(
-                          _session!.deviceId,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white70),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: l10n.copiedToClipboard,
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: _session!.deviceId));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${l10n.deviceId}: ${l10n.copied}'),
-                                duration: const Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+            const SizedBox(height: 10),
+
+            // Device ID & PIN Box (Compact)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
                 ),
-                const Divider(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(l10n.pairingPin, style: const TextStyle(fontSize: 12, color: Colors.white60)),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(l10n.deviceId, style: const TextStyle(fontSize: 11, color: Colors.white60)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SelectableText(
+                            _session!.deviceId,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
                           ),
-                          child: Text(
-                            _session!.pin,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 2,
-                              color: Theme.of(context).colorScheme.primary,
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.white70),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: l10n.copiedToClipboard,
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: _session!.deviceId));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${l10n.deviceId}: ${l10n.copied}'),
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(l10n.pairingPin, style: const TextStyle(fontSize: 11, color: Colors.white60)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _session!.pin,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white70),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          tooltip: l10n.copiedToClipboard,
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: _session!.pin));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${l10n.pairingPin}: ${l10n.copied}'),
-                                duration: const Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Web portal address
-          Text(
-            l10n.orVisitWebsite,
-            style: const TextStyle(fontSize: 11, color: Colors.white54),
-          ),
-          const SizedBox(height: 3),
-          SelectableText(
-            RemoteSyncService.defaultPortalUrl,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Expiry & Refresh
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.timer_outlined, size: 15, color: Colors.white60),
-              const SizedBox(width: 6),
-              Text(
-                '${l10n.pinExpiresIn}: ${_formatDuration(_remainingTime)}',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: l10n.newPin,
-                icon: const Icon(Icons.refresh, size: 18),
-                onPressed: _initRemoteSession,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Live Pulse Status
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: _playlistReceived ? Colors.green.withValues(alpha: 0.2) : Colors.purple.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _playlistReceived ? Colors.green : Colors.purple.withValues(alpha: 0.35),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_playlistReceived)
-                  const Icon(Icons.check_circle, size: 16, color: Colors.green)
-                else
-                  const SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purpleAccent),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.white70),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: l10n.copiedToClipboard,
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: _session!.pin));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${l10n.pairingPin}: ${l10n.copied}'),
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                const SizedBox(width: 8),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Web portal address in compact row
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
                 Text(
-                  _playlistReceived ? l10n.playlistReceived : l10n.waitingForPlaylist,
+                  '${l10n.orVisitWebsite} ',
+                  style: const TextStyle(fontSize: 11, color: Colors.white54),
+                ),
+                SelectableText(
+                  RemoteSyncService.defaultPortalUrl,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _playlistReceived ? Colors.green : Colors.purpleAccent,
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
                   ),
                 ),
               ],
             ),
-          ),
-          if (_playlistReceived) ...[
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _isClosingSession ? null : _handleCloseAndPop,
-              icon: _isClosingSession
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.check),
-              label: Text(l10n.done),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+            const SizedBox(height: 6),
+
+            // Expiry & Refresh
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.timer_outlined, size: 13, color: Colors.white60),
+                const SizedBox(width: 4),
+                Text(
+                  '${l10n.pinExpiresIn}: ${_formatDuration(_remainingTime)}',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: l10n.newPin,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: _initRemoteSession,
+                ),
+              ],
             ),
+            const SizedBox(height: 10),
+
+            // Live Pulse Status converts into Done button in-place
+            if (!_playlistReceived)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.purple.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purpleAccent),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      l10n.waitingForPlaylist,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.purpleAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.check_circle, size: 15, color: Colors.greenAccent),
+                  const SizedBox(width: 6),
+                  Text(
+                    l10n.localeName == 'de' ? 'Playlist empfangen! Info wird geladen...' : 'Playlist received! Loading info...',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.greenAccent,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: _isClosingSession ? null : _handleCloseAndPop,
+                icon: _isClosingSession
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check_rounded, size: 18),
+                label: Text(
+                  l10n.done,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
