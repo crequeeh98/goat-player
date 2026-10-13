@@ -25,7 +25,7 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
   MediaKitPlayerEngine() {
     player = Player(
       configuration: const PlayerConfiguration(
-        bufferSize: 8 * 1024 * 1024, // 8MB buffer
+        bufferSize: 32 * 1024 * 1024, // 32MB buffer
       ),
     );
     controller = VideoController(
@@ -73,10 +73,10 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
       platform?.setProperty('video-sync', 'audio');
 
       if (isLive) {
-        platform?.setProperty('demuxer-lavf-analyzeduration', '1.0');
-        platform?.setProperty('demuxer-lavf-probesize', '1048576');
-        platform?.setProperty('demuxer-readahead-secs', '2');
-        platform?.setProperty('demuxer-max-bytes', '4194304');
+        platform?.setProperty('demuxer-lavf-analyzeduration', '2.0');
+        platform?.setProperty('demuxer-lavf-probesize', '4194304');
+        platform?.setProperty('demuxer-readahead-secs', '10');
+        platform?.setProperty('demuxer-max-bytes', '33554432');
         platform?.setProperty('cache', 'yes');
         platform?.setProperty('cache-pause', 'no');
         platform?.setProperty('network-timeout', '10');

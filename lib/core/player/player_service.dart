@@ -46,6 +46,7 @@ class PlayerService {
   StreamSubscription? _playingSub;
   Timer? _reconnectTimer;
   Timer? _bufferingWatchdogTimer;
+  Timer? _stabilityTimer;
   int _reconnectAttempts = 0;
 
   PlayerService({GoatPlayerEngine? customEngine}) {
@@ -54,13 +55,6 @@ class PlayerService {
   }
 
   void _setupAutoReconnect() {
-    // When playback actually starts and is no longer buffering, reset attempt counter
-    _playingSub = engine.stream.playing.listen((isPlaying) {
-      if (isPlaying && !engine.state.buffering) {
-        _reconnectAttempts = 0;
-      }
-    });
-
     // When live stream reaches premature EOF or server drops connection
     _completedSub = engine.stream.completed.listen((completed) {
       if (completed && _isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
@@ -80,11 +74,18 @@ class PlayerService {
     // Watchdog: If live stream stays stuck buffering for >= 12 seconds while playing
     _bufferingSub = engine.stream.buffering.listen((isBuffering) {
       _bufferingWatchdogTimer?.cancel();
+      _stabilityTimer?.cancel();
       if (isBuffering && _isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null && engine.state.playing) {
         _bufferingWatchdogTimer = Timer(const Duration(seconds: 12), () {
           if (_isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null && engine.state.buffering && engine.state.playing) {
             debugPrint('PlayerService: Live stream stuck buffering for 12s. Auto-reconnecting...');
             _scheduleLiveReconnect();
+          }
+        });
+      } else if (!isBuffering && engine.state.playing) {
+        _stabilityTimer = Timer(const Duration(seconds: 5), () {
+          if (!_isDisposed && engine.state.playing && !engine.state.buffering) {
+            _reconnectAttempts = 0;
           }
         });
       }
@@ -208,6 +209,7 @@ class PlayerService {
     _isDisposed = true;
     _reconnectTimer?.cancel();
     _bufferingWatchdogTimer?.cancel();
+    _stabilityTimer?.cancel();
     _completedSub?.cancel();
     _errorSub?.cancel();
     _bufferingSub?.cancel();
