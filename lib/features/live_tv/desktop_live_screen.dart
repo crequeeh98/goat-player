@@ -57,7 +57,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     super.initState();
     Future.delayed(const Duration(seconds: 4), () {
       if (mounted) {
-        ref.read(epgControllerProvider).syncEpgData();
+        final account = ref.read(activeAccountProvider);
+        final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
+        if (!isM3u) {
+          ref.read(epgControllerProvider).syncEpgData();
+        }
       }
     });
   }
@@ -68,7 +72,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       _lastScrolledStreamId = null;
     });
     ref.read(selectedLiveCategoryProvider.notifier).set(catId);
-    if (catId != 'favorites') {
+    final account = ref.read(activeAccountProvider);
+    final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
+    if (catId != 'favorites' && !isM3u) {
       _syncedCategories.add(catId);
       ref.read(liveTvControllerProvider).syncLiveStreams(catId);
     }

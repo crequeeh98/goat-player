@@ -129,7 +129,11 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
                     ),
                     trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.white38),
                     onTap: () {
-                      ref.read(liveTvControllerProvider).syncLiveStreams(cat.categoryId);
+                      final account = ref.read(activeAccountProvider);
+                      final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
+                      if (!isM3u) {
+                        ref.read(liveTvControllerProvider).syncLiveStreams(cat.categoryId);
+                      }
                       Navigator.push(
                         context,
                         MaterialPageRoute(

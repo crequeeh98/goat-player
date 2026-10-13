@@ -94,7 +94,7 @@ class LiveTvController {
   Future<void> syncLiveCategories({bool force = false}) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null) return;
+    if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
     
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -132,7 +132,7 @@ class LiveTvController {
   Future<void> syncLiveStreams(String categoryId) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null) return;
+    if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
     
     _ref.read(syncingCategoriesProvider.notifier).add(categoryId);
     try {

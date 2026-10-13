@@ -69,6 +69,8 @@ final activeAccountProvider = NotifierProvider<ActiveAccount, Account?>(ActiveAc
 final xtreamClientProvider = Provider<XtreamClient?>((ref) {
   final account = ref.watch(activeAccountProvider);
   if (account == null) return null;
+  final isM3u = account.username.isEmpty || account.serverUrl.contains('.m3u');
+  if (isM3u) return null;
   return XtreamClient(
     Dio(
       BaseOptions(

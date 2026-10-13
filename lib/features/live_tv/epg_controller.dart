@@ -33,7 +33,7 @@ class EpgController {
     }
     
     final account = _ref.read(activeAccountProvider);
-    if (account == null) return;
+    if (account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
 
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
