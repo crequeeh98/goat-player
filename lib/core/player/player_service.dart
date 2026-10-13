@@ -43,6 +43,7 @@ class PlayerService {
   StreamSubscription? _completedSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _bufferingSub;
+  StreamSubscription? _playingSub;
   Timer? _reconnectTimer;
   Timer? _bufferingWatchdogTimer;
   int _reconnectAttempts = 0;
@@ -53,6 +54,13 @@ class PlayerService {
   }
 
   void _setupAutoReconnect() {
+    // When playback actually starts and is no longer buffering, reset attempt counter
+    _playingSub = engine.stream.playing.listen((isPlaying) {
+      if (isPlaying && !engine.state.buffering) {
+        _reconnectAttempts = 0;
+      }
+    });
+
     // When live stream reaches premature EOF or server drops connection
     _completedSub = engine.stream.completed.listen((completed) {
       if (completed && _isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
@@ -85,33 +93,33 @@ class PlayerService {
 
   void _scheduleLiveReconnect() {
     if (!_isLive || _isDisposed || lastOpenedUrl == null) return;
-    if (_reconnectAttempts >= 5) {
-      debugPrint('PlayerService: Max live reconnect attempts reached (5). Stopping auto-reconnect.');
+    if (_reconnectAttempts >= 3) {
+      debugPrint('PlayerService: Max live reconnect attempts reached (3). Stream is unavailable or offline.');
       return;
     }
     if (_reconnectTimer != null && _reconnectTimer!.isActive) return;
 
-    final delayMs = (_reconnectAttempts == 0) ? 800 : 2500;
+    final delayMs = (_reconnectAttempts == 0) ? 1000 : 3000;
     _reconnectTimer = Timer(Duration(milliseconds: delayMs), () async {
       if (!_isLive || _isDisposed || lastOpenedUrl == null) return;
       _reconnectAttempts++;
-      debugPrint('PlayerService: Auto-reconnecting live stream (attempt $_reconnectAttempts) to $lastOpenedUrl');
-      await open(lastOpenedUrl!, isLive: true);
+      debugPrint('PlayerService: Auto-reconnecting live stream (attempt $_reconnectAttempts/3) to $lastOpenedUrl');
+      await open(lastOpenedUrl!, isLive: true, isReconnect: true);
     });
   }
 
-  Future<void> open(String url, {bool isLive = false, Duration? startPosition}) async {
+  Future<void> open(String url, {bool isLive = false, Duration? startPosition, bool isReconnect = false}) async {
     if (_isDisposed) return;
     _reconnectTimer?.cancel();
     _bufferingWatchdogTimer?.cancel();
     _isLive = isLive;
     _isOpening = true;
+    if (!isReconnect) {
+      _reconnectAttempts = 0;
+    }
 
     try {
       await engine.open(url, isLive: isLive, startPosition: startPosition);
-      if (!_isDisposed) {
-        _reconnectAttempts = 0;
-      }
     } catch (e) {
       debugPrint('PlayerService open error: $e');
       if (isLive) {
@@ -203,6 +211,7 @@ class PlayerService {
     _completedSub?.cancel();
     _errorSub?.cancel();
     _bufferingSub?.cancel();
+    _playingSub?.cancel();
     try {
       await engine.stop();
       await engine.dispose();
