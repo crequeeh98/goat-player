@@ -174,6 +174,24 @@
       removeItem('goat_favs_' + strId + '_live');
       removeItem('goat_favs_' + strId + '_movie');
       removeItem('goat_favs_' + strId + '_series');
+      removeItem('goat_m3u_' + strId);
+    },
+    saveM3uData: function(accId, data) {
+      if (!accId || !data) return;
+      var strId = String(accId);
+      var jsonStr = JSON.stringify(data);
+      setItem('goat_m3u_' + strId, jsonStr);
+      _memStore['goat_m3u_' + strId] = jsonStr;
+    },
+    getM3uData: function(accId) {
+      if (!accId) return null;
+      var strId = String(accId);
+      try {
+        var raw = getItem('goat_m3u_' + strId);
+        return raw ? JSON.parse(raw) : null;
+      } catch(e) {
+        return null;
+      }
     },
     getActiveAccountId: function() {
       return getItem('goat_active_account_id');

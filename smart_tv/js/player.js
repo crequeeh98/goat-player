@@ -1338,7 +1338,7 @@
       previewTitle.textContent = channel.name ? channel.name.replace(/^\[.*?\]\s*/, '') : 'Live Channel';
     }
 
-    var url = window.TVApi.getLiveStreamUrl(activeAccount, channel.stream_id, true);
+    var url = (channel && channel.url) ? channel.url : window.TVApi.getLiveStreamUrl(activeAccount, channel.stream_id, true);
     this._playMedia(url);
 
     if (startFullscreen) {

@@ -832,24 +832,33 @@
       var editIcon = window.TVIcons ? window.TVIcons.edit : '✏️';
       var trashIcon = window.TVIcons ? window.TVIcons.trash : '🗑️';
 
-      var expText = '--';
-      var isExpired = false;
-      if (acc.expDate !== undefined) {
-        expText = formatExpiryDate(acc.expDate, curLang);
-        isExpired = isAccountExpired(acc.expDate);
+      var badgeHtml = '';
+      if (acc.type === 'm3u') {
+        var chCount = acc.channelCount ? (acc.channelCount + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels')) : 'M3U';
+        badgeHtml = '<div class="account-expiry-badge active">' +
+          '<span class="expiry-value" style="color: var(--accent-light);">📺 ' + chCount + '</span>' +
+        '</div>';
+      } else {
+        var expText = '--';
+        var isExpired = false;
+        if (acc.expDate !== undefined) {
+          expText = formatExpiryDate(acc.expDate, curLang);
+          isExpired = isAccountExpired(acc.expDate);
+        }
+        badgeHtml = '<div class="account-expiry-badge' + (isExpired ? ' expired' : '') + '" id="acc-exp-' + acc.id + '">' +
+          clockIcon +
+          '<span class="expiry-label">' + expiresPrefix + '</span> ' +
+          '<span class="expiry-value">' + expText + '</span>' +
+        '</div>';
       }
 
       card.innerHTML = 
         '<div class="account-card-left">' +
-          '<div class="account-avatar">' + userIcon + '</div>' +
+          '<div class="account-avatar">' + (acc.type === 'm3u' ? '📺' : userIcon) + '</div>' +
           '<div class="account-details">' +
-            '<span class="account-name">' + (acc.name || acc.username) + '</span>' +
+            '<span class="account-name">' + (acc.name || acc.username || 'M3U Playlist') + '</span>' +
             '<span class="account-url">' + acc.serverUrl + '</span>' +
-            '<div class="account-expiry-badge' + (isExpired ? ' expired' : '') + '" id="acc-exp-' + acc.id + '">' +
-              clockIcon +
-              '<span class="expiry-label">' + expiresPrefix + '</span> ' +
-              '<span class="expiry-value">' + expText + '</span>' +
-            '</div>' +
+            badgeHtml +
           '</div>' +
         '</div>' +
         '<div class="account-card-actions">' +
@@ -858,7 +867,7 @@
         '</div>';
 
       // Asynchronous background fallback if expDate not yet cached in storage
-      if (acc.expDate === undefined && window.TVApi && window.TVApi.getAccountInfo) {
+      if (acc.type !== 'm3u' && acc.expDate === undefined && window.TVApi && window.TVApi.getAccountInfo) {
         window.TVApi.getAccountInfo(acc)
           .then(function(info) {
             if (info) {
@@ -5862,6 +5871,63 @@
     var refreshQrBtn = document.getElementById('remote-refresh-btn');
     if (refreshQrBtn) refreshQrBtn.onclick = function() { initRemotePairing(); };
 
+    // Playlist Type Switcher (Xtream vs M3U)
+    var currentType = 'xtream';
+    var typeBtnXtream = document.getElementById('type-btn-xtream');
+    var typeBtnM3u = document.getElementById('type-btn-m3u');
+    var groupUser = document.getElementById('group-username');
+    var groupPass = document.getElementById('group-password');
+    var labelServer = document.getElementById('label-server');
+    var inputServer = document.getElementById('login-server');
+    var userInput = document.getElementById('login-username');
+    var passInput = document.getElementById('login-password');
+    var submitBtn = document.getElementById('login-submit-btn');
+
+    function setPlaylistType(type) {
+      currentType = type;
+      if (type === 'm3u') {
+        if (typeBtnM3u) typeBtnM3u.classList.add('active');
+        if (typeBtnXtream) typeBtnXtream.classList.remove('active');
+        if (groupUser) groupUser.style.display = 'none';
+        if (groupPass) groupPass.style.display = 'none';
+        if (userInput) userInput.required = false;
+        if (passInput) passInput.required = false;
+        if (labelServer) {
+          labelServer.innerHTML = '<span>' + (window.TVI18n ? window.TVI18n.t('m3u_url') : 'M3U Playlist URL') + '</span> <span class="label-required">*</span>';
+        }
+        if (inputServer) {
+          inputServer.placeholder = 'https://example.com/playlist.m3u';
+          inputServer.setAttribute('data-nav-down', '#login-submit-btn');
+        }
+        if (submitBtn) {
+          submitBtn.setAttribute('data-nav-up', '#login-server');
+          var cancelBtn = document.getElementById('login-cancel-btn');
+          if (cancelBtn) cancelBtn.setAttribute('data-nav-up', '#login-server');
+        }
+      } else {
+        if (typeBtnXtream) typeBtnXtream.classList.add('active');
+        if (typeBtnM3u) typeBtnM3u.classList.remove('active');
+        if (groupUser) groupUser.style.display = 'block';
+        if (groupPass) groupPass.style.display = 'block';
+        if (userInput) userInput.required = true;
+        if (passInput) passInput.required = true;
+        if (labelServer) {
+          labelServer.innerHTML = '<span>' + (window.TVI18n ? window.TVI18n.t('server_url') : 'Server URL') + '</span> <span class="label-required">*</span>';
+        }
+        if (inputServer) {
+          inputServer.placeholder = 'http://example.com:8080';
+          inputServer.setAttribute('data-nav-down', '#login-username');
+        }
+        if (submitBtn) {
+          submitBtn.setAttribute('data-nav-up', '#login-password');
+          var cancelBtn = document.getElementById('login-cancel-btn');
+          if (cancelBtn) cancelBtn.setAttribute('data-nav-up', '#login-password');
+        }
+      }
+    }
+    if (typeBtnXtream) typeBtnXtream.onclick = function() { setPlaylistType('xtream'); };
+    if (typeBtnM3u) typeBtnM3u.onclick = function() { setPlaylistType('m3u'); };
+
     // Login Form Submit
     var loginForm = document.getElementById('login-form');
     if (loginForm) {
@@ -5873,6 +5939,49 @@
         var pass = document.getElementById('login-password').value;
         var statusEl = document.getElementById('login-status');
         var submitBtn = document.getElementById('login-submit-btn');
+
+        if (currentType === 'm3u') {
+          if (statusEl) statusEl.textContent = window.TVI18n ? window.TVI18n.t('loading_m3u') : 'Downloading and parsing M3U playlist...';
+          if (submitBtn) submitBtn.disabled = true;
+
+          window.TVApi.authenticateM3u(server, playlistName)
+            .then(function(res) {
+              var cleanName = playlistName.trim();
+              if (!cleanName) {
+                var urlParts = server.split('?')[0].split('/');
+                var filename = urlParts[urlParts.length - 1] || 'playlist.m3u';
+                cleanName = filename.replace(/\.(m3u8?)$/i, '').toUpperCase() + ' (M3U)';
+              }
+              var acc = window.TVStorage.saveAccount({
+                type: 'm3u',
+                serverUrl: server.trim(),
+                username: '',
+                password: '',
+                name: cleanName,
+                channelCount: res.streamCount,
+                categoryCount: res.categoryCount
+              });
+              if (window.TVStorage.saveM3uData) {
+                window.TVStorage.saveM3uData(acc.id, res.parsed);
+              }
+              if (window.TVSync && window.TVSync.pushPlaylists) {
+                window.TVSync.pushPlaylists();
+              }
+              closeModal(document.getElementById('login-modal'));
+              var toastMsg = (window.TVI18n && window.TVI18n.getLanguage() === 'de')
+                ? 'M3U-Playlist hinzugefügt: ' + acc.name + ' (' + res.streamCount + ' Sender)'
+                : 'M3U Playlist added: ' + acc.name + ' (' + res.streamCount + ' channels)';
+              showToast(toastMsg, '📺');
+              renderAccountsList();
+              enterDashboardWithAccount(acc, { showSplash: true });
+            })
+            .catch(function(err) {
+              if (submitBtn) submitBtn.disabled = false;
+              var errPrefix = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Fehler: ' : 'Error: ';
+              if (statusEl) statusEl.textContent = errPrefix + (err.message || 'Failed to load M3U playlist');
+            });
+          return;
+        }
 
         if (statusEl) statusEl.textContent = window.TVI18n ? window.TVI18n.t('connecting_server') : 'Connecting to IPTV server...';
         if (submitBtn) submitBtn.disabled = true;
@@ -5925,10 +6034,13 @@
       tabRemote.classList.remove('active');
       viewManual.classList.add('active');
       viewRemote.classList.remove('active');
-      tabManual.setAttribute('data-nav-down', '#login-playlist-name');
-      tabRemote.setAttribute('data-nav-down', '#login-playlist-name');
+      tabManual.setAttribute('data-nav-down', '#type-btn-xtream');
+      tabRemote.setAttribute('data-nav-down', '#type-btn-xtream');
       if (window.TVSync) window.TVSync.stopPolling();
     }
+
+    var typeBtnXtream = document.getElementById('type-btn-xtream');
+    if (typeBtnXtream) typeBtnXtream.click();
 
     openModal(modal, document.getElementById('login-playlist-name'));
   }
@@ -5942,6 +6054,14 @@
     document.getElementById('login-username').value = acc.username || '';
     document.getElementById('login-password').value = acc.password || '';
     document.getElementById('login-status').textContent = '';
+
+    if (acc.type === 'm3u') {
+      var typeBtnM3u = document.getElementById('type-btn-m3u');
+      if (typeBtnM3u) typeBtnM3u.click();
+    } else {
+      var typeBtnXtream = document.getElementById('type-btn-xtream');
+      if (typeBtnXtream) typeBtnXtream.click();
+    }
 
     openModal(modal, document.getElementById('login-playlist-name'));
   }

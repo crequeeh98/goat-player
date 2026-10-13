@@ -484,11 +484,11 @@
 
       <!-- Segmented Tab Selector -->
       <div class="tab-segmented-bar">
-        <button id="tab-btn-manual" class="tab-segment active focusable" data-nav-right="#tab-btn-remote" data-nav-down="#login-playlist-name" data-nav-up="#modal-close-btn">
+        <button id="tab-btn-manual" class="tab-segment active focusable" data-nav-right="#tab-btn-remote" data-nav-down="#type-btn-xtream" data-nav-up="#modal-close-btn">
           <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/><line x1="10" y1="16" x2="14" y2="16"/></svg></span>
           <span data-i18n="manual_setup">Manual Setup</span>
         </button>
-        <button id="tab-btn-remote" class="tab-segment focusable" data-nav-left="#tab-btn-manual" data-nav-down="#login-playlist-name" data-nav-up="#modal-close-btn">
+        <button id="tab-btn-remote" class="tab-segment focusable" data-nav-left="#tab-btn-manual" data-nav-down="#type-btn-xtream" data-nav-up="#modal-close-btn">
           <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
           <span data-i18n="link_via_web">Link via Web / QR Code</span>
         </button>
@@ -496,24 +496,34 @@
 
       <!-- View 1: Manual Setup Form -->
       <div id="view-manual" class="modal-view active">
+        <!-- Playlist Type Selector (Xtream Codes vs M3U) -->
+        <div class="type-segmented-bar">
+          <button type="button" id="type-btn-xtream" class="type-segment active focusable" data-type="xtream" data-nav-up="#tab-btn-manual" data-nav-down="#login-playlist-name" data-nav-right="#type-btn-m3u">
+            <span data-i18n="xtream_codes">Xtream Codes</span>
+          </button>
+          <button type="button" id="type-btn-m3u" class="type-segment focusable" data-type="m3u" data-nav-up="#tab-btn-manual" data-nav-down="#login-playlist-name" data-nav-left="#type-btn-xtream">
+            <span data-i18n="m3u_playlist">M3U Playlist URL</span>
+          </button>
+        </div>
+
         <form id="login-form">
           <div class="form-group">
             <label class="form-label" for="login-playlist-name"><span data-i18n="playlist_name">Playlist Name</span> <span class="label-optional" data-i18n="optional">(Optional)</span></label>
             <div class="input-wrapper">
               <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
-              <input id="login-playlist-name" class="form-input focusable" type="text" placeholder="e.g. Living Room TV" data-i18n-ph="placeholder_playlist" autocomplete="off" data-nav-up="#tab-btn-manual" data-nav-down="#login-server" />
+              <input id="login-playlist-name" class="form-input focusable" type="text" placeholder="e.g. Living Room TV" data-i18n-ph="placeholder_playlist" autocomplete="off" data-nav-up="#type-btn-xtream" data-nav-down="#login-server" />
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="login-server"><span data-i18n="server_url">Server URL</span> <span class="label-required">*</span></label>
+          <div id="group-server" class="form-group">
+            <label id="label-server" class="form-label" for="login-server"><span data-i18n="server_url">Server URL</span> <span class="label-required">*</span></label>
             <div class="input-wrapper">
               <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
               <input id="login-server" class="form-input focusable" type="text" placeholder="http://example.com:8080" data-i18n-ph="placeholder_server" required autocomplete="off" data-nav-up="#login-playlist-name" data-nav-down="#login-username" />
             </div>
           </div>
 
-          <div class="form-group">
+          <div id="group-username" class="form-group">
             <label class="form-label" for="login-username"><span data-i18n="username">Username</span> <span class="label-required">*</span></label>
             <div class="input-wrapper">
               <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
@@ -521,7 +531,7 @@
             </div>
           </div>
 
-          <div class="form-group">
+          <div id="group-password" class="form-group">
             <label class="form-label" for="login-password"><span data-i18n="password">Password</span> <span class="label-required">*</span></label>
             <div class="input-wrapper">
               <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
@@ -928,6 +938,7 @@
   <script src="js/qrcode.min.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/m3u.js?v=1.2.0"></script>
   <script src="js/storage.js?v=1.2.0"></script>
   <script src="js/api.js?v=1.2.0"></script>
   <script src="js/sync.js"></script>

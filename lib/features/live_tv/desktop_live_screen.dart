@@ -138,7 +138,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final cleanName = ChannelNameCleaner.clean(stream.name);
     final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
     final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-    final url = '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
+    final url = (stream.url != null && stream.url!.startsWith('http'))
+        ? stream.url!
+        : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
     final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
 
     ref.read(playbackControllerProvider.notifier).playLive(
@@ -415,7 +417,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           itemBuilder: (context, index) {
                             final stream = streams[index];
                             final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-                            final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
+                            final url = (stream.url != null && stream.url!.startsWith('http'))
+                                ? stream.url!
+                                : '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
                             final cleanName = ChannelNameCleaner.clean(stream.name);
                             final isFavorite = favoriteIds.contains(stream.streamId);
                             final isCurrentPlaying = (activePlayback?.streamId != null && activePlayback!.streamId == stream.streamId) ||

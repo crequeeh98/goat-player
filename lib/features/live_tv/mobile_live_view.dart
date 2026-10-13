@@ -320,7 +320,9 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                           ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
                           : account?.serverUrl;
                       final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-                      final url = '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
+                      final url = (stream.url != null && stream.url!.startsWith('http'))
+                          ? stream.url!
+                          : '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
                       Navigator.push(
                         context,
                         PageRouteBuilder(
@@ -413,7 +415,9 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
         ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
         : account?.serverUrl;
     final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-    final url = '$baseUrl/live/${account?.username}/${account?.password}/${newStream.streamId}.$ext';
+    final url = (newStream.url != null && newStream.url!.startsWith('http'))
+        ? newStream.url!
+        : '$baseUrl/live/${account?.username}/${account?.password}/${newStream.streamId}.$ext';
     final epgChannelId = newStream.epgChannelId != null && newStream.epgChannelId!.isNotEmpty
         ? newStream.epgChannelId
         : newStream.streamId;

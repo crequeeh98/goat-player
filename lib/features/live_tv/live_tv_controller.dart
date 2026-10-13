@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:dio/dio.dart';
+import '../../core/utils/m3u_isolate_parser.dart';
 import '../../main.dart';
 import '../../core/database/app_database.dart';
 import 'package:drift/drift.dart';
@@ -161,10 +163,11 @@ class LiveTvController {
 
   Future<void> syncAllLiveStreams({bool force = false}) async {
     if (_isSyncingAll) return;
-    final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null) return;
+    if (account == null) return;
     
+    final isM3u = account.username.isEmpty || account.serverUrl.contains('.m3u');
+
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final lastSync = prefs.getInt('last_sync_all_live_${account.id}') ?? 0;
@@ -175,6 +178,61 @@ class LiveTvController {
 
     _isSyncingAll = true;
     try {
+      if (isM3u) {
+        debugPrint('Syncing M3U playlist from ${account.serverUrl}...');
+        final dio = Dio(BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 30),
+        ));
+        final resp = await dio.get<String>(account.serverUrl);
+        final m3uContent = resp.data ?? '';
+        final m3uItems = await M3uIsolateParser.parseContent(m3uContent);
+
+        final catDao = _ref.read(categoryDaoProvider);
+        final streamDao = _ref.read(streamDaoProvider);
+
+        final catCompanions = <CategoriesCompanion>[];
+        final streamCompanions = <StreamsCompanion>[];
+        final seenCats = <String>{};
+
+        int index = 0;
+        for (final item in m3uItems) {
+          index++;
+          final groupName = item.groupTitle.isNotEmpty ? item.groupTitle : 'General';
+          final catId = 'cat_${groupName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]'), '_')}';
+
+          if (!seenCats.contains(catId)) {
+            seenCats.add(catId);
+            catCompanions.add(CategoriesCompanion.insert(
+              accountId: account.id,
+              categoryId: catId,
+              name: groupName,
+              type: 'live',
+            ));
+          }
+
+          streamCompanions.add(StreamsCompanion.insert(
+            accountId: account.id,
+            categoryId: catId,
+            streamId: 'm3u_$index',
+            epgChannelId: item.tvgId.isNotEmpty ? Value(item.tvgId) : const Value.absent(),
+            name: TitleSanitizer.sanitizeLiveTvChannel(item.title),
+            streamType: 'live',
+            streamIcon: item.tvgLogo.isNotEmpty ? Value(item.tvgLogo) : const Value.absent(),
+            url: Value(item.url),
+          ));
+        }
+
+        await catDao.replaceCategories(account.id, 'live', catCompanions);
+        await streamDao.replaceStreamsByType(account.id, 'live', streamCompanions);
+        await prefs.setInt('last_sync_all_live_${account.id}', nowMs);
+        debugPrint('Finished syncing M3U playlist (${streamCompanions.length} channels, ${catCompanions.length} categories).');
+        return;
+      }
+
+      final client = _ref.read(xtreamClientProvider);
+      if (client == null) return;
+
       debugPrint('Syncing ALL Live streams...');
       final rawStreams = await client.getLiveStreams();
       debugPrint('ALL Live streams raw response length: ${rawStreams.length}');

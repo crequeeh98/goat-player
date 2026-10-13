@@ -26,11 +26,18 @@ class M3uIsolateParser {
     // and reading inside isolate is straightforward.
   }
 
+  static Future<List<M3UItem>> parseContent(String content) async {
+    return await Future.microtask(() => _parseM3UStringSync(content));
+  }
+
   static List<M3UItem> _parseM3USync(String filePath) {
     final file = File(filePath);
     if (!file.existsSync()) return [];
+    return _parseM3UStringSync(file.readAsStringSync());
+  }
 
-    final lines = file.readAsLinesSync();
+  static List<M3UItem> _parseM3UStringSync(String content) {
+    final lines = content.split('\n');
     final items = <M3UItem>[];
 
     String? currentTvgId;
@@ -39,8 +46,8 @@ class M3uIsolateParser {
     String? currentGroupTitle;
     String? currentTitle;
 
-    for (var line in lines) {
-      line = line.trim();
+    for (var rawLine in lines) {
+      final line = rawLine.trim();
       if (line.isEmpty) continue;
 
       if (line.startsWith('#EXTINF:')) {
@@ -56,13 +63,15 @@ class M3uIsolateParser {
           currentTitle = 'Unknown Channel';
         }
       } else if (!line.startsWith('#')) {
-        // It's a URL
+        // It's a stream URL
         if (currentTitle != null) {
           items.add(M3UItem(
             tvgId: currentTvgId ?? '',
             tvgName: currentTvgName ?? '',
             tvgLogo: currentTvgLogo ?? '',
-            groupTitle: currentGroupTitle ?? 'Uncategorized',
+            groupTitle: (currentGroupTitle != null && currentGroupTitle.isNotEmpty)
+                ? currentGroupTitle
+                : 'General',
             title: currentTitle,
             url: line,
           ));
@@ -78,8 +87,11 @@ class M3uIsolateParser {
   }
 
   static String? _extractAttribute(String line, String attribute) {
-    final regex = RegExp('$attribute="([^"]*)"');
+    final regex = RegExp('$attribute=["\']([^"\']*)["\']', caseSensitive: false);
     final match = regex.firstMatch(line);
-    return match?.group(1);
+    if (match != null) return match.group(1)?.trim();
+    final regexNoQuote = RegExp('$attribute=([^\\s,]+)', caseSensitive: false);
+    final matchNoQuote = regexNoQuote.firstMatch(line);
+    return matchNoQuote?.group(1)?.trim();
   }
 }

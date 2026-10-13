@@ -291,9 +291,10 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
               itemCount: accounts.length,
               itemBuilder: (context, index) {
                 final account = accounts[index];
+                final isM3u = account.username.isEmpty || account.serverUrl.contains('.m3u');
                 final displayName = (account.playlistName != null && account.playlistName!.trim().isNotEmpty)
                     ? account.playlistName!.trim()
-                    : account.username;
+                    : (isM3u ? 'M3U Playlist' : account.username);
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
@@ -321,7 +322,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         leading: CircleAvatar(
                           backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.3),
-                          child: const Icon(Icons.person, color: Color(0xFFB388FF)),
+                          child: Icon(isM3u ? Icons.playlist_play_rounded : Icons.person, color: const Color(0xFFB388FF)),
                         ),
                         title: Text(
                           displayName,
@@ -337,20 +338,32 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                const Icon(Icons.account_circle_outlined, size: 13, color: Color(0xFFB388FF)),
-                                const SizedBox(width: 5),
-                                Expanded(
-                                  child: Text(
-                                    account.username,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                            if (isM3u)
+                              const Row(
+                                children: [
+                                  Icon(Icons.playlist_play_rounded, size: 14, color: Color(0xFF00E5FF)),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'M3U Playlist',
+                                    style: TextStyle(color: Color(0xFF00E5FF), fontSize: 13, fontWeight: FontWeight.w600),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              )
+                            else
+                              Row(
+                                children: [
+                                  const Icon(Icons.account_circle_outlined, size: 13, color: Color(0xFFB388FF)),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      account.username,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             const SizedBox(height: 2),
                             Row(
                               children: [

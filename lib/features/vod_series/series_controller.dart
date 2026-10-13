@@ -133,7 +133,7 @@ class SeriesController {
     if (_isSyncingAll) return;
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null) return;
+    if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
     
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;

@@ -5,12 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:dio/dio.dart';
 import '../../main.dart';
+import '../../core/utils/m3u_isolate_parser.dart';
+import '../../core/utils/title_sanitizer.dart';
 import '../../core/database/app_database.dart';
 import '../../core/remote_sync/remote_sync_service.dart';
 import '../../core/utils/platform_utils.dart';
 
 enum AddAccountMode { manual, remote }
+enum PlaylistType { xtream, m3u }
 
 class AddAccountScreen extends ConsumerStatefulWidget {
   final Account? accountToEdit;
@@ -29,6 +33,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   bool _isLoading = false;
 
   AddAccountMode _selectedMode = AddAccountMode.manual;
+  PlaylistType _playlistType = PlaylistType.xtream;
 
   PairingSession? _session;
   bool _isLoadingSession = false;
@@ -55,6 +60,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _serverUrlController.text = widget.accountToEdit!.serverUrl;
       _usernameController.text = widget.accountToEdit!.username;
       _passwordController.text = widget.accountToEdit!.password;
+      if (widget.accountToEdit!.username.isEmpty || widget.accountToEdit!.serverUrl.contains('.m3u')) {
+        _playlistType = PlaylistType.m3u;
+      }
     }
   }
 
@@ -160,24 +168,118 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 
     try {
       final dao = ref.read(accountDaoProvider);
-      if (widget.accountToEdit != null) {
-        await dao.updateAccount(
-          widget.accountToEdit!.copyWith(
-            playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
-            serverUrl: _serverUrlController.text.trim(),
-            username: _usernameController.text.trim(),
-            password: _passwordController.text.trim(),
-          ),
-        );
+
+      if (_playlistType == PlaylistType.m3u) {
+        final m3uUrl = _serverUrlController.text.trim();
+        final dio = Dio(BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 30),
+        ));
+        final resp = await dio.get<String>(m3uUrl);
+        final content = resp.data ?? '';
+        if (!content.contains('#EXTM3U') && !content.contains('#EXTINF')) {
+          throw Exception('Invalid M3U playlist format');
+        }
+        final items = await M3uIsolateParser.parseContent(content);
+        if (items.isEmpty) {
+          throw Exception('No playable channels found in M3U');
+        }
+
+        String playlistName = _playlistNameController.text.trim();
+        if (playlistName.isEmpty) {
+          final uri = Uri.tryParse(m3uUrl);
+          playlistName = uri?.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => 'M3U Playlist') ?? 'M3U Playlist';
+          playlistName = playlistName.replaceAll(RegExp(r'\.(m3u8?)$', caseSensitive: false), '').toUpperCase();
+        }
+
+        int accountId;
+        if (widget.accountToEdit != null) {
+          accountId = widget.accountToEdit!.id;
+          await dao.updateAccount(
+            widget.accountToEdit!.copyWith(
+              playlistName: drift.Value(playlistName),
+              serverUrl: m3uUrl,
+              username: '',
+              password: '',
+            ),
+          );
+        } else {
+          accountId = await dao.insertAccount(
+            AccountsCompanion.insert(
+              playlistName: drift.Value(playlistName),
+              serverUrl: m3uUrl,
+              username: '',
+              password: '',
+            ),
+          );
+        }
+
+        final catDao = ref.read(categoryDaoProvider);
+        final streamDao = ref.read(streamDaoProvider);
+
+        final catCompanions = <CategoriesCompanion>[];
+        final streamCompanions = <StreamsCompanion>[];
+        final seenCats = <String>{};
+
+        int index = 0;
+        for (final item in items) {
+          index++;
+          final groupName = item.groupTitle.isNotEmpty ? item.groupTitle : 'General';
+          final catId = 'cat_${groupName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]'), '_')}';
+
+          if (!seenCats.contains(catId)) {
+            seenCats.add(catId);
+            catCompanions.add(CategoriesCompanion.insert(
+              accountId: accountId,
+              categoryId: catId,
+              name: groupName,
+              type: 'live',
+            ));
+          }
+
+          streamCompanions.add(StreamsCompanion.insert(
+            accountId: accountId,
+            categoryId: catId,
+            streamId: 'm3u_$index',
+            epgChannelId: item.tvgId.isNotEmpty ? drift.Value(item.tvgId) : const drift.Value.absent(),
+            name: TitleSanitizer.sanitizeLiveTvChannel(item.title),
+            streamType: 'live',
+            streamIcon: item.tvgLogo.isNotEmpty ? drift.Value(item.tvgLogo) : const drift.Value.absent(),
+            url: drift.Value(item.url),
+          ));
+        }
+
+        await catDao.replaceCategories(accountId, 'live', catCompanions);
+        await streamDao.replaceStreamsByType(accountId, 'live', streamCompanions);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('M3U playlist added (${items.length} channels)'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
-        await dao.insertAccount(
-          AccountsCompanion.insert(
-            playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
-            serverUrl: _serverUrlController.text.trim(),
-            username: _usernameController.text.trim(),
-            password: _passwordController.text.trim(),
-          ),
-        );
+        if (widget.accountToEdit != null) {
+          await dao.updateAccount(
+            widget.accountToEdit!.copyWith(
+              playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
+              serverUrl: _serverUrlController.text.trim(),
+              username: _usernameController.text.trim(),
+              password: _passwordController.text.trim(),
+            ),
+          );
+        } else {
+          await dao.insertAccount(
+            AccountsCompanion.insert(
+              playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
+              serverUrl: _serverUrlController.text.trim(),
+              username: _usernameController.text.trim(),
+              password: _passwordController.text.trim(),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -313,11 +415,34 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Playlist Type Selector
+          SegmentedButton<PlaylistType>(
+            segments: const [
+              ButtonSegment(
+                value: PlaylistType.xtream,
+                icon: Icon(Icons.dns_outlined, size: 16),
+                label: Text('Xtream Codes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+              ButtonSegment(
+                value: PlaylistType.m3u,
+                icon: Icon(Icons.playlist_play_rounded, size: 16),
+                label: Text('M3U URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+            ],
+            selected: {_playlistType},
+            onSelectionChanged: (set) => setState(() => _playlistType = set.first),
+            style: SegmentedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              selectedBackgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+              selectedForegroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _playlistNameController,
             decoration: InputDecoration(
               labelText: l10n.playlistName,
-              hintText: 'My IPTV',
+              hintText: _playlistType == PlaylistType.m3u ? 'e.g. Free IPTV' : 'My IPTV',
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.badge_outlined),
             ),
@@ -326,34 +451,36 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           TextFormField(
             controller: _serverUrlController,
             decoration: InputDecoration(
-              labelText: l10n.serverUrl,
-              hintText: 'http://example.com:8080',
+              labelText: _playlistType == PlaylistType.m3u ? 'M3U Playlist URL' : l10n.serverUrl,
+              hintText: _playlistType == PlaylistType.m3u ? 'https://example.com/playlist.m3u' : 'http://example.com:8080',
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.link),
             ),
             validator: (v) => v!.trim().isEmpty ? 'Required' : null,
           ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _usernameController,
-            decoration: InputDecoration(
-              labelText: l10n.username,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.person_outline),
+          if (_playlistType == PlaylistType.xtream) ...[
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _usernameController,
+              decoration: InputDecoration(
+                labelText: l10n.username,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.person_outline),
+              ),
+              validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? 'Required' : null,
             ),
-            validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: true,
-            decoration: InputDecoration(
-              labelText: l10n.password,
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.lock_outline),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: l10n.password,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock_outline),
+              ),
+              validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? 'Required' : null,
             ),
-            validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-          ),
+          ],
           const SizedBox(height: 24),
           SizedBox(
             height: 50,
@@ -367,7 +494,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               child: _isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : Text(
-                      l10n.login,
+                      _playlistType == PlaylistType.m3u ? 'Connect M3U Playlist' : l10n.login,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
             ),
