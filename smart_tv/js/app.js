@@ -2877,18 +2877,20 @@
       else if (item.index !== undefined) id = String(item.index);
     }
 
-    var langName = getLangDisplay(lang || title);
-    var displayLabel = title;
+    var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
+    var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
+    var langName = getLangDisplay(cLang || cTitle);
+    var displayLabel = cTitle;
     if (!displayLabel) {
       if (langName) {
-        displayLabel = langName + (lang && lang.toLowerCase() !== langName.toLowerCase() ? ' (' + lang + ')' : '');
+        displayLabel = langName;
       } else if (codec) {
         displayLabel = codec.toUpperCase() + ' Audio ' + (idx + 1);
       } else {
         displayLabel = 'Audio ' + (idx + 1);
       }
-    } else if (langName && displayLabel.toLowerCase() === lang.toLowerCase()) {
-      displayLabel = langName + ' (' + lang + ')';
+    } else if (langName && (displayLabel.toLowerCase() === cLang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
+      displayLabel = langName;
     }
 
     return {
@@ -2897,8 +2899,8 @@
       id: id,
       title: displayLabel,
       name: displayLabel,
-      language: lang,
-      lang: lang,
+      language: cLang,
+      lang: cLang,
       codec: codec,
       codec_name: codec,
       channels: String(channels)
@@ -2925,14 +2927,19 @@
       else if (item.index !== undefined) id = String(item.index);
     }
 
-    var displayLabel = title;
+    var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
+    var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
+    var displayLabel = cTitle;
     if (!displayLabel) {
-      var langName = getLangDisplay(lang);
+      var langName = getLangDisplay(cLang);
       if (langName) {
-        displayLabel = langName + (lang && lang.toLowerCase() !== langName.toLowerCase() ? ' (' + lang + ')' : '');
+        displayLabel = langName;
       } else {
         displayLabel = 'Subtitle ' + (idx + 1);
       }
+    } else if (cLang && displayLabel.toLowerCase() === cLang.toLowerCase()) {
+      var lName = getLangDisplay(cLang);
+      if (lName) displayLabel = lName;
     }
 
     var subUrl = (typeof item === 'object' && item) ? (item.url || item.link || item.file || item.path || '') : '';

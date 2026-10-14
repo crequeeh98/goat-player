@@ -406,20 +406,16 @@
             tPos = subData + subSize.value;
           }
 
+          var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
+          var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
           var langName = (window.TrackLanguageMatcher && window.TrackLanguageMatcher.getLanguageDisplayName)
-            ? window.TrackLanguageMatcher.getLanguageDisplayName(lang || title)
-            : (lang || '');
-          var displayLabel = title;
+            ? window.TrackLanguageMatcher.getLanguageDisplayName(cLang || cTitle)
+            : cLang;
+          var displayLabel = cTitle;
           if (!displayLabel) {
-            if (langName) {
-              displayLabel = langName + (lang && lang.toLowerCase() !== langName.toLowerCase() ? ' (' + lang + ')' : '');
-            } else {
-              displayLabel = (trackType === 2 ? 'Audio ' : 'Subtitle ') + ((trackType === 2 ? audioList.length : subList.length) + 1);
-            }
-          } else if (langName && displayLabel.toLowerCase() !== langName.toLowerCase() && displayLabel.toLowerCase() !== (lang || '').toLowerCase()) {
-            displayLabel = langName + (lang ? ' (' + lang + ')' : '') + ' [' + displayLabel + ']';
-          } else if (langName && displayLabel.toLowerCase() === lang.toLowerCase()) {
-            displayLabel = langName + ' (' + lang + ')';
+            displayLabel = langName || ((trackType === 2 ? 'Audio ' : 'Subtitle ') + ((trackType === 2 ? audioList.length : subList.length) + 1));
+          } else if (langName && (displayLabel.toLowerCase() === cLang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
+            displayLabel = langName;
           }
 
           if (trackType === 2) {
@@ -552,18 +548,16 @@
           }
         }
 
+        var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
+        var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
         var langName = (window.TrackLanguageMatcher && window.TrackLanguageMatcher.getLanguageDisplayName)
-          ? window.TrackLanguageMatcher.getLanguageDisplayName(lang || title)
-          : (lang || '');
-        var displayLabel = title;
+          ? window.TrackLanguageMatcher.getLanguageDisplayName(cLang || cTitle)
+          : cLang;
+        var displayLabel = cTitle;
         if (!displayLabel) {
-          if (langName) {
-            displayLabel = langName + (lang && lang.toLowerCase() !== langName.toLowerCase() ? ' (' + lang + ')' : '');
-          } else {
-            displayLabel = (handlerType === 'soun' ? 'Audio ' : 'Subtitle ') + ((handlerType === 'soun' ? audioList.length : subList.length) + 1);
-          }
-        } else if (langName && displayLabel.toLowerCase() === lang.toLowerCase()) {
-          displayLabel = langName + ' (' + lang + ')';
+          displayLabel = langName || ((handlerType === 'soun' ? 'Audio ' : 'Subtitle ') + ((handlerType === 'soun' ? audioList.length : subList.length) + 1));
+        } else if (langName && (displayLabel.toLowerCase() === cLang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
+          displayLabel = langName;
         }
 
         if (handlerType === 'soun') {
@@ -1459,7 +1453,7 @@
     var hasSubMeta = this.currentVodMeta.subtitleTracks && this.currentVodMeta.subtitleTracks.length > 0;
     console.log('[TrackDebug] playVod: type=' + this.playbackType + ', sId=' + sId + ', hasAudioMeta=' + hasAudioMeta + ' (' + (this.currentVodMeta.audioTracks ? this.currentVodMeta.audioTracks.length : 0) + '), hasSubMeta=' + hasSubMeta + ' (' + (this.currentVodMeta.subtitleTracks ? this.currentVodMeta.subtitleTracks.length : 0) + ')');
 
-    // If container tracks were already demuxed and cached, apply immediately without new socket fetches
+    // If container tracks were already demuxed and cached, apply immediately without new socket fetches; otherwise probe in background
     if (url && window.TVContainerProber) {
       var cachedTracks = window.TVContainerProber.getCachedTracks(url);
       if (cachedTracks) {
@@ -1473,27 +1467,24 @@
         if (cachedTracks.subs && cachedTracks.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || cachedTracks.subs.length > self.currentVodMeta.subtitleTracks.length)) {
           self.currentVodMeta.subtitleTracks = cachedTracks.subs;
         }
-      }
-    }
-
-    // Only resolve external online subtitles as a fallback if the stream has NO provider subtitle tracks
-    var hasProviderSubs = (meta && meta.subtitleTracks && meta.subtitleTracks.length > 0);
-    if (!hasProviderSubs && window.TVSubtitles && typeof window.TVSubtitles.resolveExternalSubtitles === 'function') {
-      setTimeout(function() {
-        if (!self.currentVodMeta || String(self.currentVodMeta.streamId) !== String(sId)) return;
-        var existing = self.getSubtitleTracks();
-        if (existing && existing.tracks && existing.tracks.length > 0) return; // Embedded tracks discovered, skip external
-        window.TVSubtitles.resolveExternalSubtitles(self.currentVodMeta).then(function(extSubs) {
-          if (extSubs && extSubs.length > 0) {
-            if (typeof self._applyPreferences === 'function') {
-              self._applyPreferences();
-            }
-            if (window.onTracksUpdated) {
-              window.onTracksUpdated();
-            }
+      } else if (!hasAudioMeta || !hasSubMeta) {
+        window.TVContainerProber.probeStream(url).then(function(demuxed) {
+          if (!demuxed || !self.currentVodMeta || String(self.currentVodMeta.streamId) !== String(sId)) return;
+          if (demuxed.duration > 100 && (!self.currentVodMeta.duration || self.currentVodMeta.duration <= 100)) {
+            self.currentVodMeta.duration = demuxed.duration;
+            self._updateVodDuration();
+          }
+          if (demuxed.audios && demuxed.audios.length > 0 && (!self.currentVodMeta.audioTracks || self.currentVodMeta.audioTracks.length === 0)) {
+            self.currentVodMeta.audioTracks = demuxed.audios;
+            if (typeof self._applyPreferences === 'function') self._applyPreferences();
+            if (window.onTracksUpdated) window.onTracksUpdated();
+          }
+          if (demuxed.subs && demuxed.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || self.currentVodMeta.subtitleTracks.length === 0)) {
+            self.currentVodMeta.subtitleTracks = demuxed.subs;
+            if (window.onTracksUpdated) window.onTracksUpdated();
           }
         }).catch(function(){});
-      }, 2000);
+      }
     }
 
     if ((!hasAudioMeta || !hasSubMeta || !this.currentVodMeta.duration || this.currentVodMeta.duration <= 100) && activeAccount) {
@@ -2654,6 +2645,9 @@
     getLanguageDisplayName: function(codeOrName) {
       if (!codeOrName || typeof codeOrName !== 'string') return '';
       var clean = codeOrName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (clean === 'und' || clean === 'unk' || clean === 'mis' || clean === 'mul' || clean === 'zxx' || clean === 'null' || clean === 'undefined') {
+        return '';
+      }
       var map = {
         'de': 'Deutsch', 'ger': 'Deutsch', 'deu': 'Deutsch', 'german': 'Deutsch',
         'en': 'English', 'eng': 'English', 'english': 'English',
@@ -2968,16 +2962,30 @@
       (this.hls.audioTracks[0].name === 'main' || this.hls.audioTracks[0].id === -1) &&
       metaTracks.length > 1;
 
+    function cleanAudioField(s) {
+      if (!s || typeof s !== 'string') return '';
+      var low = s.trim().toLowerCase();
+      if (low === 'und' || low === 'unk' || low === 'mis' || low === 'mul' || low === 'zxx' || low === 'null' || low === 'undefined') return '';
+      return s.trim();
+    }
+
+    function buildAudioLabel(title, lang, fallbackIndex) {
+      var cTitle = cleanAudioField(title);
+      var cLang = cleanAudioField(lang);
+      if (cTitle) return cTitle;
+      if (cLang) {
+        var langName = TrackLanguageMatcher.getLanguageDisplayName(cLang);
+        if (langName) return langName;
+      }
+      return 'Audio ' + (fallbackIndex + 1);
+    }
+
     if (hasHlsTracks && !isHlsDummyOnly) {
       for (var i = 0; i < this.hls.audioTracks.length; i++) {
         var at = this.hls.audioTracks[i];
-        var rawName = at.name || at.lang || ('Audio ' + (i + 1));
-        var lang = at.lang || '';
-        var langName = TrackLanguageMatcher.getLanguageDisplayName(lang || rawName);
-        var displayLabel = rawName;
-        if (langName && (displayLabel.toLowerCase() === lang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
-          displayLabel = langName + (lang && lang.toLowerCase() !== langName.toLowerCase() ? ' (' + lang + ')' : '');
-        }
+        var lang = cleanAudioField(at.lang);
+        var rawName = cleanAudioField(at.name);
+        var displayLabel = buildAudioLabel(rawName, lang, i);
         list.push({
           index: i,
           id: at.id !== undefined ? String(at.id) : String(i),
@@ -2992,15 +3000,9 @@
       for (var j = 0; j < this.videoEl.audioTracks.length; j++) {
         var track = this.videoEl.audioTracks[j];
         var mt = metaTracks[j] || null;
-        var lang = track.language || (mt && ((mt.tags && mt.tags.language) || mt.language || mt.lang)) || '';
-        var rawLabel = track.label || (mt && ((mt.tags && mt.tags.title) || mt.title || mt.name)) || lang || '';
-        var langName = TrackLanguageMatcher.getLanguageDisplayName(lang || rawLabel);
-        var displayLabel = rawLabel;
-        if (!displayLabel) {
-          displayLabel = langName ? (langName + (lang ? ' (' + lang + ')' : '')) : ('Audio ' + (j + 1));
-        } else if (langName && displayLabel.toLowerCase() === lang.toLowerCase()) {
-          displayLabel = langName + ' (' + lang + ')';
-        }
+        var lang = cleanAudioField(track.language) || (mt && cleanAudioField((mt.tags && mt.tags.language) || mt.language || mt.lang)) || '';
+        var rawLabel = cleanAudioField(track.label) || (mt && cleanAudioField((mt.tags && mt.tags.title) || mt.title || mt.name)) || '';
+        var displayLabel = buildAudioLabel(rawLabel, lang, j);
         var codec = (mt && (mt.codec_name || mt.codec)) || '';
         var ch = (mt && (mt.channels || mt.channel_layout)) || '';
 
@@ -3019,15 +3021,9 @@
     } else if (metaTracks.length > 0) {
       for (var m = 0; m < metaTracks.length; m++) {
         var mtItem = metaTracks[m];
-        var mLang = (mtItem.tags && mtItem.tags.language) || mtItem.language || mtItem.lang || '';
-        var mTitle = (mtItem.tags && mtItem.tags.title) || mtItem.title || mtItem.name || '';
-        var langName = TrackLanguageMatcher.getLanguageDisplayName(mLang || mTitle);
-        var displayLabel = mTitle;
-        if (!displayLabel) {
-          displayLabel = langName ? (langName + (mLang ? ' (' + mLang + ')' : '')) : ('Audio ' + (m + 1));
-        } else if (langName && displayLabel.toLowerCase() === mLang.toLowerCase()) {
-          displayLabel = langName + ' (' + mLang + ')';
-        }
+        var mLang = cleanAudioField((mtItem.tags && mtItem.tags.language) || mtItem.language || mtItem.lang);
+        var mTitle = cleanAudioField((mtItem.tags && mtItem.tags.title) || mtItem.title || mtItem.name);
+        var displayLabel = buildAudioLabel(mTitle, mLang, m);
         var mCodec = mtItem.codec_name || mtItem.codec || '';
         var mCh = mtItem.channels || mtItem.channel_layout || '';
         var isAct = (this._selectedAudioTrackIndex !== undefined)
@@ -3112,19 +3108,38 @@
     var hasActive = false;
     var metaSubs = (this.currentVodMeta && this.currentVodMeta.subtitleTracks) ? this.currentVodMeta.subtitleTracks : [];
 
+    function cleanSubField(s) {
+      if (!s || typeof s !== 'string') return '';
+      var low = s.trim().toLowerCase();
+      if (low === 'und' || low === 'unk' || low === 'mis' || low === 'mul' || low === 'zxx' || low === 'null' || low === 'undefined') return '';
+      return s.trim();
+    }
+
+    function buildSubLabel(title, lang, fallbackIndex) {
+      var cTitle = cleanSubField(title);
+      var cLang = cleanSubField(lang);
+      if (cTitle) return cTitle;
+      if (cLang) {
+        var langName = TrackLanguageMatcher.getLanguageDisplayName(cLang);
+        if (langName) return langName;
+      }
+      return 'Subtitle ' + (fallbackIndex + 1);
+    }
+
     // 0. Custom loaded WebVTT / SRT subtitle tracks (High reliability on Smart TVs)
     if (this._customSubtitles && this._customSubtitles.length > 0) {
       for (var c = 0; c < this._customSubtitles.length; c++) {
         var cust = this._customSubtitles[c];
         var isCustAct = (this._selectedSubTrackIndex === ('custom_' + c));
         if (isCustAct) hasActive = true;
+        var sLabel = buildSubLabel(cust.title || cust.name, cust.lang || cust.language, c);
         list.push({
           index: 'custom_' + c,
           id: cust.id || ('custom_' + c),
-          name: cust.name || cust.title || ('External Subtitle ' + (c + 1)),
-          title: cust.title || cust.name || ('External Subtitle ' + (c + 1)),
-          language: cust.lang || cust.language || '',
-          lang: cust.lang || cust.language || '',
+          name: sLabel,
+          title: sLabel,
+          language: cleanSubField(cust.lang || cust.language),
+          lang: cleanSubField(cust.lang || cust.language),
           isExternal: true,
           active: isCustAct,
           cues: cust.cues
@@ -3140,12 +3155,8 @@
         var st = this.hls.subtitleTracks[i];
         var isAct = (this.hls.subtitleTrack === i);
         if (isAct) hasActive = true;
-        var sDisplay = st.name || st.title || st.label || '';
-        var sLang = st.lang || '';
-        if (!sDisplay) {
-          var sLangName = TrackLanguageMatcher.getLanguageDisplayName(sLang);
-          sDisplay = sLangName ? (sLangName + (sLang ? ' (' + sLang + ')' : '')) : ('Subtitle ' + (i + 1));
-        }
+        var sLang = cleanSubField(st.lang);
+        var sDisplay = buildSubLabel(st.name || st.title || st.label, sLang, i);
         list.push({
           index: i,
           id: st.id !== undefined ? String(st.id) : String(i),
@@ -3170,13 +3181,9 @@
           var isShowing = (tt.mode === 'showing' || tt.mode === 'hidden');
           if (isShowing) hasActive = true;
           var smt = metaSubs[j] || null;
-          var lang = tt.language || (smt && ((smt.tags && smt.tags.language) || smt.language || smt.lang)) || '';
-          var rawLabel = tt.label || (smt && ((smt.tags && smt.tags.title) || smt.title || smt.name)) || '';
-          var displayLabel = rawLabel;
-          if (!displayLabel) {
-            var langName = TrackLanguageMatcher.getLanguageDisplayName(lang);
-            displayLabel = langName ? (langName + (lang ? ' (' + lang + ')' : '')) : ('Subtitle ' + (j + 1));
-          }
+          var lang = cleanSubField(tt.language) || (smt && cleanSubField((smt.tags && smt.tags.language) || smt.language || smt.lang)) || '';
+          var rawLabel = cleanSubField(tt.label) || (smt && cleanSubField((smt.tags && smt.tags.title) || smt.title || smt.name)) || '';
+          var displayLabel = buildSubLabel(rawLabel, lang, j);
           list.push({
             index: j,
             id: tt.id || String(j),
@@ -3192,11 +3199,7 @@
           var smtItem = metaSubs[s];
           var sTitle = (typeof smtItem === 'string') ? smtItem : ((smtItem.tags && smtItem.tags.title) || smtItem.title || smtItem.name || '');
           var sLang = (typeof smtItem === 'string') ? '' : ((smtItem.tags && smtItem.tags.language) || smtItem.language || smtItem.lang || '');
-          var displayTitle = sTitle;
-          if (!displayTitle) {
-            var sLangName = TrackLanguageMatcher.getLanguageDisplayName(sLang);
-            displayTitle = sLangName ? (sLangName + (sLang ? ' (' + sLang + ')' : '')) : ('Subtitle ' + (s + 1));
-          }
+          var displayTitle = buildSubLabel(sTitle, sLang, s);
           var isSubAct = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s);
           if (isSubAct) hasActive = true;
           var sUrl = (typeof smtItem === 'object' && smtItem) ? (smtItem.url || smtItem.link || smtItem.file || smtItem.src || smtItem.path || '') : '';
@@ -3206,8 +3209,8 @@
             id: (typeof smtItem === 'object' && smtItem.id !== undefined) ? String(smtItem.id) : String(s),
             name: displayTitle,
             title: displayTitle,
-            language: sLang,
-            lang: sLang,
+            language: cleanSubField(sLang),
+            lang: cleanSubField(sLang),
             url: sUrl,
             isExternal: !!sUrl,
             isEmbedded: !sUrl,
@@ -3220,11 +3223,7 @@
         var smtItem2 = metaSubs[s2];
         var sTitle2 = (typeof smtItem2 === 'string') ? smtItem2 : ((smtItem2.tags && smtItem2.tags.title) || smtItem2.title || smtItem2.name || '');
         var sLang2 = (typeof smtItem2 === 'string') ? '' : ((smtItem2.tags && smtItem2.tags.language) || smtItem2.language || smtItem2.lang || '');
-        var displayTitle2 = sTitle2;
-        if (!displayTitle2) {
-          var sLangName2 = TrackLanguageMatcher.getLanguageDisplayName(sLang2);
-          displayTitle2 = sLangName2 ? (sLangName2 + (sLang2 ? ' (' + sLang2 + ')' : '')) : ('Subtitle ' + (s2 + 1));
-        }
+        var displayTitle2 = buildSubLabel(sTitle2, sLang2, s2);
         var isSubAct2 = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s2);
         if (isSubAct2) hasActive = true;
         var sUrl2 = (typeof smtItem2 === 'object' && smtItem2) ? (smtItem2.url || smtItem2.link || smtItem2.file || smtItem2.src || smtItem2.path || '') : '';
@@ -3234,40 +3233,13 @@
           id: (typeof smtItem2 === 'object' && smtItem2.id !== undefined) ? String(smtItem2.id) : String(s2),
           name: displayTitle2,
           title: displayTitle2,
-          language: sLang2,
-          lang: sLang2,
+          language: cleanSubField(sLang2),
+          lang: cleanSubField(sLang2),
           url: sUrl2,
           isExternal: !!sUrl2,
           isEmbedded: !sUrl2,
           active: isSubAct2
         });
-      }
-    }
-
-    // Only include external subtitles pre-resolved from Cinemeta/OpenSubtitles if stream has NO provider tracks
-    var hasAnyProviderSubs = hasHlsSubs || hasVideoElSubs || (metaSubs && metaSubs.length > 0);
-    if (!hasAnyProviderSubs && window.TVSubtitles && typeof window.TVSubtitles.getCachedSubtitles === 'function' && this.currentVodMeta) {
-      var cachedExts = window.TVSubtitles.getCachedSubtitles(this.currentVodMeta) || [];
-      for (var e = 0; e < cachedExts.length; e++) {
-        var extItem = cachedExts[e];
-        var isAlreadyInList = list.some(function(item) {
-          return (extItem.url && item.url === extItem.url) || (item.lang === extItem.lang && item.name === extItem.name);
-        });
-        if (!isAlreadyInList) {
-          var isExtAct = (this._selectedSubTrackIndex === extItem.index || this._selectedSubTrackIndex === extItem.id);
-          if (isExtAct) hasActive = true;
-          list.push({
-            index: extItem.index,
-            id: extItem.id,
-            name: extItem.name,
-            title: extItem.title,
-            language: extItem.language || extItem.lang,
-            lang: extItem.lang || extItem.language,
-            url: extItem.url,
-            isExternal: true,
-            active: isExtAct
-          });
-        }
       }
     }
 
@@ -3347,39 +3319,15 @@
         }
       } else {
         console.log('[SubtitlePipeline:Tier3] Subtitle track #' + index + ' activated for cue rendering');
-        var isEmbeddedWithoutCues = !this.hls && (!this.videoEl.textTracks || this.videoEl.textTracks.length === 0 || !this.videoEl.textTracks[index]) && (!this._activeSubtitleCues || this._activeSubtitleCues.length === 0);
-        if (isEmbeddedWithoutCues && window.TVSubtitles && this.currentVodMeta) {
-          console.log('[SubtitlePipeline] Embedded or external subtitle without in-memory cues, resolving via TVSubtitles...');
-          var subLang = (trackObj && (trackObj.lang || trackObj.language)) || 'de';
+        if (trackObj && trackObj.url && window.TVSubtitles && typeof window.TVSubtitles.loadSubtitle === 'function') {
           var self2 = this;
-          window.TVSubtitles.resolveExternalSubtitles(this.currentVodMeta).then(function(resList) {
-            if (!resList || resList.length === 0) {
-              console.warn('[SubtitlePipeline] No external subtitles found online for stream');
-              return;
-            }
-            var matched = null;
-            var cleanTarget = subLang.toLowerCase().slice(0, 2);
-            for (var m = 0; m < resList.length; m++) {
-              var r = resList[m];
-              if ((r.lang && r.lang.toLowerCase().indexOf(cleanTarget) === 0) || (r.language && r.language.toLowerCase().indexOf(cleanTarget) === 0)) {
-                matched = r;
-                break;
-              }
-            }
-            if (!matched) matched = resList[0];
-            if (matched && matched.url) {
-              console.log('[SubtitlePipeline] Auto-loading resolved subtitle:', matched.title, matched.url);
-              window.TVSubtitles.loadSubtitle(matched.url, matched.lang, matched.title, self2).then(function() {
-                var isDe3 = window.TVI18n && window.TVI18n.getLanguage() === 'de';
-                if (typeof showToast === 'function') {
-                  showToast((isDe3 ? 'Untertitel geladen: ' : 'Subtitles loaded: ') + matched.title, '💬', 3000);
-                }
-              }).catch(function(e) {
-                console.warn('[SubtitlePipeline] Subtitle load failed:', e);
-              });
+          window.TVSubtitles.loadSubtitle(trackObj.url, trackObj.lang || trackObj.language, trackObj.title || trackObj.name, self2).then(function() {
+            var isDe3 = window.TVI18n && window.TVI18n.getLanguage() === 'de';
+            if (typeof showToast === 'function') {
+              showToast((isDe3 ? 'Untertitel geladen: ' : 'Subtitles loaded: ') + (trackObj.title || trackObj.name), '💬', 3000);
             }
           }).catch(function(e) {
-            console.warn('[SubtitlePipeline] Subtitle resolution error:', e);
+            console.warn('[SubtitlePipeline] Subtitle load failed:', e);
           });
         }
       }

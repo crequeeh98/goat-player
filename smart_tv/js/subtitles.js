@@ -151,103 +151,10 @@
     },
 
     // Resolve external WebVTT / SRT subtitle tracks for Movie or Series
+    // Disabled: external scraping from OpenSubtitles/Stremio causes severe audio/video desync
+    // and duplicate generic tracks ("Deutsch", "Deutsch #2") on IPTV streams. Only provider/stream tracks are used.
     resolveExternalSubtitles: function(meta) {
-      if (!meta) return Promise.resolve([]);
-      var isSeries = (meta.type === 'series' || !!meta.seriesId || !!meta.season);
-      var title = meta.seriesName || meta.title || '';
-      var cleanTitle = title.replace(/^[0-9]+\.\s*/, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '').trim();
-      var sId = meta.streamId || meta.id || cleanTitle;
-      var season = meta.season || 1;
-      var episode = meta.episode || 1;
-      var cacheKey = (isSeries ? 's_' + sId + '_' + season + '_' + episode : 'm_' + sId);
-
-      if (this._subResolveCache[cacheKey]) {
-        return Promise.resolve(this._subResolveCache[cacheKey]);
-      }
-
-      var self = this;
-
-      function fetchFromImdb(imdbId) {
-        if (!imdbId) return Promise.resolve([]);
-        var subUrl = isSeries
-          ? 'https://opensubtitles-v3.strem.io/subtitles/series/' + encodeURIComponent(imdbId) + ':' + season + ':' + episode + '.json'
-          : 'https://opensubtitles-v3.strem.io/subtitles/movie/' + encodeURIComponent(imdbId) + '.json';
-
-        return fetch(subUrl, { method: 'GET', cache: 'force-cache' })
-          .then(function(res) {
-            if (!res.ok) throw new Error('Status ' + res.status);
-            return res.json();
-          })
-          .then(function(data) {
-            var rawList = (data && Array.isArray(data.subtitles)) ? data.subtitles : [];
-            if (rawList.length === 0) return [];
-
-            var results = [];
-            var seenLang = {};
-
-            // Prioritize common TV languages, keep max 2 per language for clean selection
-            for (var i = 0; i < rawList.length; i++) {
-              var s = rawList[i];
-              if (!s || !s.url) continue;
-              var langCode = (s.lang || 'und').toLowerCase();
-              seenLang[langCode] = (seenLang[langCode] || 0) + 1;
-              if (seenLang[langCode] > 2) continue; // Keep top 2 best-matched releases per language
-
-              var langName = window.TrackLanguageMatcher ? window.TrackLanguageMatcher.getLanguageDisplayName(langCode) : langCode.toUpperCase();
-              var displayTitle = langName + (seenLang[langCode] > 1 ? ' #' + seenLang[langCode] : '');
-
-              results.push({
-                index: 'ext_' + results.length,
-                id: 'ext_' + (s.id || results.length),
-                name: displayTitle,
-                title: displayTitle,
-                language: langCode,
-                lang: langCode,
-                url: s.url,
-                isExternal: true,
-                releaseName: s.movieReleaseName || s.subtitleFileName || ''
-              });
-            }
-
-            self._subResolveCache[cacheKey] = results;
-            console.log('[TVSubtitles] Resolved ' + results.length + ' external subtitle tracks for:', cleanTitle);
-            return results;
-          })
-          .catch(function(err) {
-            console.warn('[TVSubtitles] OpenSubtitles fetch notice:', err && err.message ? err.message : err);
-            return [];
-          });
-      }
-
-      // 1. Direct IMDB ID from metadata
-      var directImdb = meta.imdb_id || meta.imdbId || meta.imdb || '';
-      if (!directImdb && meta.kinopoisk_url && typeof meta.kinopoisk_url === 'string') {
-        var m = meta.kinopoisk_url.match(/tt\d{6,9}/i);
-        if (m) directImdb = m[0];
-      }
-
-      if (directImdb) {
-        return fetchFromImdb(directImdb);
-      }
-
-      // 2. Search Cinemeta by title to resolve IMDB ID
-      if (!cleanTitle) return Promise.resolve([]);
-      var searchCat = isSeries ? 'series' : 'movie';
-      var searchUrl = 'https://v3-cinemeta.strem.io/catalog/' + searchCat + '/top/search=' + encodeURIComponent(cleanTitle) + '.json';
-
-      return fetch(searchUrl, { method: 'GET', cache: 'force-cache' })
-        .then(function(r) { return r.json(); })
-        .then(function(cinData) {
-          var metas = (cinData && Array.isArray(cinData.metas)) ? cinData.metas : [];
-          if (metas.length > 0 && metas[0].id) {
-            return fetchFromImdb(metas[0].id);
-          }
-          return [];
-        })
-        .catch(function(e) {
-          console.log('[TVSubtitles] Cinemeta search error:', e && e.message ? e.message : e);
-          return [];
-        });
+      return Promise.resolve([]);
     },
 
     // Load and register a subtitle track on the player
