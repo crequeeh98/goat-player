@@ -6172,16 +6172,32 @@
 
         window.TVSync.startPolling(session.deviceId, function(event) {
           if (event && event.type === 'accountAdded' && event.account) {
+            var isM3u = event.account.type === 'm3u' || (!event.account.username && !event.account.password) || (event.account.serverUrl && (event.account.serverUrl.indexOf('.m3u') !== -1 || event.account.serverUrl.indexOf('.m3u8') !== -1));
             var acc = window.TVStorage.saveAccount({
               id: event.account.id || undefined,
+              type: isM3u ? 'm3u' : undefined,
               serverUrl: event.account.serverUrl,
-              username: event.account.username,
-              password: event.account.password,
-              name: event.account.name || event.account.username,
+              username: event.account.username || '',
+              password: event.account.password || '',
+              name: event.account.name || event.account.username || (isM3u ? 'M3U Playlist' : 'Remote Playlist'),
               expDate: event.account.expDate || (event.account.userInfo && event.account.userInfo.exp_date) || null,
               maxConnections: event.account.maxConnections || (event.account.userInfo && event.account.userInfo.max_connections) || null
             });
             _lastAddedAccount = acc;
+
+            // Eager background parse for M3U playlists so streams are immediately ready
+            if (isM3u && window.TVApi && window.TVApi.authenticateM3u) {
+              window.TVApi.authenticateM3u(acc.serverUrl, acc.name)
+                .then(function(res) {
+                  if (res && res.parsed && window.TVStorage && window.TVStorage.saveM3uData) {
+                    window.TVStorage.saveM3uData(acc.id, res.parsed);
+                    renderAccountsList();
+                  }
+                })
+                .catch(function(err) {
+                  console.warn('Background M3U parse warning:', err);
+                });
+            }
 
             if (window.TVSync && window.TVSync.pushPlaylists) {
               window.TVSync.pushPlaylists();

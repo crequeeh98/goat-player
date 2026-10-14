@@ -57,6 +57,7 @@ class PlayerService {
   void _setupAutoReconnect() {
     // When live stream reaches premature EOF or server drops connection
     _completedSub = engine.stream.completed.listen((completed) {
+      debugPrint('[GOAT_PLAY] engine.stream.completed received: $completed');
       if (completed && _isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
         debugPrint('PlayerService: Live stream disconnected or completed. Auto-reconnecting...');
         _scheduleLiveReconnect();
@@ -65,6 +66,7 @@ class PlayerService {
 
     // When live stream encounters socket or demuxer read error
     _errorSub = engine.stream.error.listen((error) {
+      debugPrint('[GOAT_PLAY] engine.stream.error received: $error');
       if (_isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
         debugPrint('PlayerService: Live stream error ($error). Auto-reconnecting...');
         _scheduleLiveReconnect();

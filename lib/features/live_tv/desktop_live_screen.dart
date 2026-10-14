@@ -128,6 +128,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   }
 
   void _playStream(StreamItem stream) {
+    debugPrint('[GOAT_PLAY] _playStream clicked: name="${stream.name}", id="${stream.streamId}", storedUrl="${stream.url}"');
     final activePlayback = ref.read(playbackControllerProvider);
     final effectiveCat = _selectedCategory ?? stream.categoryId;
 

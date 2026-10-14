@@ -69,6 +69,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Timer? _hideTimer;
   double _volume = 100.0;
   bool _isPlaying = true;
+  bool _isBuffering = false;
   String? _optimisticStreamId;
 
   // In-Player EPG Drawer & OSD Banner state
@@ -77,6 +78,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Timer? _osdBannerTimer;
   StreamSubscription? _volumeSub;
   StreamSubscription? _playingSub;
+  StreamSubscription? _bufferingSub;
   StreamSubscription? _drawerChannelChangeSub;
   String? _channelChangingToStreamId;
   double _verticalDragDistance = 0.0;
@@ -88,12 +90,26 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     final player = widget.state.widget.controller.player;
     _volume = player.state.volume;
     _isPlaying = player.state.playing;
+    _isBuffering = player.state.buffering;
 
     _volumeSub = player.stream.volume.listen((v) {
       if (mounted) setState(() => _volume = v);
     });
     _playingSub = player.stream.playing.listen((p) {
-      if (mounted) setState(() => _isPlaying = p);
+      if (mounted) {
+        setState(() => _isPlaying = p);
+        if (p && !_isBuffering) {
+          _startHideTimer();
+        }
+      }
+    });
+    _bufferingSub = player.stream.buffering.listen((b) {
+      if (mounted) {
+        setState(() => _isBuffering = b);
+        if (!b && _isPlaying) {
+          _startHideTimer();
+        }
+      }
     });
 
     if (widget.isFullWidth) {
@@ -121,6 +137,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _osdBannerTimer?.cancel();
     _volumeSub?.cancel();
     _playingSub?.cancel();
+    _bufferingSub?.cancel();
     super.dispose();
   }
 
@@ -136,9 +153,9 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    if (_isPlaying && !_isDrawerOpen) {
+    if (_isPlaying && !_isBuffering && !_isDrawerOpen) {
       _hideTimer = Timer(const Duration(seconds: 4), () {
-        if (mounted && _isPlaying && !_isDrawerOpen) {
+        if (mounted && _isPlaying && !_isBuffering && !_isDrawerOpen) {
           setState(() => _showOverlay = false);
         }
       });
@@ -423,7 +440,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         },
         onExit: (_) {
           if (_isPlaying && !_isDrawerOpen) {
-            setState(() => _showOverlay = false);
+            _startHideTimer();
           }
         },
         child: GestureDetector(
@@ -481,6 +498,19 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                     ),
                   ),
                 ),
+
+                // Buffering spinner when controls overlay is hidden
+                if (_isBuffering && !_showOverlay)
+                  const Center(
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB388FF)),
+                      ),
+                    ),
+                  ),
 
                 // 2. Player Controls Overlay
                 AnimatedOpacity(
@@ -604,7 +634,16 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                               IconButton(
                                 iconSize: (GoatPlatform.isMobile && !isFull) ? 56 : 76,
                                 color: Colors.white,
-                                icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                                icon: _isBuffering
+                                    ? const SizedBox(
+                                        width: 38,
+                                        height: 38,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 3.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB388FF)),
+                                        ),
+                                      )
+                                    : Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
                                 onPressed: _togglePlayPause,
                               ),
                               if (widget.onZapNext != null) ...[

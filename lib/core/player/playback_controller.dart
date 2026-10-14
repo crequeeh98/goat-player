@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'player_service.dart';
 
@@ -90,6 +91,7 @@ class PlaybackController extends Notifier<ActivePlayback?> {
     String? streamId,
     String? categoryId,
   }) async {
+    debugPrint('[GOAT_PLAY] playLive called: title="$title", url="$url", categoryId="$categoryId"');
     final playerService = ref.read(playerServiceProvider);
     state = ActivePlayback(
       title: title,

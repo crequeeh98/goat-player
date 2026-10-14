@@ -36,7 +36,8 @@
         playlist_name: acc.name || acc.username,
         server_url: acc.serverUrl,
         username: acc.username,
-        password: acc.password
+        password: acc.password,
+        type: acc.type || (acc.serverUrl && (acc.serverUrl.indexOf('.m3u') !== -1 || (!acc.username && !acc.password)) ? 'm3u' : undefined)
       };
     });
   }
@@ -149,14 +150,16 @@
           // Perform local action FIRST so getLocalPlaylists() is updated before acknowledging
           if (actionType === 'add') {
             if (onEvent) {
+              var isM3u = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
               onEvent({
                 type: 'accountAdded',
                 account: {
                   id: actionObj.id || undefined,
+                  type: isM3u ? 'm3u' : undefined,
                   serverUrl: actionObj.server_url || '',
                   username: actionObj.username || '',
                   password: actionObj.password || '',
-                  name: actionObj.playlist_name || actionObj.username || 'Remote Playlist'
+                  name: actionObj.playlist_name || actionObj.username || (isM3u ? 'M3U Playlist' : 'Remote Playlist')
                 }
               });
             }
@@ -172,21 +175,24 @@
               });
 
               var updatedAcc = null;
+              var isM3uEdit = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
               if (targetAcc) {
                 updatedAcc = Object.assign({}, targetAcc, {
+                  type: isM3uEdit ? 'm3u' : (targetAcc.type || undefined),
                   serverUrl: actionObj.server_url || targetAcc.serverUrl,
-                  username: actionObj.username || targetAcc.username,
-                  password: actionObj.password || targetAcc.password,
+                  username: actionObj.username !== undefined ? actionObj.username : targetAcc.username,
+                  password: actionObj.password !== undefined ? actionObj.password : targetAcc.password,
                   name: actionObj.playlist_name || actionObj.username || targetAcc.name
                 });
                 window.TVStorage.saveAccount(updatedAcc);
               } else if (actionObj.id) {
                 updatedAcc = window.TVStorage.saveAccount({
                   id: actionObj.id,
+                  type: isM3uEdit ? 'm3u' : undefined,
                   serverUrl: actionObj.server_url || '',
                   username: actionObj.username || '',
                   password: actionObj.password || '',
-                  name: actionObj.playlist_name || actionObj.username || 'Remote Playlist'
+                  name: actionObj.playlist_name || actionObj.username || (isM3uEdit ? 'M3U Playlist' : 'Remote Playlist')
                 });
               }
               if (onEvent) onEvent({ type: 'accountUpdated', account: updatedAcc });

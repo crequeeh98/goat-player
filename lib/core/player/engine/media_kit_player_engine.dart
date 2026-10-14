@@ -35,6 +35,12 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
       ),
     );
     _stream = _MediaKitPlayerStream(player);
+    player.stream.videoParams.listen((vp) {
+      debugPrint('[GOAT_PLAY] mpv videoParams received: ${vp.w}x${vp.h}');
+    });
+    player.stream.buffering.listen((b) {
+      debugPrint('[GOAT_PLAY] mpv buffering: $b');
+    });
     _applyMpvOptimizations(isLive: false);
   }
 
@@ -80,8 +86,6 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
         platform?.setProperty('cache', 'yes');
         platform?.setProperty('cache-pause', 'no');
         platform?.setProperty('network-timeout', '10');
-        platform?.setProperty('demuxer-lavf-o', 'reconnect=1,reconnect_at_eof=1,reconnect_streamed=1,reconnect_delay_max=5');
-        platform?.setProperty('stream-lavf-o', 'reconnect=1,reconnect_at_eof=1,reconnect_streamed=1,reconnect_delay_max=5');
       } else {
         platform?.setProperty('demuxer-lavf-analyzeduration', '3.0');
         platform?.setProperty('demuxer-lavf-probesize', '6291456');
@@ -105,26 +109,33 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
   @override
   Future<void> open(String url, {bool isLive = false, Duration? startPosition}) async {
     if (_isDisposed) return;
+    debugPrint('[GOAT_PLAY] MediaKitPlayerEngine.open: url="$url", isLive=$isLive');
     _isLive = isLive;
     _lastOpenedUrl = url;
     _applyMpvOptimizations(isLive: isLive);
 
-    await player.open(
-      Media(
-        url,
-        httpHeaders: {
-          'User-Agent': 'IPTVSmartersPlayer',
-        },
-        start: startPosition,
-      ),
-      play: true,
-    );
+    try {
+      await player.open(
+        Media(
+          url,
+          httpHeaders: {
+            'User-Agent': 'IPTVSmartersPlayer',
+          },
+          start: startPosition,
+        ),
+        play: true,
+      );
+      debugPrint('[GOAT_PLAY] player.open RESOLVED successfully for: $url');
+    } catch (e, st) {
+      debugPrint('[GOAT_PLAY] player.open CAUGHT EXCEPTION: $e\n$st');
+    }
 
     if (!_isDisposed) {
       if (isLive) {
         await player.setSubtitleTrack(SubtitleTrack.no());
       }
       await player.play();
+      debugPrint('[GOAT_PLAY] player.play() called for: $url');
     }
   }
 
