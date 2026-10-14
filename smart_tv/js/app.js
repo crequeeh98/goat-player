@@ -1515,6 +1515,9 @@
 
     if (tabName === 'live') {
       document.body.classList.add('tab-live');
+      if (!_selectedLiveStream || !_player || !_player.currentStream || _player.playbackType !== 'live') {
+        clearLiveEpg();
+      }
       if (!_liveCategories || _liveCategories.length === 0) {
         loadLiveTv();
       } else {
@@ -1537,6 +1540,7 @@
       }
     } else {
       document.body.classList.remove('tab-live');
+      clearLiveEpg();
       // In Movies or Series, stop Live preview and hide container completely
       if (_player) {
         _player.stop(false);
@@ -1848,6 +1852,23 @@
     loadLiveEpg(stream);
   }
 
+  function clearLiveEpg() {
+    var epgListEl = document.getElementById('epg-schedule-list');
+    var drawerEpgList = document.getElementById('drawer-epg-list');
+    var drawerChannelName = document.getElementById('drawer-epg-channel-name');
+    var osdNow = document.getElementById('osd-live-epg-now');
+    var selectText = window.TVI18n ? window.TVI18n.t('epg_select_channel') : 'Select a channel to view upcoming program schedule.';
+    if (epgListEl) {
+      epgListEl.innerHTML = '<div class="epg-empty-placeholder" data-i18n="epg_select_channel">' + selectText + '</div>';
+    }
+    if (drawerEpgList) {
+      drawerEpgList.innerHTML = '<div class="epg-empty-placeholder" data-i18n="epg_select_channel">' + selectText + '</div>';
+    }
+    if (drawerChannelName) drawerChannelName.textContent = '';
+    if (osdNow) osdNow.textContent = '';
+  }
+  window.clearLiveEpg = clearLiveEpg;
+
   function loadLiveEpg(stream) {
     var epgListEl = document.getElementById('epg-schedule-list');
     var drawerEpgList = document.getElementById('drawer-epg-list');
@@ -2144,13 +2165,10 @@
                 var fillEl = document.getElementById('cm-fill-' + ch.stream_id);
 
                 if (epgEl && cur.title) epgEl.textContent = cur.title;
-                if (cur.stop_timestamp && cur.start_timestamp) {
-                  var nowSec = Math.floor(Date.now() / 1000);
-                  var minLeft = Math.max(0, Math.round((cur.stop_timestamp - nowSec) / 60));
-                  if (durEl) durEl.textContent = '+' + minLeft;
-                  var total = cur.stop_timestamp - cur.start_timestamp;
-                  var pct = total > 0 ? Math.max(0, Math.min(100, Math.round(((nowSec - cur.start_timestamp) / total) * 100))) : 0;
-                  if (fillEl) fillEl.style.width = pct + '%';
+                var cmTiming = (typeof window.calcEpgItemTiming === 'function') ? window.calcEpgItemTiming(cur) : null;
+                if (cmTiming) {
+                  if (durEl) durEl.textContent = cmTiming.remainingLabel || cmTiming.durationLabel;
+                  if (fillEl) fillEl.style.width = cmTiming.percent + '%';
                 }
               }
             })
@@ -2907,16 +2925,14 @@
       else if (item.index !== undefined) id = String(item.index);
     }
 
-    var langName = getLangDisplay(lang || title);
     var displayLabel = title;
     if (!displayLabel) {
+      var langName = getLangDisplay(lang);
       if (langName) {
         displayLabel = langName + (lang && lang.toLowerCase() !== langName.toLowerCase() ? ' (' + lang + ')' : '');
       } else {
         displayLabel = 'Subtitle ' + (idx + 1);
       }
-    } else if (langName && displayLabel.toLowerCase() === lang.toLowerCase()) {
-      displayLabel = langName + ' (' + lang + ')';
     }
 
     var subUrl = (typeof item === 'object' && item) ? (item.url || item.link || item.file || item.path || '') : '';

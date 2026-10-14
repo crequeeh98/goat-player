@@ -2079,12 +2079,13 @@ body:not(.tab-live) #player-container.mode-preview {
 }
 
 .infobar-duration {
-  font-size: 21px;
-  font-weight: 800;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--accent-gold);
-  min-width: 58px;
+  white-space: nowrap;
   text-align: right;
   flex-shrink: 0;
+  letter-spacing: 0.3px;
 }
 
 .infobar-prog-row.next .infobar-duration {
@@ -3685,26 +3686,29 @@ body:not(.tab-live) #player-container.mode-preview {
   border-radius: 28px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9), 0 0 40px rgba(124, 58, 237, 0.18);
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   width: 1140px;
   max-width: 92vw;
   max-height: 88vh;
+  min-height: 520px;
   box-sizing: border-box;
   padding: 48px 56px;
   gap: 56px;
 }
 
 .detail-left {
-  width: 260px;
-  min-width: 260px;
+  width: 270px;
+  min-width: 270px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .detail-poster {
-  width: 260px;
-  height: 390px;
-  max-width: 260px;
-  max-height: 390px;
+  width: 270px;
+  height: 405px;
+  max-width: 270px;
+  max-height: 405px;
   border-radius: 18px;
   object-fit: cover;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
@@ -3716,7 +3720,8 @@ body:not(.tab-live) #player-container.mode-preview {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  min-height: 405px;
+  gap: 20px;
   overflow: visible;
   padding: 4px 10px 10px 4px;
   box-sizing: border-box;
@@ -3728,13 +3733,15 @@ body:not(.tab-live) #player-container.mode-preview {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
+  margin-bottom: 4px;
 }
 
 .detail-title {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 800;
   color: #FFFFFF;
   line-height: 1.25;
+  margin-bottom: 2px;
 }
 
 .detail-meta-chips {
@@ -3742,6 +3749,7 @@ body:not(.tab-live) #player-container.mode-preview {
   flex-wrap: wrap;
   gap: 14px;
   align-items: center;
+  margin: 6px 0 10px 0;
 }
 
 .chip {
@@ -3764,18 +3772,19 @@ body:not(.tab-live) #player-container.mode-preview {
 .detail-plot {
   font-size: 20px;
   color: var(--text-dim);
-  line-height: 1.6;
-  max-height: 140px;
+  line-height: 1.65;
+  max-height: 180px;
   overflow-y: auto;
-  margin-bottom: 6px;
+  flex: 1;
+  margin-bottom: 16px;
 }
 
 .detail-actions {
   display: flex;
   gap: 24px;
   align-items: center;
-  margin-top: 10px;
-  padding: 6px 4px;
+  margin-top: auto;
+  padding-top: 14px;
   overflow: visible;
 }
 
@@ -4418,32 +4427,36 @@ body:not(.tab-live) #player-container.mode-preview {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+  padding: 6px 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .cw-hint-dot.red {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #EF4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
   display: inline-block;
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .cw-hint-key {
   font-weight: 700;
   color: #EF4444;
+  margin-right: 6px;
+  letter-spacing: 0.3px;
 }
 
 .cw-hint-text {
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .cw-rail {

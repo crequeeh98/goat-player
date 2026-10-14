@@ -1476,10 +1476,13 @@
       }
     }
 
-    // Pre-resolve external subtitles with brief deferral to allow hardware video decoder initial bandwidth priority
-    if (window.TVSubtitles && typeof window.TVSubtitles.resolveExternalSubtitles === 'function') {
+    // Only resolve external online subtitles as a fallback if the stream has NO provider subtitle tracks
+    var hasProviderSubs = (meta && meta.subtitleTracks && meta.subtitleTracks.length > 0);
+    if (!hasProviderSubs && window.TVSubtitles && typeof window.TVSubtitles.resolveExternalSubtitles === 'function') {
       setTimeout(function() {
         if (!self.currentVodMeta || String(self.currentVodMeta.streamId) !== String(sId)) return;
+        var existing = self.getSubtitleTracks();
+        if (existing && existing.tracks && existing.tracks.length > 0) return; // Embedded tracks discovered, skip external
         window.TVSubtitles.resolveExternalSubtitles(self.currentVodMeta).then(function(extSubs) {
           if (extSubs && extSubs.length > 0) {
             if (typeof self._applyPreferences === 'function') {
@@ -1490,7 +1493,7 @@
             }
           }
         }).catch(function(){});
-      }, 1500);
+      }, 2000);
     }
 
     if ((!hasAudioMeta || !hasSubMeta || !this.currentVodMeta.duration || this.currentVodMeta.duration <= 100) && activeAccount) {
@@ -2022,6 +2025,71 @@
     }, duration || 4000);
   };
 
+  function calcEpgItemTiming(item) {
+    if (!item) return { durationMin: 0, remainingMin: 0, percent: 0, durationLabel: '', remainingLabel: '' };
+    var now = new Date();
+    var nowSec = Math.floor(now.getTime() / 1000);
+
+    var durMin = 0;
+    if (item.start_timestamp && item.stop_timestamp) {
+      var dSec = Number(item.stop_timestamp) - Number(item.start_timestamp);
+      if (dSec > 0) durMin = Math.round(dSec / 60);
+    }
+
+    var remMin = 0;
+    var pct = 0;
+
+    function parseDate(s) {
+      if (!s || typeof s !== 'string') return null;
+      var m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (m) {
+        return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), parseInt(m[4], 10), parseInt(m[5], 10), m[6] ? parseInt(m[6], 10) : 0);
+      }
+      return null;
+    }
+
+    var dStart = parseDate(item.start);
+    var dEnd = parseDate(item.end);
+
+    if (dStart && dEnd) {
+      var totalMs = dEnd.getTime() - dStart.getTime();
+      if (totalMs > 0) {
+        durMin = Math.round(totalMs / 60000);
+        var elapsedMs = now.getTime() - dStart.getTime();
+        var leftMs = dEnd.getTime() - now.getTime();
+        remMin = Math.max(0, Math.round(leftMs / 60000));
+        pct = Math.max(0, Math.min(100, Math.round((elapsedMs / totalMs) * 100)));
+      }
+    } else if (item.start_timestamp && item.stop_timestamp) {
+      var sSec = Number(item.start_timestamp);
+      var eSec = Number(item.stop_timestamp);
+      var tot = eSec - sSec;
+      if (tot > 0) {
+        durMin = Math.round(tot / 60);
+        if (nowSec >= sSec && nowSec <= eSec) {
+          remMin = Math.max(0, Math.round((eSec - nowSec) / 60));
+          pct = Math.max(0, Math.min(100, Math.round(((nowSec - sSec) / tot) * 100)));
+        } else {
+          remMin = durMin;
+          pct = 0;
+        }
+      }
+    }
+
+    var isDe = window.TVI18n && window.TVI18n.getLanguage() === 'de';
+    var remLabel = remMin > 0 ? (isDe ? ('noch ' + remMin + ' min') : (remMin + ' min left')) : (durMin > 0 ? (durMin + ' min') : '');
+    var durLabel = durMin > 0 ? (durMin + ' min') : '';
+
+    return {
+      durationMin: durMin,
+      remainingMin: remMin,
+      percent: pct,
+      remainingLabel: remLabel,
+      durationLabel: durLabel
+    };
+  }
+  window.calcEpgItemTiming = calcEpgItemTiming;
+
   TVPlayer.prototype._updateInfobarEpg = function(listings) {
     var curTimeEl = document.getElementById('infobar-cur-time');
     var curTitleEl = document.getElementById('infobar-cur-title');
@@ -2046,24 +2114,15 @@
       return;
     }
 
-    var nowSec = Math.floor(Date.now() / 1000);
     var cur = listings[0];
     if (cur) {
       var sTime = cur.start ? cur.start.substring(11, 16) : '--:--';
       if (curTimeEl) curTimeEl.textContent = sTime;
       if (curTitleEl) curTitleEl.textContent = cur.title || 'Live Program';
 
-      if (cur.stop_timestamp && cur.start_timestamp) {
-        var minLeft = Math.max(0, Math.round((cur.stop_timestamp - nowSec) / 60));
-        if (curDurEl) curDurEl.textContent = '+' + minLeft;
-
-        var total = cur.stop_timestamp - cur.start_timestamp;
-        var pct = total > 0 ? Math.max(0, Math.min(100, Math.round(((nowSec - cur.start_timestamp) / total) * 100))) : 0;
-        if (fillEl) fillEl.style.width = pct + '%';
-      } else {
-        if (curDurEl) curDurEl.textContent = '';
-        if (fillEl) fillEl.style.width = '0%';
-      }
+      var curTiming = calcEpgItemTiming(cur);
+      if (curDurEl) curDurEl.textContent = curTiming.remainingLabel || curTiming.durationLabel;
+      if (fillEl) fillEl.style.width = curTiming.percent + '%';
     }
 
     var next = listings[1];
@@ -2072,12 +2131,8 @@
       if (nextTimeEl) nextTimeEl.textContent = nTime;
       if (nextTitleEl) nextTitleEl.textContent = next.title || '--';
 
-      if (next.stop_timestamp && next.start_timestamp) {
-        var nMin = Math.round((next.stop_timestamp - next.start_timestamp) / 60);
-        if (nextDurEl) nextDurEl.textContent = '+' + nMin;
-      } else {
-        if (nextDurEl) nextDurEl.textContent = '';
-      }
+      var nextTiming = calcEpgItemTiming(next);
+      if (nextDurEl) nextDurEl.textContent = nextTiming.durationLabel;
     } else {
       if (nextTimeEl) nextTimeEl.textContent = '--:--';
       if (nextTitleEl) nextTitleEl.textContent = '--';
@@ -2514,6 +2569,9 @@
       if (previewBox) previewBox.classList.remove('has-stream');
       var previewTitle = document.getElementById('preview-channel-name');
       if (previewTitle) previewTitle.textContent = '';
+      if (typeof window.clearLiveEpg === 'function') {
+        window.clearLiveEpg();
+      }
     }
   };
 
@@ -3082,12 +3140,11 @@
         var st = this.hls.subtitleTracks[i];
         var isAct = (this.hls.subtitleTrack === i);
         if (isAct) hasActive = true;
-        var sRaw = st.name || st.lang || ('Subtitle ' + (i + 1));
+        var sDisplay = st.name || st.title || st.label || '';
         var sLang = st.lang || '';
-        var sLangName = TrackLanguageMatcher.getLanguageDisplayName(sLang || sRaw);
-        var sDisplay = sRaw;
-        if (sLangName && (sDisplay.toLowerCase() === sLang.toLowerCase() || sDisplay.toLowerCase() === sLangName.toLowerCase())) {
-          sDisplay = sLangName + (sLang && sLang.toLowerCase() !== sLangName.toLowerCase() ? ' (' + sLang + ')' : '');
+        if (!sDisplay) {
+          var sLangName = TrackLanguageMatcher.getLanguageDisplayName(sLang);
+          sDisplay = sLangName ? (sLangName + (sLang ? ' (' + sLang + ')' : '')) : ('Subtitle ' + (i + 1));
         }
         list.push({
           index: i,
@@ -3114,13 +3171,11 @@
           if (isShowing) hasActive = true;
           var smt = metaSubs[j] || null;
           var lang = tt.language || (smt && ((smt.tags && smt.tags.language) || smt.language || smt.lang)) || '';
-          var rawLabel = tt.label || (smt && ((smt.tags && smt.tags.title) || smt.title || smt.name)) || lang || '';
-          var langName = TrackLanguageMatcher.getLanguageDisplayName(lang || rawLabel);
+          var rawLabel = tt.label || (smt && ((smt.tags && smt.tags.title) || smt.title || smt.name)) || '';
           var displayLabel = rawLabel;
           if (!displayLabel) {
+            var langName = TrackLanguageMatcher.getLanguageDisplayName(lang);
             displayLabel = langName ? (langName + (lang ? ' (' + lang + ')' : '')) : ('Subtitle ' + (j + 1));
-          } else if (langName && displayLabel.toLowerCase() === lang.toLowerCase()) {
-            displayLabel = langName + ' (' + lang + ')';
           }
           list.push({
             index: j,
@@ -3136,13 +3191,11 @@
         for (var s = 0; s < metaSubs.length; s++) {
           var smtItem = metaSubs[s];
           var sTitle = (typeof smtItem === 'string') ? smtItem : ((smtItem.tags && smtItem.tags.title) || smtItem.title || smtItem.name || '');
-          var sLang = (typeof smtItem === 'string') ? smtItem : ((smtItem.tags && smtItem.tags.language) || smtItem.language || smtItem.lang || '');
-          var sLangName = TrackLanguageMatcher.getLanguageDisplayName(sLang || sTitle);
+          var sLang = (typeof smtItem === 'string') ? '' : ((smtItem.tags && smtItem.tags.language) || smtItem.language || smtItem.lang || '');
           var displayTitle = sTitle;
           if (!displayTitle) {
+            var sLangName = TrackLanguageMatcher.getLanguageDisplayName(sLang);
             displayTitle = sLangName ? (sLangName + (sLang ? ' (' + sLang + ')' : '')) : ('Subtitle ' + (s + 1));
-          } else if (sLangName && displayTitle.toLowerCase() === sLang.toLowerCase()) {
-            displayTitle = sLangName + ' (' + sLang + ')';
           }
           var isSubAct = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s);
           if (isSubAct) hasActive = true;
@@ -3166,13 +3219,11 @@
       for (var s2 = 0; s2 < metaSubs.length; s2++) {
         var smtItem2 = metaSubs[s2];
         var sTitle2 = (typeof smtItem2 === 'string') ? smtItem2 : ((smtItem2.tags && smtItem2.tags.title) || smtItem2.title || smtItem2.name || '');
-        var sLang2 = (typeof smtItem2 === 'string') ? smtItem2 : ((smtItem2.tags && smtItem2.tags.language) || smtItem2.language || smtItem2.lang || '');
-        var sLangName2 = TrackLanguageMatcher.getLanguageDisplayName(sLang2 || sTitle2);
+        var sLang2 = (typeof smtItem2 === 'string') ? '' : ((smtItem2.tags && smtItem2.tags.language) || smtItem2.language || smtItem2.lang || '');
         var displayTitle2 = sTitle2;
         if (!displayTitle2) {
+          var sLangName2 = TrackLanguageMatcher.getLanguageDisplayName(sLang2);
           displayTitle2 = sLangName2 ? (sLangName2 + (sLang2 ? ' (' + sLang2 + ')' : '')) : ('Subtitle ' + (s2 + 1));
-        } else if (sLangName2 && displayTitle2.toLowerCase() === sLang2.toLowerCase()) {
-          displayTitle2 = sLangName2 + ' (' + sLang2 + ')';
         }
         var isSubAct2 = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s2);
         if (isSubAct2) hasActive = true;
@@ -3193,8 +3244,9 @@
       }
     }
 
-    // Also include external subtitles pre-resolved from Cinemeta/OpenSubtitles
-    if (window.TVSubtitles && typeof window.TVSubtitles.getCachedSubtitles === 'function' && this.currentVodMeta) {
+    // Only include external subtitles pre-resolved from Cinemeta/OpenSubtitles if stream has NO provider tracks
+    var hasAnyProviderSubs = hasHlsSubs || hasVideoElSubs || (metaSubs && metaSubs.length > 0);
+    if (!hasAnyProviderSubs && window.TVSubtitles && typeof window.TVSubtitles.getCachedSubtitles === 'function' && this.currentVodMeta) {
       var cachedExts = window.TVSubtitles.getCachedSubtitles(this.currentVodMeta) || [];
       for (var e = 0; e < cachedExts.length; e++) {
         var extItem = cachedExts[e];
