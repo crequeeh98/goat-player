@@ -79,7 +79,7 @@ html, body {
   border: 2px solid transparent;
 }
 
-.focusable.focused:not(input):not(textarea):not(#remote-done-btn) {
+.focusable.focused:not(input):not(textarea):not(#remote-done-btn):not(#preview-player-box):not(.preview-box):not(#player-container) {
   border-color: var(--primary-light) !important;
   outline: none !important;
   box-shadow: 0 0 0 3px var(--primary-light) !important;
@@ -1093,7 +1093,12 @@ input.focusable.focused,
   flex: 50;
   position: relative;
   background: #000000;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle) !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1101,13 +1106,32 @@ input.focusable.focused,
   transform: none !important;
 }
 
-/* Never apply transform or purple background to the preview video container when focused */
+/* Never apply transform, border, outline, or purple glow to the preview video container when focused */
 .preview-box.focused,
-#preview-player-box.focused {
+#preview-player-box.focused,
+.preview-box.focusable.focused,
+#preview-player-box.focusable.focused,
+.focusable.focused#preview-player-box,
+.focusable.focused.preview-box,
+#player-container.mode-preview,
+#player-container.mode-preview.focused,
+body.preview-focused #preview-player-box,
+body.preview-focused #player-container.mode-preview {
   transform: none !important;
   background-color: transparent !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
   border-color: transparent !important;
+  outline: none !important;
   box-shadow: none !important;
+}
+
+#player-container.mode-preview,
+#player-container.mode-preview.focused,
+body.preview-focused #player-container.mode-preview {
+  border: none !important;
 }
 
 /* Fullscreen Player Mode: Hides Dashboard Shell completely to eliminate all offsets & resource drain */
