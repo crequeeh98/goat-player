@@ -333,4 +333,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get searchCategories => 'Kategorien durchsuchen...';
+
+  @override
+  String get connectM3uPlaylist => 'M3U-Playlist verbinden';
+
+  @override
+  String get m3uPlaylistUrl => 'M3U-Playlist-URL';
+
+  @override
+  String get m3uPlaylistNameHint => 'z. B. Kostenloses IPTV';
+
+  @override
+  String get m3uPlaylistNameDefault => 'Meine IPTV-Playlist';
+
+  @override
+  String get m3uUrlHint => 'https://example.com/playlist.m3u';
+
+  @override
+  String get fieldRequired => 'Erforderlich';
 }

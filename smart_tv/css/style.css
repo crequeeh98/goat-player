@@ -301,10 +301,11 @@ input.focusable.focused,
 
 .accounts-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 40px;
   max-height: 680px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 18px 12px;
 }
 
@@ -320,6 +321,9 @@ input.focusable.focused,
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
   gap: 48px;
   transition: transform 0.08s ease, border-color 0.08s ease, box-shadow 0.08s ease;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .account-card.focused {
@@ -336,6 +340,7 @@ input.focusable.focused,
   gap: 72px;
   overflow: hidden;
   flex: 1;
+  min-width: 0;
 }
 
 .account-avatar {
@@ -367,6 +372,7 @@ input.focusable.focused,
   gap: 14px;
   overflow: hidden;
   flex: 1;
+  min-width: 0;
   padding-left: 10px;
 }
 
@@ -379,6 +385,7 @@ input.focusable.focused,
   text-overflow: ellipsis;
   line-height: 1.25;
   margin-bottom: 2px;
+  max-width: 100%;
 }
 
 .account-url {
@@ -387,7 +394,8 @@ input.focusable.focused,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 460px;
+  width: 100%;
+  max-width: 100%;
   margin-bottom: 4px;
 }
 
@@ -1098,8 +1106,8 @@ input.focusable.focused,
 #preview-player-box.focused {
   transform: none !important;
   background-color: transparent !important;
-  border-color: var(--primary-light) !important;
-  box-shadow: 0 0 20px var(--primary-glow) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Fullscreen Player Mode: Hides Dashboard Shell completely to eliminate all offsets & resource drain */
@@ -1374,10 +1382,10 @@ body.hud-active .player-subtitle-overlay,
   pointer-events: none;
 }
 
-/* Focused glow when spatial nav focuses preview player */
+/* Focused glow disabled for preview player */
 body.preview-focused #player-container.mode-preview {
-  outline: 3px solid var(--primary-light) !important;
-  box-shadow: 0 0 24px var(--primary-glow) !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Hide overlay in fullscreen mode (HUD takes over) */

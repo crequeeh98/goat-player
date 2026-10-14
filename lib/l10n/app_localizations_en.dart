@@ -332,4 +332,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchCategories => 'Search categories...';
+
+  @override
+  String get connectM3uPlaylist => 'Connect M3U Playlist';
+
+  @override
+  String get m3uPlaylistUrl => 'M3U Playlist URL';
+
+  @override
+  String get m3uPlaylistNameHint => 'e.g. Free IPTV';
+
+  @override
+  String get m3uPlaylistNameDefault => 'My IPTV';
+
+  @override
+  String get m3uUrlHint => 'https://example.com/playlist.m3u';
+
+  @override
+  String get fieldRequired => 'Required';
 }

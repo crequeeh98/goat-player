@@ -739,6 +739,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search categories...'**
   String get searchCategories;
+
+  /// No description provided for @connectM3uPlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect M3U Playlist'**
+  String get connectM3uPlaylist;
+
+  /// No description provided for @m3uPlaylistUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'M3U Playlist URL'**
+  String get m3uPlaylistUrl;
+
+  /// No description provided for @m3uPlaylistNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Free IPTV'**
+  String get m3uPlaylistNameHint;
+
+  /// No description provided for @m3uPlaylistNameDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'My IPTV'**
+  String get m3uPlaylistNameDefault;
+
+  /// No description provided for @m3uUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://example.com/playlist.m3u'**
+  String get m3uUrlHint;
+
+  /// No description provided for @fieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get fieldRequired;
 }
 
 class _AppLocalizationsDelegate

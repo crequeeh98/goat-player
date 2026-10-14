@@ -442,7 +442,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             controller: _playlistNameController,
             decoration: InputDecoration(
               labelText: l10n.playlistName,
-              hintText: _playlistType == PlaylistType.m3u ? 'e.g. Free IPTV' : 'My IPTV',
+              hintText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistNameHint : l10n.m3uPlaylistNameDefault,
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.badge_outlined),
             ),
@@ -451,12 +451,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           TextFormField(
             controller: _serverUrlController,
             decoration: InputDecoration(
-              labelText: _playlistType == PlaylistType.m3u ? 'M3U Playlist URL' : l10n.serverUrl,
-              hintText: _playlistType == PlaylistType.m3u ? 'https://example.com/playlist.m3u' : 'http://example.com:8080',
+              labelText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistUrl : l10n.serverUrl,
+              hintText: _playlistType == PlaylistType.m3u ? l10n.m3uUrlHint : 'http://example.com:8080',
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.link),
             ),
-            validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+            validator: (v) => v!.trim().isEmpty ? l10n.fieldRequired : null,
           ),
           if (_playlistType == PlaylistType.xtream) ...[
             const SizedBox(height: 16),
@@ -467,7 +467,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.person_outline),
               ),
-              validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? 'Required' : null,
+              validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -478,7 +478,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.lock_outline),
               ),
-              validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? 'Required' : null,
+              validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
           ],
           const SizedBox(height: 24),
@@ -494,7 +494,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               child: _isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : Text(
-                      _playlistType == PlaylistType.m3u ? 'Connect M3U Playlist' : l10n.login,
+                      _playlistType == PlaylistType.m3u ? l10n.connectM3uPlaylist : l10n.login,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
             ),
@@ -609,7 +609,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                             constraints: const BoxConstraints(),
                             tooltip: l10n.copiedToClipboard,
                             onPressed: () {
-                              Clipboard.setData(ClipboardData(text: _session!.deviceId));
+                              final rawId = _session!.deviceId;
+                              final codeToCopy = rawId.startsWith('GP-') ? rawId.substring(3) : rawId;
+                              Clipboard.setData(ClipboardData(text: codeToCopy));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('${l10n.deviceId}: ${l10n.copied}'),

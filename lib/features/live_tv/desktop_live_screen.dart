@@ -553,6 +553,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           focusNode: _playerNode,
                           borderRadius: BorderRadius.zero,
                           focusScale: 1.0,
+                          focusBorderColor: Colors.transparent,
+                          glowColor: Colors.transparent,
                           onPressed: () {
                             ref.read(isLiveFullWidthProvider.notifier).toggle();
                           },

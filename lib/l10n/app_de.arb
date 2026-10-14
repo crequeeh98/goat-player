@@ -106,5 +106,11 @@
   "langDefault": "Original / Standard",
   "subtitlesOff": "Aus",
   "category": "Kategorie",
-  "searchCategories": "Kategorien durchsuchen..."
+  "searchCategories": "Kategorien durchsuchen...",
+  "connectM3uPlaylist": "M3U-Playlist verbinden",
+  "m3uPlaylistUrl": "M3U-Playlist-URL",
+  "m3uPlaylistNameHint": "z. B. Kostenloses IPTV",
+  "m3uPlaylistNameDefault": "Meine IPTV-Playlist",
+  "m3uUrlHint": "https://example.com/playlist.m3u",
+  "fieldRequired": "Erforderlich"
 }
