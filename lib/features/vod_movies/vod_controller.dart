@@ -1,47 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart' hide Category;
-import '../../main.dart';
 import '../../core/database/app_database.dart';
-import 'package:drift/drift.dart';
-import '../../core/utils/title_sanitizer.dart';
-import '../../core/settings/locale_controller.dart';
+import '../../core/utils/vod_sync_helper.dart';
 
 final vodCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
-  final account = ref.watch(activeAccountProvider);
-  if (account == null) return const Stream.empty();
-  
-  final dao = ref.watch(categoryDaoProvider);
-  return dao.watchCategories(account.id, 'movie').map((list) {
-    final favoritesCat = Category(
-      id: -1, 
-      accountId: account.id, 
-      categoryId: 'favorites', 
-      name: 'Watchlist', 
-      type: 'movie'
-    );
-    final seen = <String>{'favorites'};
-    final uniqueList = list.where((c) => seen.add(c.categoryId)).toList();
-    return [favoritesCat, ...uniqueList];
-  });
+  return VodSyncHelper.watchCategories(ref, 'movie');
 });
 
 final vodStreamsProvider = StreamProvider.family.autoDispose<List<StreamItem>, String>((ref, categoryId) {
-  final account = ref.watch(activeAccountProvider);
-  if (account == null) return const Stream.empty();
-  
-  final dao = ref.watch(streamDaoProvider);
-  if (categoryId == 'favorites') {
-    return dao.watchFavoriteStreams(account.id, 'movie');
-  }
-  return dao.watchStreamsByCategory(account.id, categoryId);
+  return VodSyncHelper.watchStreamsByCategory(ref, 'movie', categoryId);
 });
 
 final vodSearchProvider = StreamProvider.family.autoDispose<List<StreamItem>, String>((ref, query) {
-  final account = ref.watch(activeAccountProvider);
-  if (account == null) return const Stream.empty();
-  
-  final dao = ref.watch(streamDaoProvider);
-  return dao.watchStreamsByQuery(account.id, 'movie', query);
+  return VodSyncHelper.watchStreamsByQuery(ref, 'movie', query);
 });
 
 final vodControllerProvider = Provider<VodController>((ref) {
@@ -50,147 +20,23 @@ final vodControllerProvider = Provider<VodController>((ref) {
 
 class VodController {
   final Ref _ref;
-  
+  bool _isSyncingAll = false;
+
   VodController(this._ref);
 
-  Future<void> syncVodCategories({bool force = false}) async {
-    final client = _ref.read(xtreamClientProvider);
-    final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null) return;
-    
-    final prefs = _ref.read(sharedPreferencesProvider);
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final lastSync = prefs.getInt('last_sync_categories_vod_${account.id}') ?? 0;
-    if (!force && (nowMs - lastSync < 6 * 60 * 60 * 1000)) {
-      debugPrint('VOD categories synced recently. Skipping.');
-      return;
-    }
+  Future<void> syncVodCategories({bool force = false}) =>
+      VodSyncHelper.syncCategories(_ref, type: 'movie', force: force);
 
-    try {
-      debugPrint('Syncing VOD categories...');
-      final rawCategories = await client.getVodCategories();
-      debugPrint('VOD categories raw response length: ${rawCategories.length}');
-      
-      final dao = _ref.read(categoryDaoProvider);
-      
-      final seenIds = <String>{};
-      final companions = <CategoriesCompanion>[];
-      for (final c in rawCategories) {
-        final catId = c['category_id'].toString();
-        if (seenIds.add(catId)) {
-          companions.add(CategoriesCompanion.insert(
-            accountId: account.id,
-            categoryId: catId,
-            name: c['category_name'].toString(),
-            type: 'movie',
-          ));
-        }
-      }
-      
-      await dao.replaceCategories(account.id, 'movie', companions);
-      await prefs.setInt('last_sync_categories_vod_${account.id}', nowMs);
-    } catch (e) {
-      debugPrint('Failed to sync vod categories: $e');
-    }
-  }
-
-  Future<void> syncVodStreams(String categoryId) async {
-    final client = _ref.read(xtreamClientProvider);
-    final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null) return;
-    
-    try {
-      debugPrint('Syncing VOD streams for category: $categoryId...');
-      final rawStreams = await client.getVodStreams(categoryId: categoryId);
-      debugPrint('VOD streams raw response length: ${rawStreams.length}');
-      
-      final dao = _ref.read(streamDaoProvider);
-      
-      final companions = rawStreams.map((s) {
-        final added = _parseAdded(s['added']);
-        return StreamsCompanion.insert(
-          accountId: account.id,
-          streamId: s['stream_id'].toString(),
-          name: TitleSanitizer.sanitize(s['name']?.toString() ?? 'Unknown'),
-          streamType: 'movie',
-          categoryId: categoryId,
-          streamIcon: s['stream_icon'] != null ? Value(s['stream_icon'].toString()) : const Value.absent(),
-          added: added != null ? Value(added) : const Value.absent(),
-        );
-      }).toList();
-      
-      await dao.replaceStreamsByCategory(account.id, categoryId, companions);
-    } catch (e) {
-      debugPrint('Failed to sync vod streams: $e');
-    }
-  }
-
-  bool _isSyncingAll = false;
+  Future<void> syncVodStreams(String categoryId) =>
+      VodSyncHelper.syncCategoryStreams(_ref, type: 'movie', categoryId: categoryId);
 
   Future<void> syncAllVodStreams({bool force = false}) async {
     if (_isSyncingAll) return;
-    final client = _ref.read(xtreamClientProvider);
-    final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
-    
-    final prefs = _ref.read(sharedPreferencesProvider);
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final lastSync = prefs.getInt('last_sync_all_vod_${account.id}') ?? 0;
-    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
-      debugPrint('VOD streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
-      return;
-    }
-
     _isSyncingAll = true;
     try {
-      debugPrint('Syncing ALL VOD streams...');
-      final rawStreams = await client.getVodStreams();
-      debugPrint('ALL VOD streams raw response length: ${rawStreams.length}');
-      
-      final dao = _ref.read(streamDaoProvider);
-      
-      final companions = await compute(_mapVodStreams, {'accountId': account.id, 'streams': rawStreams});
-      
-      await dao.replaceStreamsByType(account.id, 'movie', companions);
-      await prefs.setInt('last_sync_all_vod_${account.id}', nowMs);
-      debugPrint('Finished syncing ALL VOD streams.');
-    } catch (e) {
-      debugPrint('Failed to sync all vod streams: $e');
+      await VodSyncHelper.syncAllStreams(_ref, type: 'movie', force: force);
     } finally {
       _isSyncingAll = false;
     }
   }
 }
-
-int? _parseAdded(dynamic val) {
-  if (val == null) return null;
-  if (val is int) return val;
-  if (val is String) {
-    final parsedInt = int.tryParse(val);
-    if (parsedInt != null) return parsedInt;
-    final parsedDate = DateTime.tryParse(val);
-    if (parsedDate != null) return parsedDate.millisecondsSinceEpoch ~/ 1000;
-  }
-  return null;
-}
-
-// Top-level function for compute
-List<StreamsCompanion> _mapVodStreams(Map<String, dynamic> data) {
-  final int accountId = data['accountId'];
-  final List<dynamic> rawStreams = data['streams'];
-  return rawStreams.map((s) {
-    final added = _parseAdded(s['added']);
-    return StreamsCompanion.insert(
-      accountId: accountId,
-      streamId: s['stream_id']?.toString() ?? 'unknown',
-      name: TitleSanitizer.sanitize(s['name']?.toString() ?? 'Unknown'),
-      streamType: 'movie',
-      categoryId: s['category_id']?.toString() ?? 'unknown',
-      streamIcon: s['stream_icon'] != null && s['stream_icon'].toString().isNotEmpty 
-          ? Value(s['stream_icon'].toString()) 
-          : const Value.absent(),
-      added: added != null ? Value(added) : const Value.absent(),
-    );
-  }).toList();
-}
-

@@ -54,3 +54,7 @@ app.*.map.json
 smart_tv/Debug/
 smart_tv/.tizen-rds/
 tizen/
+
+# Graphify local cache
+graphify-out/
+.graphifyignore

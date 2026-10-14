@@ -1,3 +1,5 @@
+import 'channel_name_cleaner.dart';
+
 class TitleSanitizer {
   static String sanitize(String rawTitle) {
     String title = rawTitle;
@@ -33,16 +35,7 @@ class TitleSanitizer {
     return title;
   }
 
-  static String sanitizeLiveTvChannel(String rawTitle) {
-    String title = rawTitle;
-    
-    // Remove common IPTV country prefixes like "DE:", "|DE|", "[US]", "UK - "
-    // Also covers spaces like "DE : " or "UK- "
-    title = title.replaceAll(RegExp(r'^\[[A-Z]{2,4}\]\s*|^\|[A-Z]{2,4}\|\s*|^[A-Z]{2,4}\s*[:-]\s*', caseSensitive: false), '');
-    
-    // Remove trailing country tags or artifacts if needed
-    title = title.replaceAll(RegExp(r'\s+'), ' ').trim();
-    
-    return title;
-  }
+  /// Sanitizes live TV channel names during ingest.
+  /// Delegates directly to ChannelNameCleaner to unify sanitization rules.
+  static String sanitizeLiveTvChannel(String rawTitle) => ChannelNameCleaner.clean(rawTitle);
 }

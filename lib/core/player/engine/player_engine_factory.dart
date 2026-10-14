@@ -1,9 +1,5 @@
-import 'package:flutter/foundation.dart';
-
-import '../../utils/platform_utils.dart';
 import 'goat_player_engine.dart';
 import 'media_kit_player_engine.dart';
-import 'tizen_player_engine.dart';
 
 /// Factory responsible for instantiating the appropriate GoatPlayerEngine
 /// based on the runtime operating system and platform target.
