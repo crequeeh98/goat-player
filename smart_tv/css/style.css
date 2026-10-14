@@ -79,7 +79,7 @@ html, body {
   border: 2px solid transparent;
 }
 
-.focusable.focused:not(input):not(textarea):not(#remote-done-btn):not(#preview-player-box):not(.preview-box):not(#player-container) {
+.focusable.focused:not(input):not(textarea):not(#remote-done-btn) {
   border-color: var(--primary-light) !important;
   outline: none !important;
   box-shadow: 0 0 0 3px var(--primary-light) !important;
@@ -1093,12 +1093,7 @@ input.focusable.focused,
   flex: 50;
   position: relative;
   background: #000000;
-  border-bottom: 1px solid var(--border-subtle) !important;
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-  outline: none !important;
-  box-shadow: none !important;
+  border-bottom: 1px solid var(--border-subtle);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1106,32 +1101,13 @@ input.focusable.focused,
   transform: none !important;
 }
 
-/* Never apply transform, border, outline, or purple glow to the preview video container when focused */
+/* Never apply transform or purple background to the preview video container when focused */
 .preview-box.focused,
-#preview-player-box.focused,
-.preview-box.focusable.focused,
-#preview-player-box.focusable.focused,
-.focusable.focused#preview-player-box,
-.focusable.focused.preview-box,
-#player-container.mode-preview,
-#player-container.mode-preview.focused,
-body.preview-focused #preview-player-box,
-body.preview-focused #player-container.mode-preview {
+#preview-player-box.focused {
   transform: none !important;
   background-color: transparent !important;
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-bottom: 1px solid var(--border-subtle) !important;
-  border-color: transparent !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-#player-container.mode-preview,
-#player-container.mode-preview.focused,
-body.preview-focused #player-container.mode-preview {
-  border: none !important;
+  border-color: var(--primary-light) !important;
+  box-shadow: 0 0 20px var(--primary-glow) !important;
 }
 
 /* Fullscreen Player Mode: Hides Dashboard Shell completely to eliminate all offsets & resource drain */
@@ -1406,10 +1382,10 @@ body.hud-active .player-subtitle-overlay,
   pointer-events: none;
 }
 
-/* Focused glow disabled for preview player */
+/* Focused glow when spatial nav focuses preview player */
 body.preview-focused #player-container.mode-preview {
-  outline: none !important;
-  box-shadow: none !important;
+  outline: 3px solid var(--primary-light) !important;
+  box-shadow: 0 0 24px var(--primary-glow) !important;
 }
 
 /* Hide overlay in fullscreen mode (HUD takes over) */
