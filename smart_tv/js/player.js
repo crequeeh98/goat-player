@@ -206,12 +206,12 @@
       if (controller) {
         timeoutId = setTimeout(function() {
           try { controller.abort(); } catch(e){}
-        }, 3500);
+        }, 6000);
       }
 
       var rangeOpts = {
         method: 'GET',
-        headers: { 'Range': 'bytes=0-131071' }
+        headers: { 'Range': 'bytes=0-1048575' }
       };
       if (controller) rangeOpts.signal = controller.signal;
 
@@ -220,7 +220,27 @@
         if (!res.ok && res.status !== 206 && res.status !== 200) {
           throw new Error('HTTP status ' + res.status);
         }
-        return res.arrayBuffer();
+        if (res.status === 206 || !res.body || typeof res.body.getReader !== 'function') {
+          return res.arrayBuffer();
+        }
+        var reader = res.body.getReader();
+        var chunks = [];
+        var totalBytes = 0;
+        function readChunk() {
+          return reader.read().then(function(step) {
+            if (step.done || !step.value) {
+              return combineChunks(chunks, totalBytes);
+            }
+            chunks.push(step.value);
+            totalBytes += step.value.byteLength;
+            if (totalBytes >= 1048576) {
+              try { reader.cancel(); } catch(e){}
+              return combineChunks(chunks, totalBytes);
+            }
+            return readChunk();
+          });
+        }
+        return readChunk();
       }).then(function(buf) {
         var demuxed = TVContainerProber.parseBuffer(buf);
         _containerTrackCache[cleanKey] = demuxed;
@@ -322,6 +342,16 @@
         return readString(offset, strLen);
       }
 
+      function readUint(offset, sz) {
+        if (!sz || sz <= 0) return 0;
+        var v = 0;
+        var end = Math.min(len, offset + sz);
+        for (var u = offset; u < end; u++) {
+          v = (v * 256) + view.getUint8(u);
+        }
+        return v;
+      }
+
       var tracksPos = -1;
       var tracksSize = -1;
       for (var i = 0; i < len - 16; i++) {
@@ -330,7 +360,7 @@
           if (sv && sv.value > 16) {
             var candidateStart = i + 4 + sv.length;
             var hasTrackEntry = false;
-            for (var k = candidateStart; k < Math.min(candidateStart + 128, len); k++) {
+            for (var k = candidateStart; k < Math.min(candidateStart + 256, len); k++) {
               if (view.getUint8(k) === 0xAE) {
                 hasTrackEntry = true;
                 break;
@@ -359,6 +389,7 @@
         if (!elSize) break;
         var dataStart = curr + elId.length + elSize.length;
         var nextEl = dataStart + elSize.value;
+        if (nextEl <= curr) break;
 
         if (elId.id === 0xAE) { // TrackEntry
           var tPos = dataStart;
@@ -369,54 +400,53 @@
           var title = '';
           var codec = '';
           var channels = '';
+          var isForcedFlag = false;
 
-          while (tPos < tEnd) {
+          while (tPos < tEnd - 2) {
             var subId = readId(tPos);
             if (!subId) break;
             var subSize = readVint(tPos + subId.length);
             if (!subSize) break;
             var subData = tPos + subId.length + subSize.length;
+            var nextSub = subData + subSize.value;
+            if (nextSub <= tPos) break;
 
-            if (subId.id === 0x83) {
-              trackType = view.getUint8(subData);
-            } else if (subId.id === 0xD7) {
-              trackNum = view.getUint8(subData);
-            } else if (subId.id === 0x22B59C || subId.id === 0x22B59D) {
+            if (subId.id === 0x83) { // TrackType
+              trackType = readUint(subData, subSize.value);
+            } else if (subId.id === 0xD7) { // TrackNumber
+              trackNum = readUint(subData, subSize.value);
+            } else if (subId.id === 0x22B59C || subId.id === 0x22B59D) { // Language / LanguageIETF
               var lStr = readString(subData, subSize.value).replace(/\0/g, '').trim();
               if (lStr && (!lang || lStr.length > lang.length)) lang = lStr;
-            } else if (subId.id === 0x536E) {
+            } else if (subId.id === 0x536E) { // Name / Title
               title = readUtf8(subData, subSize.value).replace(/\0/g, '').trim();
-            } else if (subId.id === 0x86) {
+            } else if (subId.id === 0x55AA) { // FlagForced
+              isForcedFlag = (readUint(subData, subSize.value) === 1);
+            } else if (subId.id === 0x86) { // CodecID
               codec = readString(subData, subSize.value).replace(/\0/g, '').trim();
-            } else if (subId.id === 0xE1) {
+            } else if (subId.id === 0xE1) { // Audio settings
               var aPos = subData;
-              var aEnd = Math.min(len, subData + subSize.value);
-              while (aPos < aEnd) {
+              var aEnd = Math.min(len, nextSub);
+              while (aPos < aEnd - 2) {
                 var aId = readId(aPos);
                 if (!aId) break;
                 var aSz = readVint(aPos + aId.length);
                 if (!aSz) break;
-                if (aId.id === 0x9F) {
-                  channels = view.getUint8(aPos + aId.length + aSz.length);
+                if (aId.id === 0x9F) { // Channels
+                  channels = readUint(aPos + aId.length + aSz.length, aSz.value);
                 }
-                aPos = aPos + aId.length + aSz.length + aSz.value;
+                var nextA = aPos + aId.length + aSz.length + aSz.value;
+                if (nextA <= aPos) break;
+                aPos = nextA;
               }
             }
 
-            tPos = subData + subSize.value;
+            tPos = nextSub;
           }
 
           var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
-          var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
-          var langName = (window.TrackLanguageMatcher && window.TrackLanguageMatcher.getLanguageDisplayName)
-            ? window.TrackLanguageMatcher.getLanguageDisplayName(cLang || cTitle)
-            : cLang;
-          var displayLabel = cTitle;
-          if (!displayLabel) {
-            displayLabel = langName || ((trackType === 2 ? 'Audio ' : 'Subtitle ') + ((trackType === 2 ? audioList.length : subList.length) + 1));
-          } else if (langName && (displayLabel.toLowerCase() === cLang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
-            displayLabel = langName;
-          }
+          var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : (isForcedFlag ? 'Forced' : '');
+          var displayLabel = cTitle || cLang || ((trackType === 2 ? 'Audio ' : 'Subtitle ') + ((trackType === 2 ? audioList.length : subList.length) + 1));
 
           if (trackType === 2) {
             audioList.push({
@@ -550,15 +580,7 @@
 
         var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
         var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
-        var langName = (window.TrackLanguageMatcher && window.TrackLanguageMatcher.getLanguageDisplayName)
-          ? window.TrackLanguageMatcher.getLanguageDisplayName(cLang || cTitle)
-          : cLang;
-        var displayLabel = cTitle;
-        if (!displayLabel) {
-          displayLabel = langName || ((handlerType === 'soun' ? 'Audio ' : 'Subtitle ') + ((handlerType === 'soun' ? audioList.length : subList.length) + 1));
-        } else if (langName && (displayLabel.toLowerCase() === cLang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
-          displayLabel = langName;
-        }
+        var displayLabel = cTitle || cLang || ((handlerType === 'soun' ? 'Audio ' : 'Subtitle ') + ((handlerType === 'soun' ? audioList.length : subList.length) + 1));
 
         if (handlerType === 'soun') {
           audioList.push({
@@ -1474,12 +1496,12 @@
             self.currentVodMeta.duration = demuxed.duration;
             self._updateVodDuration();
           }
-          if (demuxed.audios && demuxed.audios.length > 0 && (!self.currentVodMeta.audioTracks || self.currentVodMeta.audioTracks.length === 0)) {
+          if (demuxed.audios && demuxed.audios.length > 0 && (!self.currentVodMeta.audioTracks || self.currentVodMeta.audioTracks.length === 0 || demuxed.audios.length > self.currentVodMeta.audioTracks.length)) {
             self.currentVodMeta.audioTracks = demuxed.audios;
             if (typeof self._applyPreferences === 'function') self._applyPreferences();
             if (window.onTracksUpdated) window.onTracksUpdated();
           }
-          if (demuxed.subs && demuxed.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || self.currentVodMeta.subtitleTracks.length === 0)) {
+          if (demuxed.subs && demuxed.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || self.currentVodMeta.subtitleTracks.length === 0 || demuxed.subs.length > self.currentVodMeta.subtitleTracks.length)) {
             self.currentVodMeta.subtitleTracks = demuxed.subs;
             if (window.onTracksUpdated) window.onTracksUpdated();
           }
@@ -2973,10 +2995,7 @@
       var cTitle = cleanAudioField(title);
       var cLang = cleanAudioField(lang);
       if (cTitle) return cTitle;
-      if (cLang) {
-        var langName = TrackLanguageMatcher.getLanguageDisplayName(cLang);
-        if (langName) return langName;
-      }
+      if (cLang) return cLang;
       return 'Audio ' + (fallbackIndex + 1);
     }
 
@@ -3119,10 +3138,7 @@
       var cTitle = cleanSubField(title);
       var cLang = cleanSubField(lang);
       if (cTitle) return cTitle;
-      if (cLang) {
-        var langName = TrackLanguageMatcher.getLanguageDisplayName(cLang);
-        if (langName) return langName;
-      }
+      if (cLang) return cLang;
       return 'Subtitle ' + (fallbackIndex + 1);
     }
 
@@ -3167,78 +3183,48 @@
           active: isAct
         });
       }
-    } else if (hasVideoElSubs) {
-      var hasRealVideoElTrack = false;
-      for (var v = 0; v < this.videoEl.textTracks.length; v++) {
-        if (this.videoEl.textTracks[v].label || this.videoEl.textTracks[v].language) {
-          hasRealVideoElTrack = true;
-          break;
-        }
-      }
-      if (hasRealVideoElTrack || metaSubs.length === 0) {
-        for (var j = 0; j < this.videoEl.textTracks.length; j++) {
-          var tt = this.videoEl.textTracks[j];
-          var isShowing = (tt.mode === 'showing' || tt.mode === 'hidden');
-          if (isShowing) hasActive = true;
-          var smt = metaSubs[j] || null;
-          var lang = cleanSubField(tt.language) || (smt && cleanSubField((smt.tags && smt.tags.language) || smt.language || smt.lang)) || '';
-          var rawLabel = cleanSubField(tt.label) || (smt && cleanSubField((smt.tags && smt.tags.title) || smt.title || smt.name)) || '';
-          var displayLabel = buildSubLabel(rawLabel, lang, j);
-          list.push({
-            index: j,
-            id: tt.id || String(j),
-            name: displayLabel,
-            title: displayLabel,
-            language: lang,
-            lang: lang,
-            active: isShowing
-          });
-        }
-      } else if (metaSubs.length > 0) {
-        for (var s = 0; s < metaSubs.length; s++) {
-          var smtItem = metaSubs[s];
-          var sTitle = (typeof smtItem === 'string') ? smtItem : ((smtItem.tags && smtItem.tags.title) || smtItem.title || smtItem.name || '');
-          var sLang = (typeof smtItem === 'string') ? '' : ((smtItem.tags && smtItem.tags.language) || smtItem.language || smtItem.lang || '');
-          var displayTitle = buildSubLabel(sTitle, sLang, s);
-          var isSubAct = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s);
-          if (isSubAct) hasActive = true;
-          var sUrl = (typeof smtItem === 'object' && smtItem) ? (smtItem.url || smtItem.link || smtItem.file || smtItem.src || smtItem.path || '') : '';
-
-          list.push({
-            index: s,
-            id: (typeof smtItem === 'object' && smtItem.id !== undefined) ? String(smtItem.id) : String(s),
-            name: displayTitle,
-            title: displayTitle,
-            language: cleanSubField(sLang),
-            lang: cleanSubField(sLang),
-            url: sUrl,
-            isExternal: !!sUrl,
-            isEmbedded: !sUrl,
-            active: isSubAct
-          });
-        }
-      }
-    } else if (metaSubs.length > 0) {
-      for (var s2 = 0; s2 < metaSubs.length; s2++) {
-        var smtItem2 = metaSubs[s2];
-        var sTitle2 = (typeof smtItem2 === 'string') ? smtItem2 : ((smtItem2.tags && smtItem2.tags.title) || smtItem2.title || smtItem2.name || '');
-        var sLang2 = (typeof smtItem2 === 'string') ? '' : ((smtItem2.tags && smtItem2.tags.language) || smtItem2.language || smtItem2.lang || '');
-        var displayTitle2 = buildSubLabel(sTitle2, sLang2, s2);
-        var isSubAct2 = (this._selectedSubTrackIndex !== undefined && this._selectedSubTrackIndex === s2);
-        if (isSubAct2) hasActive = true;
-        var sUrl2 = (typeof smtItem2 === 'object' && smtItem2) ? (smtItem2.url || smtItem2.link || smtItem2.file || smtItem2.src || smtItem2.path || '') : '';
+    } else if (metaSubs && metaSubs.length > 0) {
+      // Prioritize demuxed/API metadata subtitle tracks over empty/dummy videoEl.textTracks
+      for (var s = 0; s < metaSubs.length; s++) {
+        var smtItem = metaSubs[s];
+        var sTitle = (typeof smtItem === 'string') ? smtItem : ((smtItem.tags && smtItem.tags.title) || smtItem.title || smtItem.name || '');
+        var sLang = (typeof smtItem === 'string') ? '' : ((smtItem.tags && smtItem.tags.language) || smtItem.language || smtItem.lang || '');
+        var sId = (typeof smtItem === 'object' && smtItem.id !== undefined) ? String(smtItem.id) : String(s);
+        var displayTitle = buildSubLabel(sTitle, sLang, s);
+        var isSubAct = (this._selectedSubTrackIndex !== undefined && (this._selectedSubTrackIndex === s || this._selectedSubTrackIndex === sId));
+        if (isSubAct) hasActive = true;
+        var sUrl = (typeof smtItem === 'object' && smtItem) ? (smtItem.url || smtItem.link || smtItem.file || smtItem.src || smtItem.path || '') : '';
 
         list.push({
-          index: s2,
-          id: (typeof smtItem2 === 'object' && smtItem2.id !== undefined) ? String(smtItem2.id) : String(s2),
-          name: displayTitle2,
-          title: displayTitle2,
-          language: cleanSubField(sLang2),
-          lang: cleanSubField(sLang2),
-          url: sUrl2,
-          isExternal: !!sUrl2,
-          isEmbedded: !sUrl2,
-          active: isSubAct2
+          index: s,
+          streamIndex: (typeof smtItem === 'object' && smtItem.streamIndex !== undefined) ? smtItem.streamIndex : s,
+          id: sId,
+          name: displayTitle,
+          title: displayTitle,
+          language: cleanSubField(sLang),
+          lang: cleanSubField(sLang),
+          url: sUrl,
+          isExternal: !!sUrl,
+          isEmbedded: !sUrl,
+          active: isSubAct
+        });
+      }
+    } else if (hasVideoElSubs) {
+      for (var j = 0; j < this.videoEl.textTracks.length; j++) {
+        var tt = this.videoEl.textTracks[j];
+        var isShowing = (tt.mode === 'showing' || tt.mode === 'hidden');
+        if (isShowing) hasActive = true;
+        var lang = cleanSubField(tt.language) || '';
+        var rawLabel = cleanSubField(tt.label) || '';
+        var displayLabel = buildSubLabel(rawLabel, lang, j);
+        list.push({
+          index: j,
+          id: tt.id || String(j),
+          name: displayLabel,
+          title: displayLabel,
+          language: lang,
+          lang: lang,
+          active: isShowing
         });
       }
     }
@@ -3305,17 +3291,24 @@
         console.log('[SubtitlePipeline:Tier1] Setting Hls subtitleTrack =', index, this.hls.subtitleTracks[index]);
         this.hls.subtitleDisplay = true;
         this.hls.subtitleTrack = index;
-      } else if (this.videoEl && this.videoEl.textTracks && this.videoEl.textTracks[index]) {
+      } else if (this.videoEl && this.videoEl.textTracks && this.videoEl.textTracks.length > 0) {
         console.log('[SubtitlePipeline:Tier1/2] Activating native textTrack =', index);
         var self = this;
+        var hasMatchedTextTrack = false;
         for (var l = 0; l < this.videoEl.textTracks.length; l++) {
           var tt = this.videoEl.textTracks[l];
-          if (l === index) {
+          var matchesIdx = (l === index);
+          var matchesLang = (trackObj && trackObj.lang && tt.language && tt.language.toLowerCase() === trackObj.lang.toLowerCase());
+          if (matchesIdx || (!hasMatchedTextTrack && matchesLang)) {
             tt.mode = 'showing';
             tt.oncuechange = function() { self._updateSubtitles(); };
+            hasMatchedTextTrack = true;
           } else {
             tt.mode = 'disabled';
           }
+        }
+        if (!hasMatchedTextTrack && trackObj && trackObj.url && window.TVSubtitles && typeof window.TVSubtitles.loadSubtitle === 'function') {
+          window.TVSubtitles.loadSubtitle(trackObj.url, trackObj.lang || trackObj.language, trackObj.title || trackObj.name, self).catch(function(e){});
         }
       } else {
         console.log('[SubtitlePipeline:Tier3] Subtitle track #' + index + ' activated for cue rendering');

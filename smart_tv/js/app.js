@@ -2879,19 +2879,7 @@
 
     var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
     var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
-    var langName = getLangDisplay(cLang || cTitle);
-    var displayLabel = cTitle;
-    if (!displayLabel) {
-      if (langName) {
-        displayLabel = langName;
-      } else if (codec) {
-        displayLabel = codec.toUpperCase() + ' Audio ' + (idx + 1);
-      } else {
-        displayLabel = 'Audio ' + (idx + 1);
-      }
-    } else if (langName && (displayLabel.toLowerCase() === cLang.toLowerCase() || displayLabel.toLowerCase() === langName.toLowerCase())) {
-      displayLabel = langName;
-    }
+    var displayLabel = cTitle || cLang || ('Audio ' + (idx + 1));
 
     return {
       index: idx,
@@ -2929,18 +2917,7 @@
 
     var cLang = (lang && lang.toLowerCase() !== 'und' && lang.toLowerCase() !== 'unk') ? lang : '';
     var cTitle = (title && title.toLowerCase() !== 'und' && title.toLowerCase() !== 'unk') ? title : '';
-    var displayLabel = cTitle;
-    if (!displayLabel) {
-      var langName = getLangDisplay(cLang);
-      if (langName) {
-        displayLabel = langName;
-      } else {
-        displayLabel = 'Subtitle ' + (idx + 1);
-      }
-    } else if (cLang && displayLabel.toLowerCase() === cLang.toLowerCase()) {
-      var lName = getLangDisplay(cLang);
-      if (lName) displayLabel = lName;
-    }
+    var displayLabel = cTitle || cLang || ('Subtitle ' + (idx + 1));
 
     var subUrl = (typeof item === 'object' && item) ? (item.url || item.link || item.file || item.path || '') : '';
     if (typeof item === 'string' && (/^https?:\/\//i.test(item) || /\.vtt|\.srt/i.test(item))) {
@@ -3629,6 +3606,11 @@
     var extInit = movie.container_extension || 'mp4';
     var streamUrl = (_activeAccount && window.TVApi) ? window.TVApi.getVodStreamUrl(_activeAccount, targetMovieId, extInit) : '';
     var _probedTracks = (streamUrl && window.TVContainerProber) ? window.TVContainerProber.getCachedTracks(streamUrl) : null;
+    if (streamUrl && window.TVContainerProber && !_probedTracks) {
+      window.TVContainerProber.probeStream(streamUrl).then(function(demuxed) {
+        if (demuxed) _probedTracks = demuxed;
+      }).catch(function(){});
+    }
 
     // Fetch full VOD info
     var _currentVodInfoPromise = window.TVApi.getVodInfo(_activeAccount, targetMovieId)
@@ -3643,6 +3625,15 @@
           var rawDur = (window.extractDurationFromInfo ? window.extractDurationFromInfo(info) : 0) || info.info.duration_secs || info.info.duration || (info.movie_data && (info.movie_data.duration_secs || info.movie_data.duration));
           if (durEl && rawDur) {
             durEl.textContent = formatRuntime(rawDur);
+          }
+        }
+        if (info && info.movie_data && info.movie_data.container_extension && info.movie_data.container_extension !== extInit) {
+          var realExt = info.movie_data.container_extension;
+          var realUrl = (_activeAccount && window.TVApi) ? window.TVApi.getVodStreamUrl(_activeAccount, targetMovieId, realExt) : '';
+          if (realUrl && window.TVContainerProber) {
+            window.TVContainerProber.probeStream(realUrl).then(function(demuxed) {
+              if (demuxed) _probedTracks = demuxed;
+            }).catch(function(){});
           }
         }
         return info;
@@ -4893,13 +4884,6 @@
       listEl.innerHTML = '';
       var audioTracks = _player ? _player.getAudioTracks() : [];
       console.log('[TrackDebug] openAudioSelectorModal: received ' + (audioTracks ? audioTracks.length : 0) + ' tracks:', audioTracks);
-      if (Array.isArray(audioTracks) && audioTracks.length > 1) {
-        audioTracks = audioTracks.slice().sort(function(a, b) {
-          var nameA = (a.title || a.name || a.language || a.id || ('Audio ' + (a.index + 1))).toLowerCase();
-          var nameB = (b.title || b.name || b.language || b.id || ('Audio ' + (b.index + 1))).toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-      }
       var curVodMeta = _player ? _player.currentVodMeta : null;
       var mediaId = (curVodMeta && (curVodMeta.seriesId || curVodMeta.streamId)) || '';
       var rememberedAudio = (mediaId && window.TVStorage) ? window.TVStorage.getMediaAudioChoice(mediaId) : null;
@@ -4938,12 +4922,6 @@
           btn.className = 'track-opt-btn focusable ' + (isAct ? 'active' : '');
           var checkHtml = isAct ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
           var trackLabel = at.title || at.name || at.language || at.id || ('Audio ' + (at.index + 1));
-          if (at.codec && at.codec.toLowerCase() !== 'unknown' && at.codec.trim() && trackLabel.toLowerCase().indexOf(at.codec.toLowerCase()) === -1) {
-            trackLabel += ' [' + at.codec.toUpperCase() + ']';
-          }
-          if (at.channels && at.channels !== '0' && at.channels !== 'undefined' && trackLabel.indexOf(String(at.channels)) === -1) {
-            trackLabel += ' (' + at.channels + ')';
-          }
           btn.innerHTML = '<span>' + trackLabel + '</span>' + checkHtml;
           btn.onclick = function() {
             if (_player) {
@@ -5004,9 +4982,33 @@
       var prefs = window.TVStorage ? window.TVStorage.getPreferences() : { subtitleLanguage: 'off' };
       var isExplicitOff = (rememberedSub === 'off' || rememberedSub === 'no') || (!rememberedSub && (prefs.subtitleLanguage === 'off' || prefs.subtitleLanguage === 'no'));
 
+      // Auto button (1:1 with Windows app)
+      var autoBtn = document.createElement('button');
+      var isAutoActive = !isExplicitOff && (rememberedSub === 'auto' || prefs.subtitleLanguage === 'auto');
+      autoBtn.className = 'track-opt-btn focusable ' + (isAutoActive ? 'active' : '');
+      var autoTxt = window.TVI18n ? (window.TVI18n.t('subtitles_auto') || 'Auto / Automatisch') : 'Auto / Automatisch';
+      var autoCheck = isAutoActive ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
+      autoBtn.innerHTML = '<span>' + autoTxt + '</span>' + autoCheck;
+      autoBtn.onclick = function() {
+        if (mediaId && window.TVStorage) {
+          window.TVStorage.setMediaSubtitleChoice(mediaId, 'auto');
+        }
+        if (window.TVStorage) window.TVStorage.setPreference('subtitleLanguage', 'auto');
+        if (_player && typeof _player._applyPreferences === 'function') _player._applyPreferences();
+        listEl.querySelectorAll('.track-opt-btn').forEach(function(b) {
+          b.classList.remove('active');
+          var ch = b.querySelector('.track-check');
+          if (ch) ch.remove();
+        });
+        autoBtn.classList.add('active');
+        autoBtn.insertAdjacentHTML('beforeend', '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>');
+        showToast(autoTxt, '💬');
+      };
+      listEl.appendChild(autoBtn);
+
       // Off button (1:1 with Windows app)
       var offBtn = document.createElement('button');
-      var isOffActive = isExplicitOff || subData.isOff;
+      var isOffActive = isExplicitOff || (subData.isOff && !isAutoActive);
       offBtn.className = 'track-opt-btn focusable ' + (isOffActive ? 'active' : '');
       var offTxt = window.TVI18n ? (window.TVI18n.t('subtitles_off') || 'Off / Deaktiviert') : 'Off / Deaktiviert';
       var offCheck = isOffActive ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
@@ -5031,14 +5033,6 @@
       var validTracks = (subData.tracks || []).filter(function(st) {
         return st.id !== 'no' && st.id !== 'auto';
       });
-
-      if (Array.isArray(validTracks) && validTracks.length > 1) {
-        validTracks = validTracks.slice().sort(function(a, b) {
-          var labelA = (a.title || a.name || a.language || a.id || ('Subtitle ' + (a.index + 1))).toLowerCase();
-          var labelB = (b.title || b.name || b.language || b.id || ('Subtitle ' + (b.index + 1))).toLowerCase();
-          return labelA.localeCompare(labelB);
-        });
-      }
 
       if (validTracks.length > 0) {
         validTracks.forEach(function(st) {
