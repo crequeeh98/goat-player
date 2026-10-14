@@ -920,20 +920,20 @@
         <div id="m3uFields" style="display: none;">
           <div class="form-group">
             <label class="form-label" data-i18n="m3uUrlLabel">M3U Playlist URL</label>
-            <input type="url" id="m3uUrl" class="form-input" placeholder="https://provider.com/get.php?username=...&password=..." data-i18n-placeholder="m3uUrlPlaceholder" oninput="onM3uInput(this.value)" />
+            <input type="url" id="m3uUrl" class="form-input" placeholder="https://provider.com/playlist.m3u or Xtream M3U link" data-i18n-placeholder="m3uUrlPlaceholder" oninput="onM3uInput(this.value)" />
           </div>
 
           <!-- Live Breakdown Feedback -->
           <div class="m3u-feedback" id="m3uFeedback" style="display: none;">
             <div class="m3u-feedback-header">
-              <span>✓</span> <span data-i18n="m3uParsedSuccess">Xtream credentials extracted!</span>
+              <span id="m3uFeedbackIcon">✓</span> <span id="m3uFeedbackText" data-i18n="m3uParsedSuccess">Xtream credentials extracted!</span>
             </div>
             <div class="m3u-feedback-body">
-              <div class="m3u-feedback-item">
-                <span class="m3u-feedback-label">Server:</span>
-                <span id="m3uFeedbackServer" style="font-weight: 600; color: #E9D5FF;"></span>
+              <div class="m3u-feedback-item" id="m3uFeedbackServerRow">
+                <span class="m3u-feedback-label" id="m3uFeedbackServerLabel">Server / URL:</span>
+                <span id="m3uFeedbackServer" style="font-weight: 600; color: #E9D5FF; word-break: break-all;"></span>
               </div>
-              <div class="m3u-feedback-item">
+              <div class="m3u-feedback-item" id="m3uFeedbackUserRow">
                 <span class="m3u-feedback-label">User:</span>
                 <span id="m3uFeedbackUser" style="font-weight: 600; color: #E9D5FF;"></span>
               </div>
@@ -1039,8 +1039,9 @@
         usernameLabel: "Username",
         passwordLabel: "Password",
         m3uUrlLabel: "M3U Playlist URL",
-        m3uUrlPlaceholder: "https://provider.com/get.php?username=...&password=...",
+        m3uUrlPlaceholder: "https://example.com/playlist.m3u or Xtream M3U link",
         m3uParsedSuccess: "Xtream credentials extracted!",
+        m3uDirectSuccess: "Direct M3U / M3U8 playlist detected!",
         btnSendToPlayer: "🚀 Send to GOATPlayer",
         btnUpdatePlaylist: "💾 Save Changes",
         sending: "Transmitting to Device...",
@@ -1089,8 +1090,9 @@
         usernameLabel: "Benutzername",
         passwordLabel: "Passwort",
         m3uUrlLabel: "M3U Playlist-URL",
-        m3uUrlPlaceholder: "https://provider.com/get.php?username=...&password=...",
+        m3uUrlPlaceholder: "https://example.com/playlist.m3u oder Xtream M3U-Link",
         m3uParsedSuccess: "Xtream Zugangsdaten erfolgreich erkannt!",
+        m3uDirectSuccess: "Direkte M3U / M3U8 Playlist erkannt!",
         btnSendToPlayer: "🚀 An GOATPlayer senden",
         btnUpdatePlaylist: "💾 Änderungen speichern",
         sending: "Wird an Gerät übertragen...",
@@ -1155,7 +1157,7 @@
       setTimeout(() => { el.style.display = 'none'; }, 3800);
     }
 
-    // Smart M3U Parser
+    // Smart M3U Parser (Supports both Xtream M3U links and Direct M3U/M3U8 URLs)
     function parseM3uUrl(rawUrl) {
       if (!rawUrl || typeof rawUrl !== 'string') return null;
       const str = rawUrl.trim();
@@ -1172,20 +1174,35 @@
         // Path breakdown: e.g. /live/USER/PASS/id.ts
         if (!username || !password) {
           const parts = url.pathname.split('/').filter(Boolean);
-          if (parts.length >= 3 && ['live', 'movie', 'series', 'play', 'get'].includes(parts[0].toLowerCase())) {
-            username = parts[1];
-            password = parts[2];
+          if (parts.length >= 4 && ['live', 'movie', 'series'].includes(parts[0].toLowerCase())) {
+            const candidatePass = parts[2];
+            if (!/\.(m3u8?|ts|mp4|mkv)$/i.test(candidatePass)) {
+              username = parts[1];
+              password = candidatePass;
+            }
           }
         }
 
         if (serverUrl && username && password) {
           return {
+            type: 'xtream',
             serverUrl,
             username,
             password,
-            isValidXtream: true
+            isValidXtream: true,
+            isDirectM3u: false
           };
         }
+
+        // Direct M3U / M3U8 Playlist URL (no Xtream credentials required)
+        return {
+          type: 'm3u',
+          serverUrl: str,
+          username: '',
+          password: '',
+          isValidXtream: false,
+          isDirectM3u: true
+        };
       } catch (e) {
         console.error('Error parsing M3U URL:', e);
       }
@@ -1196,16 +1213,65 @@
       const parsed = parseM3uUrl(val);
       const feedback = document.getElementById('m3uFeedback');
       if (parsed) {
-        document.getElementById('m3uFeedbackServer').innerText = parsed.serverUrl;
-        document.getElementById('m3uFeedbackUser').innerText = parsed.username;
-        feedback.style.display = 'block';
+        if (parsed.isValidXtream) {
+          const iconEl = document.getElementById('m3uFeedbackIcon');
+          const textEl = document.getElementById('m3uFeedbackText');
+          const serverRow = document.getElementById('m3uFeedbackServerRow');
+          const serverLbl = document.getElementById('m3uFeedbackServerLabel');
+          const serverVal = document.getElementById('m3uFeedbackServer');
+          const userRow = document.getElementById('m3uFeedbackUserRow');
+          const userVal = document.getElementById('m3uFeedbackUser');
 
-        // Auto-populate Xtream fields in background
-        document.getElementById('serverUrl').value = parsed.serverUrl;
-        document.getElementById('username').value = parsed.username;
-        document.getElementById('password').value = parsed.password;
+          if (iconEl) iconEl.innerText = '✓';
+          if (textEl) textEl.innerText = t('m3uParsedSuccess');
+          if (serverRow) serverRow.style.display = 'flex';
+          if (serverLbl) serverLbl.innerText = 'Server:';
+          if (serverVal) serverVal.innerText = parsed.serverUrl;
+          if (userRow) userRow.style.display = 'flex';
+          if (userVal) userVal.innerText = parsed.username;
+          if (feedback) feedback.style.display = 'block';
+
+          // Auto-populate Xtream fields in background
+          const sField = document.getElementById('serverUrl');
+          const uField = document.getElementById('username');
+          const pField = document.getElementById('password');
+          if (sField) sField.value = parsed.serverUrl;
+          if (uField) uField.value = parsed.username;
+          if (pField) pField.value = parsed.password;
+        } else if (parsed.isDirectM3u) {
+          const iconEl = document.getElementById('m3uFeedbackIcon');
+          const textEl = document.getElementById('m3uFeedbackText');
+          const serverRow = document.getElementById('m3uFeedbackServerRow');
+          const serverLbl = document.getElementById('m3uFeedbackServerLabel');
+          const serverVal = document.getElementById('m3uFeedbackServer');
+          const userRow = document.getElementById('m3uFeedbackUserRow');
+
+          if (iconEl) iconEl.innerText = '📄';
+          if (textEl) textEl.innerText = t('m3uDirectSuccess');
+          if (serverRow) serverRow.style.display = 'flex';
+          if (serverLbl) serverLbl.innerText = 'URL:';
+          if (serverVal) serverVal.innerText = parsed.serverUrl;
+          if (userRow) userRow.style.display = 'none';
+          if (feedback) feedback.style.display = 'block';
+
+          // Auto-suggest name from URL filename if empty
+          const nameInput = document.getElementById('playlistName');
+          if (nameInput && !nameInput.value.trim()) {
+            try {
+              const urlObj = new URL(parsed.serverUrl);
+              const pathParts = urlObj.pathname.split('/').filter(Boolean);
+              if (pathParts.length > 0) {
+                const fname = pathParts[pathParts.length - 1];
+                const clean = fname.replace(/\.(m3u8?)$/i, '').replace(/[_-]/g, ' ').trim();
+                if (clean) {
+                  nameInput.value = clean.toUpperCase();
+                }
+              }
+            } catch (_) {}
+          }
+        }
       } else {
-        feedback.style.display = 'none';
+        if (feedback) feedback.style.display = 'none';
       }
     }
 
@@ -1258,9 +1324,11 @@
 
       container.innerHTML = activePlaylists.map((pl, idx) => {
         const id = pl.id !== undefined ? pl.id : idx;
-        const name = pl.playlist_name || pl.username || 'IPTV Playlist';
-        const server = pl.server_url || 'Xtream Server';
-        const user = pl.username || 'User';
+        const isM3u = pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8')));
+        const name = pl.playlist_name || (isM3u ? 'M3U Playlist' : pl.username) || 'IPTV Playlist';
+        const server = pl.server_url || (isM3u ? 'M3U URL' : 'Xtream Server');
+        const user = isM3u ? (currentLang === 'de' ? 'Direkte M3U-Playlist' : 'Direct M3U Playlist') : (pl.username || 'User');
+        const userIcon = isM3u ? '📄' : '👤';
         const btnOpacity = isDeviceConnected ? '1' : '0.5';
         const btnCursor = isDeviceConnected ? 'pointer' : 'not-allowed';
 
@@ -1274,7 +1342,7 @@
                   <span class="playlist-meta-text">${escapeHtml(server)}</span>
                 </div>
                 <div class="playlist-meta-row" title="${escapeHtml(user)}">
-                  <span class="playlist-meta-icon">👤</span>
+                  <span class="playlist-meta-icon">${userIcon}</span>
                   <span class="playlist-meta-text">${escapeHtml(user)}</span>
                 </div>
               </div>
@@ -1650,18 +1718,31 @@
 
       if (mode === 'edit') {
         if (tabBar) tabBar.style.display = 'none';
-        switchTab('xtream');
 
         const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === String(id));
-        if (pl) {
+        const isM3u = pl && (pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))));
+
+        if (isM3u) {
+          switchTab('m3u');
           const nameEl = document.getElementById('playlistName');
-          const serverEl = document.getElementById('serverUrl');
-          const userEl = document.getElementById('username');
-          const passEl = document.getElementById('password');
+          const m3uUrlEl = document.getElementById('m3uUrl');
           if (nameEl) nameEl.value = pl.playlist_name || '';
-          if (serverEl) serverEl.value = pl.server_url || '';
-          if (userEl) userEl.value = pl.username || '';
-          if (passEl) passEl.value = pl.password || '';
+          if (m3uUrlEl) {
+            m3uUrlEl.value = pl.server_url || '';
+            onM3uInput(pl.server_url || '');
+          }
+        } else {
+          switchTab('xtream');
+          if (pl) {
+            const nameEl = document.getElementById('playlistName');
+            const serverEl = document.getElementById('serverUrl');
+            const userEl = document.getElementById('username');
+            const passEl = document.getElementById('password');
+            if (nameEl) nameEl.value = pl.playlist_name || '';
+            if (serverEl) serverEl.value = pl.server_url || '';
+            if (userEl) userEl.value = pl.username || '';
+            if (passEl) passEl.value = pl.password || '';
+          }
         }
       } else {
         if (tabBar) tabBar.style.display = 'flex';
@@ -1702,6 +1783,7 @@
       let serverUrl = '';
       let username = '';
       let password = '';
+      let playlistType = 'xtream';
       const playlistName = document.getElementById('playlistName').value.trim() || 'My IPTV';
 
       if (currentTabMode === 'm3u') {
@@ -1709,12 +1791,13 @@
         const parsed = parseM3uUrl(m3uUrl);
         if (parsed) {
           serverUrl = parsed.serverUrl;
-          username = parsed.username;
-          password = parsed.password;
+          username = parsed.username || '';
+          password = parsed.password || '';
+          playlistType = parsed.type || (parsed.isValidXtream ? 'xtream' : 'm3u');
         } else {
           showToast(currentLang === 'de' 
-            ? 'Bitte stelle sicher, dass deine M3U-URL Benutzername und Passwort enthält, oder nutze Xtream Codes.' 
-            : 'Please ensure your M3U link contains username and password, or use Xtream Codes.');
+            ? 'Bitte gib eine gültige URL ein (z.B. https://provider.com/playlist.m3u).' 
+            : 'Please enter a valid URL (e.g. https://provider.com/playlist.m3u).');
           if (btn) btn.disabled = false;
           return;
         }
@@ -1722,6 +1805,7 @@
         serverUrl = document.getElementById('serverUrl').value.trim();
         username = document.getElementById('username').value.trim();
         password = document.getElementById('password').value.trim();
+        playlistType = 'xtream';
       }
 
       try {
@@ -1742,7 +1826,8 @@
               playlist_name: playlistName,
               server_url: serverUrl,
               username: username,
-              password: password
+              password: password,
+              type: playlistType
             });
             renderPlaylists();
           }
@@ -1756,6 +1841,7 @@
               sync_action: {
                 action_id: actionId,
                 action: 'add',
+                type: playlistType,
                 playlist_name: playlistName,
                 server_url: serverUrl,
                 username: username,
@@ -1810,6 +1896,7 @@
             pl.server_url = serverUrl;
             pl.username = username;
             pl.password = password;
+            pl.type = playlistType;
           }
           renderPlaylists();
 
@@ -1819,6 +1906,7 @@
               action_id: actionId,
               action: 'edit',
               id: strEditId,
+              type: playlistType,
               old_server_url: oldServer,
               old_username: oldUser,
               playlist_name: playlistName,
