@@ -934,6 +934,37 @@
     </div>
   </div>
 
+  <!-- MODAL: APP UPDATE NOTIFICATION -->
+  <div id="modal-update" class="modal-overlay interactive">
+    <div class="modal-card modal-card-update">
+      <div class="modal-header">
+        <h2 class="modal-title" data-i18n="update_available">Update Available</h2>
+        <button id="update-close-btn" class="modal-close-btn focusable" title="Close" data-nav-down="#update-confirm-btn">✕</button>
+      </div>
+      <div class="modal-body-update">
+        <div class="update-version-row">
+          <span id="update-version-badge" class="update-version-badge">v1.0.0 → v1.2.0</span>
+        </div>
+        <p class="update-desc" data-i18n="update_desc">A new version of GOATPlayer TV is ready to install.</p>
+        <div id="update-changelog-box" class="update-changelog-box"></div>
+        <div id="update-progress-row" class="update-progress-row" style="display:none;">
+          <div class="update-progress-track">
+            <div id="update-progress-fill" class="update-progress-fill" style="width: 0%;"></div>
+          </div>
+          <span id="update-progress-text" class="update-progress-text">0%</span>
+        </div>
+        <div class="update-actions-row">
+          <button id="update-confirm-btn" class="btn-primary focusable" data-nav-right="#update-later-btn" data-nav-up="#update-close-btn">
+            <span id="update-confirm-text" data-i18n="update_now">Update Now</span>
+          </button>
+          <button id="update-later-btn" class="btn-secondary focusable" data-nav-left="#update-confirm-btn" data-nav-up="#update-close-btn">
+            <span data-i18n="update_later">Later</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Application Scripts -->
   <script src="js/hls.min.js"></script>
   <script src="js/qrcode.min.js"></script>
@@ -948,6 +979,7 @@
   <script src="js/diagnostics.js?v=1.2.2"></script>
   <script src="js/subtitles.js?v=1.2.2"></script>
   <script src="js/player.js?v=1.2.2"></script>
+  <script src="js/updater.js?v=1.2.2"></script>
   <script src="js/app.js?v=1.2.2"></script>
 </body>
 </html>

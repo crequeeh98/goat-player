@@ -6,8 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.goatplayer.goat_player"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "30.0.16138531"
+    compileSdk = 36
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

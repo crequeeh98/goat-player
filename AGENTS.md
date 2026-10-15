@@ -34,6 +34,7 @@ d:/Projects/iptv-player/
 │   │   │   ├── widgets/             # Mini-player, mobile gestures, controls
 │   │   │   └── player_service.dart  # Playback state, track selection, resume
 │   │   ├── utils/                   # M3U isolate parser, title cleaner, string utils
+│   │   ├── updater/                 # AppUpdaterService, multi-platform updater dialog
 │   │   └── widgets/                 # TvRemoteScope, TvFocusable, shared UI
 │   ├── features/                    # Feature modules
 │   │   ├── account/                 # Playlist management, QR/PIN pairing
@@ -62,7 +63,8 @@ d:/Projects/iptv-player/
 │       ├── sync.js                  # Supabase Realtime pairing client for TV
 │       ├── diagnostics.js           # Media diagnostics, stream prober, error reporter
 │       ├── i18n.js                  # TV internationalization (EN, DE)
-│       └── virtual_list.js          # High-performance DOM recycling list
+│       ├── virtual_list.js          # High-performance DOM recycling list
+│       └── updater.js               # In-App OTA updater for Smart TVs
 │
 ├── tool/                            # Automation & Packaging scripts
 │   ├── package_smart_tv_tizen.ps1   # Builds signed .wgt for Samsung Tizen
