@@ -28,6 +28,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses || true
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -163,6 +166,7 @@ jobs:
   publish-release:
     name: Create GitHub Release
     needs: [build-android, build-windows, build-smart-tv]
+    if: always() && !cancelled() && needs.build-windows.result == 'success' && needs.build-smart-tv.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -170,6 +174,7 @@ jobs:
 
       - name: Download Android Artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: android-apks
           path: release_assets
