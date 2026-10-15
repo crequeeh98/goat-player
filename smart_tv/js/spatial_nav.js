@@ -172,10 +172,20 @@
     var isGridCard = current.classList.contains('poster-card') || current.classList.contains('cw-card');
     if (isGridCard && current.parentElement) {
       if (direction === 'left' && current.previousElementSibling && current.previousElementSibling.classList.contains('focusable')) {
-        return current.previousElementSibling;
+        var prevTop = current.previousElementSibling.offsetTop;
+        var curTopL = current.offsetTop;
+        if (Math.abs(prevTop - curTopL) < 20) {
+          return current.previousElementSibling;
+        }
+        return null;
       }
       if (direction === 'right' && current.nextElementSibling && current.nextElementSibling.classList.contains('focusable')) {
-        return current.nextElementSibling;
+        var nextTop = current.nextElementSibling.offsetTop;
+        var curTopR = current.offsetTop;
+        if (Math.abs(nextTop - curTopR) < 20) {
+          return current.nextElementSibling;
+        }
+        return null;
       }
       if (direction === 'down' || direction === 'up') {
         var parent = current.parentElement;
@@ -230,7 +240,6 @@
                     current.classList.contains('channel-row') ||
                     current.classList.contains('category-item') ||
                     current.classList.contains('track-opt-btn') ||
-                    current.classList.contains('pref-option-btn') ||
                     current.classList.contains('episode-card') ||
                     current.classList.contains('sort-opt-btn');
 
@@ -899,6 +908,103 @@
           e.preventDefault();
           e.stopPropagation();
           return;
+        }
+      }
+
+      // Playback Preferences Modal: Natural 2D 3-column grid & exit navigation
+      if (_currentFocused && _currentFocused.closest && _currentFocused.closest('#modal-preferences')) {
+        if (_currentFocused.id === 'pref-close-btn') {
+          if (code === KEY_CODES.DOWN) {
+            e.preventDefault(); e.stopPropagation();
+            var audioTarget = document.querySelector('#pref-audio-group .pref-option-btn:nth-child(3)') ||
+                              document.querySelector('#pref-audio-group .pref-option-btn');
+            if (audioTarget) setFocus(audioTarget);
+            return;
+          }
+          if (code === KEY_CODES.LEFT) {
+            e.preventDefault(); e.stopPropagation();
+            var audioTarget2 = document.querySelector('#pref-audio-group .pref-option-btn:nth-child(2)') ||
+                               document.querySelector('#pref-audio-group .pref-option-btn');
+            if (audioTarget2) setFocus(audioTarget2);
+            return;
+          }
+          if (code === KEY_CODES.UP || code === KEY_CODES.RIGHT) {
+            e.preventDefault(); e.stopPropagation();
+            return;
+          }
+        } else if (_currentFocused.id === 'pref-save-btn') {
+          if (code === KEY_CODES.UP) {
+            e.preventDefault(); e.stopPropagation();
+            var subBtns = Array.from(document.querySelectorAll('#pref-sub-group .pref-option-btn'));
+            var targetSub = subBtns[6] || subBtns[subBtns.length - 1];
+            if (targetSub) setFocus(targetSub);
+            return;
+          }
+          if (code === KEY_CODES.DOWN || code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT) {
+            e.preventDefault(); e.stopPropagation();
+            return;
+          }
+        } else if (_currentFocused.classList.contains('pref-option-btn')) {
+          var group = _currentFocused.parentElement;
+          var isAudio = group && group.id === 'pref-audio-group';
+          var isSub = group && group.id === 'pref-sub-group';
+          var buttons = group ? Array.from(group.children) : [];
+          var idx = buttons.indexOf(_currentFocused);
+          var col = (idx !== -1) ? (idx % 3) : 0;
+          var row = (idx !== -1) ? Math.floor(idx / 3) : 0;
+
+          if (code === KEY_CODES.LEFT) {
+            e.preventDefault(); e.stopPropagation();
+            if (col > 0 && idx - 1 >= 0) {
+              setFocus(buttons[idx - 1]);
+            }
+            return;
+          }
+          if (code === KEY_CODES.RIGHT) {
+            e.preventDefault(); e.stopPropagation();
+            if (col < 2 && idx + 1 < buttons.length) {
+              setFocus(buttons[idx + 1]);
+            }
+            return;
+          }
+          if (code === KEY_CODES.DOWN) {
+            e.preventDefault(); e.stopPropagation();
+            var nextRowIdx = idx + 3;
+            if (nextRowIdx < buttons.length) {
+              setFocus(buttons[nextRowIdx]);
+              return;
+            }
+            if (isAudio) {
+              var subBtns = Array.from(document.querySelectorAll('#pref-sub-group .pref-option-btn'));
+              var targetSub = subBtns[col] || subBtns[subBtns.length - 1];
+              if (targetSub) setFocus(targetSub);
+              return;
+            }
+            if (isSub) {
+              var saveBtn = document.getElementById('pref-save-btn');
+              if (saveBtn) setFocus(saveBtn);
+              return;
+            }
+          }
+          if (code === KEY_CODES.UP) {
+            e.preventDefault(); e.stopPropagation();
+            var prevRowIdx = idx - 3;
+            if (prevRowIdx >= 0) {
+              setFocus(buttons[prevRowIdx]);
+              return;
+            }
+            if (isAudio) {
+              var closeBtn = document.getElementById('pref-close-btn');
+              if (closeBtn) setFocus(closeBtn);
+              return;
+            }
+            if (isSub) {
+              var audioBtns = Array.from(document.querySelectorAll('#pref-audio-group .pref-option-btn'));
+              var audioTarget = audioBtns[3 + col] || audioBtns[audioBtns.length - 1];
+              if (audioTarget) setFocus(audioTarget);
+              return;
+            }
+          }
         }
       }
 
@@ -1622,11 +1728,17 @@
             setFocus(leftCand);
             return;
           }
-          var activePage = document.querySelector('.dashboard-page.active');
-          var activeCat = activePage ? (activePage.querySelector('.category-item.active') || activePage.querySelector('.category-item')) : null;
+          var activePage = document.querySelector('.dashboard-page.active') || _currentFocused.closest('.dashboard-page');
+          var isMovies = activePage && activePage.id === 'page-movies';
+          var isSeries = activePage && activePage.id === 'page-series';
+          var catSelector = isMovies ? '#movies-categories-list' : (isSeries ? '#series-categories-list' : '.category-menu-list');
+          var activeCat = document.querySelector(catSelector + ' .category-item.active') ||
+                          document.querySelector(catSelector + ' .category-item') ||
+                          (activePage ? (activePage.querySelector('.category-item.active') || activePage.querySelector('.category-item')) : null);
           if (activeCat) {
             e.preventDefault();
             setFocus(activeCat);
+            return;
           }
           return;
         } else if (code === KEY_CODES.DOWN) {
