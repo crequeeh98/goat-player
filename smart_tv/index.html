@@ -939,7 +939,7 @@
     <div class="modal-card modal-card-update">
       <div class="modal-header">
         <h2 class="modal-title" data-i18n="update_available">Update Available</h2>
-        <button id="update-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
+        <button id="update-close-btn" class="modal-close-btn focusable" title="Close" data-nav-down="#update-confirm-btn">✕</button>
       </div>
       <div class="modal-body-update">
         <div class="update-version-row">
@@ -954,10 +954,10 @@
           <span id="update-progress-text" class="update-progress-text">0%</span>
         </div>
         <div class="update-actions-row">
-          <button id="update-confirm-btn" class="btn-primary focusable">
+          <button id="update-confirm-btn" class="btn-primary focusable" data-nav-right="#update-later-btn" data-nav-up="#update-close-btn">
             <span id="update-confirm-text" data-i18n="update_now">Update Now</span>
           </button>
-          <button id="update-later-btn" class="btn-secondary focusable">
+          <button id="update-later-btn" class="btn-secondary focusable" data-nav-left="#update-confirm-btn" data-nav-up="#update-close-btn">
             <span data-i18n="update_later">Later</span>
           </button>
         </div>

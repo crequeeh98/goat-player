@@ -285,7 +285,8 @@
     if (!splashEl) {
       _splashLoading = false;
       _splashFinishing = false;
-      if (typeof onComplete === 'function') onComplete();
+      var activeModal = document.querySelector('.modal-overlay.active');
+      if (!activeModal && typeof onComplete === 'function') onComplete();
       return;
     }
 
@@ -298,7 +299,10 @@
 
     setTimeout(function() {
       splashEl.style.display = 'none';
-      if (typeof onComplete === 'function') onComplete();
+      var activeModal = document.querySelector('.modal-overlay.active');
+      if (!activeModal && typeof onComplete === 'function') {
+        onComplete();
+      }
     }, 750);
   }
 
@@ -6324,6 +6328,8 @@
   }
 
   window.TVApp = {
+    openModal: openModal,
+    closeModal: closeModal,
     loadNextMovieBatch: loadNextMovieBatch,
     loadNextSeriesBatch: loadNextSeriesBatch,
     hasMoreMovies: function() { return _movieLoadedCount < _movieFilteredList.length; },

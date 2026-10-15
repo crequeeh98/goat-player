@@ -880,6 +880,48 @@
         }
       }
 
+      // App Update Notification Modal: strict horizontal and vertical trapping
+      var updateModalEl = document.getElementById('modal-update');
+      if (updateModalEl && updateModalEl.classList.contains('active')) {
+        if (!_currentFocused || !_currentFocused.closest || !_currentFocused.closest('#modal-update')) {
+          var initialTarget = document.getElementById('update-confirm-btn');
+          if (initialTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+            setFocus(initialTarget);
+            return;
+          }
+        } else {
+          if (_currentFocused.id === 'update-confirm-btn') {
+            if (code === KEY_CODES.RIGHT) {
+              var ltBtn = document.getElementById('update-later-btn');
+              if (ltBtn) { e.preventDefault(); e.stopPropagation(); setFocus(ltBtn); return; }
+            } else if (code === KEY_CODES.UP) {
+              var clBtn = document.getElementById('update-close-btn');
+              if (clBtn) { e.preventDefault(); e.stopPropagation(); setFocus(clBtn); return; }
+            }
+          } else if (_currentFocused.id === 'update-later-btn') {
+            if (code === KEY_CODES.LEFT) {
+              var cfBtn = document.getElementById('update-confirm-btn');
+              if (cfBtn) { e.preventDefault(); e.stopPropagation(); setFocus(cfBtn); return; }
+            } else if (code === KEY_CODES.UP) {
+              var clBtn2 = document.getElementById('update-close-btn');
+              if (clBtn2) { e.preventDefault(); e.stopPropagation(); setFocus(clBtn2); return; }
+            }
+          } else if (_currentFocused.id === 'update-close-btn') {
+            if (code === KEY_CODES.DOWN) {
+              var cfBtn2 = document.getElementById('update-confirm-btn');
+              if (cfBtn2) { e.preventDefault(); e.stopPropagation(); setFocus(cfBtn2); return; }
+            }
+          }
+          if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT || code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
+      }
+
       // Resume Playback Modal: strict horizontal and vertical trapping
       if (_currentFocused && _currentFocused.closest && _currentFocused.closest('#modal-resume-playback')) {
         if (_currentFocused.id === 'resume-confirm-btn') {
@@ -1987,4 +2029,5 @@
     },
     registerTizenKeys: registerTizenKeys
   };
+  window.TVSpatialNav = window.SpatialNav;
 })();

@@ -83,33 +83,53 @@
     var progressRow = document.getElementById('update-progress-row');
     if (progressRow) progressRow.style.display = 'none';
 
-    modal.classList.add('active');
+    var confirmBtn = document.getElementById('update-confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      var lang = (window.TVI18n && typeof TVI18n.t === 'function') ? TVI18n.t('update_now') : 'Update Now';
+      var confirmText = document.getElementById('update-confirm-text');
+      if (confirmText) confirmText.textContent = lang;
+    }
 
-    if (window.TVSpatialNav) {
-      if (typeof TVSpatialNav.setActiveModal === 'function') {
-        TVSpatialNav.setActiveModal('modal-update');
-      }
-      if (typeof TVSpatialNav.pushBackHandler === 'function') {
-        TVSpatialNav.pushBackHandler(function() {
+    if (window.TVApp && typeof window.TVApp.openModal === 'function') {
+      window.TVApp.openModal(modal, confirmBtn);
+    } else {
+      modal.classList.add('active');
+    }
+
+    var nav = window.SpatialNav || window.TVSpatialNav;
+    if (nav) {
+      if (typeof nav.pushBackHandler === 'function') {
+        nav.pushBackHandler(function() {
           closeUpdateModal();
           return true;
         });
       }
-      var confirmBtn = document.getElementById('update-confirm-btn');
-      if (confirmBtn && typeof TVSpatialNav.setFocus === 'function') {
-        TVSpatialNav.setFocus(confirmBtn);
+      if (confirmBtn && typeof nav.setFocus === 'function') {
+        nav.setFocus(confirmBtn);
+        setTimeout(function() {
+          if (modal.classList.contains('active')) {
+            nav.setFocus(confirmBtn);
+          }
+        }, 120);
       }
     }
   }
 
   function closeUpdateModal() {
     var modal = document.getElementById('modal-update');
-    if (modal) modal.classList.remove('active');
+    if (!modal) return;
 
-    if (window.TVSpatialNav) {
-      if (typeof TVSpatialNav.setActiveModal === 'function') {
-        TVSpatialNav.setActiveModal(null);
-      }
+    var nav = window.SpatialNav || window.TVSpatialNav;
+    if (nav && typeof nav.popBackHandler === 'function') {
+      nav.popBackHandler();
+    }
+
+    if (window.TVApp && typeof window.TVApp.closeModal === 'function') {
+      window.TVApp.closeModal(modal);
+    } else {
+      modal.classList.remove('active');
+      if (nav && typeof nav.focusFirst === 'function') nav.focusFirst();
     }
   }
 
@@ -241,8 +261,8 @@
     if (laterBtn) laterBtn.addEventListener('click', closeUpdateModal);
     if (confirmBtn) confirmBtn.addEventListener('click', startOtaUpdate);
 
-    // Run update check in background 2.5s after boot (never blocks UI)
-    setTimeout(checkForUpdates, 2500);
+    // Run update check in background 5s after boot (after splash and screen settle)
+    setTimeout(checkForUpdates, 5000);
   }
 
   window.TVUpdater = {
