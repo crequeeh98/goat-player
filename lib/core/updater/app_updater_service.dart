@@ -131,18 +131,56 @@ class AppUpdaterService {
 
     final scriptContent = '''
 param(\$AppPid, \$TargetDir, \$ZipPath)
-Wait-Process -Id \$AppPid -Timeout 15 -ErrorAction SilentlyContinue
-Start-Sleep -Milliseconds 800
-Expand-Archive -Path \$ZipPath -DestinationPath \$TargetDir -Force
-Remove-Item -Path \$ZipPath -Force -ErrorAction SilentlyContinue
-Start-Process -FilePath "\$TargetDir\\goat_player.exe"
+
+\$LogFile = Join-Path \$env:TEMP "goat_updater.log"
+"[" + (Get-Date).ToString("yyyy-MM-dd HH:mm:ss") + "] Updater started. PID=\$AppPid, TargetDir=\$TargetDir" | Out-File \$LogFile -Encoding utf8
+
+if (\$AppPid) {
+    Wait-Process -Id \$AppPid -Timeout 15 -ErrorAction SilentlyContinue
+}
+
+Start-Sleep -Seconds 2
+Unblock-File -Path \$ZipPath -ErrorAction SilentlyContinue
+
+\$extracted = \$false
+for (\$i = 1; \$i -le 6; \$i++) {
+    try {
+        "Attempt \$i : Extracting to \$TargetDir" | Out-File \$LogFile -Append -Encoding utf8
+        Expand-Archive -Path \$ZipPath -DestinationPath \$TargetDir -Force -ErrorAction Stop
+        \$extracted = \$true
+        "Extraction successful!" | Out-File \$LogFile -Append -Encoding utf8
+        break
+    } catch {
+        "Attempt \$i failed: \$_" | Out-File \$LogFile -Append -Encoding utf8
+        Start-Sleep -Seconds 1
+    }
+}
+
+if (\$extracted) {
+    Remove-Item -Path \$ZipPath -Force -ErrorAction SilentlyContinue
+    \$exe = Join-Path \$TargetDir "goat_player.exe"
+    "Relaunching \$exe..." | Out-File \$LogFile -Append -Encoding utf8
+    try {
+        Start-Process -FilePath \$exe -WorkingDirectory \$TargetDir
+        "Start-Process succeeded." | Out-File \$LogFile -Append -Encoding utf8
+    } catch {
+        "Start-Process error: \$_ - launching via explorer..." | Out-File \$LogFile -Append -Encoding utf8
+        & explorer.exe "\$exe"
+    }
+} else {
+    "FATAL: Extraction failed after retries." | Out-File \$LogFile -Append -Encoding utf8
+}
 ''';
 
     await File(scriptPath).writeAsString(scriptContent);
 
     await Process.start(
-      'powershell.exe',
+      'cmd.exe',
       [
+        '/c',
+        'start',
+        '/b',
+        'powershell.exe',
         '-WindowStyle',
         'Hidden',
         '-ExecutionPolicy',
