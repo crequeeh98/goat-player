@@ -235,7 +235,12 @@
       if (!saved) return;
 
       var bundle = JSON.parse(saved);
-      if (!bundle || !bundle.files) return;
+      if (!bundle || !bundle.version || !isNewer(CURRENT_VERSION, bundle.version)) {
+        localStorage.removeItem(OTA_STORAGE_KEY);
+        return;
+      }
+
+      if (!bundle.files) return;
 
       // Dynamically inject updated CSS if present
       if (bundle.files['style.css']) {
