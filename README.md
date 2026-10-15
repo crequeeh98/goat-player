@@ -273,6 +273,14 @@ The generated `.ipk` package will be located in:
 
 ---
 
-## 🔒 License & Copyright
-Copyright (c) 2026. All rights reserved. 
-This is a proprietary and confidential private software repository. Unauthorized copying, distribution, or modification of this project via any medium is strictly prohibited.
+## ⚖️ Legal Disclaimer
+- **No Content Provided**: GOATPlayer is strictly a media player application. It does **not** provide, host, sell, or distribute any video streams, live channels, movies, TV series, or playlists.
+- **User Responsibility**: Users must provide their own playlists and content credentials from legally authorized IPTV providers.
+- **Zero Affiliation**: GOATPlayer has no affiliation with any third-party IPTV providers or content hosts.
+- **Copyright Compliance**: The developers do not endorse or support the streaming of copyrighted material without permission of the respective copyright holders.
+
+---
+
+## 🔒 License & Intellectual Property
+Copyright (c) 2026. All rights reserved.  
+This source code is made publicly visible for review, testing, and contribution. Commercial redistribution, re-branding, unauthorized reproduction, or resale of this application or any derivative works via any medium is strictly prohibited without explicit written consent from the author.

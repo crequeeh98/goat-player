@@ -44,7 +44,8 @@ class AppUpdaterService {
   Future<AppUpdateInfo?> checkForUpdate() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
+      // Platform baseline versions: Windows is 1.2.0, Android is 1.0.0
+      final currentVersion = Platform.isWindows ? '1.2.0' : (Platform.isAndroid ? '1.0.0' : packageInfo.version);
 
       final response = await _dio.get(
         'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest',
@@ -60,7 +61,7 @@ class AppUpdaterService {
       final releaseNotes = data['body'] as String? ?? '';
       final assets = (data['assets'] as List<dynamic>? ?? []);
 
-      if (!_isNewer(currentVersion, latestVersion)) {
+      if (!isNewer(currentVersion, latestVersion)) {
         return null;
       }
 
@@ -205,7 +206,7 @@ Start-Process -FilePath "\$TargetDir\\goat_player.exe"
     return null;
   }
 
-  bool _isNewer(String current, String latest) {
+  static bool isNewer(String current, String latest) {
     try {
       final cParts = current.split('+').first.split('.').map(int.parse).toList();
       final lParts = latest.split('+').first.split('.').map(int.parse).toList();
