@@ -68,7 +68,7 @@ html, body {
   background-color: var(--bg-dark);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--text-main);
-  font-size: 24px;
+  font-size: 26px;
 }
 
 /* Universal Focus Effect for Smart TV D-Pad Remote */
@@ -904,7 +904,7 @@ input.focusable.focused,
   border-radius: 12px;
   background: transparent;
   color: var(--text-dim);
-  font-size: 23px;
+  font-size: 25px;
   font-weight: 600;
   border: 1px solid transparent;
 }
@@ -1040,7 +1040,7 @@ input.focusable.focused,
 }
 
 .channel-name {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -1049,7 +1049,7 @@ input.focusable.focused,
 }
 
 .channel-epg-now {
-  font-size: 19px;
+  font-size: 21px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1836,7 +1836,7 @@ body:not(.tab-live) #player-container.mode-preview {
   bottom: 8px;
   left: 8px;
   right: 8px;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 700;
   color: #FFFFFF;
   text-align: center;
@@ -1857,7 +1857,7 @@ body:not(.tab-live) #player-container.mode-preview {
   right: 8px;
   background: rgba(0, 0, 0, 0.75);
   color: var(--accent-gold);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 6px;
