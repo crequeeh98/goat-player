@@ -3676,13 +3676,21 @@
             duration: mDur,
             startPosition: startPos,
             audioTracks: audioMeta,
-            subtitleTracks: subMeta
+            subtitleTracks: subMeta,
+            imdbId: (_currentVodInfo && _currentVodInfo.info && (_currentVodInfo.info.imdb_id || _currentVodInfo.info.imdb)) || (movie && (movie.imdb_id || movie.imdb)) || '',
+            kinopoisk_url: (_currentVodInfo && _currentVodInfo.info && _currentVodInfo.info.kinopoisk_url) || (movie && movie.kinopoisk_url) || '',
+            tmdbId: (_currentVodInfo && _currentVodInfo.info && _currentVodInfo.info.tmdb_id) || (movie && movie.tmdb_id) || ''
           };
           _player.playVod(movie, 'vod', movie.name, '', null, meta);
 
           if (!_currentVodInfo && _currentVodInfoPromise) {
             _currentVodInfoPromise.then(function(info) {
               if (info && _player && _player.currentVodMeta && String(_player.currentVodMeta.streamId) === String(sId)) {
+                if (info.info) {
+                  if (info.info.imdb_id || info.info.imdb) _player.currentVodMeta.imdbId = info.info.imdb_id || info.info.imdb;
+                  if (info.info.kinopoisk_url) _player.currentVodMeta.kinopoisk_url = info.info.kinopoisk_url;
+                  if (info.info.tmdb_id) _player.currentVodMeta.tmdbId = info.info.tmdb_id;
+                }
                 var rawInfoDur = (window.extractDurationFromInfo ? window.extractDurationFromInfo(info) : 0) || (info.info && (info.info.duration_secs || info.info.duration)) || (info.movie_data && (info.movie_data.duration_secs || info.movie_data.duration));
                 var infoDur = parseDurationSecs(rawInfoDur);
                 if (infoDur > 100 && (!_player.currentVodMeta.duration || _player.currentVodMeta.duration <= 100)) {

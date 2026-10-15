@@ -1454,6 +1454,15 @@
       } else if (knownDur > 0) {
         this.currentVodMeta.duration = knownDur;
       }
+      if (!this.currentVodMeta.imdbId && (stream.imdb_id || stream.imdbId || (stream.info && (stream.info.imdb_id || stream.info.imdb)))) {
+        this.currentVodMeta.imdbId = stream.imdb_id || stream.imdbId || (stream.info && (stream.info.imdb_id || stream.info.imdb));
+      }
+      if (!this.currentVodMeta.tmdbId && (stream.tmdb_id || stream.tmdbId || (stream.info && stream.info.tmdb_id))) {
+        this.currentVodMeta.tmdbId = stream.tmdb_id || stream.tmdbId || (stream.info && stream.info.tmdb_id);
+      }
+      if (!this.currentVodMeta.kinopoisk_url && (stream.kinopoisk_url || (stream.info && stream.info.kinopoisk_url))) {
+        this.currentVodMeta.kinopoisk_url = stream.kinopoisk_url || (stream.info && stream.info.kinopoisk_url);
+      }
     }
 
     // Only seek when explicitly instructed via startPosition (e.g. user confirmed Resume dialog)
@@ -2942,14 +2951,14 @@
 
     if (availableSubs.length === 0) {
       this.setSubtitleTrack('off');
-    } else if (rememberedSub && rememberedSub.toLowerCase() !== 'off' && rememberedSub.toLowerCase() !== 'no') {
+    } else if (rememberedSub && rememberedSub.toLowerCase() !== 'off' && rememberedSub.toLowerCase() !== 'no' && rememberedSub.toLowerCase() !== 'auto') {
       var matchedRemembered = TrackLanguageMatcher.findBestSubtitleTrack(subResult.tracks, rememberedSub, { targetTitle: rememberedSub });
       if (matchedRemembered && matchedRemembered.id !== 'no' && matchedRemembered.index !== undefined) {
         this.setSubtitleTrack(matchedRemembered.index);
       } else {
         this.setSubtitleTrack('off');
       }
-    } else if (prefSub && prefSub.toLowerCase() !== 'off' && prefSub.toLowerCase() !== 'no') {
+    } else if (prefSub && prefSub.toLowerCase() !== 'off' && prefSub.toLowerCase() !== 'no' && prefSub.toLowerCase() !== 'auto') {
       var activeAudioTrack = bestAudio || audioTracks.find(function(t) { return t.active; }) || audioTracks[0];
       var activeAudioLang = activeAudioTrack ? (activeAudioTrack.language || activeAudioTrack.title) : null;
       var isAudioSame = TrackLanguageMatcher.matchesLanguage(activeAudioLang, null, prefSub);
@@ -2964,30 +2973,38 @@
       } else {
         this.setSubtitleTrack('off');
       }
-    } else {
-      // Subtitle preference is 'off' or not set:
-      // Check if current audio is foreign vs preferred audio or UI language
+    } else if (rememberedSub === 'auto' || prefSub === 'auto') {
+      // Auto:
+      // If audio is foreign vs user language (default 'de'), auto-select full subtitles in user language
+      // If audio is in user language, auto-select forced subtitles in user language (if any), else off
       var userLang = (prefs && prefs.audioLanguage && prefs.audioLanguage !== 'original') ? prefs.audioLanguage : ((prefs && prefs.uiLanguage) ? prefs.uiLanguage : 'de');
       var curAudio = bestAudio || audioTracks.find(function(t) { return t.active; }) || audioTracks[0];
       var curAudioLang = curAudio ? (curAudio.language || curAudio.title) : null;
       var isSameAsUser = TrackLanguageMatcher.matchesLanguage(curAudioLang, null, userLang);
 
       if (!isSameAsUser) {
-        // Audio is foreign: look for forced subtitles in userLang
+        var autoSub = TrackLanguageMatcher.findBestSubtitleTrack(subResult.tracks, userLang, { isAudioSameLanguage: false });
+        if (autoSub && autoSub.index !== undefined) {
+          console.log('[TrackDebug] Auto-activated subtitles for foreign audio:', autoSub);
+          this.setSubtitleTrack(autoSub.index);
+        } else {
+          this.setSubtitleTrack('off');
+        }
+      } else {
         var forcedSub = availableSubs.find(function(s) {
           var sTitle = s.title || s.name || s.label || '';
           var sLang = s.language || s.lang || '';
           return TrackLanguageMatcher.matchesLanguage(sLang, sTitle, userLang) && TrackLanguageMatcher.isForced(sTitle);
         });
         if (forcedSub && forcedSub.index !== undefined) {
-          console.log('[TrackDebug] Auto-activated forced subtitles for foreign audio:', forcedSub);
+          console.log('[TrackDebug] Auto-activated forced subtitles for native audio:', forcedSub);
           this.setSubtitleTrack(forcedSub.index);
         } else {
           this.setSubtitleTrack('off');
         }
-      } else {
-        this.setSubtitleTrack('off');
       }
+    } else {
+      this.setSubtitleTrack('off');
     }
   };
 
@@ -3224,6 +3241,7 @@
           url: sUrl,
           isExternal: !!sUrl,
           isEmbedded: !sUrl,
+          cues: (smtItem && smtItem.cues) || null,
           active: isSubAct
         });
       }
@@ -3305,7 +3323,11 @@
         }
       }
 
-      if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks[index]) {
+      if (trackObj && trackObj.cues && trackObj.cues.length > 0) {
+        this._activeSubtitleCues = trackObj.cues;
+        console.log('[SubtitlePipeline] Activated cached cues for track:', trackObj.title, 'count=', trackObj.cues.length);
+        this._updateSubtitles();
+      } else if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks[index]) {
         console.log('[SubtitlePipeline:Tier1] Setting Hls subtitleTrack =', index, this.hls.subtitleTracks[index]);
         this.hls.subtitleDisplay = true;
         this.hls.subtitleTrack = index;
@@ -3328,19 +3350,39 @@
         if (!hasMatchedTextTrack && trackObj && trackObj.url && window.TVSubtitles && typeof window.TVSubtitles.loadSubtitle === 'function') {
           window.TVSubtitles.loadSubtitle(trackObj.url, trackObj.lang || trackObj.language, trackObj.title || trackObj.name, self).catch(function(e){});
         }
-      } else {
-        console.log('[SubtitlePipeline:Tier3] Subtitle track #' + index + ' activated for cue rendering');
-        if (trackObj && trackObj.url && window.TVSubtitles && typeof window.TVSubtitles.loadSubtitle === 'function') {
-          var self2 = this;
-          window.TVSubtitles.loadSubtitle(trackObj.url, trackObj.lang || trackObj.language, trackObj.title || trackObj.name, self2).then(function() {
-            var isDe3 = window.TVI18n && window.TVI18n.getLanguage() === 'de';
-            if (typeof showToast === 'function') {
-              showToast((isDe3 ? 'Untertitel geladen: ' : 'Subtitles loaded: ') + (trackObj.title || trackObj.name), '💬', 3000);
+      } else if (trackObj && trackObj.url && window.TVSubtitles && typeof window.TVSubtitles.loadSubtitle === 'function') {
+        var self2 = this;
+        window.TVSubtitles.loadSubtitle(trackObj.url, trackObj.lang || trackObj.language, trackObj.title || trackObj.name, self2).then(function(loaded) {
+          if (loaded && loaded.cues) {
+            trackObj.cues = loaded.cues;
+            if (self2.currentVodMeta && self2.currentVodMeta.subtitleTracks && self2.currentVodMeta.subtitleTracks[index]) {
+              self2.currentVodMeta.subtitleTracks[index].cues = loaded.cues;
             }
-          }).catch(function(e) {
-            console.warn('[SubtitlePipeline] Subtitle load failed:', e);
-          });
-        }
+            self2._activeSubtitleCues = loaded.cues;
+            self2._updateSubtitles();
+          }
+        }).catch(function(e) {
+          console.warn('[SubtitlePipeline] Subtitle load failed:', e);
+        });
+      } else if (trackObj && window.TVSubtitles && typeof window.TVSubtitles.fetchTrackSubtitle === 'function') {
+        var self3 = this;
+        var curMeta = this.currentVodMeta || this.currentStream;
+        console.log('[SubtitlePipeline:Tier3] On-demand fetching cues for embedded track:', trackObj.title, trackObj.lang);
+        window.TVSubtitles.fetchTrackSubtitle(curMeta, trackObj).then(function(subRes) {
+          if (subRes && subRes.cues && subRes.cues.length > 0) {
+            trackObj.cues = subRes.cues;
+            if (self3.currentVodMeta && self3.currentVodMeta.subtitleTracks && self3.currentVodMeta.subtitleTracks[index]) {
+              self3.currentVodMeta.subtitleTracks[index].cues = subRes.cues;
+            }
+            if (self3._selectedSubTrackIndex === index) {
+              self3._activeSubtitleCues = subRes.cues;
+              self3._updateSubtitles();
+              console.log('[SubtitlePipeline] Activated on-demand cues for track:', trackObj.title, 'count=', subRes.cues.length);
+            }
+          }
+        }).catch(function(err) {
+          console.warn('[SubtitlePipeline] On-demand subtitle fetch error:', err);
+        });
       }
       this._updateSubtitles();
     }
