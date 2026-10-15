@@ -146,7 +146,12 @@ jobs:
 
       - name: Package LG webOS .ipk
         run: |
-          npx --yes @webosose/ares-cli ares-package smart_tv -o dist/smart_tv
+          npm install -g @webosose/ares-cli
+          mkdir -p build/webos_staging
+          cp -r smart_tv/* build/webos_staging/
+          rm -f build/webos_staging/config.xml
+          ares-package build/webos_staging -o dist/smart_tv
+          rm -rf build/webos_staging
 
       - name: Upload Smart TV Artifacts
         uses: actions/upload-artifact@v4
