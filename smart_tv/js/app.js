@@ -3691,8 +3691,12 @@
                 }
                 var aTracks = extractAudioTracksFromInfo(info);
                 var sTracks = extractSubtitleTracksFromInfo(info);
-                if (aTracks.length > 0) _player.currentVodMeta.audioTracks = aTracks;
-                if (sTracks.length > 0) _player.currentVodMeta.subtitleTracks = sTracks;
+                if (aTracks.length > 0 && (!_player.currentVodMeta.audioTracks || aTracks.length > _player.currentVodMeta.audioTracks.length)) {
+                  _player.currentVodMeta.audioTracks = aTracks;
+                }
+                if (sTracks.length > 0 && (!_player.currentVodMeta.subtitleTracks || sTracks.length > _player.currentVodMeta.subtitleTracks.length)) {
+                  _player.currentVodMeta.subtitleTracks = sTracks;
+                }
                 if (_player._applyPreferences) _player._applyPreferences();
                 if (window.onTracksUpdated) window.onTracksUpdated();
               }

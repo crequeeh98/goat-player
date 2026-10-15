@@ -356,21 +356,33 @@
       var tracksSize = -1;
       for (var i = 0; i < len - 16; i++) {
         if (view.getUint8(i) === 0x16 && view.getUint8(i+1) === 0x54 && view.getUint8(i+2) === 0xAE && view.getUint8(i+3) === 0x6B) {
+          // Reject if inside SeekHead SeekID (preceded by 0x53 0xAB)
+          if (i >= 3 && view.getUint8(i - 3) === 0x53 && view.getUint8(i - 2) === 0xAB) {
+            continue;
+          }
           var sv = readVint(i + 4);
-          if (sv && sv.value > 16) {
-            var candidateStart = i + 4 + sv.length;
-            var hasTrackEntry = false;
-            for (var k = candidateStart; k < Math.min(candidateStart + 256, len); k++) {
-              if (view.getUint8(k) === 0xAE) {
-                hasTrackEntry = true;
-                break;
-              }
+          if (!sv || sv.value <= 0) continue;
+          var start = i + 4 + sv.length;
+          if (start >= len) continue;
+          var firstByte = view.getUint8(start);
+          var isValid = false;
+          if (firstByte === 0xAE) {
+            isValid = true;
+          } else if (firstByte === 0xBF) { // CRC-32 element
+            var crcSz = readVint(start + 1);
+            if (crcSz && start + 1 + crcSz.length + crcSz.value < len && view.getUint8(start + 1 + crcSz.length + crcSz.value) === 0xAE) {
+              isValid = true;
             }
-            if (hasTrackEntry) {
-              tracksPos = candidateStart;
-              tracksSize = sv.value;
-              break;
+          } else if (firstByte === 0xEC) { // Void element
+            var voidSz = readVint(start + 1);
+            if (voidSz && start + 1 + voidSz.length + voidSz.value < len && view.getUint8(start + 1 + voidSz.length + voidSz.value) === 0xAE) {
+              isValid = true;
             }
+          }
+          if (isValid) {
+            tracksPos = start;
+            tracksSize = sv.value;
+            break;
           }
         }
       }
@@ -391,7 +403,11 @@
         var nextEl = dataStart + elSize.value;
         if (nextEl <= curr) break;
 
-        if (elId.id === 0xAE) { // TrackEntry
+        if (elId.id === 0xBF || elId.id === 0xEC) {
+          curr = nextEl;
+          continue;
+        }
+        if (elId.id !== 0xAE) break; // TrackEntry only
           var tPos = dataStart;
           var tEnd = Math.min(len, nextEl);
           var trackType = null;
@@ -472,7 +488,6 @@
               codec: codec.replace(/^S_TEXT\//, '').replace(/^S_/, '').toLowerCase()
             });
           }
-        }
         curr = nextEl;
       }
 
@@ -1489,7 +1504,9 @@
         if (cachedTracks.subs && cachedTracks.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || cachedTracks.subs.length > self.currentVodMeta.subtitleTracks.length)) {
           self.currentVodMeta.subtitleTracks = cachedTracks.subs;
         }
-      } else if (!hasAudioMeta || !hasSubMeta) {
+        if (typeof self._applyPreferences === 'function') self._applyPreferences();
+        if (window.onTracksUpdated) window.onTracksUpdated();
+      } else {
         window.TVContainerProber.probeStream(url).then(function(demuxed) {
           if (!demuxed || !self.currentVodMeta || String(self.currentVodMeta.streamId) !== String(sId)) return;
           if (demuxed.duration > 100 && (!self.currentVodMeta.duration || self.currentVodMeta.duration <= 100)) {
@@ -1503,6 +1520,7 @@
           }
           if (demuxed.subs && demuxed.subs.length > 0 && (!self.currentVodMeta.subtitleTracks || self.currentVodMeta.subtitleTracks.length === 0 || demuxed.subs.length > self.currentVodMeta.subtitleTracks.length)) {
             self.currentVodMeta.subtitleTracks = demuxed.subs;
+            if (typeof self._applyPreferences === 'function') self._applyPreferences();
             if (window.onTracksUpdated) window.onTracksUpdated();
           }
         }).catch(function(){});
