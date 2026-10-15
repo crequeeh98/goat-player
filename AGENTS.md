@@ -28,11 +28,12 @@ d:/Projects/iptv-player/
 │   │   ├── database/                # Drift SQLite database (tables, DAOs, migrations)
 │   │   │   ├── daos/                # StreamDao, AccountDao, EpgDao, PlaybackDao
 │   │   │   └── app_database.dart    # AppDatabase schema definition
-│   │   ├── network/                 # Xtream Codes API client, M3U parser
+│   │   ├── network/                 # Xtream Codes API client
 │   │   ├── player/                  # Video player engine abstraction
 │   │   │   ├── engine/              # MediaKitPlayerEngine (libmpv hardware decoding)
 │   │   │   ├── widgets/             # Mini-player, mobile gestures, controls
 │   │   │   └── player_service.dart  # Playback state, track selection, resume
+│   │   ├── utils/                   # M3U isolate parser, title cleaner, string utils
 │   │   └── widgets/                 # TvRemoteScope, TvFocusable, shared UI
 │   ├── features/                    # Feature modules
 │   │   ├── account/                 # Playlist management, QR/PIN pairing
@@ -56,6 +57,7 @@ d:/Projects/iptv-player/
 │       ├── spatial_nav.js           # 4-way D-Pad focus traversal & remote key mapper
 │       ├── storage.js               # LocalStorage manager with in-memory sandbox fallback
 │       ├── api.js                   # Xtream Codes API client & playlist URL builder
+│       ├── m3u.js                   # Client-side M3U/M3U8 playlist parser
 │       ├── subtitles.js             # WebVTT/SRT subtitle parser & renderer
 │       ├── sync.js                  # Supabase Realtime pairing client for TV
 │       ├── diagnostics.js           # Media diagnostics, stream prober, error reporter
@@ -170,3 +172,13 @@ ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.go
 - Never render 10,000 DOM elements at once.
 - The Smart TV app uses `VirtualList` (`smart_tv/js/virtual_list.js`) for Live TV channels and pagination/lazy chunking for VOD grids.
 - Always clean up image error handlers (`onerror="this.style.display='none';"`) and avoid memory leaks in event listeners.
+
+### 6. Smart TV 2D Spatial Navigation & Boundary Exit
+- **Preferences Modal**: Uses dedicated 2D 3-column navigation (`ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`). Do not lump `pref-option-btn` into simple 1D vertical lists.
+- **VOD Grid Exit**: When on the leftmost card of any VOD row (`isGridCard`), pressing `ArrowLeft` must cleanly exit the grid and focus the active category in `#movies-categories-list` or `#series-categories-list`, rather than wrapping upward to the previous row.
+
+### 7. Subtitle Cue Synchronization & Persistence
+- Smart TV subtitle tracks from `TVContainerProber` or API are kept in `currentVodMeta.subtitleTracks`.
+- On-demand cue parsing uses `TVSubtitles.fetchTrackSubtitle(url, format)`.
+- Parsed cues are attached to `track.cues` to avoid refetching.
+- The active cue renderer runs inside the `timeupdate` handler and synchronizes `#player-subtitle-overlay`.

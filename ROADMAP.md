@@ -31,6 +31,17 @@ This document outlines the development history, architectural milestones, and pr
 - [x] **LG webOS Packaging (.ipk)**: One-command packaging via `tool/package_smart_tv_webos.ps1`.
 - [x] **Remote Red Button (🔴) Controls**: Instant search clearing and Continue Watching card removal with focus preservation on TV D-Pads.
 
+### 5. Universal M3U / M3U8 Playlist Support
+- [x] **Dual-Stack M3U Parsers**: High-performance streaming parser for Flutter (`m3u_isolate_parser.dart`) and Smart TV (`m3u.js`).
+- [x] **Rich Tag & Metadata Demuxing**: Robust extraction of `#EXTINF`, `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, and `#EXTM3U` EPG endpoints.
+- [x] **Direct Remote Import**: Instant M3U/M3U8 link import and breakdown via web pairing portal with eager TV caching.
+
+### 6. Smart TV In-Stream Audio/Subtitles & Spatial Navigation
+- [x] **Multi-Audio Track Switching**: Native audio track switching with provider codec and channel info (`TVContainerProber` / HTML5 AudioTracks).
+- [x] **Synced Subtitle Cue Rendering**: On-demand WebVTT/SRT cue fetching, caching, and synchronized screen overlay (`subtitles.js`).
+- [x] **Language Matching & Preferences**: Automatic selection of preferred audio and subtitle languages (Deutsch, English, Auto).
+- [x] **2D Spatial Navigation**: Natural 3-column 2D grid traversal in Preferences modal and boundary-aware left-exit navigation from VOD grids back to category menus.
+
 ---
 
 ## 🚀 Milestone v2: Android Ecosystem, Automated Delivery & Category Management

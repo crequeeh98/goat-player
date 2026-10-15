@@ -32,7 +32,7 @@ GOATPlayer uses a purposeful dual-stack architecture to deliver native performan
                                                        |
                                                        v
                                      +-----------------------------------+
-                                     |    IPTV Server (Xtream Codes)     |
+                                     |   IPTV Provider (Xtream / M3U)    |
                                      |  Live Streams, VOD, Series, EPG   |
                                      +-----------------------------------+
 ```
@@ -46,6 +46,7 @@ GOATPlayer uses a purposeful dual-stack architecture to deliver native performan
 - **Platforms**: Android Mobile, Android TV, Fire TV, Windows, macOS, Linux.
 - **Media Engine**: `media_kit` powered by `libmpv`. Provides direct hardware-accelerated video decoding (Direct3D on Windows, MediaCodec on Android), multi-audio track selection, and external subtitle parsing.
 - **Database**: `drift` with SQLite compiled using WAL mode. Enables smooth reads during heavy background updates.
+- **Parsers & Background Isolates**: `m3u_isolate_parser.dart` for non-blocking extraction of massive playlists with metadata (`#EXTINF`, `tvg-id`, `tvg-logo`).
 - **Remote Navigation**: `TvRemoteScope` manages global TV remote Back button routing, while `TvFocusable` provides glowing borders and auto-scrolls lists.
 
 ### 2.2 Smart TV Web Stack (`smart_tv/`)
@@ -54,12 +55,14 @@ GOATPlayer uses a purposeful dual-stack architecture to deliver native performan
   - **Samsung Tizen**: 2018+ (Tizen 4.0 - 8.0), packaged as W3C Widget (`.wgt`).
   - **LG webOS**: 2018+ (webOS 4.0 - 24), packaged as webOS IPK (`.ipk`).
 - **Core Modules**:
-  1. `spatial_nav.js`: 4-way D-Pad focus traversal engine with spatial distance calculation, modal focus trapping, and remote key handling.
-  2. `player.js`: Media manager handling native HTML5 video playback, aspect ratio normalization, HUD state, seek watchdogs, and stream fallback.
+  1. `spatial_nav.js`: 4-way D-Pad focus traversal engine with spatial distance calculation, modal focus trapping, 2D grid navigation for preferences, and edge boundary navigation for VOD grids.
+  2. `player.js`: Media manager handling native HTML5 video playback, aspect ratio normalization, HUD state, multi-audio/subtitle switching, seek watchdogs, and stream fallback.
   3. `storage.js`: Sandboxed storage engine with in-memory fallback, safe duration parsing (`parseDurationSecs`), and Continue Watching management.
   4. `api.js`: Xtream Codes API consumer with memory caching.
-  5. `subtitles.js`: Client-side SRT/WebVTT subtitle parser and hardware-rendered subtitle overlay.
-  6. `virtual_list.js`: High-performance DOM recycling list ensuring smooth scrolling with 10,000+ live channels.
+  5. `m3u.js`: Client-side M3U/M3U8 playlist parser extracting categories, channels, logos, and EPG URLs.
+  6. `subtitles.js`: Client-side SRT/WebVTT subtitle parser, on-demand cue fetcher, and hardware-rendered subtitle overlay.
+  7. `virtual_list.js`: High-performance DOM recycling list ensuring smooth scrolling with 10,000+ live channels.
+  8. `i18n.js`: Dynamic bilingual localization engine (English, Deutsch) for TV interface and preferences.
 
 ---
 

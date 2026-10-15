@@ -141,31 +141,31 @@ The compiled output will be located in:
 
 ### 6. Build Samsung Tizen TV Package (.wgt)
 ```powershell
-powershell -ExecutionPolicy Bypass -File tool/package_tizen.ps1
+powershell -ExecutionPolicy Bypass -File tool/package_smart_tv_tizen.ps1
 ```
-The generated `.wgt` package will be located in:
-`build/tizen_out/goat_player.wgt`
+The signed `.wgt` package will be located in:
+`build/smart_tv_out/com.goatplayer.tv.signed.wgt`
 
 **Installation on Samsung Smart TVs:**
-- Sideload via **Samsung Tizen Device Manager** (Connect to TV IP -> drag & drop `goat_player.wgt`).
+- Sideload via **Samsung Tizen Device Manager** (Connect to TV IP -> drag & drop `.wgt`).
 - Or install via SDB CLI:
   ```bash
   sdb connect <TV_IP>
-  sdb install build/tizen_out/goat_player.wgt
+  sdb install build/smart_tv_out/com.goatplayer.tv.signed.wgt
   ```
 
 ### 7. Build LG webOS TV Package (.ipk)
 ```powershell
-powershell -ExecutionPolicy Bypass -File tool/package_webos.ps1
+powershell -ExecutionPolicy Bypass -File tool/package_smart_tv_webos.ps1
 ```
 The generated `.ipk` package will be located in:
-`build/webos_out/com.goatplayer.tv_1.0.0_all.ipk`
+`build/smart_tv_out/com.goatplayer.tv_1.2.0_all.ipk`
 
 **Installation on LG Smart TVs:**
 - Sideload via [webOS Dev Manager](https://github.com/webosbrew/dev-manager) (1-click install via GUI).
 - Or install via webOS CLI (`ares-cli`):
   ```bash
-  ares-install -d <device_name> build/webos_out/com.goatplayer.tv_1.0.0_all.ipk
+  ares-install -d <device_name> build/smart_tv_out/com.goatplayer.tv_1.2.0_all.ipk
   ```
 
 ---
@@ -222,18 +222,26 @@ The generated `.ipk` package will be located in:
   - Persistent SQLite watch progress bars on every episode card (in-progress red bar, completed green bar + checkmark).
 
 ### 📺 Phase 2: Smart TV Expansion (Samsung Tizen & LG webOS) - Completed
-- [x] **Smart TV Remote & D-Pad Engine (`TvFocusable`)**:
+- [x] **Smart TV Remote & D-Pad Engine (`TvFocusable` & `spatial_nav.js`)**:
   - Pixel-perfect focus indicator with customizable glow, 1.4px border, and instant 30ms/70ms transitions to eliminate focus ghosting.
   - Wrap-around list navigation: scrolling to the bottom of channel lists or movie/series grids restarts at the top.
   - Smooth search flow: pressing `ArrowDown` or `Enter` in search fields navigates directly down into results/chips without requiring Tab.
+  - Dedicated 2D grid traversal for Preferences modal and natural left-exit boundary routing from VOD grids back to category menus.
 - [x] **Smart TV 3-Tier Back Key Interception (`TvRemoteScope`)**:
   - Global TV remote Back key routing (LG keyCode 461, Tizen keyCode 10009, Escape) with localized Exit Confirmation Dialog at root.
-- [x] **Universal Media Player Abstraction (`GoatPlayerEngine`)**:
-  - Pluggable video engine architecture supporting `libmpv` (desktop/mobile), Samsung Tizen AVPlay, and LG webOS HTML5/Luna.
-- [x] **Samsung Tizen Packaging (`tool/package_tizen.ps1`)**:
-  - Automated `.wgt` package generation with W3C widget manifest, app icons, and TV remote key registrations.
-- [x] **LG webOS Packaging (`tool/package_webos.ps1`)**:
-  - Automated `.ipk` package generation via `ares-package -n` for 1-click install via LG webOS Dev Manager.
+- [x] **Universal Media Player Abstraction (`GoatPlayerEngine` & `TVPlayer`)**:
+  - Pluggable video engine architecture supporting `libmpv` (desktop/mobile), Samsung Tizen, and LG webOS HTML5/HLS.
+  - Multi-audio track switching and synchronized subtitle cue rendering (SRT/WebVTT) with auto language matching.
+- [x] **Smart TV Production Packaging**:
+  - Automated signed `.wgt` generation via `tool/package_smart_tv_tizen.ps1`.
+  - Automated `.ipk` generation via `tool/package_smart_tv_webos.ps1` for 1-click install.
+
+### 🌐 Phase 2.5: Universal M3U & M3U8 Playlist Engine - Completed
+- [x] **High-Performance M3U Parsers**:
+  - Background isolate parsing in Flutter (`m3u_isolate_parser.dart`) and client-side streaming parser for Smart TVs (`m3u.js`).
+  - Comprehensive tag extraction (`#EXTINF`, `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, `#EXTM3U` EPG endpoints).
+- [x] **Direct Remote Pairing & Sync**:
+  - Direct M3U URL import in web pairing portal with auto-classification into Live TV, Movies, and Series and eager TV caching.
 
 ### 📱 Phase 3: Android TV, Fire TV & Mobile Adaptations (Next Up)
 - [ ] **Android TV & Amazon Fire TV Leanback**:

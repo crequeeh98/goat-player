@@ -10,109 +10,84 @@ The native Flutter application uses **Drift** (type-safe SQLite ORM) located in 
 
 ### 1.1 Core Tables Schema
 
-#### 1. `accounts` (`AccountsTable`)
-Stores configured IPTV provider connections.
+#### 1. `Accounts` (`Accounts` Table)
+Stores configured IPTV provider connections (Xtream Codes & M3U).
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Text | Primary Key | Unique UUID |
-| `name` | Text | Not Null | Display name |
-| `server_url` | Text | Not Null | Base IPTV provider URL (normalized) |
-| `username` | Text | Not Null | Xtream username |
-| `password` | Text | Not Null | Xtream password |
-| `is_active` | Bool | Default false | Currently active account |
-| `expires_at` | DateTime | Nullable | Subscription expiry date |
-| `created_at` | DateTime | Not Null | Creation timestamp |
+| `id` | Int | Primary Key, Auto-Increment | Unique account ID |
+| `playlistName` | Text | Nullable | User-friendly playlist display name |
+| `serverUrl` | Text | Not Null | Base IPTV provider URL or M3U URL |
+| `username` | Text | Not Null | Xtream username or empty for direct M3U |
+| `password` | Text | Not Null | Xtream password or empty for direct M3U |
+| `isTrial` | Bool | Default false | Trial account indicator |
+| `maxConnections` | Int | Nullable | Maximum allowed concurrent connections |
+| `expDate` | Int | Nullable | Subscription expiry timestamp (Unix) |
+| `createdAt` | DateTime | Default `currentDateAndTime` | Account creation timestamp |
 
-#### 2. `stream_categories` (`StreamCategoriesTable`)
+#### 2. `Categories` (`Categories` Table)
 Categorizes Live TV, Movies, and Series.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Text | Primary Key | Composite key (`${account_id}_${category_id}`) |
-| `account_id` | Text | Foreign Key (`accounts.id`) | Owner account |
-| `category_id` | Text | Not Null | Provider category ID |
-| `category_name`| Text | Not Null | Category display name |
-| `category_type`| Text | Not Null | `'live'`, `'movie'`, or `'series'` |
-| `is_hidden` | Bool | Default false | User hidden status |
-| `sort_order` | Int | Default 0 | Custom display order |
+| `id` | Int | Primary Key, Auto-Increment | Unique category row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
+| `categoryId` | Text | Not Null | Provider or parsed category ID |
+| `name` | Text | Not Null | Category display name |
+| `type` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
 
-#### 3. `live_streams` (`LiveStreamsTable`)
-Live TV channels cached per account.
+#### 3. `Streams` (`Streams` Table)
+Unified stream items table caching channels, movies, and series.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `stream_id` | Int | Not Null | Provider stream ID |
-| `account_id` | Text | Foreign Key (`accounts.id`) | Owner account |
-| `name` | Text | Not Null | Channel name |
-| `stream_icon`| Text | Nullable | Channel logo URL |
-| `epg_channel_id`| Text | Nullable | EPG mapping channel ID |
-| `category_id`| Text | Not Null | Provider category ID |
-| `tv_archive` | Int | Default 0 | Catch-up archive support (days) |
-| **Primary Key**| (`account_id`, `stream_id`) | Composite | Unique per account |
+| `id` | Int | Primary Key, Auto-Increment | Unique stream row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
+| `categoryId` | Text | Not Null | Category ID |
+| `streamId` | Text | Not Null | Provider stream ID |
+| `epgChannelId` | Text | Nullable | EPG mapping channel ID |
+| `name` | Text | Not Null | Stream / title name |
+| `streamType` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
+| `streamIcon` | Text | Nullable | Stream icon or cover poster URL |
+| `url` | Text | Nullable | Direct playback URL (constructed or M3U) |
+| `added` | Int | Nullable | Unix timestamp added (for VOD sorting) |
 
-#### 4. `vod_streams` (`VodStreamsTable`)
-Movies cached per account.
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `stream_id` | Int | Not Null | Provider movie ID |
-| `account_id` | Text | Foreign Key (`accounts.id`) | Owner account |
-| `name` | Text | Not Null | Movie title |
-| `stream_icon`| Text | Nullable | Poster image URL |
-| `rating` | Real | Nullable | Rating (e.g. 7.8) |
-| `category_id`| Text | Not Null | Category ID |
-| `container_extension`| Text | Default 'mp4' | Container format (`mp4`, `mkv`, `avi`) |
-| `added` | DateTime | Nullable | Date added |
-| **Primary Key**| (`account_id`, `stream_id`) | Composite | Unique per account |
-
-#### 5. `series` (`SeriesTable`)
-VOD Series cached per account.
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `series_id` | Int | Not Null | Provider series ID |
-| `account_id` | Text | Foreign Key (`accounts.id`) | Owner account |
-| `name` | Text | Not Null | Series title |
-| `cover` | Text | Nullable | Poster image URL |
-| `rating` | Real | Nullable | Rating (e.g. 8.4) |
-| `category_id`| Text | Not Null | Category ID |
-| `last_modified`| DateTime | Nullable | Last update timestamp |
-| **Primary Key**| (`account_id`, `series_id`) | Composite | Unique per account |
-
-#### 6. `epg_programs` (`EpgProgramsTable`)
+#### 4. `EpgPrograms` (`EpgPrograms` Table)
 Electronic Program Guide schedule.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Text | Primary Key | Composite key |
-| `channel_id`| Text | Not Null | EPG channel ID (Indexed) |
+| `id` | Int | Primary Key, Auto-Increment | Unique program row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
+| `channelId` | Text | Not Null | Stream ID matching live channel |
 | `title` | Text | Not Null | Program title |
-| `start_time`| DateTime | Not Null | Start timestamp (Indexed) |
-| `end_time` | DateTime | Not Null | End timestamp (Indexed) |
-| `description`| Text | Nullable | Program plot / synopsis |
+| `description` | Text | Nullable | Program synopsis / plot |
+| `startTime` | DateTime | Not Null | Broadcast start time |
+| `stopTime` | DateTime | Not Null | Broadcast stop time |
 
-#### 7. `playback_progress` (`PlaybackProgressTable`)
-Tracks Continue Watching and resume points for Movies and Series episodes.
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | Text | Primary Key | Composite (`${account_id}_${stream_id}`) |
-| `account_id` | Text | Foreign Key | Owner account |
-| `stream_id` | Text | Not Null | Movie or Episode stream ID |
-| `series_id` | Text | Nullable | Parent series ID (null for movies) |
-| `type` | Text | Not Null | `'movie'` or `'series'` |
-| `title` | Text | Not Null | Title |
-| `series_name`| Text | Nullable | Series title |
-| `season` | Int | Nullable | Season number |
-| `episode` | Int | Nullable | Episode number |
-| `position` | Int | Not Null | Last watched position (seconds) |
-| `duration` | Int | Not Null | Total duration (seconds) |
-| `is_completed`| Bool | Default false | Flagged true if watched >= 95% |
-| `updated_at` | DateTime | Not Null | Timestamp for sorting |
-
-#### 8. `favorites` (`FavoritesTable`)
+#### 5. `Favorites` (`Favorites` Table)
 User bookmarked channels, movies, and series.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `account_id` | Text | Foreign Key | Owner account |
-| `stream_id` | Text | Not Null | Target stream / series ID |
-| `type` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
-| `created_at`| DateTime | Not Null | Timestamp |
-| **Primary Key**| (`account_id`, `stream_id`, `type`) | Composite | Unique bookmark |
+| `id` | Int | Primary Key, Auto-Increment | Unique favorite row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
+| `streamId` | Text | Not Null | Target stream ID |
+| `streamType` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
+| `addedAt` | DateTime | Default `currentDateAndTime` | Timestamp added |
+| **Unique Key** | (`accountId`, `streamId`, `streamType`) | Composite | Prevents duplicate bookmarks |
+
+#### 6. `PlaybackProgress` (`PlaybackProgress` Table)
+Tracks Continue Watching and resume points for Movies and Series episodes.
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `streamId` | Text | Primary Key | Movie or Episode stream ID |
+| `streamType` | Text | Not Null | `'movie'` or `'series'` |
+| `seriesId` | Text | Nullable | Parent series ID (null for movies) |
+| `title` | Text | Not Null | Title of movie or episode |
+| `coverUrl` | Text | Nullable | Poster URL |
+| `position` | Int | Not Null | Last watched position (seconds) |
+| `duration` | Int | Not Null | Total duration (seconds) |
+| `season` | Int | Nullable | Season number |
+| `episode` | Int | Nullable | Episode number |
+| `episodeTitle` | Text | Nullable | Specific episode title |
+| `isCompleted` | Bool | Default false | Flagged true if watched >= 95% |
+| `updatedAt` | DateTime | Default `currentDateAndTime` | Timestamp for sorting |
 
 ### 1.2 Performance & Optimization Settings
 - **WAL Mode (Write-Ahead Logging)**: Enabled at initialization to allow concurrent background EPG/stream updates without blocking UI reads.
@@ -133,13 +108,13 @@ On Samsung Tizen and LG webOS, data is stored in `localStorage` with automatic i
 
 | Storage Key | Format | Description |
 |---|---|---|
-| `goat_accounts` | JSON Array | Array of account objects (`id`, `name`, `serverUrl`, `username`, `password`) |
+| `goat_accounts` | JSON Array | Array of account objects (`id`, `name`, `serverUrl`, `username`, `password`, `type`: `'xtream'` \| `'m3u'`) |
 | `goat_active_acc` | String | ID of currently selected account |
 | `goat_prog_${accId}_${streamId}` | JSON Object | Individual stream progress record |
 | `goat_cw_${accId}` | JSON Array | Continue Watching rail items (LRU sorted, capped at 100) |
 | `goat_favs_${accId}` | JSON Object | Favorites mapping: `{ live: [], movie: [], series: [] }` |
 | `goat_device_id` | String | Unique Virtual Device ID (e.g. `GP-8832-1940`) |
-| `goat_settings` | JSON Object | Subtitle/audio track preferences, language, buffer settings |
+| `goat_settings` | JSON Object | Audio/subtitle track preferences (`audio_pref`, `sub_pref`: `'deu'`, `'eng'`, `'auto'`), app language (`lang`: `'de'`, `'en'`) |
 
 ### 2.2 Continue Watching Item Schema
 ```json
