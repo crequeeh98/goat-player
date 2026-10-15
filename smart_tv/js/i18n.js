@@ -164,7 +164,13 @@
       unlimited: 'Unlimited',
       expired: 'Expired',
       connections: 'Connections',
-      active_connections_tooltip: 'Active / Allowed Connections'
+      active_connections_tooltip: 'Active / Allowed Connections',
+      update_available: 'Update Available',
+      update_desc: 'A new version of GOATPlayer TV is ready to install.',
+      update_now: 'Update Now',
+      update_later: 'Later',
+      updating: 'Updating TV App...',
+      update_success: 'Update completed! Reloading...'
     },
     de: {
       accounts_title: 'GOATPlayer TV',
@@ -338,7 +344,13 @@
       unmute_prompt: 'Audio stummgeschaltet - OK drücken zum Aktivieren',
       forced_sub_notice: ' (Aktiv bei Fremdsprachen)',
       sub_activated: 'Untertitel aktiviert',
-      audio_activated: 'Audiospur aktiviert'
+      audio_activated: 'Audiospur aktiviert',
+      update_available: 'Update verfügbar',
+      update_desc: 'Eine neue Version von GOATPlayer TV ist verfügbar.',
+      update_now: 'Jetzt aktualisieren',
+      update_later: 'Später',
+      updating: 'TV-App wird aktualisiert...',
+      update_success: 'Update abgeschlossen! Neustart...'
     }
   };
 

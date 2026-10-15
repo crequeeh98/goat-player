@@ -12,6 +12,9 @@ import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_remote_scope.dart';
 import '../../core/database/app_database.dart';
 import '../../core/utils/platform_utils.dart';
+import 'dart:io';
+import '../../core/updater/app_updater_service.dart';
+import '../../core/updater/widgets/update_dialog.dart';
 
 class AccountListScreen extends ConsumerStatefulWidget {
   const AccountListScreen({super.key});
@@ -34,6 +37,18 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
       ]);
     }
     HardwareKeyboard.instance.addHandler(_handleGlobalKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdates());
+  }
+
+  void _checkForUpdates() async {
+    if (!Platform.isAndroid && !Platform.isWindows) return;
+    try {
+      final updater = AppUpdaterService();
+      final updateInfo = await updater.checkForUpdate();
+      if (updateInfo != null && updateInfo.hasUpdate && mounted) {
+        UpdateDialog.show(context, updateInfo: updateInfo, updaterService: updater);
+      }
+    } catch (_) {}
   }
 
   @override

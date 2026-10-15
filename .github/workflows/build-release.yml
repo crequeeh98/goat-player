@@ -1,0 +1,210 @@
+name: Build & Release GOATPlayer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release Tag (e.g. v1.2.0)'
+        required: true
+        default: 'v1.2.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Universal APK
+        run: |
+          flutter build apk --release
+          mkdir -p dist/android
+          cp build/app/outputs/flutter-apk/app-release.apk dist/android/GOATPlayer-universal.apk
+
+      - name: Build Split per-ABI APKs (Fire TV & Phone)
+        run: |
+          flutter build apk --release --split-per-abi
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/GOATPlayer-armeabi-v7a.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/GOATPlayer-arm64-v8a.apk
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: dist/android/*
+          retention-days: 7
+
+  build-windows:
+    name: Build Windows Desktop
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Package Windows ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/windows
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "dist\windows\GOATPlayer-Windows-x64.zip" -Force
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bin
+          path: dist/windows/*
+          retention-days: 7
+
+  build-smart-tv:
+    name: Build Smart TV Packages & Web Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JavaScript Syntax
+        run: |
+          node -c smart_tv/js/*.js
+
+      - name: Create Smart TV OTA Web Bundle & Manifest
+        shell: bash
+        run: |
+          mkdir -p dist/smart_tv
+          VERSION="${{ github.ref_name }}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="${{ github.event.inputs.release_tag || 'v1.2.0' }}"
+          fi
+          
+          # Generate version manifest for TV OTA Updater
+          cat <<EOF > smart_tv/manifest.json
+          {
+            "version": "$VERSION",
+            "releaseTime": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "gitCommit": "${{ github.sha }}",
+            "files": [
+              "index.html",
+              "css/style.css",
+              "js/app.js",
+              "js/player.js",
+              "js/spatial_nav.js",
+              "js/storage.js",
+              "js/api.js",
+              "js/m3u.js",
+              "js/subtitles.js",
+              "js/sync.js",
+              "js/diagnostics.js",
+              "js/i18n.js",
+              "js/virtual_list.js",
+              "js/updater.js"
+            ]
+          }
+          EOF
+
+          # Package Smart TV OTA zip bundle
+          cd smart_tv
+          zip -r ../dist/smart_tv/smart_tv_bundle.zip . -x ".*"
+          cd ..
+          cp smart_tv/manifest.json dist/smart_tv/smart_tv_manifest.json
+
+      - name: Package LG webOS .ipk
+        run: |
+          npx --yes @webosose/ares-cli ares-package smart_tv -o dist/smart_tv
+
+      - name: Upload Smart TV Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-tv-packages
+          path: dist/smart_tv/*
+          retention-days: 7
+
+  publish-release:
+    name: Create GitHub Release
+    needs: [build-android, build-windows, build-smart-tv]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apks
+          path: release_assets
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bin
+          path: release_assets
+
+      - name: Download Smart TV Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: smart-tv-packages
+          path: release_assets
+
+      - name: Determine Release Tag
+        id: vars
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ ! "$TAG" =~ ^v[0-9] ]]; then
+            TAG="${{ github.event.inputs.release_tag || 'v1.2.0' }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: "GOATPlayer Release ${{ steps.vars.outputs.tag }}"
+          draft: false
+          prerelease: false
+          files: release_assets/*
+          body: |
+            ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
+
+            ### 📦 Download Links
+            - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)
+            - **Amazon Fire TV & TV Sticks (32-Bit ARM)**: [`GOATPlayer-armeabi-v7a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-armeabi-v7a.apk)
+            - **Android Smartphones (64-Bit ARM)**: [`GOATPlayer-arm64-v8a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-arm64-v8a.apk)
+            - **Windows Desktop (Win 10/11 x64)**: [`GOATPlayer-Windows-x64.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-Windows-x64.zip)
+            - **Smart TV (OTA Web Bundle)**: [`smart_tv_bundle.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/smart_tv_bundle.zip)
+            - **LG webOS Package**: Check attached `.ipk` in release assets below.
