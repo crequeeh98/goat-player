@@ -58,9 +58,26 @@ class _UpdateDialogState extends State<UpdateDialog> {
       await widget.updaterService.installUpdate(downloadedPath);
     } catch (e) {
       if (mounted) {
+        final isGerman = Localizations.localeOf(context).languageCode == 'de';
+        final errStr = e.toString().toLowerCase();
+        final String friendlyMsg;
+        if (errStr.contains('socket') ||
+            errStr.contains('connection') ||
+            errStr.contains('timeout') ||
+            errStr.contains('network') ||
+            errStr.contains('handshake') ||
+            errStr.contains('failed host lookup')) {
+          friendlyMsg = isGerman
+              ? 'Verbindung getrennt. Bitte Internetverbindung prüfen.'
+              : 'Connection interrupted. Please check your internet connection.';
+        } else {
+          friendlyMsg = isGerman
+              ? 'Download fehlgeschlagen. Bitte erneut versuchen.'
+              : 'Download failed. Please try again.';
+        }
         setState(() {
           _isDownloading = false;
-          _errorMessage = 'Fehler beim Update: $e';
+          _errorMessage = friendlyMsg;
         });
       }
     }
@@ -75,7 +92,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
         ? 'Installiert: v${widget.updateInfo.currentVersion} → Neu: v${widget.updateInfo.latestVersion}'
         : 'Installed: v${widget.updateInfo.currentVersion} → New: v${widget.updateInfo.latestVersion}';
     final laterText = isGerman ? 'Später' : 'Later';
-    final updateNowText = isGerman ? 'Jetzt aktualisieren' : 'Update Now';
+    final updateNowText = _errorMessage != null
+        ? (isGerman ? 'Erneut versuchen' : 'Retry')
+        : (isGerman ? 'Jetzt aktualisieren' : 'Update Now');
     final downloadingText = isGerman ? 'Wird heruntergeladen...' : 'Downloading...';
 
     return AlertDialog(
@@ -183,10 +202,26 @@ class _UpdateDialogState extends State<UpdateDialog> {
               ),
             ],
             if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
@@ -209,7 +244,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
-              : const Icon(Icons.download_rounded, size: 18),
+              : Icon(_errorMessage != null ? Icons.refresh_rounded : Icons.download_rounded, size: 18),
           label: Text(_isDownloading ? downloadingText : updateNowText),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.deepPurple,

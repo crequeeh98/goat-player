@@ -44,8 +44,7 @@ class AppUpdaterService {
   Future<AppUpdateInfo?> checkForUpdate() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      // Platform baseline versions: Windows is 1.2.0, Android is 1.0.0
-      final currentVersion = Platform.isWindows ? '1.2.0' : (Platform.isAndroid ? '1.0.0' : packageInfo.version);
+      final currentVersion = Platform.isWindows ? '1.2.0' : packageInfo.version;
 
       final response = await _dio.get(
         'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest',
@@ -104,6 +103,8 @@ class AppUpdaterService {
     await _dio.download(
       downloadUrl,
       savePath,
+      options: Options(receiveTimeout: const Duration(minutes: 5)),
+      deleteOnError: true,
       onReceiveProgress: (received, total) {
         if (total > 0) {
           onProgress(received / total);
