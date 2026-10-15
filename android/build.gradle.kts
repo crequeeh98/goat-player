@@ -25,11 +25,11 @@ subprojects {
         if (android != null) {
             try {
                 val m = android.javaClass.getMethod("compileSdkVersion", Int::class.javaPrimitiveType)
-                m.invoke(android, 35)
+                m.invoke(android, 36)
             } catch (_: Throwable) {
                 try {
                     val m = android.javaClass.getMethod("setCompileSdk", java.lang.Integer::class.java)
-                    m.invoke(android, 35)
+                    m.invoke(android, 36)
                 } catch (_: Throwable) {}
             }
         }
