@@ -1165,6 +1165,10 @@ body.player-fullscreen #view-dashboard {
   -webkit-transform: none !important;
 }
 
+#player.video-aspect-fill {
+  object-fit: fill !important;
+}
+
 #player-container.mode-fullscreen #player {
   position: absolute !important;
   top: 0 !important;
@@ -1180,6 +1184,10 @@ body.player-fullscreen #view-dashboard {
   border-radius: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+#player-container.mode-fullscreen #player.video-aspect-fill {
+  object-fit: fill !important;
 }
 
 /* Centered Buffering Spinner for HTML5 / HLS Stream */

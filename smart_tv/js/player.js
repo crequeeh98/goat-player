@@ -720,6 +720,7 @@
         }
       }
       self._applyPreferences();
+      self._checkAspectAdjustment();
       self._tracksLoading = false;
       if (window.onTracksUpdated) window.onTracksUpdated();
     });
@@ -816,6 +817,7 @@
       self._setBuffering(false);
       self._clearWatchdog();
       self._updatePreviewPlayBtn(true);
+      self._checkAspectAdjustment();
       self._setupTrackListeners();
       self._tracksLoading = false;
       if (window.onTracksUpdated) window.onTracksUpdated();
@@ -1140,6 +1142,34 @@
     this.currentVodMeta.updatedAt = Date.now();
     this.currentVodMeta.isCompleted = forceCompleted || (totalDur > 100 && (curPos / totalDur) >= 0.95);
     window.TVStorage.saveProgress(activeAccount.id, this.currentVodMeta);
+  };
+
+  TVPlayer.prototype._checkAspectAdjustment = function() {
+    if (!this.videoEl) return;
+    var w = this.videoEl.videoWidth || 0;
+    var h = this.videoEl.videoHeight || 0;
+
+    // Only apply on Samsung Tizen where WebKit fails to un-squeeze anamorphic SD broadcasts
+    var isTizen = !!(window.tizen || (navigator.userAgent && /Tizen/i.test(navigator.userAgent)));
+    if (!isTizen) return;
+
+    // PAL SD (720x576 or 704x576) and NTSC SD (720x480 or 704x480)
+    // When broadcast in widescreen, Tizen incorrectly renders these as 5:4 or 4:3 instead of 16:9
+    var isAnamorphicSd = (w > 0 && h > 0) && (
+      (h === 576 && (w === 720 || w === 704 || w === 544)) ||
+      (h === 480 && (w === 720 || w === 704))
+    );
+
+    if (isAnamorphicSd) {
+      if (!this.videoEl.classList.contains('video-aspect-fill')) {
+        console.log('[TVPlayer:Aspect] Anamorphic SD broadcast detected on Tizen (' + w + 'x' + h + '). Applying widescreen fill correction.');
+        this.videoEl.classList.add('video-aspect-fill');
+      }
+    } else {
+      if (this.videoEl.classList.contains('video-aspect-fill')) {
+        this.videoEl.classList.remove('video-aspect-fill');
+      }
+    }
   };
 
   TVPlayer.prototype._setBuffering = function(isBuffering) {
@@ -2578,6 +2608,7 @@
           this.videoEl.src = '';
           this.videoEl.load();
         }
+        this.videoEl.classList.remove('video-aspect-fill');
       } catch(e){}
     }
     this._selectedAudioTrackIndex = undefined;

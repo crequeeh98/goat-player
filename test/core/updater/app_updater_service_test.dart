@@ -32,8 +32,10 @@ void main() {
       expect(AppUpdaterService.isNewer('2.0.0', '1.9.9'), isFalse);
     });
 
-    test('isNewer handles build numbers gracefully', () {
+    test('isNewer handles build numbers and v prefixes gracefully', () {
       expect(AppUpdaterService.isNewer('1.2.0+1', '1.2.1'), isTrue);
+      expect(AppUpdaterService.isNewer('v1.2.1', 'v1.2.2'), isTrue);
+      expect(AppUpdaterService.isNewer('1.2.2', 'v1.2.2'), isFalse);
       expect(AppUpdaterService.isNewer('1.2.0+5', '1.2.0+6'), isFalse);
     });
   });
