@@ -58,3 +58,7 @@ tizen/
 # Graphify local cache
 graphify-out/
 .graphifyignore
+
+# Android signing keys
+*.jks
+*.keystore

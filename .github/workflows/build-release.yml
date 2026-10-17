@@ -41,14 +41,28 @@ jobs:
         run: flutter pub get
 
       - name: Build Universal APK
+        shell: bash
         run: |
-          flutter build apk --release
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="${{ github.event.inputs.release_tag || '1.2.1' }}"
+            VERSION="${VERSION#v}"
+          fi
+          flutter build apk --release --build-name="$VERSION"
           mkdir -p dist/android
           cp build/app/outputs/flutter-apk/app-release.apk dist/android/GOATPlayer-universal.apk
 
       - name: Build Split per-ABI APKs (Fire TV & Phone)
+        shell: bash
         run: |
-          flutter build apk --release --split-per-abi
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="${{ github.event.inputs.release_tag || '1.2.1' }}"
+            VERSION="${VERSION#v}"
+          fi
+          flutter build apk --release --split-per-abi --build-name="$VERSION"
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/GOATPlayer-armeabi-v7a.apk
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/GOATPlayer-arm64-v8a.apk
 
@@ -76,11 +90,25 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows Release
-        run: flutter build windows --release
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="${{ github.event.inputs.release_tag || '1.2.1' }}"
+            VERSION="${VERSION#v}"
+          fi
+          flutter build windows --release --build-name="$VERSION"
 
       - name: Package Windows ZIP
         shell: pwsh
         run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          if (-not $ver -or $ver -eq 'main') {
+            $ver = "${{ github.event.inputs.release_tag }}".TrimStart('v')
+          }
+          if (-not $ver) { $ver = '1.2.1' }
+          Set-Content -Path "build\windows\x64\runner\Release\version.txt" -Value $ver -Encoding utf8
           New-Item -ItemType Directory -Force -Path dist/windows
           Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "dist\windows\GOATPlayer-Windows-x64.zip" -Force
 
