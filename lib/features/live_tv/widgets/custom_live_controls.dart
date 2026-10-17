@@ -193,7 +193,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       widget.onEnterFullWidth!();
     }
     if (currentlyFull) {
-      if (GoatPlatform.isMobile) {
+      if (GoatPlatform.isPhone) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
           DeviceOrientation.portraitDown,
@@ -203,7 +203,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     } else {
-      if (GoatPlatform.isMobile) {
+      if (GoatPlatform.isPhone) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,

@@ -46,7 +46,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     final active = ref.read(playbackControllerProvider);
     _wasLiveExpandedBeforeSearch = active != null && active.streamType == StreamType.live && !active.isMinimized;
     if (_wasLiveExpandedBeforeSearch) {
-      ref.read(playbackControllerProvider.notifier).minimize();
+      if (GoatPlatform.isTv) {
+        ref.read(playbackControllerProvider.notifier).stop();
+      } else {
+        ref.read(playbackControllerProvider.notifier).minimize();
+      }
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
     }
@@ -69,10 +73,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   }
 
   Future<void> _handleSwitchAccount() async {
-    if (GoatPlatform.isMobile) {
+    if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
+      ]);
+    } else if (GoatPlatform.isTv) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
       ]);
     }
     ref.read(playbackControllerProvider.notifier).stop();
@@ -145,7 +154,12 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   void initState() {
     super.initState();
-    if (GoatPlatform.isMobile) {
+    if (GoatPlatform.isTv) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -168,18 +182,22 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       if (!mounted) return;
       await ref.read(seriesControllerProvider).syncSeriesCategories();
 
-      // Defer full-library heavy background syncs by 5s so initial navigation is 100% fluid
-      await Future.delayed(const Duration(seconds: 5));
-      if (!mounted) return;
-      await ref.read(liveTvControllerProvider).syncAllLiveStreams();
-      if (!mounted) return;
-      await Future.delayed(const Duration(seconds: 3));
-      if (!mounted) return;
-      await ref.read(vodControllerProvider).syncAllVodStreams();
-      if (!mounted) return;
-      await Future.delayed(const Duration(seconds: 3));
-      if (!mounted) return;
-      await ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      // On TV, do not dump tens of thousands of streams into memory concurrently.
+      // Category streams are loaded on-demand when a category is selected.
+      if (!GoatPlatform.isTv) {
+        // Defer full-library heavy background syncs by 5s so initial navigation is 100% fluid
+        await Future.delayed(const Duration(seconds: 5));
+        if (!mounted) return;
+        await ref.read(liveTvControllerProvider).syncAllLiveStreams();
+        if (!mounted) return;
+        await Future.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        await ref.read(vodControllerProvider).syncAllVodStreams();
+        if (!mounted) return;
+        await Future.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        await ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      }
     });
   }
 
@@ -231,11 +249,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         // Priority 3: Root Level Exit Confirmation
         final shouldExit = await TvRemoteScope.showTvExitDialog(context);
         if (shouldExit && context.mounted) {
-          if (GoatPlatform.isDesktop) {
-            exit(0);
-          } else {
-            SystemNavigator.pop();
-          }
+          await TvRemoteScope.performExit();
         }
       },
       child: PopScope(
@@ -268,6 +282,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         child: Scaffold(
           resizeToAvoidBottomInset: false,
           appBar: hideChrome ? null : AppBar(
+            toolbarHeight: GoatPlatform.isTv ? 48 : null,
             titleSpacing: isCompact ? 8 : null,
             title: Row(
               mainAxisSize: MainAxisSize.min,
@@ -471,7 +486,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth > 800;
+              final isDesktop = constraints.maxWidth > 800 || GoatPlatform.isTv;
               
               final pages = [
                 isDesktop ? const DesktopLiveScreen() : const MobileLiveCategoriesScreen(),
@@ -485,6 +500,24 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     if (!hideChrome) ...[
                       NavigationRail(
                         selectedIndex: _selectedIndex,
+                        minWidth: GoatPlatform.isTv ? 62 : 72,
+                        unselectedIconTheme: IconThemeData(
+                          size: GoatPlatform.isTv ? 20 : 24,
+                          color: Colors.white60,
+                        ),
+                        selectedIconTheme: IconThemeData(
+                          size: GoatPlatform.isTv ? 20 : 24,
+                          color: const Color(0xFFB388FF),
+                        ),
+                        unselectedLabelTextStyle: TextStyle(
+                          fontSize: GoatPlatform.isTv ? 10.5 : 12,
+                          color: Colors.white60,
+                        ),
+                        selectedLabelTextStyle: TextStyle(
+                          fontSize: GoatPlatform.isTv ? 11 : 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                         onDestinationSelected: (idx) {
                           if (_selectedIndex != idx) {
                             ref.read(dashboardTabResetProvider.notifier).reset();
@@ -493,7 +526,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                           if (_selectedIndex == 0 && idx != 0) {
                             final active = ref.read(playbackControllerProvider);
                             if (active != null && active.streamType == StreamType.live) {
-                              ref.read(playbackControllerProvider.notifier).minimize();
+                              if (GoatPlatform.isTv) {
+                                ref.read(playbackControllerProvider.notifier).stop();
+                              } else {
+                                ref.read(playbackControllerProvider.notifier).minimize();
+                              }
                             }
                           } else if (_selectedIndex != 0 && idx == 0) {
                             final active = ref.read(playbackControllerProvider);
@@ -546,7 +583,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 },
               ),
             ),
-          if (!GoatPlatform.isWeb)
+          if (!GoatPlatform.isWeb && !GoatPlatform.isTv)
             FloatingMiniPlayer(
               onExpandLiveDesktop: () {
                 if (_isSearchOpen) {

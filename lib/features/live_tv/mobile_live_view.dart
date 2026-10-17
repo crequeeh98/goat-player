@@ -445,7 +445,12 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
 
   @override
   void dispose() {
-    if (GoatPlatform.isMobile) {
+    if (GoatPlatform.isTv) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -462,7 +467,12 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
   void _handleMinimize() {
     if (_isMinimizing) return;
     _isMinimizing = true;
-    if (GoatPlatform.isMobile) {
+    if (GoatPlatform.isTv) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -479,7 +489,12 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
   void _handleClose() {
     if (_isMinimizing) return;
     _isMinimizing = true;
-    if (GoatPlatform.isMobile) {
+    if (GoatPlatform.isTv) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,

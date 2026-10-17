@@ -31,9 +31,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final ScrollController _categoryScrollController = ScrollController();
   final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
-  final FocusNode _firstChannelNode = FocusNode();
-  final FocusNode _selectedCategoryNode = FocusNode();
-  final FocusNode _playerNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode(debugLabel: 'category_search');
+  final FocusNode _firstChannelNode = FocusNode(debugLabel: 'first_channel');
+  final FocusNode _selectedCategoryNode = FocusNode(debugLabel: 'selected_category');
+  final FocusNode _playerNode = FocusNode(debugLabel: 'player_preview');
+  final Map<String, FocusNode> _categoryFocusNodes = {};
+  FocusNode? _lastFocusedChannelNode;
+  bool _isSearchInputActive = false;
   final Set<String> _syncedCategories = {};
   bool _focusFirstChannelOnNextBuild = false;
 
@@ -48,8 +52,100 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     _firstChannelNode.dispose();
     _selectedCategoryNode.dispose();
     _playerNode.dispose();
+    _searchFocusNode.dispose();
+    for (final node in _categoryFocusNodes.values) {
+      node.dispose();
+    }
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _focusCategoryColumn() {
+    if (_selectedCategory != null) {
+      final node = _categoryFocusNodes[_selectedCategory];
+      if (node != null && node.canRequestFocus) {
+        node.requestFocus();
+        return;
+      }
+    }
+    if (_selectedCategoryNode.canRequestFocus) {
+      _selectedCategoryNode.requestFocus();
+      return;
+    }
+    // If not currently in view, scroll to active category and focus it
+    final categories = ref.read(liveCategoriesProvider).asData?.value;
+    if (categories != null && _selectedCategory != null) {
+      _scrollToActiveCategory(categories, _selectedCategory);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final node = _categoryFocusNodes[_selectedCategory];
+        if (node != null && node.canRequestFocus) {
+          node.requestFocus();
+        } else if (_selectedCategoryNode.canRequestFocus) {
+          _selectedCategoryNode.requestFocus();
+        }
+      });
+      return;
+    }
+    // Fallback: move focus left or search
+    final moved = FocusScope.of(context).focusInDirection(TraversalDirection.left);
+    if (!moved && _searchFocusNode.canRequestFocus) {
+      _searchFocusNode.requestFocus();
+    }
+  }
+
+  void _focusChannelColumn() {
+    if (_lastFocusedChannelNode != null && _lastFocusedChannelNode!.canRequestFocus) {
+      _lastFocusedChannelNode!.requestFocus();
+      return;
+    }
+    if (_firstChannelNode.canRequestFocus) {
+      _firstChannelNode.requestFocus();
+      return;
+    }
+    final moved = FocusScope.of(context).focusInDirection(TraversalDirection.right);
+    if (!moved && _playerNode.canRequestFocus) {
+      _playerNode.requestFocus();
+    }
+  }
+
+  Future<void> _toggleFavorite(StreamItem stream) async {
+    final acc = ref.read(activeAccountProvider);
+    if (acc == null) return;
+    final isFav = (ref.read(favoriteStreamIdsProvider('live')).value ?? const <String>{}).contains(stream.streamId);
+    await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
+    if (!mounted) return;
+    final cleanTitle = ChannelNameCleaner.clean(stream.name);
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              !isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+              color: !isFav ? Colors.amber : Colors.white70,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                !isFav
+                    ? '$cleanTitle added to Favorites'
+                    : '$cleanTitle removed from Favorites',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E1035),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5)),
+        ),
+      ),
+    );
   }
 
   @override
@@ -88,7 +184,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       _lastScrolledCategoryId = _selectedCategory;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_channelScrollController.hasClients) return;
-        const itemHeight = 64.0;
+        final itemHeight = GoatPlatform.isTv ? 48.0 : 64.0;
         final viewportHeight = _channelScrollController.position.hasViewportDimension
             ? _channelScrollController.position.viewportDimension
             : 600.0;
@@ -111,7 +207,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       _lastCategoryRailScrolledId = activeCatId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_categoryScrollController.hasClients) return;
-        const itemHeight = 46.0;
+        final itemHeight = GoatPlatform.isTv ? 36.0 : 46.0;
         final viewportHeight = _categoryScrollController.position.hasViewportDimension
             ? _categoryScrollController.position.viewportDimension
             : 600.0;
@@ -230,43 +326,112 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: _isFullWidth ? null : AppBar(
-        title: Text(l10n.liveTv),
-      ),
+      appBar: null,
       body: Row(
         children: [
-          // Left Column (20%): Categories
+          // Left Column: Categories
           if (!_isFullWidth)
             Expanded(
-              flex: 20,
+              flex: GoatPlatform.isTv ? 24 : 20,
               child: Container(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Focus(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 6.0 : 8.0),
+                      child: TvFocusable(
+                        focusNode: _searchFocusNode,
+                        focusScale: 1.02,
+                        borderRadius: BorderRadius.circular(10),
+                        onPressed: () {
+                          setState(() => _isSearchInputActive = true);
+                        },
                         onKeyEvent: (node, event) {
-                          if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                               event.logicalKey == LogicalKeyboardKey.enter)) {
-                            FocusScope.of(context).nextFocus();
-                            return KeyEventResult.handled;
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                              _focusCategoryColumn();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                              _focusChannelColumn();
+                              return KeyEventResult.handled;
+                            }
                           }
                           return KeyEventResult.ignored;
                         },
-                        child: TextField(
-                          controller: _searchController,
-                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                          decoration: InputDecoration(
-                            hintText: l10n.search,
-                            prefixIcon: const Icon(Icons.search),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
-                            isDense: true,
-                          ),
-                          onChanged: (val) => setState(() => _searchQuery = val),
-                        ),
+                        child: _isSearchInputActive
+                            ? TextField(
+                                controller: _searchController,
+                                autofocus: true,
+                                style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
+                                decoration: InputDecoration(
+                                  hintText: l10n.search,
+                                  hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14, color: Colors.white54),
+                                  prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22, color: const Color(0xFFB388FF)),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 8 : 12),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController.clear();
+                                        _searchQuery = '';
+                                        _isSearchInputActive = false;
+                                      });
+                                      _searchFocusNode.requestFocus();
+                                    },
+                                  ),
+                                  isDense: true,
+                                ),
+                                onChanged: (val) => setState(() => _searchQuery = val),
+                                onSubmitted: (_) {
+                                  setState(() => _isSearchInputActive = false);
+                                  _focusCategoryColumn();
+                                },
+                              )
+                            : Container(
+                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 8 : 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.search,
+                                      size: GoatPlatform.isTv ? 18 : 20,
+                                      color: _searchQuery.isNotEmpty ? const Color(0xFFB388FF) : Colors.white60,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _searchQuery.isNotEmpty ? _searchQuery : l10n.search,
+                                        style: TextStyle(
+                                          fontSize: GoatPlatform.isTv ? 12 : 13.5,
+                                          color: _searchQuery.isNotEmpty ? Colors.white : Colors.white54,
+                                          fontWeight: _searchQuery.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (_searchQuery.isNotEmpty)
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _searchController.clear();
+                                            _searchQuery = '';
+                                          });
+                                        },
+                                        child: Icon(Icons.close, size: GoatPlatform.isTv ? 14 : 16, color: Colors.white70),
+                                      ),
+                                  ],
+                                ),
+                              ),
                       ),
                     ),
                     Expanded(
@@ -281,7 +446,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           }
                           return ListView.builder(
                             controller: _categoryScrollController,
-                            itemExtent: 46.0,
+                            itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                             itemCount: categories.length,
                             itemBuilder: (context, index) {
                               final cat = categories[index];
@@ -289,16 +454,26 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               final isFavorites = cat.categoryId == 'favorites';
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: GoatPlatform.isTv ? 4 : 6,
+                                  vertical: GoatPlatform.isTv ? 1.5 : 2,
+                                ),
                                 child: TvFocusable(
-                                  focusNode: isSelected ? _selectedCategoryNode : null,
+                                  focusNode: isSelected
+                                      ? _selectedCategoryNode
+                                      : _categoryFocusNodes.putIfAbsent(cat.categoryId, () => FocusNode(debugLabel: 'cat_${cat.categoryId}')),
                                   autofocus: isSelected || (_selectedCategory == null && index == 0),
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
                                   onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                      _firstChannelNode.requestFocus();
-                                      return KeyEventResult.handled;
+                                    if (event is KeyDownEvent) {
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                        _focusChannelColumn();
+                                        return KeyEventResult.handled;
+                                      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
+                                        _searchFocusNode.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
                                     }
                                     return KeyEventResult.ignored;
                                   },
@@ -318,19 +493,22 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                         ),
                                       ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: GoatPlatform.isTv ? 8 : 10,
+                                      vertical: GoatPlatform.isTv ? 4 : 8,
+                                    ),
                                     child: Row(
                                       children: [
                                         Icon(
                                           isFavorites
                                               ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
                                               : (isSelected ? Icons.tv : Icons.folder_outlined),
-                                          size: 18,
+                                          size: GoatPlatform.isTv ? 15 : 18,
                                           color: isFavorites
                                               ? Colors.amber
                                               : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
                                         ),
-                                        const SizedBox(width: 10),
+                                        SizedBox(width: GoatPlatform.isTv ? 8 : 10),
                                         Expanded(
                                           child: Text(
                                             isFavorites ? AppLocalizations.of(context)!.favorites : cat.name,
@@ -339,7 +517,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                             style: TextStyle(
                                               color: isSelected ? Colors.white : Colors.white70,
                                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                              fontSize: 13.5,
+                                              fontSize: GoatPlatform.isTv ? 11.5 : 13.5,
                                             ),
                                           ),
                                         ),
@@ -363,10 +541,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
           if (!_isFullWidth)
             const VerticalDivider(width: 1, thickness: 1),
 
-          // Middle Column (35%): Channels in Category
+          // Middle Column: Channels in Category
           if (!_isFullWidth)
             Expanded(
-              flex: 35,
+              flex: GoatPlatform.isTv ? 38 : 35,
               child: _selectedCategory == null
                   ? Center(
                       child: Column(
@@ -419,7 +597,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         return ListView.builder(
                           controller: _channelScrollController,
                           cacheExtent: 500.0,
-                          itemExtent: 64.0,
+                          itemExtent: GoatPlatform.isTv ? 48.0 : 64.0,
                           itemCount: streams.length,
                           itemBuilder: (context, index) {
                             final stream = streams[index];
@@ -444,16 +622,25 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             }
 
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: GoatPlatform.isTv ? 6 : 8,
+                                vertical: GoatPlatform.isTv ? 2 : 3,
+                              ),
                               child: TvFocusable(
                                 focusNode: index == 0 ? _firstChannelNode : null,
                                 focusScale: 1.02,
                                 borderRadius: BorderRadius.circular(10),
                                 onPressed: () => _playStream(stream),
+                                onLongPress: () => _toggleFavorite(stream),
+                                onFocusChange: (hasF) {
+                                  if (hasF) {
+                                    _lastFocusedChannelNode = index == 0 ? _firstChannelNode : null;
+                                  }
+                                },
                                 onKeyEvent: (node, event) {
                                   if (event is KeyDownEvent) {
                                     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                      _selectedCategoryNode.requestFocus();
+                                      _focusCategoryColumn();
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
                                       _playerNode.requestFocus();
@@ -479,15 +666,18 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                         ? Border.all(color: const Color(0xFFB388FF), width: 1.5)
                                         : Border.all(color: Colors.white.withValues(alpha: 0.05), width: 1),
                                   ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: GoatPlatform.isTv ? 8 : 10,
+                                    vertical: GoatPlatform.isTv ? 4 : 6,
+                                  ),
                                   child: Row(
                                     children: [
                                       ChannelIcon(
                                         iconUrl: stream.streamIcon,
                                         channelName: cleanName,
-                                        size: 40,
+                                        size: GoatPlatform.isTv ? 28 : 40,
                                       ),
-                                      const SizedBox(width: 12),
+                                      SizedBox(width: GoatPlatform.isTv ? 8 : 12),
                                       Expanded(
                                         child: Column(
                                           mainAxisAlignment: MainAxisAlignment.center,
@@ -503,7 +693,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                                     style: TextStyle(
                                                       color: isCurrentPlaying ? Colors.white : Colors.white.withValues(alpha: 0.88),
                                                       fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.w500,
-                                                      fontSize: 14,
+                                                      fontSize: GoatPlatform.isTv ? 11.5 : 14,
                                                     ),
                                                   ),
                                                 ),
@@ -514,25 +704,20 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                       ),
                                       IconButton(
                                         icon: Icon(
-                                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                                            size: 20,
-                                          ),
-                                          color: isFavorite ? Colors.red : Colors.white38,
-                                          onPressed: () async {
-                                            final acc = ref.read(activeAccountProvider);
-                                            if (acc != null) {
-                                              await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
-                                            }
-                                          },
+                                          isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                          size: GoatPlatform.isTv ? 18 : 22,
                                         ),
-                                      ],
-                                    ),
+                                        color: isFavorite ? Colors.amber : Colors.white38,
+                                        onPressed: () => _toggleFavorite(stream),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              );
-                            },
-                          );
-                        },
+                              ),
+                            );
+                          },
+                        );
+                      },
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (err, stack) => Center(child: Text('${AppLocalizations.of(context)!.error}$err')),
                     ),
@@ -541,39 +726,41 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
           if (!_isFullWidth)
             const VerticalDivider(width: 1, thickness: 1),
 
-          // Right Column (45% or 100%): Player & EPG
+          // Right Column: Player & EPG
           Expanded(
-            flex: _isFullWidth ? 100 : 45,
+            flex: _isFullWidth ? 100 : (GoatPlatform.isTv ? 38 : 45),
             child: Column(
               children: [
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
                   child: currentLive != null
-                      ? TvFocusable(
-                          focusNode: _playerNode,
-                          borderRadius: BorderRadius.zero,
-                          focusScale: 1.0,
-                          focusBorderColor: Colors.transparent,
-                          glowColor: Colors.transparent,
-                          onPressed: () {
-                            ref.read(isLiveFullWidthProvider.notifier).toggle();
-                          },
-                          onKeyEvent: (node, event) {
-                            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                              _firstChannelNode.requestFocus();
-                              return KeyEventResult.handled;
-                            }
-                            return KeyEventResult.ignored;
-                          },
-                          child: VideoPreview(
-                            key: _videoPreviewKey,
-                            streamUrl: currentLive.streamUrl,
-                            streamId: currentLive.streamId,
-                            channelId: currentLive.channelId,
-                            channelName: currentLive.title,
-                            isFullWidth: _isFullWidth,
-                            streams: currentCategoryStreams,
-                            categoryName: categoryName,
+                      ? Padding(
+                          padding: _isFullWidth ? EdgeInsets.zero : const EdgeInsets.all(4.0),
+                          child: TvFocusable(
+                            focusNode: _playerNode,
+                            borderRadius: _isFullWidth ? BorderRadius.zero : BorderRadius.circular(12),
+                            focusScale: _isFullWidth ? 1.0 : 1.01,
+                            focusBorderColor: _isFullWidth ? Colors.transparent : const Color(0xFFB388FF),
+                            glowColor: _isFullWidth ? Colors.transparent : const Color(0x33B388FF),
+                            onPressed: () {
+                              ref.read(isLiveFullWidthProvider.notifier).toggle();
+                            },
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                _focusChannelColumn();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: VideoPreview(
+                              key: _videoPreviewKey,
+                              streamUrl: currentLive.streamUrl,
+                              streamId: currentLive.streamId,
+                              channelId: currentLive.channelId,
+                              channelName: currentLive.title,
+                              isFullWidth: _isFullWidth,
+                              streams: currentCategoryStreams,
+                              categoryName: categoryName,
                             onSelectStream: _playStream,
                             onZapNext: () => _zapNext(currentCategoryStreams),
                             onZapPrevious: () => _zapPrevious(currentCategoryStreams),
@@ -587,16 +774,17 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
                             },
                           ),
-                        )
+                        ),
+                      )
                       : Container(
                           color: Colors.black45,
                           child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.tv, size: 64, color: Colors.white24),
-                                const SizedBox(height: 16),
-                                Text(AppLocalizations.of(context)!.selectChannel, style: const TextStyle(color: Colors.white54)),
+                                Icon(Icons.tv, size: GoatPlatform.isTv ? 40 : 64, color: Colors.white24),
+                                const SizedBox(height: 12),
+                                Text(AppLocalizations.of(context)!.selectChannel, style: TextStyle(color: Colors.white54, fontSize: GoatPlatform.isTv ? 12 : 14)),
                               ],
                             ),
                           ),
@@ -609,15 +797,19 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                   flex: 50,
                   child: Container(
                     color: Theme.of(context).colorScheme.surface,
-                    padding: const EdgeInsets.all(16.0),
+                    padding: EdgeInsets.all(GoatPlatform.isTv ? 10.0 : 16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           AppLocalizations.of(context)!.epgSchedule,
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: TextStyle(
+                            fontSize: GoatPlatform.isTv ? 14 : 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: GoatPlatform.isTv ? 8 : 16),
                         // EPG Timeline
                         Expanded(
                           child: EpgTimelineWidget(channelId: currentLive?.channelId),

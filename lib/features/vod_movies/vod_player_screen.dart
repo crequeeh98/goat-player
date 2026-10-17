@@ -639,7 +639,12 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
   @override
   void dispose() {
-    if (GoatPlatform.isMobile) {
+    if (GoatPlatform.isTv) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -661,6 +666,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
   void _handleMinimize() {
     if (_isClosing) return;
+    if (GoatPlatform.isTv) {
+      _handleClose();
+      return;
+    }
     _restoreVolume();
     
     final shouldKeepPlaying = _wasPlayingBeforeMinimize;

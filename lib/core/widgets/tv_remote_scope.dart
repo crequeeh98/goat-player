@@ -26,79 +26,96 @@ class TvRemoteScope extends ConsumerStatefulWidget {
     this.onBackAtRoot,
   });
 
+  static bool _isExitDialogOpen = false;
+
   static Future<bool> showTvExitDialog(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    final confirmExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1B1528),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-          title: Row(
-            children: [
-              const Icon(Icons.exit_to_app, color: Color(0xFFB388FF), size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  l10n?.exitApp ?? 'Exit GOATPlayer',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            l10n?.localeName == 'de'
-                ? 'Möchtest du GOATPlayer wirklich beenden?'
-                : 'Are you sure you want to exit GOATPlayer?',
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
-          ),
-          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          actions: [
-            Row(
+    if (_isExitDialogOpen) return false;
+    _isExitDialogOpen = true;
+    try {
+      final l10n = AppLocalizations.of(context);
+      final confirmExit = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1B1528),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            title: Row(
               children: [
-                Expanded(
-                  child: TvFocusable(
-                    autofocus: true,
-                    borderRadius: BorderRadius.circular(8),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: Center(
-                      child: Text(
-                        l10n?.cancel ?? (l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel'),
-                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                    ),
-                  ),
-                ),
+                const Icon(Icons.exit_to_app, color: Color(0xFFB388FF), size: 28),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TvFocusable(
-                    borderRadius: BorderRadius.circular(8),
-                    focusBorderColor: Colors.redAccent,
-                    glowColor: const Color(0x33FF5252),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    child: Center(
-                      child: Text(
-                        l10n?.localeName == 'de' ? 'Beenden' : 'Exit',
-                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                    ),
+                  child: Text(
+                    l10n?.exitApp ?? 'Exit GOATPlayer',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-          ],
-        );
-      },
-    );
+            content: Text(
+              l10n?.localeName == 'de'
+                  ? 'Möchtest du GOATPlayer wirklich beenden?'
+                  : 'Are you sure you want to exit GOATPlayer?',
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TvFocusable(
+                      autofocus: true,
+                      borderRadius: BorderRadius.circular(8),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: Center(
+                        child: Text(
+                          l10n?.cancel ?? (l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel'),
+                          style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TvFocusable(
+                      borderRadius: BorderRadius.circular(8),
+                      focusBorderColor: Colors.redAccent,
+                      glowColor: const Color(0x33FF5252),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: Center(
+                        child: Text(
+                          l10n?.localeName == 'de' ? 'Beenden' : 'Exit',
+                          style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      );
 
-    return confirmExit ?? false;
+      return confirmExit ?? false;
+    } finally {
+      _isExitDialogOpen = false;
+    }
+  }
+
+  static Future<void> performExit() async {
+    if (GoatPlatform.isDesktop) {
+      exit(0);
+    } else {
+      await SystemNavigator.pop(animated: true);
+      Future.delayed(const Duration(milliseconds: 250), () => exit(0));
+    }
   }
 
   @override
@@ -189,11 +206,7 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
   void _promptExit() async {
     final shouldExit = await TvRemoteScope.showTvExitDialog(context);
     if (shouldExit && mounted) {
-      if (GoatPlatform.isDesktop) {
-        exit(0);
-      } else {
-        SystemNavigator.pop();
-      }
+      await TvRemoteScope.performExit();
     }
   }
 

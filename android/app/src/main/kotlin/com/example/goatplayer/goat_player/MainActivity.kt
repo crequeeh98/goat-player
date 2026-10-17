@@ -19,6 +19,14 @@ class MainActivity : FlutterActivity() {
                 "getSupportedAbis" -> {
                     result.success(Build.SUPPORTED_ABIS.toList())
                 }
+                "isTvDevice" -> {
+                    val uiModeManager = getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+                    val isTv = uiModeManager?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+                        || packageManager.hasSystemFeature("android.software.leanback")
+                        || packageManager.hasSystemFeature("android.hardware.type.television")
+                        || packageManager.hasSystemFeature("amazon.hardware.fire_tv")
+                    result.success(isTv)
+                }
                 "installApk" -> {
                     val filePath = call.argument<String>("filePath")
                     if (filePath == null) {

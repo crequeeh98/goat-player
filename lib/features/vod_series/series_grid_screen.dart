@@ -8,6 +8,7 @@ import 'series_controller.dart';
 import '../dashboard/widgets/continue_watching_rail.dart';
 import '../dashboard/dashboard_state.dart';
 import '../../core/widgets/tv_focusable.dart';
+import '../../core/utils/platform_utils.dart';
 
 class SeriesGridScreen extends ConsumerStatefulWidget {
   const SeriesGridScreen({super.key});
@@ -37,7 +38,9 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
     super.initState();
     Future.microtask(() {
       ref.read(seriesControllerProvider).syncSeriesCategories();
-      ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      if (!GoatPlatform.isTv) {
+        ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      }
     });
   }
 
@@ -120,13 +123,13 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                             child: ContinueWatchingRail(type: 'series'),
                           ),
                         SliverPadding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(GoatPlatform.isTv ? 10 : 16),
                           sliver: SliverGrid(
                             gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: isDesktop ? 200 : 150,
+                              maxCrossAxisExtent: GoatPlatform.isTv ? 130 : (isDesktop ? 200 : 150),
                               childAspectRatio: 2 / 3,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
+                              crossAxisSpacing: GoatPlatform.isTv ? 10 : 16,
+                              mainAxisSpacing: GoatPlatform.isTv ? 10 : 16,
                             ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
@@ -206,10 +209,10 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                           right: 8,
                                           child: Text(
                                             stream.name,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 12,
+                                              fontSize: GoatPlatform.isTv ? 10.5 : 12,
                                             ),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
@@ -236,10 +239,14 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
           if (isDesktop) {
             return Scaffold(
               appBar: AppBar(
+                toolbarHeight: GoatPlatform.isTv ? 46 : null,
                 title: Row(
                   children: [
-                    Text(l10n.series),
-                    const SizedBox(width: 24),
+                    Text(
+                      l10n.series,
+                      style: TextStyle(fontSize: GoatPlatform.isTv ? 15 : null),
+                    ),
+                    SizedBox(width: GoatPlatform.isTv ? 16 : 24),
                     Expanded(
                       child: Focus(
                         onKeyEvent: (node, event) {
@@ -254,16 +261,19 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                         child: TextField(
                           controller: _searchController,
                           onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                          style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
                           decoration: InputDecoration(
                             hintText: l10n.searchSeries,
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                            hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14, color: Colors.white54),
+                            prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22),
+                            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear, size: GoatPlatform.isTv ? 16 : 20), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(30),
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 6 : 12),
+                            isDense: true,
                           ),
                           onChanged: (val) => setState(() => _searchQuery = val),
                         ),
@@ -273,7 +283,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                 ),
                 actions: [
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.sort),
+                    icon: Icon(Icons.sort, size: GoatPlatform.isTv ? 20 : 24),
                     tooltip: l10n.sortSeries,
                     onSelected: (val) => setState(() => _sortMode = val),
                     itemBuilder: (context) => [
@@ -288,13 +298,13 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
               body: Row(
                 children: [
                   Expanded(
-                    flex: 20,
+                    flex: GoatPlatform.isTv ? 24 : 20,
                     child: Container(
                       color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
                       child: ref.watch(seriesCategoriesProvider).when(
                         data: (categories) {
                           return ListView.builder(
-                            itemExtent: 46.0,
+                            itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                             itemCount: categories.length,
                             itemBuilder: (context, index) {
                               final cat = categories[index];
@@ -302,7 +312,10 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                               final isFavorites = cat.categoryId == 'favorites';
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: GoatPlatform.isTv ? 4 : 6,
+                                  vertical: GoatPlatform.isTv ? 1.5 : 2,
+                                ),
                                 child: TvFocusable(
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
@@ -331,19 +344,22 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                         ),
                                       ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: GoatPlatform.isTv ? 8 : 10,
+                                      vertical: GoatPlatform.isTv ? 4 : 8,
+                                    ),
                                     child: Row(
                                       children: [
                                         Icon(
                                           isFavorites
                                               ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
                                               : (isSelected ? Icons.tv : Icons.folder_outlined),
-                                          size: 18,
+                                          size: GoatPlatform.isTv ? 15 : 18,
                                           color: isFavorites
                                               ? Colors.amber
                                               : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
                                         ),
-                                        const SizedBox(width: 10),
+                                        SizedBox(width: GoatPlatform.isTv ? 8 : 10),
                                         Expanded(
                                           child: Text(
                                             isFavorites ? l10n.favorites : cat.name,
@@ -352,7 +368,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                             style: TextStyle(
                                               color: isSelected ? Colors.white : Colors.white70,
                                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                              fontSize: 13.5,
+                                              fontSize: GoatPlatform.isTv ? 11.5 : 13.5,
                                             ),
                                           ),
                                         ),

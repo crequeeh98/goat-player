@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -91,6 +92,8 @@ class _TvFocusableState extends State<TvFocusable> {
   bool _isHovered = false;
   bool _isFocused = false;
   bool _handledKeyDown = false;
+  Timer? _longPressTimer;
+  bool _isLongPressTriggered = false;
 
   FocusNode get _effectiveNode => widget.focusNode ?? (_internalNode ??= FocusNode());
 
@@ -119,6 +122,7 @@ class _TvFocusableState extends State<TvFocusable> {
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     TvInputModeManager.instance.isKeyboardMode.removeListener(_handleInputModeChange);
     _effectiveNode.removeListener(_handleFocusChange);
     if (widget.focusNode == null) {
@@ -135,6 +139,11 @@ class _TvFocusableState extends State<TvFocusable> {
 
   void _handleFocusChange() {
     final hasFocus = _effectiveNode.hasFocus;
+    if (!hasFocus) {
+      _longPressTimer?.cancel();
+      _isLongPressTriggered = false;
+      _handledKeyDown = false;
+    }
     setState(() => _isFocused = hasFocus);
     widget.onFocusChange?.call(hasFocus);
 
@@ -160,7 +169,20 @@ class _TvFocusableState extends State<TvFocusable> {
       }
     }
 
-    if (!widget.enabled || widget.onPressed == null) {
+    if (!widget.enabled) {
+      return KeyEventResult.ignored;
+    }
+
+    // Support Fire TV remote Menu / ContextMenu button directly for onLongPress actions
+    if (event.logicalKey == LogicalKeyboardKey.contextMenu) {
+      if (event is KeyDownEvent && widget.onLongPress != null) {
+        widget.onLongPress!();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    if (widget.onPressed == null && widget.onLongPress == null) {
       return KeyEventResult.ignored;
     }
 
@@ -171,18 +193,45 @@ class _TvFocusableState extends State<TvFocusable> {
         event.logicalKey == LogicalKeyboardKey.gameButtonA;
 
     if (isSelectKey) {
-      if (event is KeyDownEvent) {
-        _handledKeyDown = true;
-        widget.onPressed!();
-        return KeyEventResult.handled;
-      } else if (event is KeyUpEvent) {
-        if (_handledKeyDown) {
-          _handledKeyDown = false;
+      if (widget.onLongPress != null) {
+        if (event is KeyDownEvent) {
+          _handledKeyDown = true;
+          _isLongPressTriggered = false;
+          _longPressTimer?.cancel();
+          _longPressTimer = Timer(const Duration(milliseconds: 500), () {
+            if (mounted && _effectiveNode.hasFocus) {
+              _isLongPressTriggered = true;
+              widget.onLongPress?.call();
+            }
+          });
           return KeyEventResult.handled;
-        } else {
-          // KeyDown was swallowed or omitted by TV browser
-          widget.onPressed!();
+        } else if (event is KeyRepeatEvent) {
           return KeyEventResult.handled;
+        } else if (event is KeyUpEvent) {
+          _longPressTimer?.cancel();
+          if (_handledKeyDown) {
+            _handledKeyDown = false;
+            if (!_isLongPressTriggered) {
+              widget.onPressed?.call();
+            }
+            _isLongPressTriggered = false;
+            return KeyEventResult.handled;
+          }
+        }
+      } else {
+        if (event is KeyDownEvent) {
+          _handledKeyDown = true;
+          widget.onPressed?.call();
+          return KeyEventResult.handled;
+        } else if (event is KeyUpEvent) {
+          if (_handledKeyDown) {
+            _handledKeyDown = false;
+            return KeyEventResult.handled;
+          } else {
+            // KeyDown was swallowed or omitted by TV browser
+            widget.onPressed?.call();
+            return KeyEventResult.handled;
+          }
         }
       }
     }

@@ -37,11 +37,6 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    Future.microtask(() {
-      ref.read(liveTvControllerProvider).syncAllLiveStreams();
-      ref.read(vodControllerProvider).syncAllVodStreams();
-      ref.read(seriesControllerProvider).syncAllSeriesStreams();
-    });
   }
 
   @override
@@ -169,21 +164,26 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
           itemBuilder: (context, index) {
             final stream = streams[index];
             return ListTile(
+              dense: GoatPlatform.isTv,
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: GoatPlatform.isTv ? 2 : 4),
               leading: stream.streamIcon != null && stream.streamIcon!.isNotEmpty
                   ? Image.network(
                       stream.streamIcon!,
-                      width: 50,
-                      height: 50,
+                      width: GoatPlatform.isTv ? 34 : 50,
+                      height: GoatPlatform.isTv ? 34 : 50,
                       fit: BoxFit.cover,
-                      cacheWidth: 100,
-                      cacheHeight: 100,
-                      errorBuilder: (_,__,___) => const Icon(Icons.tv),
+                      cacheWidth: GoatPlatform.isTv ? 68 : 100,
+                      cacheHeight: GoatPlatform.isTv ? 68 : 100,
+                      errorBuilder: (_,__,___) => Icon(Icons.tv, size: GoatPlatform.isTv ? 24 : 32),
                     )
-                  : const Icon(Icons.tv),
+                  : Icon(Icons.tv, size: GoatPlatform.isTv ? 24 : 32),
               title: Text(
                 type == 'live' ? ChannelNameCleaner.clean(stream.name) : stream.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: GoatPlatform.isTv ? 12.5 : 14,
+                ),
               ),
               subtitle: Text(
                 type.toUpperCase(),
