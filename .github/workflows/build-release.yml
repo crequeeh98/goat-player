@@ -239,6 +239,18 @@ jobs:
           body: |
             ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
 
+            ### 🇬🇧 What's New
+            - **Windows Updater**: Fixed update loop; target version is now reliably saved in `version.txt`.
+            - **Rich Changelog**: Full markdown support with headers, styled bullet points, and bold text.
+            - **Smart TV (Samsung & LG)**: Native 16:9 aspect ratio fix for SD streams and improved active OTA version tracking.
+            - **Stability**: Consistent version synchronization across Android, Windows, and Smart TV.
+
+            ### 🇩🇪 Neuerungen
+            - **Windows Updater**: Update-Schleife behoben; Zielversion wird nun zuverlässig in `version.txt` gesichert.
+            - **Formatierte Versionshinweise**: Markdown-Unterstützung mit Überschriften, Listenpunkten und Fettschrift.
+            - **Smart TV (Samsung & LG)**: 16:9-Korrektur für SD-Sender und verbesserte OTA-Versionsanzeige.
+            - **Stabilität**: Einheitliche Versionsverwaltung für alle Plattformen.
+
             ### 📦 Download Links
             - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)
             - **Amazon Fire TV & TV Sticks (32-Bit ARM)**: [`GOATPlayer-armeabi-v7a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-armeabi-v7a.apk)

@@ -29,26 +29,25 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        create("release") {
-            val keystoreFile = file("goat_keystore.jks")
-            if (keystoreFile.exists()) {
+    val keystoreFile = file("goat_keystore.jks")
+    if (keystoreFile.exists()) {
+        signingConfigs {
+            create("release") {
                 storeFile = keystoreFile
                 storePassword = "goatplayer123"
                 keyAlias = "goatkey"
                 keyPassword = "goatplayer123"
-            } else {
-                storeFile = signingConfigs.getByName("debug").storeFile
-                storePassword = signingConfigs.getByName("debug").storePassword
-                keyAlias = signingConfigs.getByName("debug").keyAlias
-                keyPassword = signingConfigs.getByName("debug").keyPassword
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (keystoreFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
