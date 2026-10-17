@@ -55,7 +55,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
       if (!mounted) return;
 
-      await widget.updaterService.installUpdate(downloadedPath);
+      await widget.updaterService.installUpdate(downloadedPath, widget.updateInfo.latestVersion);
     } catch (e) {
       if (mounted) {
         final isGerman = Localizations.localeOf(context).languageCode == 'de';
@@ -164,10 +164,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   border: Border.all(color: Colors.white10),
                 ),
                 child: SingleChildScrollView(
-                  child: Text(
-                    widget.updateInfo.releaseNotes,
-                    style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.white70),
-                  ),
+                  child: _buildMarkdownContent(widget.updateInfo.releaseNotes),
                 ),
               ),
               const SizedBox(height: 16),
@@ -254,6 +251,114 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMarkdownContent(String rawMarkdown) {
+    final lines = rawMarkdown.replaceAll('\r\n', '\n').split('\n');
+    final widgets = <Widget>[];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trimRight();
+      if (line.trim().isEmpty) {
+        widgets.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      // Headers: #, ##, ###
+      if (line.startsWith('### ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            line.substring(4).trim(),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ));
+      } else if (line.startsWith('## ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: Text(
+            line.substring(3).trim(),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ));
+      } else if (line.startsWith('# ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 6),
+          child: Text(
+            line.substring(2).trim(),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ));
+      } else if (line.trimLeft().startsWith('- ') ||
+          line.trimLeft().startsWith('* ') ||
+          line.trimLeft().startsWith('• ')) {
+        // Bullet item
+        final trimmed = line.trimLeft();
+        final content = trimmed.substring(2).trim();
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.5),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 5, right: 8),
+                child: Icon(Icons.circle, size: 5, color: Colors.deepPurpleAccent),
+              ),
+              Expanded(
+                child: _buildRichText(content),
+              ),
+            ],
+          ),
+        ));
+      } else {
+        // Normal paragraph line
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: _buildRichText(line),
+        ));
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
+  Widget _buildRichText(String text) {
+    // Parse bold text **bold**
+    final spans = <InlineSpan>[];
+    final parts = text.split('**');
+
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isEmpty) continue;
+      final isBold = i % 2 == 1;
+      spans.add(TextSpan(
+        text: parts[i],
+        style: TextStyle(
+          fontSize: 13,
+          height: 1.4,
+          color: isBold ? Colors.white : Colors.white70,
+          fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+        ),
+      ));
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
     );
   }
 }

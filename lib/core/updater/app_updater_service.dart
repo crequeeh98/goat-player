@@ -44,7 +44,23 @@ class AppUpdaterService {
   Future<AppUpdateInfo?> checkForUpdate() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = Platform.isWindows ? '1.2.0' : packageInfo.version;
+      String currentVersion = packageInfo.version;
+
+      if (Platform.isWindows) {
+        // Read version from app manifest or package_version.txt if packaged
+        try {
+          final exeDir = File(Platform.resolvedExecutable).parent;
+          final versionFile = File('${exeDir.path}${Platform.pathSeparator}version.txt');
+          if (versionFile.existsSync()) {
+            final fileVer = versionFile.readAsStringSync().trim();
+            if (fileVer.isNotEmpty) {
+              currentVersion = fileVer;
+            }
+          } else if (packageInfo.version.isNotEmpty && packageInfo.version != '0.0.0') {
+            currentVersion = packageInfo.version;
+          }
+        } catch (_) {}
+      }
 
       final response = await _dio.get(
         'https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest',
@@ -116,25 +132,27 @@ class AppUpdaterService {
   }
 
   /// Installs the downloaded update file.
-  Future<void> installUpdate(String filePath) async {
+  Future<void> installUpdate(String filePath, [String? newVersion]) async {
     if (Platform.isAndroid) {
       await _androidChannel.invokeMethod('installApk', {'filePath': filePath});
     } else if (Platform.isWindows) {
-      await _installWindowsUpdate(filePath);
+      await _installWindowsUpdate(filePath, newVersion);
     }
   }
 
-  Future<void> _installWindowsUpdate(String zipPath) async {
+  Future<void> _installWindowsUpdate(String zipPath, [String? newVersion]) async {
     final currentExe = Platform.resolvedExecutable;
     final targetDir = File(currentExe).parent.path;
     final tempDir = await getTemporaryDirectory();
     final scriptPath = '${tempDir.path}${Platform.pathSeparator}update_runner.ps1';
 
+    final versionArg = newVersion ?? '';
+
     final scriptContent = '''
-param(\$AppPid, \$TargetDir, \$ZipPath)
+param(\$AppPid, \$TargetDir, \$ZipPath, \$NewVersion)
 
 \$LogFile = Join-Path \$env:TEMP "goat_updater.log"
-"[" + (Get-Date).ToString("yyyy-MM-dd HH:mm:ss") + "] Updater started. PID=\$AppPid, TargetDir=\$TargetDir" | Out-File \$LogFile -Encoding utf8
+"[" + (Get-Date).ToString("yyyy-MM-dd HH:mm:ss") + "] Updater started. PID=\$AppPid, TargetDir=\$TargetDir, NewVersion=\$NewVersion" | Out-File \$LogFile -Encoding utf8
 
 if (\$AppPid) {
     Wait-Process -Id \$AppPid -Timeout 15 -ErrorAction SilentlyContinue
@@ -159,6 +177,14 @@ for (\$i = 1; \$i -le 6; \$i++) {
 
 if (\$extracted) {
     Remove-Item -Path \$ZipPath -Force -ErrorAction SilentlyContinue
+    if (\$NewVersion) {
+        try {
+            Set-Content -Path (Join-Path \$TargetDir "version.txt") -Value \$NewVersion -Encoding utf8
+            "Updated version.txt to \$NewVersion" | Out-File \$LogFile -Append -Encoding utf8
+        } catch {
+            "Failed to write version.txt: \$_" | Out-File \$LogFile -Append -Encoding utf8
+        }
+    }
     \$exe = Join-Path \$TargetDir "goat_player.exe"
     "Relaunching \$exe..." | Out-File \$LogFile -Append -Encoding utf8
     try {
@@ -191,6 +217,7 @@ if (\$extracted) {
         pid.toString(),
         targetDir,
         zipPath,
+        versionArg,
       ],
       mode: ProcessStartMode.detached,
     );
@@ -247,8 +274,10 @@ if (\$extracted) {
 
   static bool isNewer(String current, String latest) {
     try {
-      final cParts = current.split('+').first.split('.').map(int.parse).toList();
-      final lParts = latest.split('+').first.split('.').map(int.parse).toList();
+      final cleanCurrent = current.trim().startsWith('v') ? current.trim().substring(1) : current.trim();
+      final cleanLatest = latest.trim().startsWith('v') ? latest.trim().substring(1) : latest.trim();
+      final cParts = cleanCurrent.split('+').first.split('.').map(int.parse).toList();
+      final lParts = cleanLatest.split('+').first.split('.').map(int.parse).toList();
 
       for (int i = 0; i < 3; i++) {
         final c = i < cParts.length ? cParts[i] : 0;

@@ -2,12 +2,25 @@
 (function() {
   'use strict';
 
-  var CURRENT_VERSION = '1.2.0';
+  var CURRENT_VERSION = '1.2.1';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
   var _pendingUpdate = null;
   var _isUpdating = false;
+
+  function getActiveVersion() {
+    try {
+      var saved = localStorage.getItem(OTA_STORAGE_KEY);
+      if (saved) {
+        var otaBundle = JSON.parse(saved);
+        if (otaBundle && otaBundle.version) {
+          return otaBundle.version;
+        }
+      }
+    } catch (_) {}
+    return CURRENT_VERSION;
+  }
 
   function isNewer(current, latest) {
     try {
@@ -39,17 +52,7 @@
         var latestTag = data.tag_name.trim();
         var latestVer = latestTag.replace(/^v/, '');
 
-        var activeVer = CURRENT_VERSION;
-        var otaBundle = null;
-        try {
-          var saved = localStorage.getItem(OTA_STORAGE_KEY);
-          if (saved) {
-            otaBundle = JSON.parse(saved);
-            if (otaBundle && otaBundle.version) {
-              activeVer = otaBundle.version;
-            }
-          }
-        } catch (_) {}
+        var activeVer = getActiveVersion();
 
         if (isNewer(activeVer, latestVer)) {
           _pendingUpdate = {
@@ -273,7 +276,7 @@
   window.TVUpdater = {
     init: init,
     checkForUpdates: checkForUpdates,
-    getVersion: function() { return CURRENT_VERSION; }
+    getVersion: getActiveVersion
   };
 
   if (document.readyState === 'loading') {
