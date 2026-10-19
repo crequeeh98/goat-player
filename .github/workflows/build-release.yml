@@ -240,16 +240,14 @@ jobs:
             ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
 
             ### 🇬🇧 What's New
-            - **Windows Updater**: Fixed update loop; target version is now reliably saved in `version.txt`.
-            - **Rich Changelog**: Full markdown support with headers, styled bullet points, and bold text.
-            - **Smart TV (Samsung & LG)**: Native 16:9 aspect ratio fix for SD streams and improved active OTA version tracking.
-            - **Stability**: Consistent version synchronization across Android, Windows, and Smart TV.
+            - **Smart TV Subtitles**: Optimized subtitle font size (42px) and weight (700 bold) for ideal living-room readability on Samsung Tizen and LG webOS.
+            - **Smart TV Performance**: Preserved larger UI text hierarchy while keeping subtitles balanced and non-intrusive.
+            - **Platform Consistency**: Synchronized v1.2.3 across Android, Windows, and Smart TV.
 
             ### 🇩🇪 Neuerungen
-            - **Windows Updater**: Update-Schleife behoben; Zielversion wird nun zuverlässig in `version.txt` gesichert.
-            - **Formatierte Versionshinweise**: Markdown-Unterstützung mit Überschriften, Listenpunkten und Fettschrift.
-            - **Smart TV (Samsung & LG)**: 16:9-Korrektur für SD-Sender und verbesserte OTA-Versionsanzeige.
-            - **Stabilität**: Einheitliche Versionsverwaltung für alle Plattformen.
+            - **Smart TV Untertitel**: Optimierte Schriftgröße (42px) und Fettschrift (700) für perfekte Lesbarkeit im Wohnzimmer auf Samsung Tizen und LG webOS.
+            - **Smart TV Benutzeroberfläche**: Textskalierung beibehalten, während Untertitel harmonisch und unaufdringlich eingeblendet werden.
+            - **Plattform-Konsistenz**: Synchronisierte Version 1.2.3 für Android, Windows und Smart TV.
 
             ### 📦 Download Links
             - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)
