@@ -1240,12 +1240,12 @@ body.hud-active .player-subtitle-overlay,
 .player-subtitle-text {
   display: inline-block;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 32px;
+  font-size: 42px;
   line-height: 1.35;
   font-weight: 600;
   color: #FFFFFF;
   text-align: center;
-  padding: 6px 16px;
+  padding: 8px 20px;
   background: rgba(0, 0, 0, 0.76);
   border-radius: 8px;
   max-width: 85%;
@@ -1281,7 +1281,7 @@ body.hud-active .player-subtitle-overlay,
   right: 4%;
 }
 #player-container.mode-preview .player-subtitle-text {
-  font-size: 16px;
+  font-size: 18px;
   padding: 3px 8px;
   border-radius: 4px;
 }
@@ -1289,7 +1289,7 @@ body.hud-active .player-subtitle-overlay,
 /* Native text track cue styling fallback */
 video::cue,
 ::cue {
-  font-size: 32px;
+  font-size: 42px;
   background-color: rgba(0, 0, 0, 0.76);
   color: #FFFFFF;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
