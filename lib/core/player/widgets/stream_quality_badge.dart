@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -23,7 +24,8 @@ class StreamQualityBadges extends StatefulWidget {
 class _StreamQualityBadgesState extends State<StreamQualityBadges> {
   StreamSubscription? _videoParamsSub;
   StreamSubscription? _tracksSub;
-  Timer? _fpsPollTimer;
+  Timer? _fpsPollTimer1;
+  Timer? _fpsPollTimer2;
 
   int? _width;
   int? _height;
@@ -55,7 +57,8 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
   void _cancelSubscriptions() {
     _videoParamsSub?.cancel();
     _tracksSub?.cancel();
-    _fpsPollTimer?.cancel();
+    _fpsPollTimer1?.cancel();
+    _fpsPollTimer2?.cancel();
   }
 
   void _initQualityFromPlayer() {
@@ -71,6 +74,7 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
     _height = vp.h;
 
     _updateAudioFromTracks(player.state.tracks);
+    _updateFpsFromTracks(player.state.tracks);
     _queryMpvProperties();
 
     // 2. Listen to dynamic changes
@@ -87,77 +91,137 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
     _tracksSub = player.stream.tracks.listen((tracks) {
       if (mounted) {
         _updateAudioFromTracks(tracks);
+        _updateFpsFromTracks(tracks);
+        _queryMpvProperties();
       }
     });
 
-    // 3. Poll FPS & HDR properties 1s and 2s after playback starts
-    _fpsPollTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        _queryMpvProperties();
-      }
+    // 3. Poll asynchronous MPV properties after demuxing settles (600ms and 1800ms)
+    _fpsPollTimer1 = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) _queryMpvProperties();
+    });
+    _fpsPollTimer2 = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) _queryMpvProperties();
     });
 
     // Fallback parsing from title if player hasn't resolved stream details yet
     _parseFromTitle();
   }
 
-  void _updateAudioFromTracks(Tracks tracks) {
-    final activeAudio = widget.player?.state.track.audio ?? tracks.audio.firstOrNull;
-    if (activeAudio == null) return;
-
-    final chStr = activeAudio.channels?.toString();
-    final channels = int.tryParse(chStr ?? '');
-    final title = (activeAudio.title ?? '').toLowerCase();
-
-    String? detectedAudio;
-    if (title.contains('atmos')) {
-      detectedAudio = 'Atmos';
-    } else if (channels != null && channels >= 8) {
-      detectedAudio = '7.1';
-    } else if (channels != null && channels >= 6) {
-      detectedAudio = '5.1';
-    } else if (title.contains('5.1') || title.contains('surround') || title.contains('ac3') || title.contains('eac3')) {
-      detectedAudio = '5.1';
-    }
-
-    if (detectedAudio != null && detectedAudio != _audio) {
-      setState(() => _audio = detectedAudio);
+  void _updateFpsFromTracks(Tracks tracks) {
+    if (_fps != null && _fps! >= 15.0) return;
+    final realVideo = tracks.video.where((t) => t.id != 'auto' && t.id != 'no').toList();
+    final selectedId = widget.player?.state.track.video.id;
+    final activeVideo = realVideo.firstWhereOrNull((t) => t.id == selectedId) ?? realVideo.firstOrNull;
+    if (activeVideo != null && activeVideo.fps != null && activeVideo.fps! >= 15.0) {
+      setState(() => _fps = activeVideo.fps);
     }
   }
 
-  void _queryMpvProperties() {
+  void _updateAudioFromTracks(Tracks tracks) {
+    final realAudio = tracks.audio.where((t) => t.id != 'auto' && t.id != 'no').toList();
+    final selectedId = widget.player?.state.track.audio.id;
+    final activeAudio = realAudio.firstWhereOrNull((t) => t.id == selectedId) ?? realAudio.firstOrNull;
+    if (activeAudio == null) return;
+
+    _detectAudio(
+      codec: activeAudio.codec,
+      channelsStr: activeAudio.channels,
+      title: activeAudio.title,
+      channelCount: activeAudio.channelscount ?? activeAudio.audiochannels,
+    );
+  }
+
+  void _detectAudio({String? codec, String? channelsStr, String? title, int? channelCount}) {
+    final c = (codec ?? '').toLowerCase();
+    final ch = (channelsStr ?? '').toLowerCase();
+    final t = (title ?? '').toLowerCase();
+
+    String? label;
+    final isAtmos = c.contains('atmos') || t.contains('atmos') || ch.contains('atmos');
+    final isDolby = c.contains('ac3') ||
+        c.contains('eac3') ||
+        c.contains('truehd') ||
+        c.contains('dolby') ||
+        t.contains('dolby') ||
+        t.contains('ac3') ||
+        t.contains('dd+');
+    final isDts = c.contains('dts') || t.contains('dts');
+
+    final isSurround = (channelCount != null && channelCount >= 6) ||
+        ch.contains('5.1') ||
+        ch.contains('7.1') ||
+        ch.contains('surround') ||
+        ch.contains('6ch') ||
+        t.contains('5.1') ||
+        t.contains('7.1') ||
+        t.contains('surround');
+
+    if (isAtmos) {
+      label = 'Atmos';
+    } else if (isDolby) {
+      if (ch.contains('7.1') || (channelCount != null && channelCount >= 8)) {
+        label = 'Dolby 7.1';
+      } else if (isSurround) {
+        label = 'Dolby 5.1';
+      } else {
+        label = 'Dolby';
+      }
+    } else if (isDts) {
+      label = isSurround ? 'DTS 5.1' : 'DTS';
+    } else if (isSurround) {
+      label = (channelCount != null && channelCount >= 8) || ch.contains('7.1') ? '7.1' : '5.1';
+    }
+
+    if (label != null && label != _audio && mounted) {
+      setState(() => _audio = label);
+    }
+  }
+
+  Future<void> _queryMpvProperties() async {
     final player = widget.player;
     if (player == null) return;
 
     try {
       final dynamic platform = player.platform;
       if (platform != null) {
-        // Query FPS
-        final dynamic rawFps = platform.getProperty('estimated-vf-fps') ?? platform.getProperty('container-fps');
-        if (rawFps != null) {
-          final val = double.tryParse(rawFps.toString());
-          if (val != null && val >= 15.0 && val <= 240.0) {
-            _fps = val;
+        // 1. Live FPS from mpv properties
+        if (_fps == null || _fps! < 15.0) {
+          final dynamic rawVfFps = await platform.getProperty('estimated-vf-fps');
+          final dynamic rawContFps = await platform.getProperty('container-fps');
+          final rawFpsStr = rawVfFps?.toString() ?? rawContFps?.toString();
+          if (rawFpsStr != null) {
+            final val = double.tryParse(rawFpsStr);
+            if (val != null && val >= 15.0 && val <= 240.0 && mounted) {
+              setState(() => _fps = val);
+            }
           }
         }
 
-        // Query HDR (gamma & primaries)
-        final dynamic gamma = platform.getProperty('video-params/gamma');
-        final dynamic primaries = platform.getProperty('video-params/primaries');
-        if (gamma != null) {
-          final g = gamma.toString().toLowerCase();
-          if (g.contains('pq')) {
-            _hdr = 'HDR10';
-          } else if (g.contains('hlg')) {
-            _hdr = 'HLG';
+        // 2. Audio codec & channels from mpv
+        final dynamic audioCodec = await platform.getProperty('audio-codec-name');
+        final dynamic audioChannels = await platform.getProperty('audio-params/channels');
+        if (audioCodec != null || audioChannels != null) {
+          _detectAudio(codec: audioCodec?.toString(), channelsStr: audioChannels?.toString());
+        }
+
+        // 3. HDR from mpv
+        if (_hdr == null) {
+          final dynamic gamma = await platform.getProperty('video-params/gamma');
+          final dynamic primaries = await platform.getProperty('video-params/primaries');
+          if (gamma != null) {
+            final g = gamma.toString().toLowerCase();
+            if (g.contains('pq') && mounted) {
+              setState(() => _hdr = 'HDR10');
+            } else if (g.contains('hlg') && mounted) {
+              setState(() => _hdr = 'HLG');
+            }
+          } else if (primaries != null && primaries.toString().toLowerCase().contains('bt.2020') && mounted) {
+            setState(() => _hdr = 'HDR');
           }
-        } else if (primaries != null && primaries.toString().toLowerCase().contains('bt.2020')) {
-          _hdr = 'HDR';
         }
       }
     } catch (_) {}
-
-    if (mounted) setState(() {});
   }
 
   void _parseFromTitle() {
@@ -203,6 +267,10 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
     if (_audio == null) {
       if (lower.contains('atmos')) {
         _audio = 'Atmos';
+      } else if (lower.contains('dolby 5.1') || lower.contains('dd 5.1') || lower.contains('ac3 5.1')) {
+        _audio = 'Dolby 5.1';
+      } else if (lower.contains('dolby') || lower.contains('ac3') || lower.contains('dd+')) {
+        _audio = 'Dolby';
       } else if (lower.contains('5.1') || lower.contains('surround')) {
         _audio = '5.1';
       } else if (lower.contains('7.1')) {
@@ -295,7 +363,7 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
             text: audio,
             fontSize: fontSize,
             padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
-            isPrimary: audio == 'Atmos',
+            isPrimary: audio == 'Atmos' || audio.startsWith('Dolby'),
             primaryColor: const Color(0xFF64B5F6),
           ),
         ],

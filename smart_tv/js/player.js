@@ -2117,12 +2117,15 @@
         var aTitle = actAudio.title.toLowerCase();
         if (aTitle.indexOf('atmos') !== -1) audio = 'Atmos';
         else if (aTitle.indexOf('7.1') !== -1) audio = '7.1';
-        else if (aTitle.indexOf('5.1') !== -1 || aTitle.indexOf('ac3') !== -1 || aTitle.indexOf('eac3') !== -1 || aTitle.indexOf('surround') !== -1) audio = '5.1';
+        else if (aTitle.indexOf('5.1') !== -1 || aTitle.indexOf('surround') !== -1) audio = (aTitle.indexOf('dolby') !== -1 || aTitle.indexOf('ac3') !== -1) ? 'Dolby 5.1' : '5.1';
+        else if (aTitle.indexOf('dolby') !== -1 || aTitle.indexOf('ac3') !== -1 || aTitle.indexOf('eac3') !== -1 || aTitle.indexOf('dd+') !== -1) audio = 'Dolby';
       }
     }
     if (!audio) {
       if (title.indexOf('atmos') !== -1) audio = 'Atmos';
       else if (title.indexOf('7.1') !== -1) audio = '7.1';
+      else if (title.indexOf('dolby 5.1') !== -1 || title.indexOf('dd 5.1') !== -1 || title.indexOf('ac3 5.1') !== -1) audio = 'Dolby 5.1';
+      else if (title.indexOf('dolby') !== -1 || title.indexOf('ac3') !== -1 || title.indexOf('dd+') !== -1) audio = 'Dolby';
       else if (title.indexOf('5.1') !== -1 || title.indexOf('surround') !== -1) audio = '5.1';
     }
 
