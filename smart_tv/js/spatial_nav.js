@@ -1,5 +1,9 @@
 // 2D Spatial Navigation Engine for LG webOS & Samsung Tizen Smart TVs
 (function() {
+  if (window.SpatialNav && typeof window.SpatialNav.destroy === 'function') {
+    try { window.SpatialNav.destroy(); } catch (_) {}
+  }
+
   var _currentFocused = null;
   var _backCallbacks = [];
   var _enterHoldTimer = null;
@@ -1939,7 +1943,7 @@
   }
 
   // Pointer hover support for Magic Remote / mouse
-  document.addEventListener('mouseover', function(e) {
+  function handleMouseOver(e) {
     if (document.body.classList.contains('player-fullscreen')) {
       var isModalOpen = !!document.querySelector('.modal-overlay.active');
       var isDrawerOpen = !!document.querySelector('.slide-drawer.open');
@@ -1955,10 +1959,10 @@
     if (target && target !== _currentFocused) {
       setFocus(target, true);
     }
-  }, true);
+  }
 
   // Direct click on inputs focuses natively
-  document.addEventListener('click', function(e) {
+  function handleClick(e) {
     if (document.body.classList.contains('player-fullscreen')) {
       var isModalOpen = !!document.querySelector('.modal-overlay.active');
       var isDrawerOpen = !!document.querySelector('.slide-drawer.open');
@@ -1975,9 +1979,9 @@
       setFocus(target, true);
       try { target.focus(); } catch(err){}
     }
-  }, true);
+  }
 
-  window.addEventListener('keyup', function(e) {
+  function handleKeyUp(e) {
     var code = e.keyCode || e.which;
     if (code === KEY_CODES.ENTER) {
       if (_enterHoldTimer) {
@@ -1997,18 +2001,42 @@
         elToClick.click();
       }
     }
-  }, true);
-
-  window.addEventListener('keydown', handleKeyDown, true);
+  }
 
   // Automatically blur input and restore D-pad navigation when webOS virtual keyboard is dismissed
-  document.addEventListener('keyboardStateChange', function(e) {
+  function handleKeyboardStateChange(e) {
     if (e && e.detail && !e.detail.visibility) {
       if (document.activeElement && isInput(document.activeElement)) {
         try { document.activeElement.blur(); } catch(err){}
       }
     }
-  });
+  }
+
+  function destroy() {
+    window.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('keyup', handleKeyUp, true);
+    document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('click', handleClick, true);
+    document.removeEventListener('keyboardStateChange', handleKeyboardStateChange);
+    if (_enterHoldTimer) {
+      clearTimeout(_enterHoldTimer);
+      _enterHoldTimer = null;
+    }
+    _enterHoldTriggered = false;
+    _enterFocusedElement = null;
+    _currentFocused = null;
+    _backCallbacks = [];
+    var focusedEls = document.querySelectorAll('.focused');
+    for (var i = 0; i < focusedEls.length; i++) {
+      focusedEls[i].classList.remove('focused');
+    }
+  }
+
+  document.addEventListener('mouseover', handleMouseOver, true);
+  document.addEventListener('click', handleClick, true);
+  window.addEventListener('keyup', handleKeyUp, true);
+  window.addEventListener('keydown', handleKeyDown, true);
+  document.addEventListener('keyboardStateChange', handleKeyboardStateChange);
 
   window.SpatialNav = {
     setFocus: setFocus,
@@ -2027,7 +2055,8 @@
     popBackHandler: function() {
       return _backCallbacks.pop();
     },
-    registerTizenKeys: registerTizenKeys
+    registerTizenKeys: registerTizenKeys,
+    destroy: destroy
   };
   window.TVSpatialNav = window.SpatialNav;
 })();

@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var CURRENT_VERSION = '1.2.6';
+  var CURRENT_VERSION = '1.2.7';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
@@ -245,6 +245,12 @@
 
       if (!bundle.files) return;
 
+      // Clean up any previously injected dynamic OTA script tags to prevent duplicate execution
+      var oldScripts = document.querySelectorAll('script[id^="goat-ota-"]');
+      for (var s = 0; s < oldScripts.length; s++) {
+        try { oldScripts[s].parentNode.removeChild(oldScripts[s]); } catch (_) {}
+      }
+
       // Dynamically inject updated CSS if present
       if (bundle.files['style.css']) {
         var styleEl = document.getElementById('goat-ota-style') || document.createElement('style');
@@ -252,22 +258,6 @@
         styleEl.textContent = bundle.files['style.css'];
         document.head.appendChild(styleEl);
       }
-
-      // Dynamically execute updated JS scripts (player.js, app.js, subtitles.js, spatial_nav.js)
-      var jsFiles = ['subtitles.js', 'player.js', 'spatial_nav.js', 'app.js'];
-      jsFiles.forEach(function(fname) {
-        if (bundle.files && bundle.files[fname]) {
-          try {
-            var scriptEl = document.createElement('script');
-            scriptEl.id = 'goat-ota-' + fname.replace('.', '-');
-            scriptEl.text = bundle.files[fname];
-            document.body.appendChild(scriptEl);
-            console.log('[TVUpdater] Successfully applied OTA update script: ' + fname);
-          } catch(se) {
-            console.error('[TVUpdater] Failed to apply OTA script ' + fname + ':', se);
-          }
-        }
-      });
     } catch (e) {
       console.warn('[TVUpdater] Error applying cached bundle, reverting to factory:', e);
       localStorage.removeItem(OTA_STORAGE_KEY);
