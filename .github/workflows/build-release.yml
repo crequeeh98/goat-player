@@ -240,14 +240,14 @@ jobs:
             ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
 
             ### 🇬🇧 What's New
-            - **Stream Quality Badges**: Added subtle, high-performance quality indicators (Resolution, FPS, HDR/HLG/Vision, 5.1/Atmos) directly in the playback HUD across all platforms (Windows, Android, Smart TV).
+            - **Dolby & FPS Fix**: Fixed asynchronous property resolution for real-time Dolby Digital/Atmos and live video FPS badges on Windows & Android.
+            - **Stream Quality Badges**: Subtle Apple TV & TiviMate style pills in playback HUD across all platforms.
             - **Smart TV (Tizen & webOS)**: Real-time native video decoder resolution and frame-rate monitoring in Live TV infobar and VOD HUD.
-            - **Zero Clutter**: Clean Apple TV / TiviMate style pills that only appear when playback controls are displayed.
 
             ### 🇩🇪 Neuerungen
-            - **Stream-Qualitäts-Badges**: Dezente Echtzeit-Qualitätsanzeigen (Auflösung, FPS, HDR/HLG/Vision, 5.1/Atmos) direkt im Steuerungs-HUD auf allen Plattformen (Windows, Android, Smart TV).
+            - **Dolby & FPS Fix**: Asynchrones Auslesen von Dolby Digital/Atmos und Live-FPS auf Windows & Android behoben.
+            - **Stream-Qualitäts-Badges**: Dezente Apple-TV-/TiviMate-Badges im Steuerungs-HUD auf allen Plattformen.
             - **Smart TV (Tizen & webOS)**: Live-Messung der Decoder-Auflösung und Framerate in der Live-Infobar sowie im VOD-HUD.
-            - **Kein Clutter**: Elegante Badges im Apple-TV-/TiviMate-Design, die nur bei sichtbarer Steuerungsleiste dezent eingeblendet werden.
 
             ### 📦 Download Links
             - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)
