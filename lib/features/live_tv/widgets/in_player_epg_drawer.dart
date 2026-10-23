@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/player/widgets/stream_quality_badge.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
 import '../../../core/utils/live_stream_matcher.dart';
+import 'package:media_kit/media_kit.dart';
 import '../epg_controller.dart';
 import 'channel_icon.dart';
 
@@ -308,6 +310,7 @@ class InPlayerOsdBanner extends StatelessWidget {
   final EpgProgram? nextProgram;
   final int channelNumber;
   final bool isCompact;
+  final Player? player;
 
   const InPlayerOsdBanner({
     super.key,
@@ -316,6 +319,7 @@ class InPlayerOsdBanner extends StatelessWidget {
     this.nextProgram,
     required this.channelNumber,
     this.isCompact = false,
+    this.player,
   });
 
   String _formatTime(DateTime dt) {
@@ -392,15 +396,28 @@ class InPlayerOsdBanner extends StatelessWidget {
                         ),
                         SizedBox(width: isCompact ? 6 : 8),
                         Expanded(
-                          child: Text(
-                            cleanName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: isCompact ? 12 : 16,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  cleanName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isCompact ? 12 : 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              StreamQualityBadges(
+                                player: player,
+                                streamTitle: stream.name,
+                                isCompact: true,
+                              ),
+                            ],
                           ),
                         ),
                         if (timeRange != null)

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="spatial-navigation" content="disabled">
   <title>GOATPlayer TV</title>
-  <link rel="stylesheet" href="css/style.css?v=1.3.3">
+  <link rel="stylesheet" href="css/style.css?v=1.3.4">
 </head>
 <body>
 
@@ -83,10 +83,13 @@
           </div>
         </div>
 
-        <!-- Right: Current Clock Time & Live Badge -->
+        <!-- Right: Current Clock Time & Badges Column -->
         <div class="infobar-right-col">
           <span id="infobar-clock" class="infobar-clock">12:00</span>
-          <span class="infobar-live-badge">LIVE</span>
+          <div class="infobar-badges-col">
+            <span class="infobar-live-badge">LIVE</span>
+            <div id="infobar-quality-badges" class="infobar-quality-badges"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -828,15 +831,14 @@
   <!-- VOD FULLSCREEN CINEMA PLAYER HUD -->
   <div id="player-hud-vod" class="player-hud interactive">
     <div class="vod-hud-top">
-      <div style="display: flex; align-items: center; gap: 18px;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span id="vod-hud-badge" class="badge-pill" style="display:none;"></span>
-            <div id="vod-hud-title" class="vod-title">Video Title</div>
-          </div>
-          <div id="vod-hud-subtitle" class="vod-subtitle"></div>
+      <div class="vod-hud-title-col">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span id="vod-hud-badge" class="badge-pill" style="display:none;"></span>
+          <div id="vod-hud-title" class="vod-title">Video Title</div>
         </div>
+        <div id="vod-hud-subtitle" class="vod-subtitle"></div>
       </div>
+      <div id="vod-quality-badges" class="quality-badges-row vod-top-badges"></div>
     </div>
 
     <div class="vod-timeline-container">

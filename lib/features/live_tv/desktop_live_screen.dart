@@ -734,25 +734,50 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
                   child: currentLive != null
-                      ? Padding(
-                          padding: _isFullWidth ? EdgeInsets.zero : const EdgeInsets.all(4.0),
-                          child: TvFocusable(
-                            focusNode: _playerNode,
-                            borderRadius: _isFullWidth ? BorderRadius.zero : BorderRadius.circular(12),
-                            focusScale: _isFullWidth ? 1.0 : 1.01,
-                            focusBorderColor: _isFullWidth ? Colors.transparent : const Color(0xFFB388FF),
-                            glowColor: _isFullWidth ? Colors.transparent : const Color(0x33B388FF),
-                            onPressed: () {
-                              ref.read(isLiveFullWidthProvider.notifier).toggle();
-                            },
-                            onKeyEvent: (node, event) {
-                              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                _focusChannelColumn();
-                                return KeyEventResult.handled;
-                              }
-                              return KeyEventResult.ignored;
-                            },
-                            child: VideoPreview(
+                      ? (GoatPlatform.isTv
+                          ? Padding(
+                              padding: _isFullWidth ? EdgeInsets.zero : const EdgeInsets.all(4.0),
+                              child: TvFocusable(
+                                focusNode: _playerNode,
+                                borderRadius: _isFullWidth ? BorderRadius.zero : BorderRadius.circular(12),
+                                focusScale: _isFullWidth ? 1.0 : 1.01,
+                                focusBorderColor: _isFullWidth ? Colors.transparent : const Color(0xFFB388FF),
+                                glowColor: _isFullWidth ? Colors.transparent : const Color(0x33B388FF),
+                                onPressed: () {
+                                  ref.read(isLiveFullWidthProvider.notifier).toggle();
+                                },
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                    _focusChannelColumn();
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
+                                child: VideoPreview(
+                                  key: _videoPreviewKey,
+                                  streamUrl: currentLive.streamUrl,
+                                  streamId: currentLive.streamId,
+                                  channelId: currentLive.channelId,
+                                  channelName: currentLive.title,
+                                  isFullWidth: _isFullWidth,
+                                  streams: currentCategoryStreams,
+                                  categoryName: categoryName,
+                                  onSelectStream: _playStream,
+                                  onZapNext: () => _zapNext(currentCategoryStreams),
+                                  onZapPrevious: () => _zapPrevious(currentCategoryStreams),
+                                  onToggleFullWidth: () {
+                                    ref.read(isLiveFullWidthProvider.notifier).toggle();
+                                  },
+                                  onEnsureFullWidth: () {
+                                    if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
+                                  },
+                                  onExitToPreview: () {
+                                    if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
+                                  },
+                                ),
+                              ),
+                            )
+                          : VideoPreview(
                               key: _videoPreviewKey,
                               streamUrl: currentLive.streamUrl,
                               streamId: currentLive.streamId,
@@ -761,21 +786,19 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               isFullWidth: _isFullWidth,
                               streams: currentCategoryStreams,
                               categoryName: categoryName,
-                            onSelectStream: _playStream,
-                            onZapNext: () => _zapNext(currentCategoryStreams),
-                            onZapPrevious: () => _zapPrevious(currentCategoryStreams),
-                            onToggleFullWidth: () {
-                              ref.read(isLiveFullWidthProvider.notifier).toggle();
-                            },
-                            onEnsureFullWidth: () {
-                              if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
-                            },
-                            onExitToPreview: () {
-                              if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
-                            },
-                          ),
-                        ),
-                      )
+                              onSelectStream: _playStream,
+                              onZapNext: () => _zapNext(currentCategoryStreams),
+                              onZapPrevious: () => _zapPrevious(currentCategoryStreams),
+                              onToggleFullWidth: () {
+                                ref.read(isLiveFullWidthProvider.notifier).toggle();
+                              },
+                              onEnsureFullWidth: () {
+                                if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
+                              },
+                              onExitToPreview: () {
+                                if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
+                              },
+                            ))
                       : Container(
                           color: Colors.black45,
                           child: Center(

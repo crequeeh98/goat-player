@@ -9,6 +9,7 @@ import 'package:goat_player/l10n/app_localizations.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/player/playback_controller.dart';
+import '../../../core/player/widgets/stream_quality_badge.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
 import '../../../core/utils/live_stream_matcher.dart';
 import '../epg_controller.dart';
@@ -539,10 +540,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                             ),
                           ),
 
-                        // TOP RIGHT: Controls (Aspect Ratio & Desktop Fullscreen Volume)
+                        // TOP RIGHT: Controls (Aspect Ratio & Desktop Volume)
                         Positioned(
-                          top: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
-                          right: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
+                          top: (GoatPlatform.isMobile && !isFull)
+                              ? 8
+                              : (!isFull && !widget.isFullWidth)
+                                  ? 12
+                                  : 20,
+                          right: (GoatPlatform.isMobile && !isFull)
+                              ? 8
+                              : (!isFull && !widget.isFullWidth)
+                                  ? 12
+                                  : 20,
                           child: Row(
                             children: [
                               // Aspect Ratio only in fullscreen mode
@@ -556,26 +565,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                                     _startHideTimer();
                                   },
                                 ),
-                              // Volume control only on desktop fullscreen
-                              if (!GoatPlatform.isMobile && isFull) ...[
-                                IconButton(
-                                  icon: Icon(
-                                    _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                  visualDensity: VisualDensity.standard,
-                                  onPressed: () {
-                                    if (_volume > 0) {
-                                      setState(() => _volume = 0);
-                                      widget.state.widget.controller.player.setVolume(0);
-                                    } else {
-                                      setState(() => _volume = 100);
-                                      widget.state.widget.controller.player.setVolume(100);
-                                    }
-                                    _startHideTimer();
-                                  },
-                                ),
+                              // Volume control on desktop (Preview, Theatre & Fullscreen)
+                              if (!GoatPlatform.isMobile) ...[
                                 Listener(
                                   onPointerSignal: (pointerSignal) {
                                     if (pointerSignal is PointerScrollEvent) {
@@ -586,29 +577,52 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                                       _startHideTimer();
                                     }
                                   },
-                                  child: SizedBox(
-                                    width: 95,
-                                    child: SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor: Colors.white,
-                                        inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
-                                        thumbColor: Colors.white,
-                                        overlayColor: Colors.white.withValues(alpha: 0.15),
-                                        trackHeight: 3.0,
-                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
-                                      ),
-                                      child: Slider(
-                                        value: _volume.clamp(0.0, 100.0),
-                                        min: 0.0,
-                                        max: 100.0,
-                                        onChanged: (v) {
-                                          setState(() => _volume = v);
-                                          widget.state.widget.controller.player.setVolume(v);
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                        visualDensity: VisualDensity.standard,
+                                        onPressed: () {
+                                          if (_volume > 0) {
+                                            setState(() => _volume = 0);
+                                            widget.state.widget.controller.player.setVolume(0);
+                                          } else {
+                                            setState(() => _volume = 100);
+                                            widget.state.widget.controller.player.setVolume(100);
+                                          }
                                           _startHideTimer();
                                         },
                                       ),
-                                    ),
+                                      SizedBox(
+                                        width: 95,
+                                        child: SliderTheme(
+                                          data: SliderTheme.of(context).copyWith(
+                                            activeTrackColor: Colors.white,
+                                            inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
+                                            thumbColor: Colors.white,
+                                            overlayColor: Colors.white.withValues(alpha: 0.15),
+                                            trackHeight: 3.0,
+                                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                                          ),
+                                          child: Slider(
+                                            value: _volume.clamp(0.0, 100.0),
+                                            min: 0.0,
+                                            max: 100.0,
+                                            onChanged: (v) {
+                                              setState(() => _volume = v);
+                                              widget.state.widget.controller.player.setVolume(v);
+                                              _startHideTimer();
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -675,20 +689,31 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                         // BOTTOM CENTER: Title & Current Show (Only in Fullscreen or Desktop, not mobile portrait where AppBar already has it)
                         if (isFullOrFullWidth || !GoatPlatform.isMobile)
                           Positioned(
-                            bottom: 24,
+                            bottom: 18,
                             left: 90,
                             right: 90,
-                            child: Text(
-                              displayTitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayTitle,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                StreamQualityBadges(
+                                  player: widget.state.widget.controller.player,
+                                  streamTitle: widget.title,
+                                  isCompact: true,
+                                ),
+                              ],
                             ),
                           ),
 
@@ -723,6 +748,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                         currentProgram: currentProgram,
                         channelNumber: channelIndex,
                         isCompact: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)),
+                        player: widget.state.widget.controller.player,
                       ),
                     ),
                   ),

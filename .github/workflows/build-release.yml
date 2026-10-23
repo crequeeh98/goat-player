@@ -239,20 +239,18 @@ jobs:
           body: |
             ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
 
-            ### 🇬🇧 What's New
-            - **Smart TV Subtitles**: Optimized subtitle font size (42px) and weight (700 bold) for ideal living-room readability on Samsung Tizen and LG webOS.
-            - **Smart TV Performance**: Preserved larger UI text hierarchy while keeping subtitles balanced and non-intrusive.
-            - **Platform Consistency**: Synchronized v1.2.3 across Android, Windows, and Smart TV.
-
             ### 🇩🇪 Neuerungen
-            - **Smart TV Untertitel**: Optimierte Schriftgröße (42px) und Fettschrift (700) für perfekte Lesbarkeit im Wohnzimmer auf Samsung Tizen und LG webOS.
-            - **Smart TV Benutzeroberfläche**: Textskalierung beibehalten, während Untertitel harmonisch und unaufdringlich eingeblendet werden.
-            - **Plattform-Konsistenz**: Synchronisierte Version 1.2.3 für Android, Windows und Smart TV.
+            - **Smart TV Fokus-Fix**: Doppelte Event-Listener bei OTA-Updates beseitigt und Singleton-Guard in die Navigations-Engine integriert (sauberer Einzelfokus auf allen Smart TVs).
+            - **Live TV Lautstärkeregelung (Desktop)**: Lautstärkeregler und Stummschalten-Schaltfläche jetzt einheitlich in allen drei Live-TV-Modi (Vorschau-Player, Theatre-Mode und Vollbild) mit Mausrad-Unterstützung verfügbar.
+            - **Smart TV Badges**:
+              - Live TV: Auf das Wesentliche reduziert – nur noch die Auflösung dezent und passgenau direkt unter dem LIVE-Badge.
+              - VOD: Badges oben rechts im HUD mit harmonischem Abstand platziert, um die Fortschrittsleiste und Spieldauer nicht zu überlagern.
+            - **Desktop Optimierung**: Klick- und Mausinteraktionen im Live TV Screen verbessert.
 
-            ### 📦 Download Links
-            - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)
-            - **Amazon Fire TV & TV Sticks (32-Bit ARM)**: [`GOATPlayer-armeabi-v7a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-armeabi-v7a.apk)
-            - **Android Smartphones (64-Bit ARM)**: [`GOATPlayer-arm64-v8a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-arm64-v8a.apk)
-            - **Windows Desktop (Win 10/11 x64)**: [`GOATPlayer-Windows-x64.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-Windows-x64.zip)
-            - **Smart TV (OTA Web Bundle)**: [`smart_tv_bundle.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/smart_tv_bundle.zip)
-            - **LG webOS Package**: Check attached `.ipk` in release assets below.
+            ### 🇬🇧 What's New
+            - **Smart TV Focus Fix**: Eliminated duplicate event listeners during OTA updates and introduced singleton guard in spatial navigation engine (restoring crisp, single focus across Smart TVs).
+            - **Live TV Volume Control (Desktop)**: Volume slider and mute toggle now uniformly available in all three Live TV playback modes (Preview Player, Theatre Mode, and Fullscreen) with mouse wheel scroll support.
+            - **Smart TV Badges**:
+              - Live TV: Streamlined to resolution badge only, styled identically and aligned directly beneath the LIVE badge.
+              - VOD: Badges relocated to top-right of the HUD with clean spacing away from the progress bar and runtime.
+            - **Desktop Optimization**: Refined click and mouse pointer handling in Live TV preview and theatre modes.

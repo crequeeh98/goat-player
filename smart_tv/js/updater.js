@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var CURRENT_VERSION = '1.2.3';
+  var CURRENT_VERSION = '1.2.7';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
@@ -245,9 +245,15 @@
 
       if (!bundle.files) return;
 
+      // Clean up any previously injected dynamic OTA script tags to prevent duplicate execution
+      var oldScripts = document.querySelectorAll('script[id^="goat-ota-"]');
+      for (var s = 0; s < oldScripts.length; s++) {
+        try { oldScripts[s].parentNode.removeChild(oldScripts[s]); } catch (_) {}
+      }
+
       // Dynamically inject updated CSS if present
       if (bundle.files['style.css']) {
-        var styleEl = document.createElement('style');
+        var styleEl = document.getElementById('goat-ota-style') || document.createElement('style');
         styleEl.id = 'goat-ota-style';
         styleEl.textContent = bundle.files['style.css'];
         document.head.appendChild(styleEl);
