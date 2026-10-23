@@ -239,20 +239,16 @@ jobs:
           body: |
             ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
 
-            ### 🇬🇧 What's New
-            - **Dolby & FPS Fix**: Fixed asynchronous property resolution for real-time Dolby Digital/Atmos and live video FPS badges on Windows & Android.
-            - **Stream Quality Badges**: Subtle Apple TV & TiviMate style pills in playback HUD across all platforms.
-            - **Smart TV (Tizen & webOS)**: Real-time native video decoder resolution and frame-rate monitoring in Live TV infobar and VOD HUD.
-
             ### 🇩🇪 Neuerungen
-            - **Dolby & FPS Fix**: Asynchrones Auslesen von Dolby Digital/Atmos und Live-FPS auf Windows & Android behoben.
-            - **Stream-Qualitäts-Badges**: Dezente Apple-TV-/TiviMate-Badges im Steuerungs-HUD auf allen Plattformen.
-            - **Smart TV (Tizen & webOS)**: Live-Messung der Decoder-Auflösung und Framerate in der Live-Infobar sowie im VOD-HUD.
+            - **Live TV Lautstärkeregelung (Desktop)**: Lautstärkeregler und Stummschalten-Schaltfläche jetzt einheitlich in allen drei Live-TV-Modi (Vorschau-Player, Theatre-Mode und Vollbild) mit Mausrad-Unterstützung verfügbar.
+            - **Smart TV Badges**:
+              - Live TV: Auf das Wesentliche reduziert – nur noch die Auflösung dezent und passgenau direkt unter dem LIVE-Badge.
+              - VOD: Badges oben rechts im HUD mit harmonischem Abstand platziert, um die Fortschrittsleiste und Spieldauer nicht zu überlagern.
+            - **Desktop Optimierung**: Klick- und Mausinteraktionen im Live TV Screen verbessert.
 
-            ### 📦 Download Links
-            - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)
-            - **Amazon Fire TV & TV Sticks (32-Bit ARM)**: [`GOATPlayer-armeabi-v7a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-armeabi-v7a.apk)
-            - **Android Smartphones (64-Bit ARM)**: [`GOATPlayer-arm64-v8a.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-arm64-v8a.apk)
-            - **Windows Desktop (Win 10/11 x64)**: [`GOATPlayer-Windows-x64.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-Windows-x64.zip)
-            - **Smart TV (OTA Web Bundle)**: [`smart_tv_bundle.zip`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/smart_tv_bundle.zip)
-            - **LG webOS Package**: Check attached `.ipk` in release assets below.
+            ### 🇬🇧 What's New
+            - **Live TV Volume Control (Desktop)**: Volume slider and mute toggle now uniformly available in all three Live TV playback modes (Preview Player, Theatre Mode, and Fullscreen) with mouse wheel scroll support.
+            - **Smart TV Badges**:
+              - Live TV: Streamlined to resolution badge only, styled identically and aligned directly beneath the LIVE badge.
+              - VOD: Badges relocated to top-right of the HUD with clean spacing away from the progress bar and runtime.
+            - **Desktop Optimization**: Refined click and mouse pointer handling in Live TV preview and theatre modes.

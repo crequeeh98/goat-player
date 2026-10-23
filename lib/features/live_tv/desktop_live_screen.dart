@@ -549,44 +549,27 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
                   child: currentLive != null
-                      ? TvFocusable(
-                          focusNode: _playerNode,
-                          borderRadius: BorderRadius.zero,
-                          focusScale: 1.0,
-                          focusBorderColor: Colors.transparent,
-                          glowColor: Colors.transparent,
-                          onPressed: () {
+                      ? VideoPreview(
+                          key: _videoPreviewKey,
+                          streamUrl: currentLive.streamUrl,
+                          streamId: currentLive.streamId,
+                          channelId: currentLive.channelId,
+                          channelName: currentLive.title,
+                          isFullWidth: _isFullWidth,
+                          streams: currentCategoryStreams,
+                          categoryName: categoryName,
+                          onSelectStream: _playStream,
+                          onZapNext: () => _zapNext(currentCategoryStreams),
+                          onZapPrevious: () => _zapPrevious(currentCategoryStreams),
+                          onToggleFullWidth: () {
                             ref.read(isLiveFullWidthProvider.notifier).toggle();
                           },
-                          onKeyEvent: (node, event) {
-                            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                              _firstChannelNode.requestFocus();
-                              return KeyEventResult.handled;
-                            }
-                            return KeyEventResult.ignored;
+                          onEnsureFullWidth: () {
+                            if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
                           },
-                          child: VideoPreview(
-                            key: _videoPreviewKey,
-                            streamUrl: currentLive.streamUrl,
-                            streamId: currentLive.streamId,
-                            channelId: currentLive.channelId,
-                            channelName: currentLive.title,
-                            isFullWidth: _isFullWidth,
-                            streams: currentCategoryStreams,
-                            categoryName: categoryName,
-                            onSelectStream: _playStream,
-                            onZapNext: () => _zapNext(currentCategoryStreams),
-                            onZapPrevious: () => _zapPrevious(currentCategoryStreams),
-                            onToggleFullWidth: () {
-                              ref.read(isLiveFullWidthProvider.notifier).toggle();
-                            },
-                            onEnsureFullWidth: () {
-                              if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
-                            },
-                            onExitToPreview: () {
-                              if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
-                            },
-                          ),
+                          onExitToPreview: () {
+                            if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
+                          },
                         )
                       : Container(
                           color: Colors.black45,
