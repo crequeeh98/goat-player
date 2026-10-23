@@ -978,45 +978,52 @@ input.focusable.focused,
 .quality-badges-row {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   vertical-align: middle;
+  flex-wrap: nowrap;
 }
 
 .quality-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   line-height: 1.2;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .quality-badge.badge-4k {
-  background: rgba(0, 229, 255, 0.18);
-  border-color: rgba(0, 229, 255, 0.5);
+  background: rgba(0, 229, 255, 0.22);
+  border-color: rgba(0, 229, 255, 0.65);
   color: #00E5FF;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
 }
 
 .quality-badge.badge-hdr {
-  background: rgba(255, 184, 0, 0.18);
-  border-color: rgba(255, 184, 0, 0.5);
+  background: rgba(255, 184, 0, 0.22);
+  border-color: rgba(255, 184, 0, 0.65);
   color: #FFB800;
+  box-shadow: 0 0 10px rgba(255, 184, 0, 0.25);
 }
 
 .quality-badge.badge-audio {
-  background: rgba(100, 181, 246, 0.18);
-  border-color: rgba(100, 181, 246, 0.5);
-  color: #90CAF9;
+  background: rgba(129, 140, 248, 0.22);
+  border-color: rgba(129, 140, 248, 0.65);
+  color: #C7D2FE;
+  box-shadow: 0 0 10px rgba(129, 140, 248, 0.2);
 }
 
 .quality-badge.badge-fps {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
   color: #FFFFFF;
 }
 
@@ -2160,6 +2167,7 @@ body:not(.tab-live) #player-container.mode-preview {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  margin-left: 24px;
 }
 
 .infobar-clock {
@@ -2167,20 +2175,55 @@ body:not(.tab-live) #player-container.mode-preview {
   font-weight: 800;
   color: #FFFFFF;
   font-family: 'Consolas', monospace;
-  margin-right: 24px;
+  margin-right: 20px;
   letter-spacing: 1px;
 }
 
+.infobar-badges-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .infobar-live-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--accent-green);
   color: #0D0918;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
-  padding: 8px 18px;
-  border-radius: 10px;
-  letter-spacing: 1px;
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+  padding: 4px 14px;
+  border-radius: 6px;
+  letter-spacing: 0.8px;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
   flex-shrink: 0;
+  min-width: 72px;
+  box-sizing: border-box;
+  text-transform: uppercase;
+}
+
+.infobar-quality-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.infobar-badges-col .quality-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: 6px;
+  letter-spacing: 0.8px;
+  min-width: 72px;
+  box-sizing: border-box;
+  text-align: center;
 }
 
 /* SMART IPTV STYLE: CHANNEL MENU */
@@ -2692,6 +2735,19 @@ body:not(.tab-live) #player-container.mode-preview {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.vod-hud-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  margin-right: 28px;
+}
+
+.vod-top-badges {
+  flex-shrink: 0;
 }
 
 .vod-title {

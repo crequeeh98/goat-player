@@ -540,10 +540,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                             ),
                           ),
 
-                        // TOP RIGHT: Controls (Aspect Ratio & Desktop Fullscreen Volume)
+                        // TOP RIGHT: Controls (Aspect Ratio & Desktop Volume)
                         Positioned(
-                          top: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
-                          right: (GoatPlatform.isMobile && !isFull) ? 8 : 20,
+                          top: (GoatPlatform.isMobile && !isFull)
+                              ? 8
+                              : (!isFull && !widget.isFullWidth)
+                                  ? 12
+                                  : 20,
+                          right: (GoatPlatform.isMobile && !isFull)
+                              ? 8
+                              : (!isFull && !widget.isFullWidth)
+                                  ? 12
+                                  : 20,
                           child: Row(
                             children: [
                               // Aspect Ratio only in fullscreen mode
@@ -557,26 +565,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                                     _startHideTimer();
                                   },
                                 ),
-                              // Volume control only on desktop fullscreen
-                              if (!GoatPlatform.isMobile && isFull) ...[
-                                IconButton(
-                                  icon: Icon(
-                                    _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                  visualDensity: VisualDensity.standard,
-                                  onPressed: () {
-                                    if (_volume > 0) {
-                                      setState(() => _volume = 0);
-                                      widget.state.widget.controller.player.setVolume(0);
-                                    } else {
-                                      setState(() => _volume = 100);
-                                      widget.state.widget.controller.player.setVolume(100);
-                                    }
-                                    _startHideTimer();
-                                  },
-                                ),
+                              // Volume control on desktop (Preview, Theatre & Fullscreen)
+                              if (!GoatPlatform.isMobile) ...[
                                 Listener(
                                   onPointerSignal: (pointerSignal) {
                                     if (pointerSignal is PointerScrollEvent) {
@@ -587,29 +577,52 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                                       _startHideTimer();
                                     }
                                   },
-                                  child: SizedBox(
-                                    width: 95,
-                                    child: SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor: Colors.white,
-                                        inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
-                                        thumbColor: Colors.white,
-                                        overlayColor: Colors.white.withValues(alpha: 0.15),
-                                        trackHeight: 3.0,
-                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
-                                      ),
-                                      child: Slider(
-                                        value: _volume.clamp(0.0, 100.0),
-                                        min: 0.0,
-                                        max: 100.0,
-                                        onChanged: (v) {
-                                          setState(() => _volume = v);
-                                          widget.state.widget.controller.player.setVolume(v);
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          _volume == 0 ? Icons.volume_off : (_volume < 50 ? Icons.volume_down : Icons.volume_up),
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                        visualDensity: VisualDensity.standard,
+                                        onPressed: () {
+                                          if (_volume > 0) {
+                                            setState(() => _volume = 0);
+                                            widget.state.widget.controller.player.setVolume(0);
+                                          } else {
+                                            setState(() => _volume = 100);
+                                            widget.state.widget.controller.player.setVolume(100);
+                                          }
                                           _startHideTimer();
                                         },
                                       ),
-                                    ),
+                                      SizedBox(
+                                        width: 95,
+                                        child: SliderTheme(
+                                          data: SliderTheme.of(context).copyWith(
+                                            activeTrackColor: Colors.white,
+                                            inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
+                                            thumbColor: Colors.white,
+                                            overlayColor: Colors.white.withValues(alpha: 0.15),
+                                            trackHeight: 3.0,
+                                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                                          ),
+                                          child: Slider(
+                                            value: _volume.clamp(0.0, 100.0),
+                                            min: 0.0,
+                                            max: 100.0,
+                                            onChanged: (v) {
+                                              setState(() => _volume = v);
+                                              widget.state.widget.controller.player.setVolume(v);
+                                              _startHideTimer();
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],

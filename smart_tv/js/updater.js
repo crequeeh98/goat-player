@@ -247,11 +247,27 @@
 
       // Dynamically inject updated CSS if present
       if (bundle.files['style.css']) {
-        var styleEl = document.createElement('style');
+        var styleEl = document.getElementById('goat-ota-style') || document.createElement('style');
         styleEl.id = 'goat-ota-style';
         styleEl.textContent = bundle.files['style.css'];
         document.head.appendChild(styleEl);
       }
+
+      // Dynamically execute updated JS scripts (player.js, app.js, subtitles.js, spatial_nav.js)
+      var jsFiles = ['subtitles.js', 'player.js', 'spatial_nav.js', 'app.js'];
+      jsFiles.forEach(function(fname) {
+        if (bundle.files && bundle.files[fname]) {
+          try {
+            var scriptEl = document.createElement('script');
+            scriptEl.id = 'goat-ota-' + fname.replace('.', '-');
+            scriptEl.text = bundle.files[fname];
+            document.body.appendChild(scriptEl);
+            console.log('[TVUpdater] Successfully applied OTA update script: ' + fname);
+          } catch(se) {
+            console.error('[TVUpdater] Failed to apply OTA script ' + fname + ':', se);
+          }
+        }
+      });
     } catch (e) {
       console.warn('[TVUpdater] Error applying cached bundle, reverting to factory:', e);
       localStorage.removeItem(OTA_STORAGE_KEY);
