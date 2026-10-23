@@ -7,7 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:goat_player/core/database/app_database.dart';
 import 'package:goat_player/main.dart';
 import '../../core/utils/platform_utils.dart';
-import '../../core/player/widgets/mobile_gesture_detector.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/player/widgets/stream_quality_badge.dart';
 import '../../core/player/player_service.dart';
 import '../../core/player/playback_controller.dart';
@@ -65,6 +65,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   StreamSubscription? _tracksSub;
   Timer? _progressTimer;
   BoxFit _fit = BoxFit.contain;
+  bool _showFitBanner = false;
+  Timer? _fitBannerTimer;
   late final FocusNode _screenFocusNode = FocusNode(debugLabel: 'VodPlayerScreenFocus');
 
   late String _currentStreamUrl;
@@ -583,43 +585,61 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     );
   }
   
+  Future<void> _saveCurrentProgress() async {
+    if (_currentStreamId == null || widget.streamType == null) return;
+    final position = player.state.position.inSeconds;
+    final duration = player.state.duration.inSeconds;
+    if (duration > 0 && position > 0) {
+      final db = ref.read(databaseProvider);
+      final isComp = (position / duration) >= 0.95;
+      final item = PlaybackProgressItem(
+        streamId: _currentStreamId!,
+        streamType: widget.streamType!,
+        seriesId: widget.seriesId,
+        title: _currentSeriesName ?? _currentTitle,
+        coverUrl: _currentCoverUrl,
+        position: isComp ? duration : position,
+        duration: duration,
+        season: int.tryParse(_currentSeason ?? ''),
+        episode: int.tryParse(_currentEpisodeNum ?? ''),
+        episodeTitle: _currentEpisodeTitle ?? _currentTitle,
+        isCompleted: isComp,
+        updatedAt: DateTime.now(),
+      );
+      await db.playbackProgressDao.upsertProgress(item);
+      if (mounted) {
+        setState(() {
+          _episodeProgress[_currentStreamId!] = item;
+        });
+      }
+    }
+  }
+
   void _startProgressTracking() {
     if (_currentStreamId == null || widget.streamType == null) return;
     
     _progressTimer?.cancel();
     _progressTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
       if (_isClosing) return;
-      final position = player.state.position.inSeconds;
-      final duration = player.state.duration.inSeconds;
-      
-      if (duration > 0 && position > 0) {
-        final db = ref.read(databaseProvider);
-        final isComp = (position / duration) >= 0.95;
-        final item = PlaybackProgressItem(
-          streamId: _currentStreamId!,
-          streamType: widget.streamType!,
-          seriesId: widget.seriesId,
-          title: _currentSeriesName ?? _currentTitle,
-          coverUrl: _currentCoverUrl,
-          position: isComp ? duration : position,
-          duration: duration,
-          season: int.tryParse(_currentSeason ?? ''),
-          episode: int.tryParse(_currentEpisodeNum ?? ''),
-          episodeTitle: _currentEpisodeTitle ?? _currentTitle,
-          isCompleted: isComp,
-          updatedAt: DateTime.now(),
-        );
-        await db.playbackProgressDao.upsertProgress(item);
-        if (mounted) {
-          setState(() {
-            _episodeProgress[_currentStreamId!] = item;
-          });
-        }
-      }
+      await _saveCurrentProgress();
     });
   }
 
+  String _fitLabel(BuildContext context, BoxFit fit) {
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+    switch (fit) {
+      case BoxFit.cover:
+        return 'Zoom';
+      case BoxFit.fill:
+        return isDe ? 'Ausfüllen' : 'Fill';
+      case BoxFit.contain:
+      default:
+        return 'Original';
+    }
+  }
+
   void _cycleFit() {
+    _fitBannerTimer?.cancel();
     setState(() {
       if (_fit == BoxFit.contain) {
         _fit = BoxFit.cover;
@@ -628,14 +648,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
       } else {
         _fit = BoxFit.contain;
       }
+      _showFitBanner = true;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Aspect: ${_fit.name.toUpperCase()}'),
-        duration: const Duration(milliseconds: 700),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    _fitBannerTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _showFitBanner = false);
+    });
   }
 
   @override
@@ -648,13 +665,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     } else if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
       ]);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     _progressTimer?.cancel();
+    _fitBannerTimer?.cancel();
     _frameSub?.cancel();
     _playingSub?.cancel();
     _completedSub?.cancel();
@@ -667,7 +682,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
   void _handleMinimize() {
     if (_isClosing) return;
-    if (GoatPlatform.isTv) {
+    if (GoatPlatform.isTv || GoatPlatform.isMobile) {
       _handleClose();
       return;
     }
@@ -701,7 +716,15 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   void _handleClose() {
     if (_isClosing) return;
     _restoreVolume();
+    _saveCurrentProgress();
     
+    if (GoatPlatform.isPhone) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+
     setState(() {
       _isClosing = true;
       _canPop = true;
@@ -711,7 +734,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
     });
   }
@@ -1002,74 +1029,96 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                   child: Visibility(
                     visible: _isStreamReady,
                     maintainState: true,
-                    child: GoatPlatform.isMobile
-                        ? MobileGestureDetector(
-                            player: player,
-                            enableSeek: false,
-                            onDoubleTap: () => toggleFullscreen(context),
-                            child: Video(
-                              controller: controller,
-                              fit: _fit,
-                              controls: (state) => _VodControls(
-                                key: ValueKey(_currentStreamId),
-                                videoState: state,
-                                onMinimize: _handleMinimize,
-                                isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
-                                onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
-                              ),
-                              subtitleViewConfiguration: const SubtitleViewConfiguration(
-                                visible: true,
-                                style: TextStyle(
-                                  height: 1.3,
-                                  fontSize: 26.0,
-                                  letterSpacing: 0.2,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  shadows: [
-                                    Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
-                                    Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
-                                    Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
-                                    Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
-                                    Shadow(offset: Offset(0, 2.0), color: Colors.black87, blurRadius: 4.0),
-                                  ],
-                                ),
-                                textAlign: TextAlign.center,
-                                padding: EdgeInsets.fromLTRB(32.0, 0.0, 32.0, 36.0),
-                              ),
-                            ),
-                          )
-                        : Video(
-                            controller: controller,
-                            fit: _fit,
-                            controls: (state) => _VodControls(
-                              key: ValueKey(_currentStreamId),
-                              videoState: state,
-                              onMinimize: _handleMinimize,
-                              isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
-                              onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
-                            ),
-                            subtitleViewConfiguration: const SubtitleViewConfiguration(
-                              visible: true,
-                              style: TextStyle(
-                                height: 1.3,
-                                fontSize: 26.0,
-                                letterSpacing: 0.2,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                shadows: [
+                    child: Video(
+                      controller: controller,
+                      fit: _fit,
+                      controls: (state) => _VodControls(
+                        key: ValueKey(_currentStreamId),
+                        videoState: state,
+                        titleNotifier: _titleNotifier,
+                        onMinimize: _handleMinimize,
+                        onClose: _handleClose,
+                        onShowAudioTracks: _showAudioTracksDialog,
+                        onShowSubtitleTracks: _showSubtitleTracksDialog,
+                        onCycleFit: GoatPlatform.isMobile ? _cycleFit : null,
+                        isSeries: widget.streamType == 'series',
+                        hasEpisodes: widget.streamType == 'series' && _seasonsWithEpisodes.isNotEmpty,
+                        hasNextEpisode: widget.streamType == 'series' && _hasNextEpisode,
+                        onToggleEpisodeDrawer: () {
+                          setState(() => _isEpisodeDrawerOpen = !_isEpisodeDrawerOpen);
+                        },
+                        onPlayNextEpisode: () => _playNextEpisode(),
+                        isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
+                        onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
+                      ),
+                      subtitleViewConfiguration: SubtitleViewConfiguration(
+                        visible: true,
+                        textScaler: GoatPlatform.isMobile ? TextScaler.noScaling : null,
+                        style: TextStyle(
+                          height: 1.3,
+                          fontSize: GoatPlatform.isMobile ? 19.0 : 26.0,
+                          letterSpacing: 0.2,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          shadows: GoatPlatform.isMobile
+                              ? const [
+                                  Shadow(offset: Offset(-1.0, -1.0), color: Colors.black, blurRadius: 1.5),
+                                  Shadow(offset: Offset(1.0, -1.0), color: Colors.black, blurRadius: 1.5),
+                                  Shadow(offset: Offset(1.0, 1.0), color: Colors.black, blurRadius: 1.5),
+                                  Shadow(offset: Offset(-1.0, 1.0), color: Colors.black, blurRadius: 1.5),
+                                  Shadow(offset: Offset(0, 1.5), color: Colors.black87, blurRadius: 3.0),
+                                ]
+                              : const [
                                   Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
                                   Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
                                   Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
                                   Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
                                   Shadow(offset: Offset(0, 2.0), color: Colors.black87, blurRadius: 4.0),
                                 ],
-                              ),
-                              textAlign: TextAlign.center,
-                              padding: EdgeInsets.fromLTRB(32.0, 0.0, 32.0, 36.0),
-                            ),
-                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                        padding: GoatPlatform.isMobile
+                            ? const EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 22.0)
+                            : const EdgeInsets.fromLTRB(32.0, 0.0, 32.0, 36.0),
+                      ),
+                    ),
                   ),
                 ),
+
+                // Aspect Ratio Indicator Toast
+                if (_showFitBanner)
+                  Positioned(
+                    top: 24,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xD914141E),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.aspect_ratio, color: Colors.white, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                _fitLabel(context, _fit),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Pure solid black shield during loading/sync (NO poster)
                 Positioned.fill(
@@ -1130,14 +1179,34 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
 class _VodControls extends StatefulWidget {
   final VideoState videoState;
+  final ValueListenable<String> titleNotifier;
   final VoidCallback? onMinimize;
+  final VoidCallback? onClose;
+  final VoidCallback? onShowAudioTracks;
+  final VoidCallback? onShowSubtitleTracks;
+  final VoidCallback? onCycleFit;
+  final bool isSeries;
+  final bool hasEpisodes;
+  final bool hasNextEpisode;
+  final VoidCallback? onToggleEpisodeDrawer;
+  final VoidCallback? onPlayNextEpisode;
   final bool isEpisodeDrawerOpen;
   final VoidCallback? onCloseDrawer;
 
   const _VodControls({
     super.key,
     required this.videoState,
+    required this.titleNotifier,
     this.onMinimize,
+    this.onClose,
+    this.onShowAudioTracks,
+    this.onShowSubtitleTracks,
+    this.onCycleFit,
+    this.isSeries = false,
+    this.hasEpisodes = false,
+    this.hasNextEpisode = false,
+    this.onToggleEpisodeDrawer,
+    this.onPlayNextEpisode,
     this.isEpisodeDrawerOpen = false,
     this.onCloseDrawer,
   });
@@ -1149,29 +1218,52 @@ class _VodControls extends StatefulWidget {
 class _VodControlsState extends State<_VodControls> {
   late final Player _player = widget.videoState.widget.controller.player;
   late bool _isPlaying = _player.state.playing;
+  late Duration _position = _player.state.position;
+  late Duration _duration = _player.state.duration;
+  double? _dragValue;
   bool _isControlsVisible = true;
+  bool _showSkipLeft = false;
+  bool _showSkipRight = false;
   Timer? _hideTimer;
+  Timer? _skipLeftTimer;
+  Timer? _skipRightTimer;
   StreamSubscription? _playingSub;
+  StreamSubscription? _posSub;
+  StreamSubscription? _durSub;
   late final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _isPlaying = _player.state.playing;
+    _position = _player.state.position;
+    _duration = _player.state.duration;
+
     _playingSub = _player.stream.playing.listen((p) {
       if (mounted) {
         setState(() {
           _isPlaying = p;
-          if (!p) {
-            _isControlsVisible = true;
-            _hideTimer?.cancel();
-          } else {
-            _onPointerMove();
-          }
         });
+        if (!p) {
+          _hideTimer?.cancel();
+          setState(() => _isControlsVisible = true);
+        } else {
+          _startHideTimer();
+        }
       }
     });
-    _onPointerMove();
+    _posSub = _player.stream.position.listen((pos) {
+      if (mounted && _dragValue == null) {
+        setState(() => _position = pos);
+      }
+    });
+    _durSub = _player.stream.duration.listen((dur) {
+      if (mounted) {
+        setState(() => _duration = dur);
+      }
+    });
+
+    _startHideTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusNode.requestFocus();
@@ -1183,11 +1275,26 @@ class _VodControlsState extends State<_VodControls> {
   void dispose() {
     _focusNode.dispose();
     _hideTimer?.cancel();
+    _skipLeftTimer?.cancel();
+    _skipRightTimer?.cancel();
     _playingSub?.cancel();
+    _posSub?.cancel();
+    _durSub?.cancel();
     super.dispose();
   }
 
-  DateTime _lastTimerReset = DateTime.now();
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    if (_isPlaying && !widget.isEpisodeDrawerOpen) {
+      _hideTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && _isPlaying && !widget.isEpisodeDrawerOpen) {
+          setState(() => _isControlsVisible = false);
+        }
+      });
+    }
+  }
+
+  DateTime _lastTimerReset = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _onPointerMove() {
     if (!_focusNode.hasFocus && mounted) {
@@ -1199,14 +1306,7 @@ class _VodControlsState extends State<_VodControls> {
     final now = DateTime.now();
     if (now.difference(_lastTimerReset).inMilliseconds > 250) {
       _lastTimerReset = now;
-      _hideTimer?.cancel();
-      if (_isPlaying) {
-        _hideTimer = Timer(const Duration(seconds: 3), () {
-          if (mounted && _isPlaying) {
-            setState(() => _isControlsVisible = false);
-          }
-        });
-      }
+      _startHideTimer();
     }
   }
 
@@ -1220,11 +1320,54 @@ class _VodControlsState extends State<_VodControls> {
   void _togglePlayPause() {
     _player.playOrPause();
     _focusNode.requestFocus();
-    _onPointerMove();
+    setState(() => _isControlsVisible = true);
+    _startHideTimer();
+  }
+
+  void _seekRelative(int deltaSeconds, {bool showRipple = false}) {
+    final current = _player.state.position;
+    final duration = _player.state.duration;
+    final target = current + Duration(seconds: deltaSeconds);
+    final clamped = target < Duration.zero
+        ? Duration.zero
+        : (duration > Duration.zero && target > duration ? duration : target);
+    _player.seek(clamped);
+    setState(() => _position = clamped);
+    if (showRipple) {
+      if (deltaSeconds < 0) {
+        _skipLeftTimer?.cancel();
+        setState(() => _showSkipLeft = true);
+        _skipLeftTimer = Timer(const Duration(milliseconds: 650), () {
+          if (mounted) setState(() => _showSkipLeft = false);
+        });
+      } else {
+        _skipRightTimer?.cancel();
+        setState(() => _showSkipRight = true);
+        _skipRightTimer = Timer(const Duration(milliseconds: 650), () {
+          if (mounted) setState(() => _showSkipRight = false);
+        });
+      }
+    }
+    if (_isControlsVisible) {
+      _startHideTimer();
+    }
+  }
+
+  String _formatDuration(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (hours > 0) {
+      return '$hours:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
   }
 
   @override
   Widget build(BuildContext context) {
+    final totalSecs = _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0;
+    final currentSecs = (_dragValue ?? _position.inSeconds.toDouble()).clamp(0.0, totalSecs);
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
@@ -1246,9 +1389,7 @@ class _VodControlsState extends State<_VodControls> {
           // Seek Backward (Arrow Left, Rewind)
           if (key == LogicalKeyboardKey.arrowLeft ||
               key == LogicalKeyboardKey.mediaRewind) {
-            final current = _player.state.position;
-            final newPosition = current - const Duration(seconds: 10);
-            _player.seek(newPosition < Duration.zero ? Duration.zero : newPosition);
+            _seekRelative(-10);
             _onPointerMove();
             return KeyEventResult.handled;
           }
@@ -1256,10 +1397,7 @@ class _VodControlsState extends State<_VodControls> {
           // Seek Forward (Arrow Right, Fast Forward)
           if (key == LogicalKeyboardKey.arrowRight ||
               key == LogicalKeyboardKey.mediaFastForward) {
-            final current = _player.state.position;
-            final duration = _player.state.duration;
-            final newPosition = current + const Duration(seconds: 10);
-            _player.seek(newPosition > duration ? duration : newPosition);
+            _seekRelative(10);
             _onPointerMove();
             return KeyEventResult.handled;
           }
@@ -1297,47 +1435,344 @@ class _VodControlsState extends State<_VodControls> {
         }
         return KeyEventResult.ignored;
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          _focusNode.requestFocus();
-          _onPointerMove();
-        },
-        child: MouseRegion(
-          onHover: (_) => _onPointerMove(),
-          onEnter: (_) => _onPointerMove(),
-          onExit: (_) => _onMouseExit(),
-          child: AnimatedOpacity(
-            opacity: (_isControlsVisible || !_isPlaying) ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 180),
-            child: IgnorePointer(
-              ignoring: !(_isControlsVisible || !_isPlaying),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              _focusNode.requestFocus();
+              if (widget.isEpisodeDrawerOpen) {
+                widget.onCloseDrawer?.call();
+                _startHideTimer();
+                return;
+              }
+              if (GoatPlatform.isMobile) {
+                setState(() => _isControlsVisible = !_isControlsVisible);
+                if (_isControlsVisible) {
+                  _startHideTimer();
+                } else {
+                  _hideTimer?.cancel();
+                }
+              } else {
+                _onPointerMove();
+              }
+            },
+            onDoubleTapDown: GoatPlatform.isMobile
+                ? (details) {
+                    final dx = details.localPosition.dx;
+                    final w = constraints.maxWidth;
+                    if (dx < w * 0.45) {
+                      _seekRelative(-10, showRipple: true);
+                    } else if (dx > w * 0.55) {
+                      _seekRelative(10, showRipple: true);
+                    } else {
+                      _togglePlayPause();
+                    }
+                  }
+                : null,
+            onDoubleTap: GoatPlatform.isMobile ? () {} : null,
+            child: MouseRegion(
+              onHover: (_) => _onPointerMove(),
+              onEnter: (_) => _onPointerMove(),
+              onExit: (_) => _onMouseExit(),
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  MaterialDesktopVideoControls(widget.videoState),
-                  Positioned.fill(
-                    child: Center(
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.black45,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          iconSize: 76,
-                          color: Colors.white,
-                          icon: Icon(
-                            _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                  // Controls Overlay
+                  AnimatedOpacity(
+                    opacity: (_isControlsVisible || !_isPlaying) && !widget.isEpisodeDrawerOpen ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: IgnorePointer(
+                      ignoring: (!(_isControlsVisible || !_isPlaying)) || widget.isEpisodeDrawerOpen,
+                      child: GoatPlatform.isMobile
+                          ? Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black54,
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                    Colors.black87,
+                                  ],
+                                  stops: [0.0, 0.25, 0.7, 1.0],
+                                ),
+                              ),
+                              child: SafeArea(
+                                child: Stack(
+                                  children: [
+                                    // TOP BAR: Back button (left) & Aspect Ratio (right)
+                                    Positioned(
+                                      top: 8,
+                                      left: 12,
+                                      right: 12,
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                                            onPressed: widget.onClose ?? widget.onMinimize,
+                                          ),
+                                          const Spacer(),
+                                          if (widget.onCycleFit != null)
+                                            IconButton(
+                                              icon: const Icon(Icons.aspect_ratio, color: Colors.white, size: 24),
+                                              onPressed: () {
+                                                widget.onCycleFit!();
+                                                _startHideTimer();
+                                              },
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // CENTER: Play / Pause Button
+                                    Center(
+                                      child: Container(
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black45,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: IconButton(
+                                          iconSize: 68,
+                                          color: Colors.white,
+                                          icon: Icon(
+                                            _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                                          ),
+                                          onPressed: _togglePlayPause,
+                                        ),
+                                      ),
+                                    ),
+
+                                    // BOTTOM BAR: Seek Slider + Controls Row (like Windows without Volume)
+                                    Positioned(
+                                      left: 12,
+                                      right: 12,
+                                      bottom: 6,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Seek Bar
+                                          SliderTheme(
+                                            data: SliderTheme.of(context).copyWith(
+                                              activeTrackColor: const Color(0xFFB388FF),
+                                              inactiveTrackColor: Colors.white24,
+                                              thumbColor: Colors.white,
+                                              overlayColor: const Color(0x33B388FF),
+                                              trackHeight: 3.5,
+                                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
+                                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                                            ),
+                                            child: Slider(
+                                              value: currentSecs,
+                                              min: 0.0,
+                                              max: totalSecs,
+                                              onChangeStart: (v) {
+                                                _hideTimer?.cancel();
+                                                setState(() => _dragValue = v);
+                                              },
+                                              onChanged: (v) {
+                                                setState(() => _dragValue = v);
+                                              },
+                                              onChangeEnd: (v) {
+                                                final target = Duration(seconds: v.round());
+                                                _player.seek(target);
+                                                setState(() {
+                                                  _position = target;
+                                                  _dragValue = null;
+                                                });
+                                                _startHideTimer();
+                                              },
+                                            ),
+                                          ),
+
+                                          // Bottom Button Row
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(
+                                                  _isPlaying ? Icons.pause : Icons.play_arrow,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                                visualDensity: VisualDensity.compact,
+                                                onPressed: _togglePlayPause,
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.replay_10, color: Colors.white, size: 22),
+                                                visualDensity: VisualDensity.compact,
+                                                onPressed: () => _seekRelative(-10),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.forward_10, color: Colors.white, size: 22),
+                                                visualDensity: VisualDensity.compact,
+                                                onPressed: () => _seekRelative(10),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '${_formatDuration(Duration(seconds: currentSecs.round()))} / ${_formatDuration(_duration)}',
+                                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                              ),
+
+                                              // Center Title & Quality Badges
+                                              Expanded(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                                                  child: ValueListenableBuilder<String>(
+                                                    valueListenable: widget.titleNotifier,
+                                                    builder: (context, title, _) {
+                                                      return Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            title,
+                                                            style: const TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 13.5,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            textAlign: TextAlign.center,
+                                                          ),
+                                                          const SizedBox(height: 2),
+                                                          StreamQualityBadges(
+                                                            player: _player,
+                                                            streamTitle: title,
+                                                            isCompact: true,
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+
+                                              // Right Action Buttons: Audio, Subtitles, Episode Drawer, Next Episode
+                                              IconButton(
+                                                icon: const Icon(Icons.audiotrack, color: Colors.white, size: 22),
+                                                visualDensity: VisualDensity.compact,
+                                                onPressed: () {
+                                                  _startHideTimer();
+                                                  widget.onShowAudioTracks?.call();
+                                                },
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.subtitles, color: Colors.white, size: 22),
+                                                visualDensity: VisualDensity.compact,
+                                                onPressed: () {
+                                                  _startHideTimer();
+                                                  widget.onShowSubtitleTracks?.call();
+                                                },
+                                              ),
+                                              if (widget.hasEpisodes)
+                                                IconButton(
+                                                  icon: const Icon(Icons.video_library_outlined, color: Colors.white, size: 22),
+                                                  visualDensity: VisualDensity.compact,
+                                                  onPressed: () {
+                                                    widget.onToggleEpisodeDrawer?.call();
+                                                  },
+                                                ),
+                                              if (widget.hasNextEpisode)
+                                                IconButton(
+                                                  icon: const Icon(Icons.skip_next, color: Colors.white, size: 24),
+                                                  visualDensity: VisualDensity.compact,
+                                                  onPressed: () {
+                                                    widget.onPlayNextEpisode?.call();
+                                                  },
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : Stack(
+                              children: [
+                                MaterialDesktopVideoControls(widget.videoState),
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black45,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: IconButton(
+                                        iconSize: 76,
+                                        color: Colors.white,
+                                        icon: Icon(
+                                          _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                                        ),
+                                        onPressed: _togglePlayPause,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+
+                  // Double-Tap Left/Right Visual Indicator (-10s / +10s)
+                  if (_showSkipLeft)
+                    Positioned(
+                      left: 48,
+                      top: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.replay_10, color: Colors.white, size: 26),
+                                SizedBox(width: 6),
+                                Text('-10s', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                              ],
+                            ),
                           ),
-                          onPressed: _togglePlayPause,
                         ),
                       ),
                     ),
-                  ),
+
+                  if (_showSkipRight)
+                    Positioned(
+                      right: 48,
+                      top: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.72),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('+10s', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                                SizedBox(width: 6),
+                                Icon(Icons.forward_10, color: Colors.white, size: 26),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

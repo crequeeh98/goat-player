@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/utils/platform_utils.dart';
 import '../../../core/widgets/tv_focusable.dart';
 
 class InPlayerEpisodeDrawer extends StatefulWidget {
@@ -95,7 +96,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          width: 420,
+          width: GoatPlatform.isMobile ? 330 : 420,
           color: const Color(0xE814141E), // Frosted glass dark slate
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

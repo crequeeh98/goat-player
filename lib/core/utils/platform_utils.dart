@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -9,15 +10,28 @@ class GoatPlatform {
   static const MethodChannel _channel = MethodChannel('com.goatplayer/updater');
 
   static bool _isTvInitialized = false;
+  static bool _hasNativeTvResult = false;
   static bool _isNativeTv = false;
+
+  static final StreamController<String> _orientationController = StreamController<String>.broadcast();
+  static Stream<String> get deviceOrientationStream => _orientationController.stream;
 
   static Future<void> init() async {
     if (_isTvInitialized || kIsWeb) return;
     _isTvInitialized = true;
     if (Platform.isAndroid) {
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'onDeviceOrientationChanged') {
+          final orient = call.arguments as String?;
+          if (orient != null) {
+            _orientationController.add(orient);
+          }
+        }
+      });
       try {
         final res = await _channel.invokeMethod<bool>('isTvDevice');
         if (res != null) {
+          _hasNativeTvResult = true;
           _isNativeTv = res;
         }
       } catch (_) {}
@@ -34,6 +48,7 @@ class GoatPlatform {
 
   /// True on Android TV, Fire TV, Beamer, or large landscape TV displays
   static bool get isTv {
+    if (_hasNativeTvResult) return _isNativeTv;
     if (_isNativeTv) return true;
     if (kIsWeb) return false;
     try {

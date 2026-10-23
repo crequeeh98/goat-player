@@ -63,7 +63,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
     
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth > 800;
+        final isDesktop = (constraints.maxWidth > 800 && !GoatPlatform.isPhone) || GoatPlatform.isTv;
           
           final hasSearch = _searchQuery.trim().isNotEmpty;
           final provider = hasSearch 

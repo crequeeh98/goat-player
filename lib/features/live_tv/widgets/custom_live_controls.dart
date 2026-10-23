@@ -77,11 +77,12 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   bool _isDrawerOpen = false;
   bool _showOsdBanner = false;
   Timer? _osdBannerTimer;
+  bool _showFitBanner = false;
+  Timer? _fitBannerTimer;
   StreamSubscription? _volumeSub;
   StreamSubscription? _playingSub;
   StreamSubscription? _bufferingSub;
   StreamSubscription? _drawerChannelChangeSub;
-  String? _channelChangingToStreamId;
   double _verticalDragDistance = 0.0;
 
   @override
@@ -136,6 +137,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _drawerChannelChangeSub?.cancel();
     _hideTimer?.cancel();
     _osdBannerTimer?.cancel();
+    _fitBannerTimer?.cancel();
     _volumeSub?.cancel();
     _playingSub?.cancel();
     _bufferingSub?.cancel();
@@ -148,6 +150,27 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _osdBannerTimer = Timer(const Duration(milliseconds: 3500), () {
       if (mounted) setState(() => _showOsdBanner = false);
     });
+  }
+
+  void _triggerFitBanner() {
+    _fitBannerTimer?.cancel();
+    setState(() => _showFitBanner = true);
+    _fitBannerTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _showFitBanner = false);
+    });
+  }
+
+  String _fitLabel(BuildContext context, BoxFit? fit) {
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+    switch (fit) {
+      case BoxFit.cover:
+        return 'Zoom';
+      case BoxFit.fill:
+        return isDe ? 'Ausfüllen' : 'Fill';
+      case BoxFit.contain:
+      default:
+        return 'Original';
+    }
   }
 
   DateTime _lastLiveTimerReset = DateTime.now();
@@ -189,6 +212,15 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   }
 
   void _toggleFullscreen(BuildContext context) async {
+    if (GoatPlatform.isPhone && (widget.onEnterFullWidth != null || widget.onBack != null)) {
+      if (widget.isFullWidth) {
+        widget.onBack?.call();
+      } else {
+        widget.onEnterFullWidth?.call();
+      }
+      _startHideTimer();
+      return;
+    }
     final currentlyFull = isFullscreen(context);
     if (widget.onEnterFullWidth != null) {
       widget.onEnterFullWidth!();
@@ -197,9 +229,6 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       if (GoatPlatform.isPhone) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
         ]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
@@ -304,7 +333,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isFull = isFullscreen(context);
+    final isFull = isFullscreen(context) || (GoatPlatform.isPhone && widget.isFullWidth);
 
     // Dynamically watch active playback state so fullscreen mode immediately updates
     // on channel zap without relying on frozen constructor parameters
@@ -530,6 +559,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                               icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
                               tooltip: l10n?.close ?? 'Back',
                               onPressed: () {
+                                if (GoatPlatform.isPhone && widget.isFullWidth) {
+                                  widget.onBack?.call();
+                                  return;
+                                }
                                 if (isFull) {
                                   _toggleFullscreen(context);
                                 }
@@ -562,6 +595,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                                   visualDensity: VisualDensity.compact,
                                   onPressed: () {
                                     widget.onCycleFit!();
+                                    _triggerFitBanner();
                                     _startHideTimer();
                                   },
                                 ),
@@ -687,7 +721,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                           ),
 
                         // BOTTOM CENTER: Title & Current Show (Only in Fullscreen or Desktop, not mobile portrait where AppBar already has it)
-                        if (isFullOrFullWidth || !GoatPlatform.isMobile)
+                        if ((isFullOrFullWidth || !GoatPlatform.isMobile) && !(_showOsdBanner && currentStreamItem != null && isFull))
                           Positioned(
                             bottom: 18,
                             left: 90,
@@ -736,19 +770,56 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                   ),
                 ),
 
-                // 3. In-Player OSD Channel Info Banner (Appears on zap, only in fullscreen)
+                // Aspect Ratio Indicator Toast
+                if (_showFitBanner && isFull)
+                  Positioned(
+                    top: 24,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xD914141E),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.aspect_ratio, color: Colors.white, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                _fitLabel(context, widget.currentFit),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 3. In-Player OSD Channel Info Banner (Appears on zap at bottom-center in fullscreen)
                 if (_showOsdBanner && currentStreamItem != null && isFull)
                   Positioned(
-                    top: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)) ? 8 : 40,
-                    left: 12,
-                    right: 12,
-                    child: Center(
-                      child: InPlayerOsdBanner(
-                        stream: currentStreamItem,
-                        currentProgram: currentProgram,
-                        channelNumber: channelIndex,
-                        isCompact: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)),
-                        player: widget.state.widget.controller.player,
+                    bottom: 18,
+                    left: 72,
+                    right: 72,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: InPlayerOsdBanner(
+                          stream: currentStreamItem,
+                          currentProgram: currentProgram,
+                          channelNumber: channelIndex,
+                          isCompact: GoatPlatform.isMobile || !isFull,
+                          player: widget.state.widget.controller.player,
+                        ),
                       ),
                     ),
                   ),
@@ -756,9 +827,9 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 // 4. In-Player Slide-Out EPG & Channel List Drawer (Only in Full-Width or Fullscreen)
                 if (canShowDrawer && availableStreams.isNotEmpty)
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 250),
+                    duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
-                    left: _isDrawerOpen ? 0 : -360,
+                    left: _isDrawerOpen ? 0 : -280,
                     top: 0,
                     bottom: 0,
                     child: InPlayerEpgDrawer(
@@ -768,58 +839,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                       isOpen: _isDrawerOpen,
                       onSelectStream: (stream) {
                         _optimisticStreamId = stream.streamId;
-                        _channelChangingToStreamId = stream.streamId;
-                        setState(() {}); // Rebuild so the drawer highlight updates to the new channel immediately!
-
+                        _drawerChannelChangeSub?.cancel();
+                        _drawerChannelChangeSub = null;
+                        setState(() {
+                          _isDrawerOpen = false;
+                          _showOverlay = false;
+                        });
                         widget.onSelectStream?.call(stream);
                         _triggerOsdBanner();
-
-                        _hideTimer?.cancel();
-                        _drawerChannelChangeSub?.cancel();
-
-                        // Keep the drawer open with the channel highlighted until the stream is loaded and playing!
-                        final player = widget.state.widget.controller.player;
-                        int ticks = 0;
-                        _drawerChannelChangeSub = player.stream.position.listen((pos) {
-                          final uri = player.state.playlist.medias.firstOrNull?.uri;
-                          final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
-                          final targetId = stream.streamId;
-                          if (uri != null && uri.contains('/$targetId.') && hasVideo) {
-                            ticks++;
-                            if (ticks >= 2) {
-                              _drawerChannelChangeSub?.cancel();
-                              _drawerChannelChangeSub = null;
-                              if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
-                                // Short 300ms pause so the user clearly sees the channel confirmed before closing
-                                Future.delayed(const Duration(milliseconds: 300), () {
-                                  if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
-                                    setState(() {
-                                      _isDrawerOpen = false;
-                                      _channelChangingToStreamId = null;
-                                    });
-                                    _startHideTimer();
-                                  }
-                                });
-                              }
-                            }
-                          }
-                        });
-
-                        // Fallback: close drawer after 4 seconds if stream takes unusually long
-                        Future.delayed(const Duration(seconds: 4), () {
-                          if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
-                            setState(() {
-                              _isDrawerOpen = false;
-                              _channelChangingToStreamId = null;
-                            });
-                            _startHideTimer();
-                          }
-                        });
                       },
                       onClose: () {
                         _drawerChannelChangeSub?.cancel();
                         _drawerChannelChangeSub = null;
-                        _channelChangingToStreamId = null;
                         setState(() => _isDrawerOpen = false);
                         _startHideTimer();
                       },

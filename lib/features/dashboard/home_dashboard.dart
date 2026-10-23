@@ -486,7 +486,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth > 800 || GoatPlatform.isTv;
+              final isDesktop = (constraints.maxWidth > 800 && !GoatPlatform.isPhone) || GoatPlatform.isTv;
               
               final pages = [
                 isDesktop ? const DesktopLiveScreen() : const MobileLiveCategoriesScreen(),
@@ -583,7 +583,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 },
               ),
             ),
-          if (!GoatPlatform.isWeb && !GoatPlatform.isTv)
+          if (!GoatPlatform.isWeb && !GoatPlatform.isTv && (ModalRoute.of(context)?.isCurrent ?? true))
             FloatingMiniPlayer(
               onExpandLiveDesktop: () {
                 if (_isSearchOpen) {
@@ -597,7 +597,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             ),
         ],
       ),
-      bottomNavigationBar: (!hideChrome && MediaQuery.sizeOf(context).width <= 800)
+      bottomNavigationBar: (!hideChrome && (MediaQuery.sizeOf(context).width <= 800 || GoatPlatform.isPhone))
           ? SafeArea(
               child: BottomNavigationBar(
                 currentIndex: _selectedIndex,
