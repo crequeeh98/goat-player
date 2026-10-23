@@ -974,6 +974,52 @@ input.focusable.focused,
   border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
+/* Quality Badges Row (Apple TV / TiviMate style) */
+.quality-badges-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.quality-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.quality-badge.badge-4k {
+  background: rgba(0, 229, 255, 0.18);
+  border-color: rgba(0, 229, 255, 0.5);
+  color: #00E5FF;
+}
+
+.quality-badge.badge-hdr {
+  background: rgba(255, 184, 0, 0.18);
+  border-color: rgba(255, 184, 0, 0.5);
+  color: #FFB800;
+}
+
+.quality-badge.badge-audio {
+  background: rgba(100, 181, 246, 0.18);
+  border-color: rgba(100, 181, 246, 0.5);
+  color: #90CAF9;
+}
+
+.quality-badge.badge-fps {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #FFFFFF;
+}
+
 .channels-loading-box {
   position: absolute;
   top: 60px;

@@ -240,14 +240,14 @@ jobs:
             ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
 
             ### 🇬🇧 What's New
-            - **Smart TV Subtitles**: Optimized subtitle font size (42px) and weight (700 bold) for ideal living-room readability on Samsung Tizen and LG webOS.
-            - **Smart TV Performance**: Preserved larger UI text hierarchy while keeping subtitles balanced and non-intrusive.
-            - **Platform Consistency**: Synchronized v1.2.3 across Android, Windows, and Smart TV.
+            - **Stream Quality Badges**: Added subtle, high-performance quality indicators (Resolution, FPS, HDR/HLG/Vision, 5.1/Atmos) directly in the playback HUD across all platforms (Windows, Android, Smart TV).
+            - **Smart TV (Tizen & webOS)**: Real-time native video decoder resolution and frame-rate monitoring in Live TV infobar and VOD HUD.
+            - **Zero Clutter**: Clean Apple TV / TiviMate style pills that only appear when playback controls are displayed.
 
             ### 🇩🇪 Neuerungen
-            - **Smart TV Untertitel**: Optimierte Schriftgröße (42px) und Fettschrift (700) für perfekte Lesbarkeit im Wohnzimmer auf Samsung Tizen und LG webOS.
-            - **Smart TV Benutzeroberfläche**: Textskalierung beibehalten, während Untertitel harmonisch und unaufdringlich eingeblendet werden.
-            - **Plattform-Konsistenz**: Synchronisierte Version 1.2.3 für Android, Windows und Smart TV.
+            - **Stream-Qualitäts-Badges**: Dezente Echtzeit-Qualitätsanzeigen (Auflösung, FPS, HDR/HLG/Vision, 5.1/Atmos) direkt im Steuerungs-HUD auf allen Plattformen (Windows, Android, Smart TV).
+            - **Smart TV (Tizen & webOS)**: Live-Messung der Decoder-Auflösung und Framerate in der Live-Infobar sowie im VOD-HUD.
+            - **Kein Clutter**: Elegante Badges im Apple-TV-/TiviMate-Design, die nur bei sichtbarer Steuerungsleiste dezent eingeblendet werden.
 
             ### 📦 Download Links
             - **Android (All Devices)**: [`GOATPlayer-universal.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/GOATPlayer-universal.apk)

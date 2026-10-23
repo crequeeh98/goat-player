@@ -9,6 +9,7 @@ import 'package:goat_player/l10n/app_localizations.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/player/playback_controller.dart';
+import '../../../core/player/widgets/stream_quality_badge.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
 import '../../../core/utils/live_stream_matcher.dart';
 import '../epg_controller.dart';
@@ -675,20 +676,31 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                         // BOTTOM CENTER: Title & Current Show (Only in Fullscreen or Desktop, not mobile portrait where AppBar already has it)
                         if (isFullOrFullWidth || !GoatPlatform.isMobile)
                           Positioned(
-                            bottom: 24,
+                            bottom: 18,
                             left: 90,
                             right: 90,
-                            child: Text(
-                              displayTitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayTitle,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 1))],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                StreamQualityBadges(
+                                  player: widget.state.widget.controller.player,
+                                  streamTitle: widget.title,
+                                  isCompact: true,
+                                ),
+                              ],
                             ),
                           ),
 
@@ -723,6 +735,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                         currentProgram: currentProgram,
                         channelNumber: channelIndex,
                         isCompact: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)),
+                        player: widget.state.widget.controller.player,
                       ),
                     ),
                   ),

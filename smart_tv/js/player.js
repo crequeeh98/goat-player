@@ -683,6 +683,32 @@
           }
         }
       }
+
+      // Sample FPS from native playback quality if supported
+      if (!self._measuredFps && self.videoEl && typeof self.videoEl.getVideoPlaybackQuality === 'function') {
+        try {
+          var quality = self.videoEl.getVideoPlaybackQuality();
+          var frames = quality ? quality.totalVideoFrames : 0;
+          var now = Date.now();
+          if (frames > 0) {
+            if (!self._fpsSampleStart) {
+              self._fpsSampleStart = now;
+              self._fpsSampleFrames = frames;
+            } else if (now - self._fpsSampleStart >= 1200) {
+              var dt = (now - self._fpsSampleStart) / 1000;
+              var df = frames - self._fpsSampleFrames;
+              if (df > 5 && dt > 0) {
+                self._measuredFps = df / dt;
+                if (self.playbackType === 'live') {
+                  self.updateQualityBadges('infobar-quality-badges');
+                } else {
+                  self.updateQualityBadges('vod-quality-badges');
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
     });
 
     var unmuteBtn = document.getElementById('player-unmute-btn');
@@ -722,6 +748,11 @@
       self._applyPreferences();
       self._checkAspectAdjustment();
       self._tracksLoading = false;
+      if (self.playbackType === 'live') {
+        self.updateQualityBadges('infobar-quality-badges');
+      } else {
+        self.updateQualityBadges('vod-quality-badges');
+      }
       if (window.onTracksUpdated) window.onTracksUpdated();
     });
 
@@ -1675,6 +1706,9 @@
       }
     }
 
+    // Set VOD Quality Badges
+    this.updateQualityBadges('vod-quality-badges', (this.playbackType === 'series' && meta && meta.seriesName) ? meta.seriesName : (title || (stream ? stream.name : '')));
+
     // Show/hide series drawer button & next episode button + SVG icons
     var playBtn = document.getElementById('vod-play-btn');
     if (playBtn) {
@@ -1713,6 +1747,9 @@
     this._networkRetryCount = 0;
     this._retriedWithHls = false;
     this._audibleLogged = false;
+    this._fpsSampleStart = null;
+    this._fpsSampleFrames = null;
+    this._measuredFps = null;
     this._startWatchdog();
     var self = this;
     setTimeout(function() {
@@ -2020,6 +2057,84 @@
     }
   };
 
+  TVPlayer.prototype.updateQualityBadges = function(containerId, streamTitle) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+
+    var w = (this.videoEl && this.videoEl.videoWidth) ? this.videoEl.videoWidth : 0;
+    var h = (this.videoEl && this.videoEl.videoHeight) ? this.videoEl.videoHeight : 0;
+    var title = (streamTitle || (this.currentStream ? this.currentStream.name : '') || '').toLowerCase();
+
+    // 1. Resolution
+    var res = null;
+    if (w >= 3800 || h >= 2000) {
+      res = '4K';
+    } else if (h >= 1400) {
+      res = '1440p';
+    } else if (h >= 1000 || w >= 1900) {
+      res = '1080p';
+    } else if (h >= 700 || w >= 1200) {
+      res = '720p';
+    } else if (h > 0) {
+      res = (h < 600) ? 'SD' : (h + 'p');
+    } else {
+      if (title.indexOf('4k') !== -1 || title.indexOf('uhd') !== -1 || title.indexOf('2160') !== -1) res = '4K';
+      else if (title.indexOf('1080') !== -1 || title.indexOf('fhd') !== -1) res = '1080p';
+      else if (title.indexOf('720') !== -1 || title.indexOf('hd') !== -1) res = '720p';
+    }
+
+    // 2. FPS
+    var fps = null;
+    if (this._measuredFps && this._measuredFps >= 15) {
+      var f = this._measuredFps;
+      if (f >= 23.5 && f <= 24.5) fps = '24 FPS';
+      else if (f >= 24.6 && f <= 25.5) fps = '25 FPS';
+      else if (f >= 29.4 && f <= 30.5) fps = '30 FPS';
+      else if (f >= 49.0 && f <= 51.5) fps = '50 FPS';
+      else if (f >= 58.5 && f <= 61.5) fps = '60 FPS';
+      else fps = Math.round(f) + ' FPS';
+    } else {
+      if (title.indexOf('50fps') !== -1 || title.indexOf('50 fps') !== -1 || title.indexOf('50hz') !== -1) fps = '50 FPS';
+      else if (title.indexOf('60fps') !== -1 || title.indexOf('60 fps') !== -1 || title.indexOf('60hz') !== -1) fps = '60 FPS';
+      else if (title.indexOf('25fps') !== -1 || title.indexOf('25 fps') !== -1) fps = '25 FPS';
+    }
+
+    // 3. HDR
+    var hdr = null;
+    if (title.indexOf('dolby vision') !== -1 || title.indexOf('dovi') !== -1 || /\bdv\b/.test(title)) {
+      hdr = 'Vision';
+    } else if (title.indexOf('hdr10+') !== -1 || title.indexOf('hdr10') !== -1 || /\bhdr\b/.test(title)) {
+      hdr = 'HDR';
+    } else if (/\bhlg\b/.test(title)) {
+      hdr = 'HLG';
+    }
+
+    // 4. Audio
+    var audio = null;
+    if (this.currentVodMeta && this.currentVodMeta.audioTracks && this.currentVodMeta.audioTracks.length > 0) {
+      var actAudio = this.currentVodMeta.audioTracks[this.currentAudioTrackIndex || 0];
+      if (actAudio && actAudio.title) {
+        var aTitle = actAudio.title.toLowerCase();
+        if (aTitle.indexOf('atmos') !== -1) audio = 'Atmos';
+        else if (aTitle.indexOf('7.1') !== -1) audio = '7.1';
+        else if (aTitle.indexOf('5.1') !== -1 || aTitle.indexOf('ac3') !== -1 || aTitle.indexOf('eac3') !== -1 || aTitle.indexOf('surround') !== -1) audio = '5.1';
+      }
+    }
+    if (!audio) {
+      if (title.indexOf('atmos') !== -1) audio = 'Atmos';
+      else if (title.indexOf('7.1') !== -1) audio = '7.1';
+      else if (title.indexOf('5.1') !== -1 || title.indexOf('surround') !== -1) audio = '5.1';
+    }
+
+    var html = '';
+    if (res) html += '<span class="quality-badge' + (res === '4K' ? ' badge-4k' : '') + '">' + res + '</span>';
+    if (fps) html += '<span class="quality-badge badge-fps">' + fps + '</span>';
+    if (hdr) html += '<span class="quality-badge badge-hdr">' + hdr + '</span>';
+    if (audio) html += '<span class="quality-badge badge-audio">' + audio + '</span>';
+
+    container.innerHTML = html;
+  };
+
   TVPlayer.prototype.showInfobar = function(duration) {
     var self = this;
     var infobar = document.getElementById('live-infobar');
@@ -2050,6 +2165,9 @@
       if (nameEl) {
         nameEl.textContent = ch.name ? ch.name.replace(/^\[.*?\]\s*/, '') : 'Live Channel';
       }
+
+      // Quality Badges
+      this.updateQualityBadges('infobar-quality-badges', ch.name);
 
       if (logoEl) {
         if (ch.stream_icon) {

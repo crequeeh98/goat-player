@@ -8,6 +8,7 @@ import 'package:goat_player/core/database/app_database.dart';
 import 'package:goat_player/main.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../core/player/widgets/mobile_gesture_detector.dart';
+import '../../core/player/widgets/stream_quality_badge.dart';
 import '../../core/player/player_service.dart';
 import '../../core/player/playback_controller.dart';
 import '../../core/player/track_language_matcher.dart';
@@ -714,16 +715,27 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
           child: ValueListenableBuilder<String>(
             valueListenable: _titleNotifier,
             builder: (context, title, _) {
-              return Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 3),
+                  StreamQualityBadges(
+                    player: player,
+                    streamTitle: title,
+                    isCompact: true,
+                  ),
+                ],
               );
             },
           ),
