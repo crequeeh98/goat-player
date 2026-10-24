@@ -122,15 +122,13 @@ class RemoteSyncService {
     }
   }
 
-  /// Formats all local accounts into JSON to sync with Supabase
+  /// Formats all local accounts into JSON to sync with Supabase (zero-knowledge: no passwords or URLs uploaded)
   Future<List<Map<String, dynamic>>> getLocalPlaylistsJson() async {
     final localAccounts = await _accountDao.getAllAccounts();
     return localAccounts.map((a) => {
       'id': a.id,
-      'playlist_name': a.playlistName ?? a.username,
-      'server_url': a.serverUrl,
-      'username': a.username,
-      'password': a.password,
+      'playlist_name': (a.playlistName != null && a.playlistName!.trim().isNotEmpty) ? a.playlistName!.trim() : 'IPTV Playlist',
+      'type': a.serverUrl.toLowerCase().contains('.m3u') ? 'm3u' : 'xtream',
     }).toList();
   }
 

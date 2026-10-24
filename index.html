@@ -1326,9 +1326,9 @@
         const id = pl.id !== undefined ? pl.id : idx;
         const isM3u = pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8')));
         const name = pl.playlist_name || (isM3u ? 'M3U Playlist' : pl.username) || 'IPTV Playlist';
-        const server = pl.server_url || (isM3u ? 'M3U URL' : 'Xtream Server');
-        const user = isM3u ? (currentLang === 'de' ? 'Direkte M3U-Playlist' : 'Direct M3U Playlist') : (pl.username || 'User');
-        const userIcon = isM3u ? '📄' : '👤';
+        const server = pl.server_url || (isM3u ? 'M3U Stream' : 'Xtream Codes');
+        const user = pl.username || (currentLang === 'de' ? 'Gesichert auf dem Gerät' : 'Secured on device');
+        const userIcon = pl.username ? (isM3u ? '📄' : '👤') : '🔒';
         const btnOpacity = isDeviceConnected ? '1' : '0.5';
         const btnCursor = isDeviceConnected ? 'pointer' : 'not-allowed';
 
