@@ -59,7 +59,13 @@ tizen/
 graphify-out/
 .graphifyignore
 
+# Environment & secrets
+.env
+*.env
+.env.*
+key.properties
+**/key.properties
+
 # Android signing keys
 *.jks
-!android/app/goat_keystore.jks
 *.keystore
