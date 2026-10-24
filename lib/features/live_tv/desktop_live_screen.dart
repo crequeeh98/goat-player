@@ -8,6 +8,7 @@ import 'epg_controller.dart';
 import 'widgets/video_preview.dart';
 import 'widgets/epg_timeline.dart';
 import 'widgets/channel_icon.dart';
+import 'widgets/tv_smart_iptv_overlays.dart';
 import 'live_tv_controller.dart';
 import '../dashboard/favorites_provider.dart';
 import '../../core/utils/channel_name_cleaner.dart';
@@ -36,6 +37,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final FocusNode _selectedCategoryNode = FocusNode(debugLabel: 'selected_category');
   final FocusNode _playerNode = FocusNode(debugLabel: 'player_preview');
   final Map<String, FocusNode> _categoryFocusNodes = {};
+  final Map<String, FocusNode> _channelFocusNodes = {};
   FocusNode? _lastFocusedChannelNode;
   bool _isSearchInputActive = false;
   final Set<String> _syncedCategories = {};
@@ -54,6 +56,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     _playerNode.dispose();
     _searchFocusNode.dispose();
     for (final node in _categoryFocusNodes.values) {
+      node.dispose();
+    }
+    for (final node in _channelFocusNodes.values) {
       node.dispose();
     }
     _searchController.dispose();
@@ -95,6 +100,14 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   }
 
   void _focusChannelColumn() {
+    final activeId = ref.read(playbackControllerProvider)?.streamId ?? ref.read(selectedLiveStreamProvider)?.streamId;
+    if (activeId != null) {
+      final activeNode = _channelFocusNodes[activeId];
+      if (activeNode != null && activeNode.canRequestFocus) {
+        activeNode.requestFocus();
+        return;
+      }
+    }
     if (_lastFocusedChannelNode != null && _lastFocusedChannelNode!.canRequestFocus) {
       _lastFocusedChannelNode!.requestFocus();
       return;
@@ -106,6 +119,44 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final moved = FocusScope.of(context).focusInDirection(TraversalDirection.right);
     if (!moved && _playerNode.canRequestFocus) {
       _playerNode.requestFocus();
+    }
+  }
+
+  Future<void> _handleChannelLongPress(StreamItem stream) async {
+    if (!GoatPlatform.isTv) {
+      await _toggleFavorite(stream);
+      return;
+    }
+    final favIds = ref.read(favoriteStreamIdsProvider('live')).value ?? const <String>{};
+    final isFav = favIds.contains(stream.streamId);
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+    final cleanName = ChannelNameCleaner.clean(stream.name);
+
+    final action = await TvColorActionPicker.showLiveActions(
+      context: context,
+      channelName: cleanName,
+      isFavorite: isFav,
+      isDe: isDe,
+    );
+    if (!mounted || action == null) return;
+
+    if (action == TvLiveColorAction.toggleFavorite) {
+      await _toggleFavorite(stream);
+    } else if (action == TvLiveColorAction.openEpg) {
+      await showDialog(
+        context: context,
+        barrierColor: Colors.black54,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: TvLiveEpgOverlay(
+            stream: stream,
+            onClose: () => Navigator.of(ctx).pop(),
+          ),
+        ),
+      );
+    } else if (action == TvLiveColorAction.openCategories) {
+      _focusCategoryColumn();
     }
   }
 
@@ -228,11 +279,14 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final activePlayback = ref.read(playbackControllerProvider);
     final effectiveCat = _selectedCategory ?? stream.categoryId;
 
-    // Prevent redundant reload if stream is already playing in the same category
+    // On Smart TV / Fire TV: 2nd OK press on the already-playing channel enters Fullscreen!
     if (activePlayback != null &&
         activePlayback.streamType == StreamType.live &&
         activePlayback.streamId == stream.streamId &&
         activePlayback.categoryId == effectiveCat) {
+      if (GoatPlatform.isTv && !ref.read(isLiveFullWidthProvider)) {
+        ref.read(isLiveFullWidthProvider.notifier).set(true);
+      }
       return;
     }
 
@@ -320,6 +374,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         _lastScrolledStreamId = null;
         _lastScrolledCategoryId = null;
         _lastCategoryRailScrolledId = null;
+        if (GoatPlatform.isTv) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _focusChannelColumn();
+          });
+        }
       }
     });
 
@@ -591,10 +650,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         }
 
                         final favoriteIds = ref.watch(favoriteStreamIdsProvider('live')).value ?? const <String>{};
+                        final currentPrograms = GoatPlatform.isTv
+                            ? (ref.watch(currentProgramsMapProvider).asData?.value ?? const <String, EpgProgram>{})
+                            : const <String, EpgProgram>{};
                         final account = ref.read(activeAccountProvider);
                         final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
 
-                        return ListView.builder(
+                        final channelListView = ListView.builder(
                           controller: _channelScrollController,
                           cacheExtent: 500.0,
                           itemExtent: GoatPlatform.isTv ? 48.0 : 64.0,
@@ -611,6 +673,22 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 (currentLive?.streamId != null && currentLive!.streamId == stream.streamId) ||
                                 currentLive?.streamUrl == url ||
                                 activePlayback?.streamUrl == url;
+                            final epgId = (stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty)
+                                ? stream.epgChannelId!
+                                : stream.streamId;
+                            final currentProg = currentPrograms[epgId];
+
+                            final itemFocusNode = index == 0
+                                ? _firstChannelNode
+                                : (GoatPlatform.isTv
+                                    ? _channelFocusNodes.putIfAbsent(
+                                        stream.streamId,
+                                        () => FocusNode(debugLabel: 'ch_${stream.streamId}'),
+                                      )
+                                    : null);
+                            if (index == 0 && GoatPlatform.isTv) {
+                              _channelFocusNodes[stream.streamId] = _firstChannelNode;
+                            }
 
                             if (index == 0 && _focusFirstChannelOnNextBuild) {
                               _focusFirstChannelOnNextBuild = false;
@@ -627,14 +705,14 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 vertical: GoatPlatform.isTv ? 2 : 3,
                               ),
                               child: TvFocusable(
-                                focusNode: index == 0 ? _firstChannelNode : null,
+                                focusNode: itemFocusNode,
                                 focusScale: 1.02,
                                 borderRadius: BorderRadius.circular(10),
                                 onPressed: () => _playStream(stream),
-                                onLongPress: () => _toggleFavorite(stream),
+                                onLongPress: () => _handleChannelLongPress(stream),
                                 onFocusChange: (hasF) {
                                   if (hasF) {
-                                    _lastFocusedChannelNode = index == 0 ? _firstChannelNode : null;
+                                    _lastFocusedChannelNode = itemFocusNode;
                                   }
                                 },
                                 onKeyEvent: (node, event) {
@@ -683,33 +761,49 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    cleanName,
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      color: isCurrentPlaying ? Colors.white : Colors.white.withValues(alpha: 0.88),
-                                                      fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.w500,
-                                                      fontSize: GoatPlatform.isTv ? 11.5 : 14,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                            Text(
+                                              cleanName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isCurrentPlaying ? Colors.white : Colors.white.withValues(alpha: 0.88),
+                                                fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.w500,
+                                                fontSize: GoatPlatform.isTv ? 11.5 : 14,
+                                              ),
                                             ),
+                                            if (GoatPlatform.isTv && currentProg != null && currentProg.title.isNotEmpty) ...[
+                                              const SizedBox(height: 1),
+                                              Text(
+                                                currentProg.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: isCurrentPlaying ? const Color(0xFFD8B4FE) : Colors.white54,
+                                                  fontSize: 9.5,
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),
-                                      IconButton(
-                                        icon: Icon(
-                                          isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                                          size: GoatPlatform.isTv ? 18 : 22,
+                                      if (GoatPlatform.isTv)
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 6),
+                                          child: Icon(
+                                            isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                            size: 16,
+                                            color: isFavorite ? Colors.amber : Colors.white24,
+                                          ),
+                                        )
+                                      else
+                                        IconButton(
+                                          icon: Icon(
+                                            isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                            size: 22,
+                                          ),
+                                          color: isFavorite ? Colors.amber : Colors.white38,
+                                          onPressed: () => _toggleFavorite(stream),
                                         ),
-                                        color: isFavorite ? Colors.amber : Colors.white38,
-                                        onPressed: () => _toggleFavorite(stream),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -717,6 +811,33 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             );
                           },
                         );
+
+                        if (GoatPlatform.isTv) {
+                          final isDe = Localizations.localeOf(context).languageCode == 'de';
+                          return Column(
+                            children: [
+                              Expanded(child: channelListView),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF140E24),
+                                  border: Border(top: BorderSide(color: Colors.white12)),
+                                ),
+                                child: Text(
+                                  isDe
+                                      ? 'OK: Vorschau / 2× Vollbild  ·  Halten: 🟡 Favorit · 🟢 EPG · 🔵 Gruppen'
+                                      : 'OK: Preview / 2× Fullscreen  ·  Hold: 🟡 Fav · 🟢 EPG · 🔵 Groups',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return channelListView;
                       },
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (err, stack) => Center(child: Text('${AppLocalizations.of(context)!.error}$err')),
@@ -734,17 +855,17 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
                   child: currentLive != null
-                      ? (GoatPlatform.isTv
+                      ? (GoatPlatform.isTv && !_isFullWidth
                           ? Padding(
-                              padding: _isFullWidth ? EdgeInsets.zero : const EdgeInsets.all(4.0),
+                              padding: const EdgeInsets.all(4.0),
                               child: TvFocusable(
                                 focusNode: _playerNode,
-                                borderRadius: _isFullWidth ? BorderRadius.zero : BorderRadius.circular(12),
-                                focusScale: _isFullWidth ? 1.0 : 1.01,
-                                focusBorderColor: _isFullWidth ? Colors.transparent : const Color(0xFFB388FF),
-                                glowColor: _isFullWidth ? Colors.transparent : const Color(0x33B388FF),
+                                borderRadius: BorderRadius.circular(12),
+                                focusScale: 1.01,
+                                focusBorderColor: const Color(0xFFB388FF),
+                                glowColor: const Color(0x33B388FF),
                                 onPressed: () {
-                                  ref.read(isLiveFullWidthProvider.notifier).toggle();
+                                  ref.read(isLiveFullWidthProvider.notifier).set(true);
                                 },
                                 onKeyEvent: (node, event) {
                                   if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
+import '../../core/utils/platform_utils.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../dashboard/favorites_provider.dart';
 import 'vod_player_screen.dart';
 
@@ -80,14 +82,44 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           title: Text(AppLocalizations.of(ctx)!.resumePlayback),
           content: Text('${AppLocalizations.of(ctx)!.resumeFrom} ${_formatDuration(progress.position)}?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(AppLocalizations.of(ctx)!.startOver),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(AppLocalizations.of(ctx)!.resume),
-            ),
+            if (GoatPlatform.isTv) ...[
+              TvFocusable(
+                borderRadius: BorderRadius.circular(8),
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(AppLocalizations.of(ctx)!.startOver),
+                ),
+              ),
+              TvFocusable(
+                autofocus: true,
+                borderRadius: BorderRadius.circular(8),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(ctx)!.resume,
+                    style: TextStyle(
+                      color: Theme.of(ctx).colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(AppLocalizations.of(ctx)!.startOver),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(AppLocalizations.of(ctx)!.resume),
+              ),
+            ],
           ],
         ),
       );
@@ -238,14 +270,28 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                     Positioned(
                       top: 16,
                       right: 16,
-                      child: IconButton.filled(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black.withAlpha(150),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
+                      child: GoatPlatform.isTv
+                          ? TvFocusable(
+                              borderRadius: BorderRadius.circular(20),
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withAlpha(150),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                              ),
+                            )
+                          : IconButton.filled(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black.withAlpha(150),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -322,7 +368,39 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isMobile)
+                  if (GoatPlatform.isTv)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+                      child: TvFocusable(
+                        autofocus: true,
+                        borderRadius: BorderRadius.circular(12),
+                        onPressed: _playMovie,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.play_arrow, size: 24, color: Theme.of(context).colorScheme.onPrimary),
+                              const SizedBox(width: 8),
+                              Text(
+                                AppLocalizations.of(context)!.playMovie,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (isMobile)
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: _playMovie,
@@ -361,6 +439,30 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                   Consumer(
                     builder: (context, ref, child) {
                       final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.streamId, streamType: 'movie'))).value ?? false;
+                      Future<void> toggleFav() async {
+                        final account = ref.read(activeAccountProvider);
+                        if (account != null) {
+                          await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
+                        }
+                      }
+                      if (GoatPlatform.isTv) {
+                        return TvFocusable(
+                          borderRadius: BorderRadius.circular(12),
+                          onPressed: toggleFav,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: isFavorite ? Colors.redAccent : Colors.white70,
+                              size: 24,
+                            ),
+                          ),
+                        );
+                      }
                       return IconButton.filledTonal(
                         icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
                         color: isFavorite ? Colors.redAccent : Colors.white70,
@@ -369,12 +471,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                           padding: const EdgeInsets.all(12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: () async {
-                          final account = ref.read(activeAccountProvider);
-                          if (account != null) {
-                            await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
-                          }
-                        },
+                        onPressed: toggleFav,
                       );
                     },
                   ),

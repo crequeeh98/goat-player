@@ -12,9 +12,12 @@ import '../../../core/player/playback_controller.dart';
 import '../../../core/player/widgets/stream_quality_badge.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
 import '../../../core/utils/live_stream_matcher.dart';
+import '../../../main.dart';
+import '../../dashboard/favorites_provider.dart';
 import '../epg_controller.dart';
 import '../live_tv_controller.dart';
 import 'in_player_epg_drawer.dart';
+import 'tv_smart_iptv_overlays.dart';
 
 class CustomLiveControls extends ConsumerStatefulWidget {
   final VideoState state;
@@ -85,6 +88,15 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   StreamSubscription? _drawerChannelChangeSub;
   double _verticalDragDistance = 0.0;
 
+  // Smart-IPTV TV Fullscreen Overlays state (GoatPlatform.isTv)
+  bool _isTvChannelMenuOpen = false;
+  bool _isTvCategoryMenuOpen = false;
+  StreamItem? _tvEpgStream;
+  String? _tvMenuCategoryId;
+  Timer? _tvLongPressTimer;
+  bool _tvLongPressTriggered = false;
+  bool _tvSelectDownHandled = false;
+
   @override
   void initState() {
     super.initState();
@@ -125,14 +137,24 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   void didUpdateWidget(CustomLiveControls oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isFullWidth && !oldWidget.isFullWidth) {
+      if (GoatPlatform.isTv) {
+        _triggerOsdBanner();
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusNode.requestFocus();
+      });
+    } else if (!widget.isFullWidth && oldWidget.isFullWidth && GoatPlatform.isTv) {
+      setState(() {
+        _isTvChannelMenuOpen = false;
+        _isTvCategoryMenuOpen = false;
+        _tvEpgStream = null;
       });
     }
   }
 
   @override
   void dispose() {
+    _tvLongPressTimer?.cancel();
     _focusNode.dispose();
     _drawerChannelChangeSub?.cancel();
     _hideTimer?.cancel();
@@ -381,6 +403,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         : (currentStreamItem != null ? ChannelNameCleaner.clean(currentStreamItem.name) : activeTitle);
 
     final isFullOrFullWidth = widget.isFullWidth || isFullscreen(context);
+
+    if (GoatPlatform.isTv) {
+      return _buildTvSmartIptvControls(
+        context: context,
+        isFullOrFullWidth: isFullOrFullWidth,
+        currentStreamItem: currentStreamItem,
+        channelIndex: channelIndex,
+        availableStreams: availableStreams,
+        activeStreamId: activeStreamId,
+        categoryId: categoryId,
+      );
+    }
 
     return Focus(
       focusNode: _focusNode,
@@ -861,5 +895,320 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
           ),
         ),
       );
+  }
+
+  Future<void> _toggleTvFavorite(StreamItem stream) async {
+    final acc = ref.read(activeAccountProvider);
+    if (acc == null) return;
+    await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
+    if (mounted) {
+      _triggerOsdBanner();
+    }
+  }
+
+  Future<void> _openTvColorPickerInFullscreen(StreamItem? currentStreamItem) async {
+    if (currentStreamItem == null) return;
+    final favIds = ref.read(favoriteStreamIdsProvider('live')).value ?? const <String>{};
+    final isFav = favIds.contains(currentStreamItem.streamId);
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+
+    final action = await TvColorActionPicker.showLiveActions(
+      context: context,
+      channelName: ChannelNameCleaner.clean(currentStreamItem.name),
+      isFavorite: isFav,
+      isDe: isDe,
+    );
+    if (!mounted || action == null) {
+      _focusNode.requestFocus();
+      return;
+    }
+
+    if (action == TvLiveColorAction.toggleFavorite) {
+      await _toggleTvFavorite(currentStreamItem);
+      if (mounted) _focusNode.requestFocus();
+    } else if (action == TvLiveColorAction.openEpg) {
+      setState(() {
+        _tvEpgStream = currentStreamItem;
+        _isTvChannelMenuOpen = false;
+        _isTvCategoryMenuOpen = false;
+      });
+    } else if (action == TvLiveColorAction.openCategories) {
+      setState(() {
+        _isTvCategoryMenuOpen = true;
+        _isTvChannelMenuOpen = false;
+        _tvEpgStream = null;
+      });
+    }
+  }
+
+  Widget _buildTvSmartIptvControls({
+    required BuildContext context,
+    required bool isFullOrFullWidth,
+    required StreamItem? currentStreamItem,
+    required int channelIndex,
+    required List<StreamItem> availableStreams,
+    required String? activeStreamId,
+    required String? categoryId,
+  }) {
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+
+    // 1. In 3-Column Preview Mode (!isFullOrFullWidth):
+    // Keep preview clean; the outer TvFocusable in DesktopLiveScreen handles OK -> Fullscreen.
+    if (!isFullOrFullWidth) {
+      return Stack(
+        children: [
+          if (_isBuffering)
+            const Center(
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3.0,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB388FF)),
+                ),
+              ),
+            ),
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    isDe ? 'OK: Vollbild' : 'OK: Fullscreen',
+                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 2. In Fullscreen Live TV Mode (isFullOrFullWidth):
+    final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
+    final effectiveMenuCatId = _tvMenuCategoryId ?? categoryId ?? categories.firstOrNull?.categoryId;
+    final menuStreams = (effectiveMenuCatId != null && effectiveMenuCatId != categoryId)
+        ? (ref.watch(liveStreamsProvider(effectiveMenuCatId)).asData?.value ?? availableStreams)
+        : availableStreams;
+    final menuCatObj = categories.where((c) => c.categoryId == effectiveMenuCatId).firstOrNull;
+    final menuCatName = effectiveMenuCatId == 'favorites'
+        ? (isDe ? 'Favoriten' : 'Favorites')
+        : (menuCatObj?.name ?? widget.categoryName ?? 'Live TV');
+
+    final isAnySubMenuOpen = _isTvChannelMenuOpen || _isTvCategoryMenuOpen || _tvEpgStream != null;
+
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: !isAnySubMenuOpen,
+      onKeyEvent: (node, event) {
+        if (isAnySubMenuOpen) {
+          return KeyEventResult.ignored;
+        }
+
+        if (event.logicalKey == LogicalKeyboardKey.contextMenu) {
+          if (event is KeyDownEvent) {
+            _openTvColorPickerInFullscreen(currentStreamItem);
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.handled;
+        }
+
+        final isSelectKey = event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+
+        if (isSelectKey) {
+          if (event is KeyDownEvent) {
+            _tvSelectDownHandled = true;
+            _tvLongPressTriggered = false;
+            _tvLongPressTimer?.cancel();
+            _tvLongPressTimer = Timer(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                _tvLongPressTriggered = true;
+                _openTvColorPickerInFullscreen(currentStreamItem);
+              }
+            });
+            return KeyEventResult.handled;
+          } else if (event is KeyRepeatEvent) {
+            return KeyEventResult.handled;
+          } else if (event is KeyUpEvent) {
+            _tvLongPressTimer?.cancel();
+            if (_tvSelectDownHandled) {
+              _tvSelectDownHandled = false;
+              if (!_tvLongPressTriggered) {
+                // Short press OK -> Open Smart-IPTV Channel Menu
+                setState(() {
+                  _tvMenuCategoryId = categoryId;
+                  _isTvChannelMenuOpen = true;
+                  _showOsdBanner = false;
+                });
+              }
+              _tvLongPressTriggered = false;
+              return KeyEventResult.handled;
+            }
+          }
+        }
+
+        if (event is KeyDownEvent) {
+          // Back / Escape: Exit Fullscreen back to 3-column Live TV view
+          if (event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack) {
+            widget.onBack?.call();
+            return KeyEventResult.handled;
+          }
+
+          // Up / Right / CH+ -> Zap Next Channel + Show Smart-IPTV Infobar
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+              event.logicalKey == LogicalKeyboardKey.arrowRight ||
+              event.logicalKey == LogicalKeyboardKey.channelUp ||
+              event.logicalKey == LogicalKeyboardKey.pageUp) {
+            _zapNext();
+            return KeyEventResult.handled;
+          }
+
+          // Down / Left / CH- -> Zap Previous Channel + Show Smart-IPTV Infobar
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+              event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+              event.logicalKey == LogicalKeyboardKey.channelDown ||
+              event.logicalKey == LogicalKeyboardKey.pageDown) {
+            _zapPrevious();
+            return KeyEventResult.handled;
+          }
+        }
+
+        return KeyEventResult.ignored;
+      },
+      child: Stack(
+        children: [
+          // Buffering spinner
+          if (_isBuffering)
+            const Center(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB388FF)),
+                ),
+              ),
+            ),
+
+          // 1. Smart-IPTV Bottom Infobar (Shown for 3.5s on channel zap or fullscreen entry)
+          if (_showOsdBanner && currentStreamItem != null && !isAnySubMenuOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: TvLiveInfobar(
+                  stream: currentStreamItem,
+                  channelNumber: channelIndex,
+                  player: widget.state.widget.controller.player,
+                ),
+              ),
+            ),
+
+          // 2. Smart-IPTV Centered Paginated Channel Menu
+          if (_isTvChannelMenuOpen)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black38,
+                child: TvLiveChannelMenu(
+                  streams: menuStreams,
+                  activeStreamId: activeStreamId,
+                  categoryName: menuCatName,
+                  onSelectStream: (stream) {
+                    _optimisticStreamId = stream.streamId;
+                    if (_tvMenuCategoryId != null && _tvMenuCategoryId != categoryId) {
+                      ref.read(selectedLiveCategoryProvider.notifier).set(_tvMenuCategoryId);
+                    }
+                    widget.onSelectStream?.call(stream);
+                    _triggerOsdBanner();
+                  },
+                  onToggleFavorite: _toggleTvFavorite,
+                  onOpenEpg: (stream) {
+                    setState(() {
+                      _isTvChannelMenuOpen = false;
+                      _tvEpgStream = stream;
+                    });
+                  },
+                  onOpenCategories: () {
+                    setState(() {
+                      _isTvChannelMenuOpen = false;
+                      _isTvCategoryMenuOpen = true;
+                    });
+                  },
+                  onClose: () {
+                    setState(() => _isTvChannelMenuOpen = false);
+                    _triggerOsdBanner();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _focusNode.requestFocus();
+                    });
+                  },
+                ),
+              ),
+            ),
+
+          // 3. Smart-IPTV Centered Paginated Category / Bouquet Menu
+          if (_isTvCategoryMenuOpen)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black38,
+                child: TvLiveCategoryMenu(
+                  categories: categories,
+                  selectedCategoryId: effectiveMenuCatId,
+                  onSelectCategory: (catId) {
+                    final account = ref.read(activeAccountProvider);
+                    final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
+                    if (catId != 'favorites' && !isM3u) {
+                      ref.read(liveTvControllerProvider).syncLiveStreams(catId);
+                    }
+                    ref.read(selectedLiveCategoryProvider.notifier).set(catId);
+                    setState(() {
+                      _tvMenuCategoryId = catId;
+                      _isTvCategoryMenuOpen = false;
+                      _isTvChannelMenuOpen = true;
+                    });
+                  },
+                  onClose: () {
+                    setState(() {
+                      _isTvCategoryMenuOpen = false;
+                      _isTvChannelMenuOpen = true;
+                    });
+                  },
+                ),
+              ),
+            ),
+
+          // 4. Smart-IPTV Centered Full Channel EPG Schedule Overlay
+          if (_tvEpgStream != null)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black45,
+                child: TvLiveEpgOverlay(
+                  stream: _tvEpgStream!,
+                  onClose: () {
+                    setState(() {
+                      _tvEpgStream = null;
+                      _isTvChannelMenuOpen = true;
+                    });
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

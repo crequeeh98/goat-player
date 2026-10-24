@@ -1,5 +1,7 @@
 
 
+import 'title_sanitizer.dart';
+
 class EpgItem {
   final String channelId;
   final String title;
@@ -47,10 +49,13 @@ class EpgIsolateParser {
       final titleMatch = titleRegex.firstMatch(innerContent);
       final descMatch = descRegex.firstMatch(innerContent);
 
+      final rawTitle = titleMatch?.group(1) ?? 'Unknown';
+      final rawDesc = descMatch?.group(1);
+
       items.add(EpgItem(
         channelId: channelId,
-        title: titleMatch?.group(1) ?? 'Unknown',
-        description: descMatch?.group(1),
+        title: TitleSanitizer.unescapeHtml(rawTitle),
+        description: rawDesc != null ? TitleSanitizer.unescapeHtml(rawDesc) : null,
         start: start,
         stop: stop,
       ));

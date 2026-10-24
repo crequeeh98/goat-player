@@ -14,6 +14,7 @@ import '../../core/player/playback_controller.dart';
 import '../../core/player/track_language_matcher.dart';
 import '../../core/player/track_preference_service.dart';
 import '../../core/utils/vod_title_cleaner.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../vod_series/widgets/in_player_episode_drawer.dart';
 
 class VodPlayerScreen extends ConsumerStatefulWidget {
@@ -513,27 +514,69 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: GoatPlatform.isTv ? const Color(0xFF1E1730) : null,
         title: const Text('Audio Tracks'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: player.state.tracks.audio.map((t) {
+              final isSelected = player.state.track.audio == t;
+              final label = t.title ?? t.language ?? t.id;
+              void selectTrack() {
+                player.setAudioTrack(t);
+                final mediaId = widget.streamType == 'series'
+                    ? (widget.seriesId ?? _currentStreamId ?? '')
+                    : (_currentStreamId ?? '');
+                if (mediaId.isNotEmpty) {
+                  ref.read(trackPreferenceServiceProvider).setMediaAudioChoice(
+                    mediaId,
+                    label,
+                  );
+                }
+                Navigator.pop(context);
+              }
+              if (GoatPlatform.isTv) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: TvFocusable(
+                    autofocus: isSelected,
+                    borderRadius: BorderRadius.circular(10),
+                    onPressed: selectTrack,
+                    child: Container(
+                      width: 300,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                            : const Color(0xFF161124),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFFB388FF) : Colors.white12,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle, size: 18, color: Color(0xFFB388FF)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
               return ListTile(
-                title: Text(t.title ?? t.language ?? t.id),
-                selected: player.state.track.audio == t,
-                onTap: () {
-                  player.setAudioTrack(t);
-                  final mediaId = widget.streamType == 'series'
-                      ? (widget.seriesId ?? _currentStreamId ?? '')
-                      : (_currentStreamId ?? '');
-                  if (mediaId.isNotEmpty) {
-                    ref.read(trackPreferenceServiceProvider).setMediaAudioChoice(
-                      mediaId,
-                      t.title ?? t.language ?? t.id,
-                    );
-                  }
-                  Navigator.pop(context);
-                },
+                title: Text(label),
+                selected: isSelected,
+                onTap: selectTrack,
               );
             }).toList(),
           ),
@@ -546,6 +589,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: GoatPlatform.isTv ? const Color(0xFF1E1730) : null,
         title: const Text('Subtitles'),
         content: SingleChildScrollView(
           child: Column(
@@ -559,23 +603,63 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                 String label = t.title ?? t.language ?? t.id;
                 if (t.id == 'no') label = 'Off / Deaktiviert';
                 if (t.id == 'auto') label = 'Auto / Automatisch';
+                final isSelected = player.state.track.subtitle == t;
+                void selectSub() {
+                  ref.read(playerServiceProvider).setSubtitleTrack(t);
+                  final mediaId = widget.streamType == 'series'
+                      ? (widget.seriesId ?? _currentStreamId ?? '')
+                      : (_currentStreamId ?? '');
+                  if (mediaId.isNotEmpty) {
+                    final choice = t.id == 'no' ? 'off' : (t.title ?? t.language ?? t.id);
+                    ref.read(trackPreferenceServiceProvider).setMediaSubtitleChoice(
+                      mediaId,
+                      choice,
+                    );
+                  }
+                  Navigator.pop(context);
+                }
+                if (GoatPlatform.isTv) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: TvFocusable(
+                      autofocus: isSelected,
+                      borderRadius: BorderRadius.circular(10),
+                      onPressed: selectSub,
+                      child: Container(
+                        width: 300,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                              : const Color(0xFF161124),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFFB388FF) : Colors.white12,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(Icons.check_circle, size: 18, color: Color(0xFFB388FF)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
                 return ListTile(
                   title: Text(label),
-                  selected: player.state.track.subtitle == t,
-                  onTap: () {
-                    ref.read(playerServiceProvider).setSubtitleTrack(t);
-                    final mediaId = widget.streamType == 'series'
-                        ? (widget.seriesId ?? _currentStreamId ?? '')
-                        : (_currentStreamId ?? '');
-                    if (mediaId.isNotEmpty) {
-                      final choice = t.id == 'no' ? 'off' : (t.title ?? t.language ?? t.id);
-                      ref.read(trackPreferenceServiceProvider).setMediaSubtitleChoice(
-                        mediaId,
-                        choice,
-                      );
-                    }
-                    Navigator.pop(context);
-                  },
+                  selected: isSelected,
+                  onTap: selectSub,
                 );
               }).toList();
             }(),
@@ -795,6 +879,9 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
               focusNode: _screenFocusNode,
               autofocus: true,
               onKeyEvent: (node, event) {
+                if (GoatPlatform.isTv) {
+                  return KeyEventResult.ignored;
+                }
                 if (event is KeyDownEvent) {
                   if (event.logicalKey == LogicalKeyboardKey.space) {
                     player.playOrPause();
@@ -1224,13 +1311,19 @@ class _VodControlsState extends State<_VodControls> {
   bool _isControlsVisible = true;
   bool _showSkipLeft = false;
   bool _showSkipRight = false;
+  int _lastSkipDelta = 10;
+  DateTime _lastSeekKeyTime = DateTime.fromMillisecondsSinceEpoch(0);
+  int _consecutiveSeekCount = 0;
   Timer? _hideTimer;
   Timer? _skipLeftTimer;
   Timer? _skipRightTimer;
   StreamSubscription? _playingSub;
   StreamSubscription? _posSub;
   StreamSubscription? _durSub;
-  late final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode = FocusNode(debugLabel: 'VodControlsRoot');
+  late final FocusNode _tvScrubberNode = FocusNode(debugLabel: 'TvVodScrubber');
+  late final FocusNode _tvPlayPauseNode = FocusNode(debugLabel: 'TvVodPlayPause');
+  bool _isTvScrubberFocused = false;
 
   @override
   void initState() {
@@ -1266,7 +1359,11 @@ class _VodControlsState extends State<_VodControls> {
     _startHideTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _focusNode.requestFocus();
+        if (GoatPlatform.isTv) {
+          _tvPlayPauseNode.requestFocus();
+        } else {
+          _focusNode.requestFocus();
+        }
       }
     });
   }
@@ -1274,6 +1371,8 @@ class _VodControlsState extends State<_VodControls> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _tvScrubberNode.dispose();
+    _tvPlayPauseNode.dispose();
     _hideTimer?.cancel();
     _skipLeftTimer?.cancel();
     _skipRightTimer?.cancel();
@@ -1286,9 +1385,12 @@ class _VodControlsState extends State<_VodControls> {
   void _startHideTimer() {
     _hideTimer?.cancel();
     if (_isPlaying && !widget.isEpisodeDrawerOpen) {
-      _hideTimer = Timer(const Duration(seconds: 3), () {
+      _hideTimer = Timer(Duration(seconds: GoatPlatform.isTv ? 4 : 3), () {
         if (mounted && _isPlaying && !widget.isEpisodeDrawerOpen) {
           setState(() => _isControlsVisible = false);
+          if (GoatPlatform.isTv) {
+            _focusNode.requestFocus();
+          }
         }
       });
     }
@@ -1319,9 +1421,23 @@ class _VodControlsState extends State<_VodControls> {
 
   void _togglePlayPause() {
     _player.playOrPause();
-    _focusNode.requestFocus();
+    if (!GoatPlatform.isTv) {
+      _focusNode.requestFocus();
+    }
     setState(() => _isControlsVisible = true);
     _startHideTimer();
+  }
+
+  int _computeAcceleratedDelta(int direction) {
+    final now = DateTime.now();
+    if (now.difference(_lastSeekKeyTime).inMilliseconds < 650) {
+      _consecutiveSeekCount++;
+    } else {
+      _consecutiveSeekCount = 1;
+    }
+    _lastSeekKeyTime = now;
+    final step = _consecutiveSeekCount >= 8 ? 60 : (_consecutiveSeekCount >= 4 ? 30 : 10);
+    return direction * step;
   }
 
   void _seekRelative(int deltaSeconds, {bool showRipple = false}) {
@@ -1332,7 +1448,10 @@ class _VodControlsState extends State<_VodControls> {
         ? Duration.zero
         : (duration > Duration.zero && target > duration ? duration : target);
     _player.seek(clamped);
-    setState(() => _position = clamped);
+    setState(() {
+      _position = clamped;
+      _lastSkipDelta = deltaSeconds.abs();
+    });
     if (showRipple) {
       if (deltaSeconds < 0) {
         _skipLeftTimer?.cancel();
@@ -1363,6 +1482,350 @@ class _VodControlsState extends State<_VodControls> {
     return '$minutes:$seconds';
   }
 
+  Widget _buildTvControlBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    FocusNode? focusNode,
+    bool isPrimary = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: TvFocusable(
+        focusNode: focusNode,
+        focusScale: 1.05,
+        borderRadius: BorderRadius.circular(10),
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            _tvScrubberNode.requestFocus();
+            _startHideTimer();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        onPressed: () {
+          _startHideTimer();
+          onPressed();
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPrimary ? 18 : 14,
+            vertical: isPrimary ? 10 : 8,
+          ),
+          decoration: BoxDecoration(
+            color: isPrimary
+                ? const Color(0xFF7C3AED)
+                : Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isPrimary ? const Color(0xFFB388FF) : Colors.white24,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: isPrimary ? 22 : 18),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isPrimary ? 13.5 : 12.5,
+                  fontWeight: isPrimary ? FontWeight.bold : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTvCinemaHud(BuildContext context, double currentSecs, double totalSecs) {
+    final progressRatio = (totalSecs > 0 ? (currentSecs / totalSecs) : 0.0).clamp(0.0, 1.0);
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xB3000000),
+            Colors.transparent,
+            Colors.transparent,
+            Color(0xE608060E),
+          ],
+          stops: [0.0, 0.22, 0.62, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        child: Stack(
+          children: [
+            // TOP HEADER: Title + Quality Badges
+            Positioned(
+              top: 20,
+              left: 32,
+              right: 32,
+              child: ValueListenableBuilder<String>(
+                valueListenable: widget.titleNotifier,
+                builder: (context, title, _) {
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C3AED),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          widget.isSeries ? (isDe ? 'SERIE' : 'SERIES') : (isDe ? 'FILM' : 'MOVIE'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      StreamQualityBadges(
+                        player: _player,
+                        streamTitle: title,
+                        isCompact: false,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+
+            // CENTER PAUSE INDICATOR (only when paused)
+            if (!_isPlaying)
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFB388FF), width: 2),
+                  ),
+                  child: const Icon(Icons.pause_rounded, color: Colors.white, size: 54),
+                ),
+              ),
+
+            // BOTTOM 2-ROW SMART-TV HUD: Row 1 Scrubber, Row 2 Action Buttons
+            Positioned(
+              left: 32,
+              right: 32,
+              bottom: 24,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ROW 1: Focusable Timeline Scrubber Bar
+                  Focus(
+                    focusNode: _tvScrubberNode,
+                    onFocusChange: (focused) {
+                      if (mounted) setState(() => _isTvScrubberFocused = focused);
+                    },
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent) {
+                        final key = event.logicalKey;
+                        if (key == LogicalKeyboardKey.arrowLeft) {
+                          _seekRelative(_computeAcceleratedDelta(-1), showRipple: true);
+                          _startHideTimer();
+                          return KeyEventResult.handled;
+                        }
+                        if (key == LogicalKeyboardKey.arrowRight) {
+                          _seekRelative(_computeAcceleratedDelta(1), showRipple: true);
+                          _startHideTimer();
+                          return KeyEventResult.handled;
+                        }
+                        if (key == LogicalKeyboardKey.arrowDown) {
+                          _tvPlayPauseNode.requestFocus();
+                          _startHideTimer();
+                          return KeyEventResult.handled;
+                        }
+                        if (key == LogicalKeyboardKey.select ||
+                            key == LogicalKeyboardKey.enter ||
+                            key == LogicalKeyboardKey.numpadEnter) {
+                          _togglePlayPause();
+                          return KeyEventResult.handled;
+                        }
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _isTvScrubberFocused
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.22)
+                            : Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _isTvScrubberFocused
+                              ? const Color(0xFFB388FF)
+                              : Colors.white.withValues(alpha: 0.1),
+                          width: _isTvScrubberFocused ? 2.0 : 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            _formatDuration(Duration(seconds: currentSecs.round())),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, barConstraints) {
+                                final barW = barConstraints.maxWidth;
+                                final fillW = (barW * progressRatio).clamp(0.0, barW);
+                                return SizedBox(
+                                  height: 18,
+                                  child: Stack(
+                                    alignment: Alignment.centerLeft,
+                                    children: [
+                                      Container(
+                                        height: _isTvScrubberFocused ? 8 : 5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white24,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: fillW,
+                                        height: _isTvScrubberFocused ? 8 : 5,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFF7C3AED), Color(0xFFB388FF)],
+                                          ),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: (fillW - 7).clamp(0.0, (barW - 14).clamp(0.0, double.infinity)),
+                                        child: Container(
+                                          width: _isTvScrubberFocused ? 16 : 12,
+                                          height: _isTvScrubberFocused ? 16 : 12,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle,
+                                            boxShadow: _isTvScrubberFocused
+                                                ? const [
+                                                    BoxShadow(
+                                                      color: Color(0xFFB388FF),
+                                                      blurRadius: 8,
+                                                      spreadRadius: 2,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Text(
+                            _formatDuration(_duration),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ROW 2: Bottom Action Buttons Row
+                  Row(
+                    children: [
+                      _buildTvControlBtn(
+                        icon: Icons.replay_10_rounded,
+                        label: '-10s',
+                        onPressed: () => _seekRelative(-10, showRipple: true),
+                      ),
+                      _buildTvControlBtn(
+                        focusNode: _tvPlayPauseNode,
+                        isPrimary: true,
+                        icon: _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        label: _isPlaying
+                            ? (isDe ? 'Pause' : 'Pause')
+                            : (isDe ? 'Abspielen' : 'Play'),
+                        onPressed: _togglePlayPause,
+                      ),
+                      _buildTvControlBtn(
+                        icon: Icons.forward_10_rounded,
+                        label: '+10s',
+                        onPressed: () => _seekRelative(10, showRipple: true),
+                      ),
+                      if (widget.hasNextEpisode)
+                        _buildTvControlBtn(
+                          icon: Icons.skip_next_rounded,
+                          label: isDe ? 'Nächste Folge' : 'Next Ep',
+                          onPressed: () => widget.onPlayNextEpisode?.call(),
+                        ),
+                      if (widget.hasEpisodes)
+                        _buildTvControlBtn(
+                          icon: Icons.video_library_outlined,
+                          label: isDe ? 'Folgen' : 'Episodes',
+                          onPressed: () => widget.onToggleEpisodeDrawer?.call(),
+                        ),
+                      const Spacer(),
+                      _buildTvControlBtn(
+                        icon: Icons.audiotrack_rounded,
+                        label: 'Audio',
+                        onPressed: () => widget.onShowAudioTracks?.call(),
+                      ),
+                      _buildTvControlBtn(
+                        icon: Icons.subtitles_rounded,
+                        label: isDe ? 'Untertitel' : 'Subtitles',
+                        onPressed: () => widget.onShowSubtitleTracks?.call(),
+                      ),
+                      if (widget.onCycleFit != null)
+                        _buildTvControlBtn(
+                          icon: Icons.aspect_ratio_rounded,
+                          label: isDe ? 'Format' : 'Format',
+                          onPressed: () => widget.onCycleFit?.call(),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalSecs = _duration.inSeconds > 0 ? _duration.inSeconds.toDouble() : 1.0;
@@ -1374,6 +1837,97 @@ class _VodControlsState extends State<_VodControls> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           final key = event.logicalKey;
+
+          if (GoatPlatform.isTv) {
+            if (widget.isEpisodeDrawerOpen) {
+              if (key == LogicalKeyboardKey.escape ||
+                  key == LogicalKeyboardKey.backspace ||
+                  key == LogicalKeyboardKey.goBack) {
+                widget.onCloseDrawer?.call();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _tvPlayPauseNode.requestFocus();
+                });
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            }
+
+            // Dedicated Media Remote keys work anytime
+            if (key == LogicalKeyboardKey.mediaPlayPause ||
+                key == LogicalKeyboardKey.mediaPlay ||
+                key == LogicalKeyboardKey.mediaPause) {
+              _togglePlayPause();
+              return KeyEventResult.handled;
+            }
+            if (key == LogicalKeyboardKey.mediaRewind) {
+              _seekRelative(_computeAcceleratedDelta(-1), showRipple: true);
+              setState(() => _isControlsVisible = true);
+              _startHideTimer();
+              return KeyEventResult.handled;
+            }
+            if (key == LogicalKeyboardKey.mediaFastForward) {
+              _seekRelative(_computeAcceleratedDelta(1), showRipple: true);
+              setState(() => _isControlsVisible = true);
+              _startHideTimer();
+              return KeyEventResult.handled;
+            }
+
+            final hudShown = _isControlsVisible || !_isPlaying;
+
+            // Back key on TV: 1. Hide HUD if visible while playing; 2. Exit VOD player
+            if (key == LogicalKeyboardKey.escape ||
+                key == LogicalKeyboardKey.backspace ||
+                key == LogicalKeyboardKey.goBack) {
+              if (_isControlsVisible && _isPlaying) {
+                _hideTimer?.cancel();
+                setState(() => _isControlsVisible = false);
+                _focusNode.requestFocus();
+                return KeyEventResult.handled;
+              }
+              (widget.onClose ?? widget.onMinimize)?.call();
+              return KeyEventResult.handled;
+            }
+
+            // When HUD is hidden:
+            // - Left/Right immediately scrubs +/-10s (accelerated), wakes HUD & focuses Scrubber
+            // - Up/Down/OK wakes HUD & focuses Play/Pause button
+            if (!hudShown) {
+              if (key == LogicalKeyboardKey.arrowLeft) {
+                _seekRelative(_computeAcceleratedDelta(-1), showRipple: true);
+                setState(() => _isControlsVisible = true);
+                _startHideTimer();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _tvScrubberNode.requestFocus();
+                });
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowRight) {
+                _seekRelative(_computeAcceleratedDelta(1), showRipple: true);
+                setState(() => _isControlsVisible = true);
+                _startHideTimer();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _tvScrubberNode.requestFocus();
+                });
+                return KeyEventResult.handled;
+              }
+              if (key == LogicalKeyboardKey.arrowUp ||
+                  key == LogicalKeyboardKey.arrowDown ||
+                  key == LogicalKeyboardKey.select ||
+                  key == LogicalKeyboardKey.enter ||
+                  key == LogicalKeyboardKey.numpadEnter) {
+                setState(() => _isControlsVisible = true);
+                _startHideTimer();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _tvPlayPauseNode.requestFocus();
+                });
+                return KeyEventResult.handled;
+              }
+            } else {
+              // HUD is visible: reset auto-hide timer on any D-Pad activity
+              _startHideTimer();
+            }
+            return KeyEventResult.ignored;
+          }
 
           // Play / Pause toggle (Space, Select, Enter, Remote Play/Pause)
           if (key == LogicalKeyboardKey.space ||
@@ -1446,6 +2000,19 @@ class _VodControlsState extends State<_VodControls> {
                 _startHideTimer();
                 return;
               }
+              if (GoatPlatform.isTv) {
+                setState(() => _isControlsVisible = !_isControlsVisible);
+                if (_isControlsVisible) {
+                  _startHideTimer();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _tvPlayPauseNode.requestFocus();
+                  });
+                } else {
+                  _hideTimer?.cancel();
+                  _focusNode.requestFocus();
+                }
+                return;
+              }
               if (GoatPlatform.isMobile) {
                 setState(() => _isControlsVisible = !_isControlsVisible);
                 if (_isControlsVisible) {
@@ -1457,7 +2024,7 @@ class _VodControlsState extends State<_VodControls> {
                 _onPointerMove();
               }
             },
-            onDoubleTapDown: GoatPlatform.isMobile
+            onDoubleTapDown: GoatPlatform.isPhone
                 ? (details) {
                     final dx = details.localPosition.dx;
                     final w = constraints.maxWidth;
@@ -1470,7 +2037,7 @@ class _VodControlsState extends State<_VodControls> {
                     }
                   }
                 : null,
-            onDoubleTap: GoatPlatform.isMobile ? () {} : null,
+            onDoubleTap: GoatPlatform.isPhone ? () {} : null,
             child: MouseRegion(
               onHover: (_) => _onPointerMove(),
               onEnter: (_) => _onPointerMove(),
@@ -1484,7 +2051,9 @@ class _VodControlsState extends State<_VodControls> {
                     duration: const Duration(milliseconds: 200),
                     child: IgnorePointer(
                       ignoring: (!(_isControlsVisible || !_isPlaying)) || widget.isEpisodeDrawerOpen,
-                      child: GoatPlatform.isMobile
+                      child: GoatPlatform.isTv
+                          ? _buildTvCinemaHud(context, currentSecs, totalSecs)
+                          : GoatPlatform.isMobile
                           ? Container(
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
@@ -1716,7 +2285,7 @@ class _VodControlsState extends State<_VodControls> {
                     ),
                   ),
 
-                  // Double-Tap Left/Right Visual Indicator (-10s / +10s)
+                  // Double-Tap / TV Scrub Left/Right Visual Indicator (-10s / +10s / 30s / 60s)
                   if (_showSkipLeft)
                     Positioned(
                       left: 48,
@@ -1730,12 +2299,12 @@ class _VodControlsState extends State<_VodControls> {
                               color: Colors.black.withValues(alpha: 0.72),
                               borderRadius: BorderRadius.circular(30),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.replay_10, color: Colors.white, size: 26),
-                                SizedBox(width: 6),
-                                Text('-10s', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                                const Icon(Icons.replay_10, color: Colors.white, size: 26),
+                                const SizedBox(width: 6),
+                                Text('-${_lastSkipDelta}s', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                               ],
                             ),
                           ),
@@ -1756,12 +2325,12 @@ class _VodControlsState extends State<_VodControls> {
                               color: Colors.black.withValues(alpha: 0.72),
                               borderRadius: BorderRadius.circular(30),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('+10s', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                                SizedBox(width: 6),
-                                Icon(Icons.forward_10, color: Colors.white, size: 26),
+                                Text('+${_lastSkipDelta}s', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.forward_10, color: Colors.white, size: 26),
                               ],
                             ),
                           ),

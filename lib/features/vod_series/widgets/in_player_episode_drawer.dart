@@ -128,11 +128,20 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                      tooltip: l10n?.close ?? 'Close',
-                      onPressed: widget.onClose,
-                    ),
+                    GoatPlatform.isTv
+                        ? TvFocusable(
+                            borderRadius: BorderRadius.circular(18),
+                            onPressed: widget.onClose,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 20),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                            tooltip: l10n?.close ?? 'Close',
+                            onPressed: widget.onClose,
+                          ),
                   ],
                 ),
               ),
@@ -218,6 +227,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: TvFocusable(
+                              autofocus: GoatPlatform.isTv && widget.isOpen && (isCurrent || index == 0),
                               focusScale: 1.02,
                               borderRadius: BorderRadius.circular(10),
                               onPressed: () => widget.onSelectEpisode(ep),

@@ -17,7 +17,8 @@ import '../../core/updater/app_updater_service.dart';
 import '../../core/updater/widgets/update_dialog.dart';
 
 class AccountListScreen extends ConsumerStatefulWidget {
-  const AccountListScreen({super.key});
+  final bool fromSwitchAccount;
+  const AccountListScreen({super.key, this.fromSwitchAccount = false});
 
   @override
   ConsumerState<AccountListScreen> createState() => _AccountListScreenState();
@@ -26,6 +27,7 @@ class AccountListScreen extends ConsumerStatefulWidget {
 class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   bool _isNavigating = false;
   bool _hasNoAccounts = true;
+  bool _didAutoLogin = false;
 
   @override
   void initState() {
@@ -110,25 +112,61 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              l10n.cancel,
-              style: const TextStyle(color: Colors.white60),
+          if (GoatPlatform.isTv) ...[
+            TvFocusable(
+              autofocus: true,
+              borderRadius: BorderRadius.circular(8),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  l10n.cancel,
+                  style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            const SizedBox(width: 8),
+            TvFocusable(
+              borderRadius: BorderRadius.circular(8),
+              focusBorderColor: Colors.redAccent,
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  l10n.localeName == 'de' ? 'Löschen' : 'Delete',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              l10n.localeName == 'de' ? 'Löschen' : 'Delete',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+          ] else ...[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                l10n.cancel,
+                style: const TextStyle(color: Colors.white60),
+              ),
             ),
-          ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(
+                l10n.localeName == 'de' ? 'Löschen' : 'Delete',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -155,6 +193,28 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         final accounts = snapshot.data ?? [];
         _hasNoAccounts = accounts.isEmpty;
 
+        // Smart TV behavior: Auto-login if exactly 1 account exists on initial boot
+        if (GoatPlatform.isTv &&
+            !widget.fromSwitchAccount &&
+            !_didAutoLogin &&
+            snapshot.hasData &&
+            accounts.length == 1) {
+          _didAutoLogin = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final account = accounts.first;
+            ref.read(playbackControllerProvider.notifier).stop();
+            ref.read(selectedLiveCategoryProvider.notifier).set(null);
+            ref.read(selectedLiveStreamProvider.notifier).set(null);
+            ref.read(isLiveFullWidthProvider.notifier).set(false);
+            ref.read(activeAccountProvider.notifier).set(account);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HomeDashboard()),
+            );
+          });
+        }
+
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
@@ -173,11 +233,42 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                 child: Text(l10n.accounts),
               ),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.add_rounded, size: 26),
-                  tooltip: l10n.addAccount,
-                  onPressed: _openAddAccount,
-                ),
+                if (GoatPlatform.isTv)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: TvFocusable(
+                      borderRadius: BorderRadius.circular(10),
+                      onPressed: _openAddAccount,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C3AED),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                            const SizedBox(width: 6),
+                            Text(
+                              l10n.addAccount,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.add_rounded, size: 26),
+                    tooltip: l10n.addAccount,
+                    onPressed: _openAddAccount,
+                  ),
                 SizedBox(width: GoatPlatform.isTv ? 32 : 8),
               ],
             ),
@@ -339,7 +430,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
           },
         ),
       ),
-      floatingActionButton: _hasNoAccounts
+      floatingActionButton: (_hasNoAccounts || GoatPlatform.isTv)
             ? null
             : TvFocusable(
                 borderRadius: BorderRadius.circular(16),
@@ -390,20 +481,155 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         ? account.playlistName!.trim()
         : (isM3u ? 'M3U Playlist' : account.username);
 
+    void selectAccount() {
+      ref.read(playbackControllerProvider.notifier).stop();
+      ref.read(selectedLiveCategoryProvider.notifier).set(null);
+      ref.read(selectedLiveStreamProvider.notifier).set(null);
+      ref.read(isLiveFullWidthProvider.notifier).set(false);
+      ref.read(activeAccountProvider.notifier).set(account);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeDashboard()),
+      );
+    }
+
+    if (GoatPlatform.isTv) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1730),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TvFocusable(
+                autofocus: index == 0,
+                borderRadius: BorderRadius.circular(10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                onPressed: selectAccount,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                      child: Icon(
+                        isM3u ? Icons.playlist_play_rounded : Icons.person,
+                        color: const Color(0xFFB388FF),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          if (isM3u)
+                            const Row(
+                              children: [
+                                Icon(Icons.playlist_play_rounded, size: 14, color: Color(0xFF00E5FF)),
+                                SizedBox(width: 5),
+                                Text(
+                                  'M3U Playlist',
+                                  style: TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              children: [
+                                const Icon(Icons.account_circle_outlined, size: 13, color: Color(0xFFB388FF)),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    account.username,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(Icons.link_rounded, size: 13, color: Colors.white38),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  account.serverUrl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            TvFocusable(
+              borderRadius: BorderRadius.circular(8),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddAccountScreen(accountToEdit: account),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.edit_rounded, color: Colors.blueAccent, size: 20),
+              ),
+            ),
+            const SizedBox(width: 6),
+            TvFocusable(
+              borderRadius: BorderRadius.circular(8),
+              focusBorderColor: Colors.redAccent,
+              onPressed: () => _confirmDelete(context, account),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return TvFocusable(
       autofocus: index == 0,
       borderRadius: BorderRadius.circular(12),
-      onPressed: () {
-        ref.read(playbackControllerProvider.notifier).stop();
-        ref.read(selectedLiveCategoryProvider.notifier).set(null);
-        ref.read(selectedLiveStreamProvider.notifier).set(null);
-        ref.read(isLiveFullWidthProvider.notifier).set(false);
-        ref.read(activeAccountProvider.notifier).set(account);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeDashboard()),
-        );
-      },
+      onPressed: selectAccount,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(

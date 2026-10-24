@@ -21,17 +21,131 @@ class MoviesGridScreen extends ConsumerStatefulWidget {
 class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   String? _selectedCategory;
   String _searchQuery = '';
+  String _catSearchQuery = '';
+  bool _isCatSearchActive = false;
+  bool _isTopSearchActive = false;
   final _searchController = TextEditingController();
+  final _catSearchController = TextEditingController();
   final ScrollController _movieScrollController = ScrollController();
-  final FocusNode _firstMovieNode = FocusNode();
+  final FocusNode _firstMovieNode = FocusNode(debugLabel: 'first_movie');
+  final FocusNode _selectedCategoryNode = FocusNode(debugLabel: 'selected_movie_cat');
+  final FocusNode _catSearchFocusNode = FocusNode(debugLabel: 'movie_cat_search');
+  final FocusNode _topSearchFocusNode = FocusNode(debugLabel: 'movie_top_search');
+  final Map<String, FocusNode> _categoryFocusNodes = {};
   String _sortMode = 'default'; // default, asc, desc
 
   @override
   void dispose() {
     _searchController.dispose();
+    _catSearchController.dispose();
     _movieScrollController.dispose();
     _firstMovieNode.dispose();
+    _selectedCategoryNode.dispose();
+    _catSearchFocusNode.dispose();
+    _topSearchFocusNode.dispose();
+    for (final node in _categoryFocusNodes.values) {
+      node.dispose();
+    }
     super.dispose();
+  }
+
+  void _focusCategoryColumn() {
+    if (_selectedCategory != null) {
+      final node = _categoryFocusNodes[_selectedCategory];
+      if (node != null && node.canRequestFocus) {
+        node.requestFocus();
+        return;
+      }
+    }
+    if (_selectedCategoryNode.canRequestFocus) {
+      _selectedCategoryNode.requestFocus();
+      return;
+    }
+    if (_categoryFocusNodes.isNotEmpty) {
+      final firstNode = _categoryFocusNodes.values.first;
+      if (firstNode.canRequestFocus) {
+        firstNode.requestFocus();
+        return;
+      }
+    }
+    if (_catSearchFocusNode.canRequestFocus) {
+      _catSearchFocusNode.requestFocus();
+    }
+  }
+
+  void _showTvSortDialog(AppLocalizations l10n) {
+    final options = [
+      ('default', l10n.defaultAdded),
+      ('asc', l10n.aToZ),
+      ('desc', l10n.zToA),
+    ];
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1E1730),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.sortMovies,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                for (final opt in options) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TvFocusable(
+                      autofocus: _sortMode == opt.$1,
+                      borderRadius: BorderRadius.circular(10),
+                      onPressed: () {
+                        setState(() => _sortMode = opt.$1);
+                        Navigator.of(ctx).pop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _sortMode == opt.$1
+                              ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                              : const Color(0xFF161124),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _sortMode == opt.$1 ? const Color(0xFFB388FF) : Colors.white12,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                opt.$2,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: _sortMode == opt.$1 ? FontWeight.bold : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (_sortMode == opt.$1)
+                              const Icon(Icons.check_circle, size: 18, color: Color(0xFFB388FF)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -71,16 +185,29 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
               ? vodSearchProvider(_searchQuery.trim())
               : (_selectedCategory == null ? null : vodStreamsProvider(_selectedCategory!));
 
+          final gridAreaWidth = isDesktop ? (constraints.maxWidth * (80 / (GoatPlatform.isTv ? 104 : 100))) - 20 : constraints.maxWidth - 32;
+          final maxExtent = GoatPlatform.isTv ? 130.0 : (isDesktop ? 200.0 : 150.0);
+          final spacing = GoatPlatform.isTv ? 10.0 : 16.0;
+          final crossAxisCount = ((gridAreaWidth + spacing) / (maxExtent + spacing)).ceil().clamp(1, 20);
+
           final content = provider == null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.movie_filter, size: 64, color: Colors.white24),
-                      const SizedBox(height: 16),
-                      Text(AppLocalizations.of(context)!.selectCategoryOrSearch, style: const TextStyle(color: Colors.white54)),
-                    ],
-                  ),
+              ? Column(
+                  children: [
+                    if (GoatPlatform.isTv && _searchQuery.isEmpty)
+                      ContinueWatchingRail(type: 'movie', onExitLeft: _focusCategoryColumn),
+                    Expanded(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.movie_filter, size: 64, color: Colors.white24),
+                            const SizedBox(height: 16),
+                            Text(AppLocalizations.of(context)!.selectCategoryOrSearch, style: const TextStyle(color: Colors.white54)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 )
               : ref.watch(provider).when(
                   data: (rawStreams) {
@@ -125,33 +252,45 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       slivers: [
                         if (_searchQuery.isEmpty)
-                          const SliverToBoxAdapter(
-                            child: ContinueWatchingRail(type: 'movie'),
+                          SliverToBoxAdapter(
+                            child: ContinueWatchingRail(
+                              type: 'movie',
+                              onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                            ),
                           ),
                         SliverPadding(
                           padding: EdgeInsets.all(GoatPlatform.isTv ? 10 : 16),
                           sliver: SliverGrid(
                             gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: GoatPlatform.isTv ? 130 : (isDesktop ? 200 : 150),
+                              maxCrossAxisExtent: maxExtent,
                               childAspectRatio: 2 / 3,
-                              crossAxisSpacing: GoatPlatform.isTv ? 10 : 16,
-                              mainAxisSpacing: GoatPlatform.isTv ? 10 : 16,
+                              crossAxisSpacing: spacing,
+                              mainAxisSpacing: spacing,
                             ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final stream = streams[index];
                                 final progress = progressMap[stream.streamId];
+                                final isLeftmostColumn = index % crossAxisCount == 0;
                                 
                                 return Focus(
                                   onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent &&
-                                        event.logicalKey == LogicalKeyboardKey.arrowDown &&
-                                        index >= streams.length - (isDesktop ? 6 : 3)) {
-                                      _movieScrollController.jumpTo(0);
-                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        _firstMovieNode.requestFocus();
-                                      });
-                                      return KeyEventResult.handled;
+                                    if (event is KeyDownEvent) {
+                                      // Rule 6: VOD Grid Leftmost Column Boundary Exit to Active Category
+                                      if (GoatPlatform.isTv &&
+                                          isLeftmostColumn &&
+                                          event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                        _focusCategoryColumn();
+                                        return KeyEventResult.handled;
+                                      }
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                                          index >= streams.length - (isDesktop ? crossAxisCount : 3)) {
+                                        _movieScrollController.jumpTo(0);
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          _firstMovieNode.requestFocus();
+                                        });
+                                        return KeyEventResult.handled;
+                                      }
                                     }
                                     return KeyEventResult.ignored;
                                   },
@@ -255,6 +394,10 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                 );
 
           if (isDesktop) {
+            final sortLabel = _sortMode == 'asc'
+                ? l10n.aToZ
+                : (_sortMode == 'desc' ? l10n.zToA : l10n.defaultAdded);
+
             return Scaffold(
               appBar: AppBar(
                 toolbarHeight: GoatPlatform.isTv ? 46 : null,
@@ -266,51 +409,143 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                     ),
                     SizedBox(width: GoatPlatform.isTv ? 16 : 24),
                     Expanded(
-                      child: Focus(
-                        onKeyEvent: (node, event) {
-                          if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                               event.logicalKey == LogicalKeyboardKey.enter)) {
-                            FocusScope.of(context).nextFocus();
-                            return KeyEventResult.handled;
-                          }
-                          return KeyEventResult.ignored;
-                        },
-                        child: TextField(
-                          controller: _searchController,
-                          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                          style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
-                          decoration: InputDecoration(
-                            hintText: l10n.searchMovies,
-                            hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14, color: Colors.white54),
-                            prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22),
-                            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear, size: GoatPlatform.isTv ? 16 : 20), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide.none,
+                      child: GoatPlatform.isTv
+                          ? TvFocusable(
+                              focusNode: _topSearchFocusNode,
+                              borderRadius: BorderRadius.circular(20),
+                              onPressed: () => setState(() => _isTopSearchActive = true),
+                              onKeyEvent: (node, event) {
+                                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                  if (_firstMovieNode.canRequestFocus) {
+                                    _firstMovieNode.requestFocus();
+                                  } else {
+                                    _focusCategoryColumn();
+                                  }
+                                  return KeyEventResult.handled;
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: _isTopSearchActive
+                                  ? TextField(
+                                      controller: _searchController,
+                                      autofocus: true,
+                                      style: const TextStyle(fontSize: 12),
+                                      decoration: InputDecoration(
+                                        hintText: l10n.searchMovies,
+                                        hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
+                                        prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFB388FF)),
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                        isDense: true,
+                                      ),
+                                      onChanged: (val) => setState(() => _searchQuery = val),
+                                      onSubmitted: (_) {
+                                        setState(() => _isTopSearchActive = false);
+                                        if (_firstMovieNode.canRequestFocus) {
+                                          _firstMovieNode.requestFocus();
+                                        }
+                                      },
+                                    )
+                                  : Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.06),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: Colors.white12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.search, size: 16, color: Colors.white60),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _searchQuery.isNotEmpty ? _searchQuery : l10n.searchMovies,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: _searchQuery.isNotEmpty ? Colors.white : Colors.white54,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                            )
+                          : Focus(
+                              onKeyEvent: (node, event) {
+                                if (event is KeyDownEvent &&
+                                    (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                                     event.logicalKey == LogicalKeyboardKey.enter)) {
+                                  FocusScope.of(context).nextFocus();
+                                  return KeyEventResult.handled;
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: TextField(
+                                controller: _searchController,
+                                onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                                style: const TextStyle(fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: l10n.searchMovies,
+                                  hintStyle: const TextStyle(fontSize: 14, color: Colors.white54),
+                                  prefixIcon: const Icon(Icons.search, size: 22),
+                                  suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 20), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  filled: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  isDense: true,
+                                ),
+                                onChanged: (val) => setState(() => _searchQuery = val),
+                              ),
                             ),
-                            filled: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 6 : 12),
-                            isDense: true,
-                          ),
-                          onChanged: (val) => setState(() => _searchQuery = val),
-                        ),
-                      ),
                     ),
                   ],
                 ),
                 actions: [
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.sort, size: GoatPlatform.isTv ? 20 : 24),
-                    tooltip: l10n.sortMovies,
-                    onSelected: (val) => setState(() => _sortMode = val),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(value: 'default', child: Text(l10n.defaultAdded)),
-                      PopupMenuItem(value: 'asc', child: Text(l10n.aToZ)),
-                      PopupMenuItem(value: 'desc', child: Text(l10n.zToA)),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
+                  if (GoatPlatform.isTv)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+                      child: TvFocusable(
+                        borderRadius: BorderRadius.circular(10),
+                        onPressed: () => _showTvSortDialog(l10n),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.sort_rounded, size: 16, color: Color(0xFFB388FF)),
+                              const SizedBox(width: 6),
+                              Text(
+                                sortLabel,
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.sort, size: 24),
+                      tooltip: l10n.sortMovies,
+                      onSelected: (val) => setState(() => _sortMode = val),
+                      itemBuilder: (context) => [
+                        PopupMenuItem(value: 'default', child: Text(l10n.defaultAdded)),
+                        PopupMenuItem(value: 'asc', child: Text(l10n.aToZ)),
+                        PopupMenuItem(value: 'desc', child: Text(l10n.zToA)),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ],
               ),
               body: Row(
@@ -319,87 +554,194 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                     flex: GoatPlatform.isTv ? 24 : 20,
                     child: Container(
                       color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-                      child: ref.watch(vodCategoriesProvider).when(
-                        data: (categories) {
-                          return ListView.builder(
-                            itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
-                            itemCount: categories.length,
-                            itemBuilder: (context, index) {
-                              final cat = categories[index];
-                              final isSelected = _selectedCategory == cat.categoryId;
-                              final isFavorites = cat.categoryId == 'favorites';
-
-                              return Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: GoatPlatform.isTv ? 4 : 6,
-                                  vertical: GoatPlatform.isTv ? 1.5 : 2,
-                                ),
-                                child: TvFocusable(
-                                  focusScale: 1.02,
-                                  borderRadius: BorderRadius.circular(8),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedCategory = cat.categoryId;
-                                      _searchController.clear();
-                                      _searchQuery = '';
-                                    });
-                                    if (!isFavorites) {
-                                      ref.read(vodControllerProvider).syncVodStreams(cat.categoryId);
+                      child: Column(
+                        children: [
+                          if (GoatPlatform.isTv)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                              child: TvFocusable(
+                                focusNode: _catSearchFocusNode,
+                                focusScale: 1.02,
+                                borderRadius: BorderRadius.circular(10),
+                                onPressed: () => setState(() => _isCatSearchActive = true),
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent) {
+                                    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                      _focusCategoryColumn();
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && _firstMovieNode.canRequestFocus) {
+                                      _firstMovieNode.requestFocus();
+                                      return KeyEventResult.handled;
                                     }
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.28)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border(
-                                        left: BorderSide(
-                                          color: isSelected
-                                              ? const Color(0xFFB388FF)
-                                              : Colors.transparent,
-                                          width: 3.5,
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
+                                child: _isCatSearchActive
+                                    ? TextField(
+                                        controller: _catSearchController,
+                                        autofocus: true,
+                                        style: const TextStyle(fontSize: 12),
+                                        decoration: InputDecoration(
+                                          hintText: l10n.search,
+                                          hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
+                                          prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFB388FF)),
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          isDense: true,
+                                        ),
+                                        onChanged: (val) => setState(() => _catSearchQuery = val),
+                                        onSubmitted: (_) {
+                                          setState(() => _isCatSearchActive = false);
+                                          _focusCategoryColumn();
+                                        },
+                                      )
+                                    : Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.05),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.search,
+                                              size: 18,
+                                              color: _catSearchQuery.isNotEmpty ? const Color(0xFFB388FF) : Colors.white60,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                _catSearchQuery.isNotEmpty ? _catSearchQuery : l10n.search,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: _catSearchQuery.isNotEmpty ? Colors.white : Colors.white54,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: GoatPlatform.isTv ? 8 : 10,
-                                      vertical: GoatPlatform.isTv ? 4 : 8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          isFavorites
-                                              ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
-                                              : (isSelected ? Icons.movie : Icons.folder_outlined),
-                                          size: GoatPlatform.isTv ? 15 : 18,
-                                          color: isFavorites
-                                              ? Colors.amber
-                                              : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
-                                        ),
-                                        SizedBox(width: GoatPlatform.isTv ? 8 : 10),
-                                        Expanded(
-                                          child: Text(
-                                            isFavorites ? l10n.favorites : cat.name,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: isSelected ? Colors.white : Colors.white70,
-                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                              fontSize: GoatPlatform.isTv ? 11.5 : 13.5,
+                              ),
+                            ),
+                          Expanded(
+                            child: ref.watch(vodCategoriesProvider).when(
+                              data: (rawCategories) {
+                                var categories = rawCategories;
+                                if (GoatPlatform.isTv && _catSearchQuery.isNotEmpty) {
+                                  categories = categories
+                                      .where((c) => c.name.toLowerCase().contains(_catSearchQuery.toLowerCase()))
+                                      .toList();
+                                }
+                                return ListView.builder(
+                                  itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
+                                  itemCount: categories.length,
+                                  itemBuilder: (context, index) {
+                                    final cat = categories[index];
+                                    final isSelected = _selectedCategory == cat.categoryId;
+                                    final isFavorites = cat.categoryId == 'favorites';
+                                    final node = isSelected
+                                        ? _selectedCategoryNode
+                                        : _categoryFocusNodes.putIfAbsent(
+                                            cat.categoryId,
+                                            () => FocusNode(debugLabel: 'mcat_${cat.categoryId}'),
+                                          );
+                                    if (isSelected) {
+                                      _categoryFocusNodes[cat.categoryId] = _selectedCategoryNode;
+                                    }
+
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: GoatPlatform.isTv ? 4 : 6,
+                                        vertical: GoatPlatform.isTv ? 1.5 : 2,
+                                      ),
+                                      child: TvFocusable(
+                                        focusNode: GoatPlatform.isTv ? node : null,
+                                        focusScale: 1.02,
+                                        borderRadius: BorderRadius.circular(8),
+                                        onKeyEvent: GoatPlatform.isTv
+                                            ? (n, event) {
+                                                if (event is KeyDownEvent) {
+                                                  if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
+                                                      _firstMovieNode.canRequestFocus) {
+                                                    _firstMovieNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
+                                                    _catSearchFocusNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  }
+                                                }
+                                                return KeyEventResult.ignored;
+                                              }
+                                            : null,
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedCategory = cat.categoryId;
+                                            _searchController.clear();
+                                            _searchQuery = '';
+                                          });
+                                          if (!isFavorites) {
+                                            ref.read(vodControllerProvider).syncVodStreams(cat.categoryId);
+                                          }
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.28)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border(
+                                              left: BorderSide(
+                                                color: isSelected
+                                                    ? const Color(0xFFB388FF)
+                                                    : Colors.transparent,
+                                                width: 3.5,
+                                              ),
                                             ),
                                           ),
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: GoatPlatform.isTv ? 8 : 10,
+                                            vertical: GoatPlatform.isTv ? 4 : 8,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                isFavorites
+                                                    ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
+                                                    : (isSelected ? Icons.movie : Icons.folder_outlined),
+                                                size: GoatPlatform.isTv ? 15 : 18,
+                                                color: isFavorites
+                                                    ? Colors.amber
+                                                    : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
+                                              ),
+                                              SizedBox(width: GoatPlatform.isTv ? 8 : 10),
+                                              Expanded(
+                                                child: Text(
+                                                  isFavorites ? l10n.favorites : cat.name,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: isSelected ? Colors.white : Colors.white70,
+                                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                    fontSize: GoatPlatform.isTv ? 11.5 : 13.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                        loading: () => const Center(child: CircularProgressIndicator()),
-                        error: (err, stack) => Center(child: Text('Error: $err')),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                              loading: () => const Center(child: CircularProgressIndicator()),
+                              error: (err, stack) => Center(child: Text('Error: $err')),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/platform_utils.dart';
+import '../../../core/utils/title_sanitizer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -109,12 +110,22 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
       final epgList = ref.watch(channelProgramsProvider(widget.channelId!));
       final now = DateTime.now();
       
-      final currentShow = epgList.asData?.value.where((p) {
-        return now.isAfter(p.startTime) && now.isBefore(p.stopTime);
-      }).firstOrNull;
+      final candidates = epgList.asData?.value.where((p) {
+        return (now.isAfter(p.startTime) || now.isAtSameMomentAs(p.startTime)) && now.isBefore(p.stopTime);
+      }).toList();
+
+      EpgProgram? currentShow;
+      if (candidates != null && candidates.isNotEmpty) {
+        candidates.sort((a, b) {
+          final cmp = b.startTime.compareTo(a.startTime);
+          if (cmp != 0) return cmp;
+          return a.stopTime.difference(a.startTime).compareTo(b.stopTime.difference(b.startTime));
+        });
+        currentShow = candidates.first;
+      }
 
       if (currentShow != null && currentShow.title.isNotEmpty) {
-        displayTitle = '${widget.channelName} - ${currentShow.title}';
+        displayTitle = '${widget.channelName} - ${TitleSanitizer.unescapeHtml(currentShow.title)}';
       }
     }
 
@@ -152,7 +163,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
     return Container(
       color: Colors.black,
       child: Center(
-        child: GoatPlatform.isMobile
+        child: GoatPlatform.isPhone
             ? MobileGestureDetector(
                 player: playerService.player,
                 enableSeek: false,

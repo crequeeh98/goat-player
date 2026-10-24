@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../core/database/app_database.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../core/utils/vod_title_cleaner.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../dashboard/favorites_provider.dart';
 import '../vod_movies/vod_player_screen.dart';
 
@@ -189,14 +191,44 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
             title: Text(AppLocalizations.of(ctx)!.resumePlayback),
             content: Text('${AppLocalizations.of(ctx)!.resumeFrom} ${_formatDuration(progress.position)}?'),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(AppLocalizations.of(ctx)!.startOver),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: Text(AppLocalizations.of(ctx)!.resume),
-              ),
+              if (GoatPlatform.isTv) ...[
+                TvFocusable(
+                  borderRadius: BorderRadius.circular(8),
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Text(AppLocalizations.of(ctx)!.startOver),
+                  ),
+                ),
+                TvFocusable(
+                  autofocus: true,
+                  borderRadius: BorderRadius.circular(8),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(ctx).colorScheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(ctx)!.resume,
+                      style: TextStyle(
+                        color: Theme.of(ctx).colorScheme.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(AppLocalizations.of(ctx)!.startOver),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(AppLocalizations.of(ctx)!.resume),
+                ),
+              ],
             ],
           ),
         );
@@ -382,14 +414,28 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                     Positioned(
                       top: 16,
                       right: 16,
-                      child: IconButton(
-                        icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black45,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
+                      child: GoatPlatform.isTv
+                          ? TvFocusable(
+                              borderRadius: BorderRadius.circular(20),
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: const BoxDecoration(
+                                  color: Colors.black45,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.close),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black45,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
                     ),
                   ],
                 ),
@@ -420,16 +466,35 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                         Consumer(
                           builder: (context, ref, child) {
                             final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.seriesId, streamType: 'series'))).value ?? false;
+                            Future<void> toggleFav() async {
+                              final account = ref.read(activeAccountProvider);
+                              if (account != null) {
+                                await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.seriesId, 'series');
+                              }
+                            }
+                            if (GoatPlatform.isTv) {
+                              return TvFocusable(
+                                borderRadius: BorderRadius.circular(12),
+                                onPressed: toggleFav,
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                                    color: isFavorite ? Colors.red : Colors.white70,
+                                    size: 26,
+                                  ),
+                                ),
+                              );
+                            }
                             return IconButton(
                               icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
                               color: isFavorite ? Colors.red : null,
                               iconSize: isMobile ? 26 : 32,
-                              onPressed: () async {
-                                final account = ref.read(activeAccountProvider);
-                                if (account != null) {
-                                  await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.seriesId, 'series');
-                                }
-                              },
+                              onPressed: toggleFav,
                             );
                           },
                         ),
@@ -470,7 +535,41 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                           child: ListView(
                             scrollDirection: Axis.horizontal,
                             children: (xtreamInfo!['episodes'] as Map).keys.map((season) {
-                              final isSelected = selectedSeason == season.toString();
+                              final seasonStr = season.toString();
+                              final isSelected = selectedSeason == seasonStr;
+                              if (GoatPlatform.isTv) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: TvFocusable(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onPressed: () {
+                                      setState(() {
+                                        selectedSeason = seasonStr;
+                                        currentEpisodes = _getEpisodesForSeason(seasonStr);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Theme.of(context).colorScheme.primary
+                                            : Colors.white.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '${AppLocalizations.of(context)!.season}$seasonStr',
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Theme.of(context).colorScheme.onPrimary
+                                              : Colors.white70,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8.0),
                                 child: ChoiceChip(
@@ -492,6 +591,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                                 ? (xtreamInfo!['episodes'][selectedSeason] as List<dynamic>) 
                                 : const [];
                             if (episodes.isEmpty) return const Text('No episodes found');
+                            final hasTargetInSeason = episodes.any((e) => (e is Map ? e['id']?.toString() : null) == (_highlightEpisodeId ?? widget.initialEpisodeId));
                             
                             return ListView.builder(
                               shrinkWrap: true,
@@ -511,8 +611,8 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                                     ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
                                     : 0.0;
                                 
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 8),
+                                final cardWidget = Card(
+                                  margin: EdgeInsets.only(bottom: GoatPlatform.isTv ? 0 : 8),
                                   clipBehavior: Clip.antiAlias,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
@@ -533,7 +633,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                                         ),
                                         title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
                                         subtitle: duration.isNotEmpty ? Text(duration, style: Theme.of(context).textTheme.bodySmall) : null,
-                                        onTap: () => _playEpisode(ep),
+                                        onTap: GoatPlatform.isTv ? null : () => _playEpisode(ep),
                                       ),
                                       if (progressRatio > 0.0)
                                         LinearProgressIndicator(
@@ -545,6 +645,20 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                                     ],
                                   ),
                                 );
+
+                                if (GoatPlatform.isTv) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: TvFocusable(
+                                      autofocus: isTarget || (!hasTargetInSeason && index == 0),
+                                      focusScale: 1.01,
+                                      borderRadius: BorderRadius.circular(10),
+                                      onPressed: () => _playEpisode(ep),
+                                      child: cardWidget,
+                                    ),
+                                  );
+                                }
+                                return cardWidget;
                               },
                             );
                           },

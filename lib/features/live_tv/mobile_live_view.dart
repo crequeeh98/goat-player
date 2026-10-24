@@ -635,47 +635,63 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: _isFullscreen
-            ? null
-            : AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                leading: IconButton(
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 28),
-                  tooltip: 'Minimize',
-                  onPressed: _handleMinimize,
-                ),
-                title: Text(_channelName),
-                actions: [
-                  if (_streamId != null)
-                    IconButton(
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: isFavorite ? Colors.redAccent : Colors.white,
-                      ),
-                      tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
-                      onPressed: () async {
-                        if (account != null && _streamId != null) {
-                          await ref.read(databaseProvider).favoriteDao.toggleFavorite(
-                            account.id,
-                            _streamId!,
-                            'live',
-                          );
-                        }
-                      },
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Close',
-                    onPressed: _handleClose,
-                  ),
-                ],
-              ),
         body: _isFullscreen
             ? SizedBox.expand(child: videoWidget)
             : SafeArea(
                 child: Column(
                   children: [
+                    // Top Bar (Inert, no Material 3 scroll tinting or elevation)
+                    Container(
+                      height: 52,
+                      color: Colors.black,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.keyboard_arrow_down, size: 28),
+                              tooltip: 'Minimize',
+                              onPressed: _handleMinimize,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _channelName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (_streamId != null)
+                              IconButton(
+                                icon: Icon(
+                                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                                  color: isFavorite ? Colors.redAccent : Colors.white,
+                                ),
+                                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                                onPressed: () async {
+                                  if (account != null && _streamId != null) {
+                                    await ref.read(databaseProvider).favoriteDao.toggleFavorite(
+                                      account.id,
+                                      _streamId!,
+                                      'live',
+                                    );
+                                  }
+                                },
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              tooltip: 'Close',
+                              onPressed: _handleClose,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     AspectRatio(
                       aspectRatio: 16 / 9,
                       child: videoWidget,
@@ -683,7 +699,12 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: EpgTimelineWidget(channelId: _channelId),
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (_) => true,
+                          child: ClipRect(
+                            child: EpgTimelineWidget(channelId: _channelId),
+                          ),
+                        ),
                       ),
                     ),
                   ],

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import '../tables.dart';
 import '../app_database.dart';
+import '../../utils/title_sanitizer.dart';
 
 part 'epg_dao.g.dart';
 
@@ -19,7 +20,7 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
     return (select(epgPrograms)
           ..where((p) => p.accountId.equals(accountId) & p.channelId.equals(channelId) & p.stopTime.isBiggerOrEqualValue(now))
           ..orderBy([(p) => OrderingTerm(expression: p.startTime)])
-          ..limit(20))
+          ..limit(60))
         .watch();
   }
 
@@ -29,8 +30,20 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
       ..where((p) => p.accountId.equals(accountId) & p.startTime.isSmallerOrEqualValue(now) & p.stopTime.isBiggerOrEqualValue(now));
     final list = await query.get();
     final map = <String, EpgProgram>{};
-    for (final prog in list) {
-      map[prog.channelId] = prog;
+    for (final rawProg in list) {
+      final cleanTitle = TitleSanitizer.unescapeHtml(rawProg.title);
+      final prog = rawProg.title != cleanTitle ? rawProg.copyWith(title: cleanTitle) : rawProg;
+      final existing = map[prog.channelId];
+      if (existing == null) {
+        map[prog.channelId] = prog;
+      } else {
+        // Prioritize most recently started program, then shorter duration
+        if (prog.startTime.isAfter(existing.startTime) ||
+            (prog.startTime.isAtSameMomentAs(existing.startTime) &&
+                prog.stopTime.difference(prog.startTime) < existing.stopTime.difference(existing.startTime))) {
+          map[prog.channelId] = prog;
+        }
+      }
     }
     return map;
   }
