@@ -27,8 +27,7 @@ FOR UPDATE USING (true) WITH CHECK (true);
 CREATE POLICY "anon_delete_pairing" ON remote_devices 
 FOR DELETE USING (true);
 
--- 4. Lese-Zugriff: NUR für aktive, noch nicht abgelaufene Sessions!
--- Sobald der TV die Sitzung schließt (disconnected) oder die 20 Minuten
--- ablaufen, ist die Zeile über SELECT für NIEMANDEN mehr lesbar.
-CREATE POLICY "anon_select_active_only" ON remote_devices 
-FOR SELECT USING (pin_expires_at > now() AND status != 'disconnected');
+-- 4. Lese-Zugriff: Nur für Sessions des aktuellen Zeitfensters (max 1 Stunde).
+-- Verhindert das Auslesen von alten Sessions und erlaubt sauberes Beenden.
+CREATE POLICY "anon_select_window" ON remote_devices 
+FOR SELECT USING (pin_expires_at > now() - interval '1 hour');
