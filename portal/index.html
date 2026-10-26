@@ -1415,6 +1415,7 @@
         const hasContent = normServer.length > 0 || normUser.length > 0;
         const existsInServer = merged.some(s => {
           if (local.id !== undefined && s.id !== undefined && String(local.id) === String(s.id)) return true;
+          if (local.playlist_name && s.playlist_name && local.playlist_name.trim().toLowerCase() === s.playlist_name.trim().toLowerCase()) return true;
           if (hasContent && (s.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer && (s.username || '').trim().toLowerCase() === normUser) return true;
           return false;
         });
@@ -1580,13 +1581,9 @@
 
         if (error || !data) return;
 
-        // If an add action was sent and TV has acknowledged it, clear pending flag and merge playlists
+        // If an add action was sent and TV has acknowledged it, clear pending flag
         if (pendingAddActionId && !data.sync_action) {
           pendingAddActionId = null;
-          if (data.playlists && Array.isArray(data.playlists)) {
-            activePlaylists = mergePlaylists(data.playlists, activePlaylists);
-            renderPlaylists();
-          }
         }
 
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
@@ -1600,9 +1597,9 @@
             setDeviceConnectedState(true);
           }
           if (data.playlists && Array.isArray(data.playlists)) {
-            const merged = mergePlaylists(data.playlists, activePlaylists);
-            if (JSON.stringify(merged) !== JSON.stringify(activePlaylists)) {
-              activePlaylists = merged;
+            const updated = pendingAddActionId ? mergePlaylists(data.playlists, activePlaylists) : deduplicatePlaylists(data.playlists);
+            if (JSON.stringify(updated) !== JSON.stringify(activePlaylists)) {
+              activePlaylists = updated;
               renderPlaylists();
             }
           }
@@ -1631,10 +1628,6 @@
             // Check if pending add action was completed/cleared by TV
             if (pendingAddActionId && !newRecord.sync_action) {
               pendingAddActionId = null;
-              if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
-                activePlaylists = mergePlaylists(newRecord.playlists, activePlaylists);
-                renderPlaylists();
-              }
             }
 
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
@@ -1648,9 +1641,9 @@
               setDeviceConnectedState(true);
             }
             if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
-              const merged = mergePlaylists(newRecord.playlists, activePlaylists);
-              if (JSON.stringify(merged) !== JSON.stringify(activePlaylists)) {
-                activePlaylists = merged;
+              const updated = pendingAddActionId ? mergePlaylists(newRecord.playlists, activePlaylists) : deduplicatePlaylists(newRecord.playlists);
+              if (JSON.stringify(updated) !== JSON.stringify(activePlaylists)) {
+                activePlaylists = updated;
                 renderPlaylists();
               }
             }
