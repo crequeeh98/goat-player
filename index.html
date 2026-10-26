@@ -1325,7 +1325,7 @@
 
       container.innerHTML = activePlaylists.map((pl, idx) => {
         const id = pl.id !== undefined ? pl.id : idx;
-        const isM3u = pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8')));
+        const isM3u = pl.type === 'm3u' || (!pl.type && (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))));
         const name = pl.playlist_name || (isM3u ? 'M3U Playlist' : pl.username) || 'IPTV Playlist';
         const server = pl.server_url || (isM3u ? 'M3U Stream' : 'Xtream Codes');
         const user = pl.username || (currentLang === 'de' ? 'Gesichert auf dem Gerät' : 'Secured on device');
@@ -1726,7 +1726,7 @@
         if (tabBar) tabBar.style.display = 'none';
 
         const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === String(id));
-        const isM3u = pl && (pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))));
+        const isM3u = pl ? (pl.type === 'm3u' || (!pl.type && (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))))) : false;
         const unchangedPlaceholder = (currentLang === 'de') ? '(Unverändert auf Gerät gesichert)' : '(Unchanged / Secured on device)';
 
         if (isM3u) {
@@ -1820,12 +1820,22 @@
 
       if (currentTabMode === 'm3u') {
         const m3uUrl = document.getElementById('m3uUrl').value.trim();
-        const parsed = parseM3uUrl(m3uUrl);
-        if (parsed) {
-          serverUrl = parsed.serverUrl;
-          username = parsed.username || '';
-          password = parsed.password || '';
-          playlistType = parsed.type || (parsed.isValidXtream ? 'xtream' : 'm3u');
+        if (m3uUrl) {
+          const parsed = parseM3uUrl(m3uUrl);
+          if (parsed) {
+            serverUrl = parsed.serverUrl;
+            username = parsed.username || '';
+            password = parsed.password || '';
+            playlistType = parsed.type || (parsed.isValidXtream ? 'xtream' : 'm3u');
+          } else {
+            showToast(currentLang === 'de' 
+              ? 'Bitte gib eine gültige URL ein (z.B. https://provider.com/playlist.m3u).' 
+              : 'Please enter a valid URL (e.g. https://provider.com/playlist.m3u).');
+            if (btn) btn.disabled = false;
+            return;
+          }
+        } else if (currentModalMode === 'edit') {
+          playlistType = 'm3u';
         } else {
           showToast(currentLang === 'de' 
             ? 'Bitte gib eine gültige URL ein (z.B. https://provider.com/playlist.m3u).' 
