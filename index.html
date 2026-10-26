@@ -1282,14 +1282,15 @@
       const fX = document.getElementById('xtreamFields');
       const fM = document.getElementById('m3uFields');
 
+      const isEdit = (currentModalMode === 'edit');
       if (mode === 'xtream') {
         tabX.classList.add('active');
         tabM.classList.remove('active');
         fX.style.display = 'block';
         fM.style.display = 'none';
-        document.getElementById('serverUrl').required = true;
-        document.getElementById('username').required = true;
-        document.getElementById('password').required = true;
+        document.getElementById('serverUrl').required = !isEdit;
+        document.getElementById('username').required = !isEdit;
+        document.getElementById('password').required = !isEdit;
         document.getElementById('m3uUrl').required = false;
       } else {
         tabM.classList.add('active');
@@ -1299,7 +1300,7 @@
         document.getElementById('serverUrl').required = false;
         document.getElementById('username').required = false;
         document.getElementById('password').required = false;
-        document.getElementById('m3uUrl').required = true;
+        document.getElementById('m3uUrl').required = !isEdit;
       }
     }
 
@@ -1326,9 +1327,9 @@
         const id = pl.id !== undefined ? pl.id : idx;
         const isM3u = pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8')));
         const name = pl.playlist_name || (isM3u ? 'M3U Playlist' : pl.username) || 'IPTV Playlist';
-        const server = pl.server_url || (isM3u ? 'M3U URL' : 'Xtream Server');
-        const user = isM3u ? (currentLang === 'de' ? 'Direkte M3U-Playlist' : 'Direct M3U Playlist') : (pl.username || 'User');
-        const userIcon = isM3u ? '📄' : '👤';
+        const server = pl.server_url || (isM3u ? 'M3U Stream' : 'Xtream Codes');
+        const user = pl.username || (currentLang === 'de' ? 'Gesichert auf dem Gerät' : 'Secured on device');
+        const userIcon = pl.username ? (isM3u ? '📄' : '👤') : '🔒';
         const btnOpacity = isDeviceConnected ? '1' : '0.5';
         const btnCursor = isDeviceConnected ? 'pointer' : 'not-allowed';
 
@@ -1376,13 +1377,16 @@
       for (const item of list) {
         const normServer = (item.server_url || '').trim().toLowerCase().replace(/\/+$/, '');
         const normUser = (item.username || '').trim().toLowerCase();
-        const key = item.id !== undefined ? `id_${item.id}` : `${normServer}::${normUser}`;
-        const contentKey = `${normServer}::${normUser}`;
-        if (!seen.has(key) && !seen.has(contentKey)) {
-          seen.add(key);
-          seen.add(contentKey);
-          result.push(item);
-        }
+        const hasContent = normServer.length > 0 || normUser.length > 0;
+        const idKey = (item.id !== undefined && item.id !== null && String(item.id).trim() !== '') ? `id_${item.id}` : null;
+        const contentKey = hasContent ? `${normServer}::${normUser}` : null;
+
+        if (idKey && seen.has(idKey)) continue;
+        if (contentKey && seen.has(contentKey)) continue;
+
+        if (idKey) seen.add(idKey);
+        if (contentKey) seen.add(contentKey);
+        result.push(item);
       }
       return result;
     }
@@ -1408,10 +1412,12 @@
         if (pendingDeletedIds.has(String(local.id !== undefined ? local.id : ''))) continue;
         const normServer = (local.server_url || '').trim().toLowerCase().replace(/\/+$/, '');
         const normUser = (local.username || '').trim().toLowerCase();
-        const existsInServer = merged.some(s => 
-          (s.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer &&
-          (s.username || '').trim().toLowerCase() === normUser
-        );
+        const hasContent = normServer.length > 0 || normUser.length > 0;
+        const existsInServer = merged.some(s => {
+          if (local.id !== undefined && s.id !== undefined && String(local.id) === String(s.id)) return true;
+          if (hasContent && (s.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer && (s.username || '').trim().toLowerCase() === normUser) return true;
+          return false;
+        });
         if (!existsInServer) {
           merged.push(local);
         }
@@ -1721,15 +1727,18 @@
 
         const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === String(id));
         const isM3u = pl && (pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))));
+        const unchangedPlaceholder = (currentLang === 'de') ? '(Unverändert auf Gerät gesichert)' : '(Unchanged / Secured on device)';
 
         if (isM3u) {
           switchTab('m3u');
           const nameEl = document.getElementById('playlistName');
           const m3uUrlEl = document.getElementById('m3uUrl');
-          if (nameEl) nameEl.value = pl.playlist_name || '';
+          if (nameEl) nameEl.value = pl ? (pl.playlist_name || '') : '';
           if (m3uUrlEl) {
-            m3uUrlEl.value = pl.server_url || '';
-            onM3uInput(pl.server_url || '');
+            m3uUrlEl.value = (pl && pl.server_url) ? pl.server_url : '';
+            m3uUrlEl.placeholder = (pl && pl.server_url) ? 'https://example.com/playlist.m3u' : unchangedPlaceholder;
+            m3uUrlEl.required = false;
+            if (pl && pl.server_url) onM3uInput(pl.server_url);
           }
         } else {
           switchTab('xtream');
@@ -1739,9 +1748,21 @@
             const userEl = document.getElementById('username');
             const passEl = document.getElementById('password');
             if (nameEl) nameEl.value = pl.playlist_name || '';
-            if (serverEl) serverEl.value = pl.server_url || '';
-            if (userEl) userEl.value = pl.username || '';
-            if (passEl) passEl.value = pl.password || '';
+            if (serverEl) {
+              serverEl.value = pl.server_url || '';
+              serverEl.placeholder = pl.server_url ? 'http://line.example.com:80' : unchangedPlaceholder;
+              serverEl.required = false;
+            }
+            if (userEl) {
+              userEl.value = pl.username || '';
+              userEl.placeholder = pl.username ? 'Username' : unchangedPlaceholder;
+              userEl.required = false;
+            }
+            if (passEl) {
+              passEl.value = pl.password || '';
+              passEl.placeholder = pl.password ? '••••••••' : unchangedPlaceholder;
+              passEl.required = false;
+            }
           }
         }
       } else {
@@ -1756,6 +1777,17 @@
       const modal = document.getElementById('playlistModal');
       if (modal) modal.style.display = 'none';
       editingPlaylistId = null;
+
+      // Restore inputs & placeholders
+      const serverEl = document.getElementById('serverUrl');
+      const userEl = document.getElementById('username');
+      const passEl = document.getElementById('password');
+      const m3uUrlEl = document.getElementById('m3uUrl');
+      if (serverEl) { serverEl.placeholder = 'http://line.example.com:80'; serverEl.required = true; }
+      if (userEl) { userEl.placeholder = 'Username'; userEl.required = true; }
+      if (passEl) { passEl.placeholder = '••••••••'; passEl.required = true; }
+      if (m3uUrlEl) { m3uUrlEl.placeholder = 'https://example.com/playlist.m3u'; }
+
       const btnSubmit = document.getElementById('btnSubmitModal');
       if (btnSubmit) {
         btnSubmit.disabled = false;
@@ -1893,10 +1925,10 @@
 
           if (pl) {
             pl.playlist_name = playlistName;
-            pl.server_url = serverUrl;
-            pl.username = username;
-            pl.password = password;
-            pl.type = playlistType;
+            if (serverUrl) pl.server_url = serverUrl;
+            if (username) pl.username = username;
+            if (password) pl.password = password;
+            if (playlistType) pl.type = playlistType;
           }
           renderPlaylists();
 
