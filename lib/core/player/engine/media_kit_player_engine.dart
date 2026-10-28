@@ -25,8 +25,8 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
 
   MediaKitPlayerEngine() {
     player = Player(
-      configuration: const PlayerConfiguration(
-        bufferSize: 32 * 1024 * 1024, // 32MB buffer
+      configuration: PlayerConfiguration(
+        bufferSize: GoatPlatform.isTv ? 16 * 1024 * 1024 : 32 * 1024 * 1024,
       ),
     );
     controller = VideoController(

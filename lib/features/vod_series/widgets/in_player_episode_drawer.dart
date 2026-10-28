@@ -190,7 +190,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4.0),
                           child: TvFocusable(
-                            focusScale: 1.05,
+                            focusScale: 1.01,
                             borderRadius: BorderRadius.circular(8),
                             onKeyEvent: (node, event) {
                               if (event is KeyDownEvent || event is KeyRepeatEvent) {
@@ -274,7 +274,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                               child: TvFocusable(
                                 focusNode: isTarget ? _targetEpisodeFocusNode : null,
                                 autofocus: GoatPlatform.isTv && isTarget,
-                                focusScale: 1.02,
+                                focusScale: 1.01,
                                 borderRadius: BorderRadius.circular(10),
                                 onKeyEvent: (node, event) {
                                   if (event is KeyDownEvent || event is KeyRepeatEvent) {

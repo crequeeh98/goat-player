@@ -41,6 +41,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   void dispose() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+      ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
     });
     _searchController.dispose();
     _catSearchController.dispose();
@@ -246,14 +247,32 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                     }
 
                     if (streams.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.search_off, size: 64, color: Colors.white24),
-                            const SizedBox(height: 16),
-                            Text(AppLocalizations.of(context)!.noMoviesFound, style: const TextStyle(color: Colors.white54)),
-                          ],
+                      return Focus(
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _focusCategoryColumn();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              _topSearchFocusNode.requestFocus();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                event.logicalKey == LogicalKeyboardKey.goBack) {
+                              _focusCategoryColumn();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                              const SizedBox(height: 16),
+                              Text(AppLocalizations.of(context)!.noMoviesFound, style: const TextStyle(color: Colors.white54)),
+                            ],
+                          ),
                         ),
                       );
                     }
@@ -603,6 +622,10 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                           _firstRailItemNode.requestFocus();
                                           return KeyEventResult.handled;
                                         }
+                                        if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
+                                          _topSearchFocusNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
                                         return KeyEventResult.handled;
                                       }
                                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
@@ -668,6 +691,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                         focusNode: itemNode,
                                         focusScale: 1.02,
                                         borderRadius: BorderRadius.circular(8),
+                                        onFocusChange: (has) {
+                                          if (has && itemNode != null) {
+                                            ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                          }
+                                        },
                                         onKeyEvent: GoatPlatform.isTv
                                             ? (n, event) {
                                                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
@@ -680,6 +708,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                                     if (_firstRailItemNode.context != null &&
                                                         _firstRailItemNode.canRequestFocus) {
                                                       _firstRailItemNode.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    }
+                                                    if (_topSearchFocusNode.context != null &&
+                                                        _topSearchFocusNode.canRequestFocus) {
+                                                      _topSearchFocusNode.requestFocus();
                                                       return KeyEventResult.handled;
                                                     }
                                                     return KeyEventResult.handled;

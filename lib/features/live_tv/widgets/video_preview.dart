@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../core/database/app_database.dart';
-import '../../../core/player/playback_controller.dart';
 import '../../../core/player/player_service.dart';
 import 'epg_timeline.dart';
 import 'custom_live_controls.dart';

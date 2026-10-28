@@ -36,6 +36,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
   void dispose() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+      ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
     });
     _searchController.dispose();
     _catSearchController.dispose();
@@ -236,14 +237,32 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                     }
 
                     if (streams.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.search_off, size: 64, color: Colors.white24),
-                            const SizedBox(height: 16),
-                            Text(AppLocalizations.of(context)!.noSeriesFound, style: const TextStyle(color: Colors.white54)),
-                          ],
+                      return Focus(
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _focusCategoryColumn();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              _topSearchFocusNode.requestFocus();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                event.logicalKey == LogicalKeyboardKey.goBack) {
+                              _focusCategoryColumn();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                              const SizedBox(height: 16),
+                              Text(AppLocalizations.of(context)!.noSeriesFound, style: const TextStyle(color: Colors.white54)),
+                            ],
+                          ),
                         ),
                       );
                     }
@@ -561,8 +580,14 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                         sidebarFocus.requestFocus();
                                         return KeyEventResult.handled;
                                       }
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && _firstSeriesNode.canRequestFocus) {
-                                      _firstSeriesNode.requestFocus();
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                      if (_firstSeriesNode.context != null && _firstSeriesNode.canRequestFocus) {
+                                        _firstSeriesNode.requestFocus();
+                                        return KeyEventResult.handled;
+                                      } else if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
+                                        _topSearchFocusNode.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
                                         event.logicalKey == LogicalKeyboardKey.goBack) {
@@ -620,12 +645,22 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                         focusNode: GoatPlatform.isTv ? node : null,
                                         focusScale: 1.02,
                                         borderRadius: BorderRadius.circular(8),
+                                        onFocusChange: (has) {
+                                          if (has) {
+                                            ref.read(activeCategoryFocusNodeProvider.notifier).set(node);
+                                          }
+                                        },
                                         onKeyEvent: GoatPlatform.isTv
                                             ? (n, event) {
                                                 if (event is KeyDownEvent) {
-                                                  if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
-                                                      _firstSeriesNode.canRequestFocus) {
-                                                    _firstSeriesNode.requestFocus();
+                                                  if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                                    if (_firstSeriesNode.context != null && _firstSeriesNode.canRequestFocus) {
+                                                      _firstSeriesNode.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    } else if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
+                                                      _topSearchFocusNode.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    }
                                                     return KeyEventResult.handled;
                                                   } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                                                     final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);

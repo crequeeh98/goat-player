@@ -82,6 +82,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   Map<String, List<dynamic>> _seasonsWithEpisodes = {};
   Map<String, PlaybackProgressItem> _episodeProgress = {};
   bool _isEpisodeDrawerOpen = false;
+  bool _isTrackModalOpen = false;
   bool _appliedAudioTrack = false;
   bool _appliedSubtitleTrack = false;
   String? _lastDemuxedTrackHash;
@@ -511,6 +512,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   }
 
   void _showAudioTracksDialog() {
+    setState(() => _isTrackModalOpen = true);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -540,6 +542,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: TvFocusable(
                     autofocus: isSelected,
+                    focusScale: 1.0,
                     borderRadius: BorderRadius.circular(10),
                     onPressed: selectTrack,
                     child: Container(
@@ -582,10 +585,15 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
           ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() => _isTrackModalOpen = false);
+      }
+    });
   }
 
   void _showSubtitleTracksDialog() {
+    setState(() => _isTrackModalOpen = true);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -623,6 +631,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                     padding: const EdgeInsets.only(bottom: 6),
                     child: TvFocusable(
                       autofocus: isSelected,
+                      focusScale: 1.0,
                       borderRadius: BorderRadius.circular(10),
                       onPressed: selectSub,
                       child: Container(
@@ -666,7 +675,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
           ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() => _isTrackModalOpen = false);
+      }
+    });
   }
   
   Future<void> _saveCurrentProgress() async {
@@ -1136,6 +1149,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                         },
                         onPlayNextEpisode: () => _playNextEpisode(),
                         isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
+                        isTrackModalOpen: _isTrackModalOpen,
                         onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
                       ),
                       subtitleViewConfiguration: SubtitleViewConfiguration(
@@ -1286,6 +1300,7 @@ class _VodControls extends StatefulWidget {
   final VoidCallback? onToggleEpisodeDrawer;
   final VoidCallback? onPlayNextEpisode;
   final bool isEpisodeDrawerOpen;
+  final bool isTrackModalOpen;
   final VoidCallback? onCloseDrawer;
 
   const _VodControls({
@@ -1303,6 +1318,7 @@ class _VodControls extends StatefulWidget {
     this.onToggleEpisodeDrawer,
     this.onPlayNextEpisode,
     this.isEpisodeDrawerOpen = false,
+    this.isTrackModalOpen = false,
     this.onCloseDrawer,
   });
 
@@ -1413,11 +1429,24 @@ class _VodControlsState extends State<_VodControls> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant _VodControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isTrackModalOpen != oldWidget.isTrackModalOpen) {
+      if (widget.isTrackModalOpen) {
+        _hideTimer?.cancel();
+        setState(() => _isControlsVisible = true);
+      } else {
+        _startHideTimer();
+      }
+    }
+  }
+
   void _startHideTimer() {
     _hideTimer?.cancel();
-    if (_isPlaying && !widget.isEpisodeDrawerOpen) {
+    if (_isPlaying && !widget.isEpisodeDrawerOpen && !widget.isTrackModalOpen) {
       _hideTimer = Timer(Duration(seconds: GoatPlatform.isTv ? 8 : 3), () {
-        if (mounted && _isPlaying && !widget.isEpisodeDrawerOpen) {
+        if (mounted && _isPlaying && !widget.isEpisodeDrawerOpen && !widget.isTrackModalOpen) {
           setState(() => _isControlsVisible = false);
           if (GoatPlatform.isTv) {
             _focusNode.requestFocus();

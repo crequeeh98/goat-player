@@ -6,7 +6,6 @@ import '../../main.dart';
 import '../database/app_database.dart';
 import '../settings/locale_controller.dart';
 import 'title_sanitizer.dart';
-import 'platform_utils.dart';
 
 class VodSyncHelper {
   static int? parseAdded(dynamic val) {
@@ -151,11 +150,13 @@ class VodSyncHelper {
     if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
 
     final prefs = ref.read(sharedPreferencesProvider);
+    final dao = ref.read(streamDaoProvider);
+    final existingCount = await dao.countStreamsByType(account.id, type);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final lastSyncKey = 'last_sync_all_${type == 'movie' ? 'vod' : 'series'}_${account.id}';
     final lastSync = prefs.getInt(lastSyncKey) ?? 0;
-    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
-      debugPrint('$type streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
+    if (!force && existingCount > 0 && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+      debugPrint('$type streams were synced recently ($existingCount streams cached). Skipping full sync.');
       return;
     }
 
@@ -217,8 +218,8 @@ class VodSyncHelper {
     final account = ref.watch(activeAccountProvider);
     if (account == null) return const Stream.empty();
 
-    // TV skips the full-library sync at startup (RAM). Lazily fetch it once when search is first used.
-    if (GoatPlatform.isTv && _tvSearchSynced.add('${account.id}_$type')) {
+    // Lazily fetch full library if not yet cached when search is first used
+    if (_tvSearchSynced.add('${account.id}_$type')) {
       Future(() => syncAllStreams(ref, type: type));
     }
 

@@ -42,7 +42,6 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final Map<String, FocusNode> _categoryFocusNodes = {};
   final Map<String, FocusNode> _channelFocusNodes = {};
   FocusNode? _lastFocusedChannelNode;
-  bool _isSearchInputActive = false;
   final Set<String> _syncedCategories = {};
   bool _focusFirstChannelOnNextBuild = false;
   Timer? _channelPlayDebounce;
@@ -56,6 +55,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     _channelPlayDebounce?.cancel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+      ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
     });
     _categoryScrollController.dispose();
     _channelScrollController.dispose();
@@ -517,8 +517,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 return KeyEventResult.handled;
                               }
                             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                              _focusChannelColumn();
-                              return KeyEventResult.handled;
+                              final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                              if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                headerSearch.requestFocus();
+                                return KeyEventResult.handled;
+                              }
                             } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                               final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
                               if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
@@ -560,7 +563,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           if (_searchQuery.isNotEmpty) {
                             categories = categories.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
                           }
-                          if (_selectedCategory != null && _selectedCategory != _lastCategoryRailScrolledId) {
+                          if (!GoatPlatform.isTv && _selectedCategory != null && _selectedCategory != _lastCategoryRailScrolledId) {
                             _scrollToActiveCategory(categories, _selectedCategory);
                           }
                           return ListView.builder(
@@ -582,6 +585,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               if (index == 0) {
                                 _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
                               }
+                              if (isSelected && itemNode.context != null) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                });
+                              }
 
                               return Padding(
                                 key: ValueKey(cat.categoryId),
@@ -594,6 +602,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   autofocus: false,
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
+                                  onFocusChange: (has) {
+                                    if (has) {
+                                      ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                    }
+                                  },
                                   onKeyEvent: (node, event) {
                                     if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                       if (event.logicalKey == LogicalKeyboardKey.arrowRight) {

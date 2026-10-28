@@ -318,10 +318,10 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           ? const EdgeInsets.symmetric(horizontal: 24, vertical: 36)
           : const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Container(
-        width: isMobile ? double.infinity : (GoatPlatform.isTv ? 720 : 540),
+        width: isMobile ? double.infinity : (GoatPlatform.isTv ? 840 : 540),
         constraints: BoxConstraints(
-          maxWidth: GoatPlatform.isTv ? 720 : 540,
-          maxHeight: MediaQuery.sizeOf(context).height * (GoatPlatform.isTv ? 0.92 : 0.78),
+          maxWidth: GoatPlatform.isTv ? 840 : 540,
+          maxHeight: MediaQuery.sizeOf(context).height * (GoatPlatform.isTv ? 0.94 : 0.78),
         ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -345,7 +345,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AspectRatio(
-              aspectRatio: GoatPlatform.isTv ? 720 / 130 : 16 / 9,
+              aspectRatio: GoatPlatform.isTv ? 840 / 110 : 16 / 9,
               child: Container(
                 color: Colors.black,
                 child: Stack(
@@ -444,7 +444,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                     controller: _contentScrollController,
                     padding: isMobile 
                         ? const EdgeInsets.fromLTRB(16, 14, 16, 14)
-                        : const EdgeInsets.all(24.0),
+                        : (GoatPlatform.isTv ? const EdgeInsets.fromLTRB(16, 10, 16, 10) : const EdgeInsets.all(24.0)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -456,7 +456,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                                 widget.seriesName, 
                                 style: (isMobile 
                                     ? Theme.of(context).textTheme.titleLarge 
-                                    : Theme.of(context).textTheme.headlineMedium)?.copyWith(fontWeight: FontWeight.bold),
+                                    : (GoatPlatform.isTv ? Theme.of(context).textTheme.titleLarge : Theme.of(context).textTheme.headlineMedium))?.copyWith(fontWeight: FontWeight.bold),
                               ),
                             ),
                             Consumer(
@@ -497,27 +497,33 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     if (releaseDate != null || genre != null)
                       Wrap(
-                        spacing: 8,
+                        spacing: 6,
+                        runSpacing: 4,
                         children: [
                           if (releaseDate != null) Chip(label: Text(releaseDate.toString()), visualDensity: VisualDensity.compact),
                           if (genre != null) Chip(label: Text(genre.toString()), visualDensity: VisualDensity.compact),
                         ],
                       ),
-                    const SizedBox(height: 16),
-                    Text(plot, style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5)),
-                    const SizedBox(height: 24),
+                    SizedBox(height: GoatPlatform.isTv ? 6 : 16),
+                    Text(
+                      plot,
+                      maxLines: GoatPlatform.isTv ? 2 : null,
+                      overflow: GoatPlatform.isTv ? TextOverflow.ellipsis : null,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+                    ),
+                    SizedBox(height: GoatPlatform.isTv ? 6 : 16),
                     if (director != null && director.toString().isNotEmpty) _buildInfoRow(context, Icons.movie_creation, AppLocalizations.of(context)!.director, director.toString()),
                     if (cast != null && cast.toString().isNotEmpty) _buildInfoRow(context, Icons.people, AppLocalizations.of(context)!.cast, cast.toString()),
                     
-                    const SizedBox(height: 24),
+                    SizedBox(height: GoatPlatform.isTv ? 8 : 16),
                     const Divider(),
-                    const SizedBox(height: 16),
+                    SizedBox(height: GoatPlatform.isTv ? 6 : 12),
                     
-                    Text(AppLocalizations.of(context)!.episodes, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
+                    Text(AppLocalizations.of(context)!.episodes, style: TextStyle(fontSize: GoatPlatform.isTv ? 16 : 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: GoatPlatform.isTv ? 6 : 12),
                     
                     if (isLoading)
                       const Center(child: CircularProgressIndicator())
@@ -527,8 +533,8 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                       ...[
                         // Seasons tabs
                         Container(
-                          height: 50,
-                          margin: const EdgeInsets.only(bottom: 16),
+                          height: GoatPlatform.isTv ? 38 : 50,
+                          margin: EdgeInsets.only(bottom: GoatPlatform.isTv ? 8 : 16),
                           child: ListView(
                             scrollDirection: Axis.horizontal,
                             children: (xtreamInfo!['episodes'] as Map).keys.map((season) {

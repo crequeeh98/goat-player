@@ -52,12 +52,24 @@ class StreamDao extends DatabaseAccessor<AppDatabase> with _$StreamDaoMixin {
         });
   }
 
+  Future<int> countStreamsByType(int accountId, String streamType) async {
+    final countExp = streams.id.count();
+    final query = selectOnly(streams)
+      ..addColumns([countExp])
+      ..where(streams.accountId.equals(accountId) & streams.streamType.equals(streamType));
+    final result = await query.map((row) => row.read(countExp)).getSingle();
+    return result ?? 0;
+  }
+
   Future<void> replaceStreamsByType(int accountId, String streamType, List<StreamsCompanion> streamList) async {
     await transaction(() async {
       await (delete(streams)..where((s) => s.accountId.equals(accountId) & s.streamType.equals(streamType))).go();
-      await batch((batch) {
-        batch.insertAll(streams, streamList, mode: InsertMode.insertOrReplace);
-      });
+      for (var i = 0; i < streamList.length; i += 500) {
+        final end = (i + 500 < streamList.length) ? i + 500 : streamList.length;
+        await batch((batch) {
+          batch.insertAll(streams, streamList.sublist(i, end), mode: InsertMode.insertOrReplace);
+        });
+      }
     });
   }
 

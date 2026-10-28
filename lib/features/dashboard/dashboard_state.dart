@@ -30,9 +30,19 @@ class ActiveSidebarFocusNodeNotifier extends Notifier<FocusNode?> {
   void set(FocusNode? node) => state = node;
 }
 
+class ActiveCategoryFocusNodeNotifier extends Notifier<FocusNode?> {
+  @override
+  FocusNode? build() => null;
+  void set(FocusNode? node) => state = node;
+}
+
 /// FocusNode of the active category search field on the visible dashboard page (Live, Movies, Series)
 final activeScreenSearchFocusNodeProvider =
     NotifierProvider<ActiveSearchFocusNodeNotifier, FocusNode?>(ActiveSearchFocusNodeNotifier.new);
+
+/// FocusNode of the active/last-focused category item on the visible dashboard page
+final activeCategoryFocusNodeProvider =
+    NotifierProvider<ActiveCategoryFocusNodeNotifier, FocusNode?>(ActiveCategoryFocusNodeNotifier.new);
 
 /// FocusNode of the Master Search button in the Dashboard header
 final headerSearchFocusNodeProvider =

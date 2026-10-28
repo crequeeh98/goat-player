@@ -763,6 +763,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               onKeyEvent: (node, event) {
                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
                   if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                    final catTarget = ref.read(activeCategoryFocusNodeProvider);
+                    if (catTarget != null && catTarget.context != null && catTarget.canRequestFocus) {
+                      catTarget.requestFocus();
+                      return KeyEventResult.handled;
+                    }
                     final target = ref.read(activeScreenSearchFocusNodeProvider);
                     if (target != null && target.context != null && target.canRequestFocus) {
                       target.requestFocus();

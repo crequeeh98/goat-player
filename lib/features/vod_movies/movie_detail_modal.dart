@@ -190,7 +190,233 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     }
 
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final isMobile = screenWidth < 600;
+    final isMobile = screenWidth < 600 && !GoatPlatform.isTv;
+
+    if (GoatPlatform.isTv || !isMobile) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+        child: Container(
+          width: 820,
+          height: 440,
+          decoration: BoxDecoration(
+            color: const Color(0xFF160F26),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.75),
+                blurRadius: 28,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left: Movie Poster (2:3 aspect ratio)
+              SizedBox(
+                width: 220,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (widget.posterUrl != null)
+                      Hero(
+                        tag: 'movie_${widget.streamId}',
+                        child: Image.network(
+                          widget.posterUrl!,
+                          fit: BoxFit.cover,
+                          cacheWidth: 330,
+                          cacheHeight: 500,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: const Color(0xFF23183C),
+                            child: const Center(child: Icon(Icons.movie, size: 64, color: Colors.white24)),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        color: const Color(0xFF23183C),
+                        child: const Center(child: Icon(Icons.movie, size: 64, color: Colors.white24)),
+                      ),
+                  ],
+                ),
+              ),
+              // Right: Content Details Column
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row: Title + Close Button
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.movieName,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          TvFocusable(
+                            borderRadius: BorderRadius.circular(16),
+                            focusScale: 1.05,
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 18),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Meta Chips Row
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (releaseDate != null) _buildChip(context, '$releaseDate'),
+                          if (rating != null && rating.toString().isNotEmpty)
+                            _buildChip(context, '★ $rating', isHighlight: true),
+                          if (info?['duration'] != null || info?['runtime'] != null)
+                            _buildChip(context, '${info?['duration'] ?? info?['runtime']}'),
+                          if (genre != null && genre.toString().isNotEmpty)
+                            _buildChip(context, '$genre'),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Synopsis / Plot
+                      Text(
+                        plot,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.35),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Director & Cast in compact layout
+                      if (director != null && director.toString().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(
+                            'Regie: $director',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white60, fontSize: 12),
+                          ),
+                        ),
+                      if (cast != null && cast.toString().isNotEmpty)
+                        Text(
+                          'Besetzung: $cast',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white60, fontSize: 12),
+                        ),
+
+                      const Spacer(),
+
+                      // Action Buttons Row
+                      Row(
+                        children: [
+                          TvFocusable(
+                            autofocus: true,
+                            focusScale: 1.02,
+                            borderRadius: BorderRadius.circular(10),
+                            onPressed: _playMovie,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.play_arrow, size: 20, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    AppLocalizations.of(context)!.playMovie,
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.streamId, streamType: 'movie'))).value ?? false;
+                              Future<void> toggleFav() async {
+                                final account = ref.read(activeAccountProvider);
+                                if (account != null) {
+                                  await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
+                                }
+                              }
+                              return TvFocusable(
+                                focusScale: 1.02,
+                                borderRadius: BorderRadius.circular(10),
+                                onPressed: toggleFav,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                        color: isFavorite ? Colors.amber : Colors.white70,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        AppLocalizations.of(context)!.favorites,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isFavorite ? Colors.amber : Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Dialog(
       backgroundColor: Colors.transparent,
