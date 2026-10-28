@@ -198,18 +198,21 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       if (!mounted) return;
       await ref.read(seriesControllerProvider).syncSeriesCategories();
 
-      // Defer full-library background syncs so initial UI launch is 100% fluid
-      await Future.delayed(Duration(seconds: GoatPlatform.isTv ? 8 : 5));
-      if (!mounted) return;
-      await ref.read(liveTvControllerProvider).syncAllLiveStreams();
-      if (!mounted) return;
-      await Future.delayed(const Duration(seconds: 3));
-      if (!mounted) return;
-      await ref.read(vodControllerProvider).syncAllVodStreams();
-      if (!mounted) return;
-      await Future.delayed(const Duration(seconds: 3));
-      if (!mounted) return;
-      await ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      // On TV, do not dump tens of thousands of streams into memory concurrently.
+      // Category streams are loaded on-demand when a category is selected.
+      if (!GoatPlatform.isTv) {
+        await Future.delayed(const Duration(seconds: 5));
+        if (!mounted) return;
+        await ref.read(liveTvControllerProvider).syncAllLiveStreams();
+        if (!mounted) return;
+        await Future.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        await ref.read(vodControllerProvider).syncAllVodStreams();
+        if (!mounted) return;
+        await Future.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        await ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      }
     });
   }
 

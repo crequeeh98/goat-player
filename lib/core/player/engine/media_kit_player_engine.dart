@@ -81,8 +81,7 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     try {
       final dynamic platform = player.platform;
       if (GoatPlatform.isTv) {
-        platform?.setProperty('hwdec', 'mediacodec-copy');
-        platform?.setProperty('opengl-pbo', 'yes');
+        platform?.setProperty('hwdec', 'mediacodec');
         platform?.setProperty('framedrop', 'vo');
         platform?.setProperty('vd-lavc-threads', '4');
         platform?.setProperty('force-window', 'no');
@@ -130,10 +129,6 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     _applyMpvOptimizations(isLive: isLive);
 
     try {
-      if (isLive) {
-        // Cleanly stop previous stream to flush hardware decoder and prevent Surface deadlock
-        await player.stop().timeout(const Duration(milliseconds: 300), onTimeout: () {});
-      }
       await player.open(
         Media(
           url,

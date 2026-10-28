@@ -182,7 +182,9 @@ class _TvTextFieldState extends State<TvTextField> {
     }
 
     final hasLabel = widget.labelText != null && widget.labelText!.isNotEmpty;
-    final hasOutline = widget.border != null && widget.border != InputBorder.none;
+    final effectiveBorder = widget.border ??
+        OutlineInputBorder(borderRadius: BorderRadius.circular(10));
+    final hasOutline = effectiveBorder != InputBorder.none;
 
     if (_isEditing) {
       return CallbackShortcuts(
@@ -239,10 +241,12 @@ class _TvTextFieldState extends State<TvTextField> {
     return TvFocusable(
       focusNode: _effectiveFocusNode,
       autofocus: widget.autofocus,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: (effectiveBorder is OutlineInputBorder)
+          ? effectiveBorder.borderRadius
+          : BorderRadius.circular(10),
       focusScale: 1.01,
       clipChild: false,
-      focusBorderColor: (hasOutline && hasLabel) ? Colors.transparent : const Color(0xFFB388FF),
+      focusBorderColor: hasOutline ? Colors.transparent : const Color(0xFFB388FF),
       glowColor: const Color(0x33B388FF),
       onPressed: _openKeyboard,
       onKeyEvent: (node, event) {
