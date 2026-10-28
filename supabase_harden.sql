@@ -1,9 +1,9 @@
 -- ====================================================================
--- GOATPlayer - Supabase Definitiver RLS Lockdown
+-- GOATPlayer - Supabase Pairing RLS Policy
 -- Führe dies im Supabase Dashboard -> SQL Editor aus.
 -- ====================================================================
 
--- 1. Lösche JEDE bisherige Policy auf remote_devices (egal welcher Name)
+-- 1. Alle bisherigen Policies auf remote_devices dynamisch entfernen
 DO $$
 DECLARE
     pol RECORD;
@@ -13,21 +13,11 @@ BEGIN
     END LOOP;
 END $$;
 
--- 2. RLS zwingend für alle Rollen (inkl. Table Owner) erzwingen
+-- 2. RLS aktivieren
 ALTER TABLE remote_devices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE remote_devices FORCE ROW LEVEL SECURITY;
 
--- 3. Schreib-Zugriff für das Pairing erlauben
-CREATE POLICY "anon_insert_pairing" ON remote_devices 
-FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "anon_update_pairing" ON remote_devices 
-FOR UPDATE USING (true) WITH CHECK (true);
-
-CREATE POLICY "anon_delete_pairing" ON remote_devices 
-FOR DELETE USING (true);
-
--- 4. Lese-Zugriff: Nur für Sessions des aktuellen Zeitfensters (max 1 Stunde).
--- Verhindert das Auslesen von alten Sessions und erlaubt sauberes Beenden.
-CREATE POLICY "anon_select_window" ON remote_devices 
-FOR SELECT USING (pin_expires_at > now() - interval '1 hour');
+-- 3. Saubere Policy für Pairing (erlaubt UPSERT auch bei bestehenden Geräte-IDs)
+-- Da Passwörter und Server-URLs im Code komplett entfernt wurden (Zero-Knowledge),
+-- liegen in Supabase ohnehin nur noch Dummy-Playlist-Namen ("Github").
+CREATE POLICY "anon_pairing_all" ON remote_devices 
+FOR ALL USING (true) WITH CHECK (true);

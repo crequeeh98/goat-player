@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +12,12 @@ import 'widgets/channel_icon.dart';
 import 'widgets/tv_smart_iptv_overlays.dart';
 import 'live_tv_controller.dart';
 import '../dashboard/favorites_provider.dart';
+import '../dashboard/dashboard_state.dart';
 import '../../core/utils/channel_name_cleaner.dart';
 import '../../core/utils/live_stream_matcher.dart';
 import '../../core/player/playback_controller.dart';
 import '../../core/widgets/tv_focusable.dart';
+import '../../core/widgets/tv_text_field.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../main.dart';
 
@@ -33,8 +36,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'category_search');
+  final FocusNode _firstCategoryNode = FocusNode(debugLabel: 'first_category');
   final FocusNode _firstChannelNode = FocusNode(debugLabel: 'first_channel');
-  final FocusNode _selectedCategoryNode = FocusNode(debugLabel: 'selected_category');
   final FocusNode _playerNode = FocusNode(debugLabel: 'player_preview');
   final Map<String, FocusNode> _categoryFocusNodes = {};
   final Map<String, FocusNode> _channelFocusNodes = {};
@@ -42,6 +45,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   bool _isSearchInputActive = false;
   final Set<String> _syncedCategories = {};
   bool _focusFirstChannelOnNextBuild = false;
+  Timer? _channelPlayDebounce;
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
@@ -49,10 +53,14 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
   @override
   void dispose() {
+    _channelPlayDebounce?.cancel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+    });
     _categoryScrollController.dispose();
     _channelScrollController.dispose();
+    _firstCategoryNode.dispose();
     _firstChannelNode.dispose();
-    _selectedCategoryNode.dispose();
     _playerNode.dispose();
     _searchFocusNode.dispose();
     for (final node in _categoryFocusNodes.values) {
@@ -68,33 +76,49 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void _focusCategoryColumn() {
     if (_selectedCategory != null) {
       final node = _categoryFocusNodes[_selectedCategory];
-      if (node != null && node.canRequestFocus) {
+      if (node != null && node.context != null && node.canRequestFocus) {
         node.requestFocus();
         return;
       }
     }
-    if (_selectedCategoryNode.canRequestFocus) {
-      _selectedCategoryNode.requestFocus();
-      return;
-    }
-    // If not currently in view, scroll to active category and focus it
+    // If not currently in view, jump directly to active category so it mounts immediately
     final categories = ref.read(liveCategoriesProvider).asData?.value;
     if (categories != null && _selectedCategory != null) {
-      _scrollToActiveCategory(categories, _selectedCategory);
+      final index = categories.indexWhere((c) => c.categoryId == _selectedCategory);
+      if (index >= 0 && _categoryScrollController.hasClients) {
+        final itemHeight = GoatPlatform.isTv ? 36.0 : 46.0;
+        final viewportHeight = _categoryScrollController.position.hasViewportDimension
+            ? _categoryScrollController.position.viewportDimension
+            : 600.0;
+        final targetOffset = ((index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2))
+            .clamp(0.0, _categoryScrollController.position.maxScrollExtent);
+        _categoryScrollController.jumpTo(targetOffset);
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final node = _categoryFocusNodes[_selectedCategory];
-        if (node != null && node.canRequestFocus) {
+        if (node != null && node.context != null && node.canRequestFocus) {
           node.requestFocus();
-        } else if (_selectedCategoryNode.canRequestFocus) {
-          _selectedCategoryNode.requestFocus();
+        } else if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+          _firstCategoryNode.requestFocus();
+        } else if (_searchFocusNode.context != null && _searchFocusNode.canRequestFocus) {
+          _searchFocusNode.requestFocus();
         }
       });
       return;
     }
+    if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+      _firstCategoryNode.requestFocus();
+      return;
+    }
+    for (final node in _categoryFocusNodes.values) {
+      if (node.context != null && node.canRequestFocus) {
+        node.requestFocus();
+        return;
+      }
+    }
     // Fallback: move focus left or search
-    final moved = FocusScope.of(context).focusInDirection(TraversalDirection.left);
-    if (!moved && _searchFocusNode.canRequestFocus) {
+    if (_searchFocusNode.context != null && _searchFocusNode.canRequestFocus) {
       _searchFocusNode.requestFocus();
     }
   }
@@ -103,23 +127,40 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final activeId = ref.read(playbackControllerProvider)?.streamId ?? ref.read(selectedLiveStreamProvider)?.streamId;
     if (activeId != null) {
       final activeNode = _channelFocusNodes[activeId];
-      if (activeNode != null && activeNode.canRequestFocus) {
+      if (activeNode != null && activeNode.context != null && activeNode.canRequestFocus) {
         activeNode.requestFocus();
         return;
       }
     }
-    if (_lastFocusedChannelNode != null && _lastFocusedChannelNode!.canRequestFocus) {
+    if (_lastFocusedChannelNode != null && _lastFocusedChannelNode!.context != null && _lastFocusedChannelNode!.canRequestFocus) {
       _lastFocusedChannelNode!.requestFocus();
       return;
     }
-    if (_firstChannelNode.canRequestFocus) {
+    if (_firstChannelNode.context != null && _firstChannelNode.canRequestFocus) {
       _firstChannelNode.requestFocus();
       return;
     }
-    final moved = FocusScope.of(context).focusInDirection(TraversalDirection.right);
-    if (!moved && _playerNode.canRequestFocus) {
-      _playerNode.requestFocus();
+    for (final node in _channelFocusNodes.values) {
+      if (node.context != null && node.canRequestFocus) {
+        node.requestFocus();
+        return;
+      }
     }
+    // If channel items are not mounted yet (loading or rebuilding), queue focus for the next frame
+    _focusFirstChannelOnNextBuild = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_firstChannelNode.context != null && _firstChannelNode.canRequestFocus) {
+        _firstChannelNode.requestFocus();
+      } else {
+        for (final node in _channelFocusNodes.values) {
+          if (node.context != null && node.canRequestFocus) {
+            node.requestFocus();
+            return;
+          }
+        }
+      }
+    });
   }
 
   Future<void> _handleChannelLongPress(StreamItem stream) async {
@@ -180,9 +221,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                !isFav
-                    ? '$cleanTitle added to Favorites'
-                    : '$cleanTitle removed from Favorites',
+                Localizations.localeOf(context).languageCode == 'de'
+                    ? (!isFav
+                        ? '$cleanTitle zu Favoriten hinzugefügt'
+                        : '$cleanTitle aus Favoriten entfernt')
+                    : (!isFav
+                        ? '$cleanTitle added to Favorites'
+                        : '$cleanTitle removed from Favorites'),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ),
@@ -202,22 +247,34 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 4), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final account = ref.read(activeAccountProvider);
-        final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
-        if (!isM3u) {
-          ref.read(epgControllerProvider).syncEpgData();
-        }
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
       }
     });
+    if (!GoatPlatform.isTv) {
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted) {
+          final account = ref.read(activeAccountProvider);
+          final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
+          if (!isM3u) {
+            ref.read(epgControllerProvider).syncEpgData();
+          }
+        }
+      });
+    }
   }
 
   void _selectCategory(String catId) {
     setState(() {
       _selectedCategory = catId;
       _lastScrolledStreamId = null;
+      _lastFocusedChannelNode = null;
+      _channelFocusNodes.clear();
     });
+    if (_channelScrollController.hasClients) {
+      _channelScrollController.jumpTo(0.0);
+    }
     ref.read(selectedLiveCategoryProvider.notifier).set(catId);
     final account = ref.read(activeAccountProvider);
     final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
@@ -290,25 +347,30 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       return;
     }
 
-    final account = ref.read(activeAccountProvider);
-    if (account == null) return;
-    final cleanName = ChannelNameCleaner.clean(stream.name);
-    final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-    final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-    final url = (stream.url != null && stream.url!.startsWith('http'))
-        ? stream.url!
-        : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
-    final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
-
-    ref.read(playbackControllerProvider.notifier).playLive(
-      title: cleanName,
-      url: url,
-      channelId: epgChannelId,
-      streamId: stream.streamId,
-      categoryId: effectiveCat,
-    );
     ref.read(selectedLiveCategoryProvider.notifier).set(effectiveCat);
-    ref.read(selectedLiveStreamProvider.notifier).set(stream);
+
+    _channelPlayDebounce?.cancel();
+    _channelPlayDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      ref.read(selectedLiveStreamProvider.notifier).set(stream);
+      final account = ref.read(activeAccountProvider);
+      if (account == null) return;
+      final cleanName = ChannelNameCleaner.clean(stream.name);
+      final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
+      final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+      final url = (stream.url != null && stream.url!.startsWith('http'))
+          ? stream.url!
+          : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
+      final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+
+      ref.read(playbackControllerProvider.notifier).playLive(
+        title: cleanName,
+        url: url,
+        channelId: epgChannelId,
+        streamId: stream.streamId,
+        categoryId: effectiveCat,
+      );
+    });
   }
 
   void _zapNext(List<StreamItem> streams) {
@@ -365,6 +427,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         setState(() {
           _selectedCategory = next;
           _lastScrolledStreamId = null;
+          _lastFocusedChannelNode = null;
+          _channelFocusNodes.clear();
+          _focusFirstChannelOnNextBuild = true;
         });
       }
     });
@@ -374,6 +439,18 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         _lastScrolledStreamId = null;
         _lastScrolledCategoryId = null;
         _lastCategoryRailScrolledId = null;
+        // When exiting fullscreen back to dashboard, ensure dashboard category
+        // matches the currently playing stream's category!
+        final activePlayback = ref.read(playbackControllerProvider);
+        if (activePlayback?.categoryId != null && activePlayback!.categoryId != _selectedCategory) {
+          setState(() {
+            _selectedCategory = activePlayback.categoryId;
+            _lastFocusedChannelNode = null;
+            _channelFocusNodes.clear();
+            _focusFirstChannelOnNextBuild = false;
+          });
+          ref.read(selectedLiveCategoryProvider.notifier).set(activePlayback.categoryId);
+        }
         if (GoatPlatform.isTv) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _focusChannelColumn();
@@ -398,99 +475,82 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                   children: [
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 6.0 : 8.0),
-                      child: TvFocusable(
+                      child: TvTextField(
                         focusNode: _searchFocusNode,
-                        focusScale: 1.02,
-                        borderRadius: BorderRadius.circular(10),
-                        onPressed: () {
-                          setState(() => _isSearchInputActive = true);
-                        },
+                        controller: _searchController,
+                        style: TextStyle(fontSize: GoatPlatform.isTv ? 13 : 14),
+                        hintText: l10n.search,
+                        hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 13 : 14, color: Colors.white54),
+                        prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22, color: const Color(0xFFB388FF)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 8 : 12),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
+                                onPressed: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
+                        isDense: true,
+                        onChanged: (val) => setState(() => _searchQuery = val),
                         onKeyEvent: (node, event) {
-                          if (event is KeyDownEvent) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
                             if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                              _focusCategoryColumn();
+                              if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+                                _firstCategoryNode.requestFocus();
+                              } else {
+                                _focusCategoryColumn();
+                              }
                               return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                              if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                headerSearch.requestFocus();
+                                return KeyEventResult.handled;
+                              }
                             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
                               _focusChannelColumn();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
+                              if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
+                                sidebarFocus.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                event.logicalKey == LogicalKeyboardKey.goBack) {
+                              if (_searchController.text.isNotEmpty) {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                                return KeyEventResult.handled;
+                              }
+                              if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+                                _firstCategoryNode.requestFocus();
+                              } else {
+                                _focusCategoryColumn();
+                              }
                               return KeyEventResult.handled;
                             }
                           }
                           return KeyEventResult.ignored;
                         },
-                        child: _isSearchInputActive
-                            ? TextField(
-                                controller: _searchController,
-                                autofocus: true,
-                                style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
-                                decoration: InputDecoration(
-                                  hintText: l10n.search,
-                                  hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14, color: Colors.white54),
-                                  prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22, color: const Color(0xFFB388FF)),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
-                                  ),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 8 : 12),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
-                                    onPressed: () {
-                                      setState(() {
-                                        _searchController.clear();
-                                        _searchQuery = '';
-                                        _isSearchInputActive = false;
-                                      });
-                                      _searchFocusNode.requestFocus();
-                                    },
-                                  ),
-                                  isDense: true,
-                                ),
-                                onChanged: (val) => setState(() => _searchQuery = val),
-                                onSubmitted: (_) {
-                                  setState(() => _isSearchInputActive = false);
-                                  _focusCategoryColumn();
-                                },
-                              )
-                            : Container(
-                                padding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 8 : 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.05),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.search,
-                                      size: GoatPlatform.isTv ? 18 : 20,
-                                      color: _searchQuery.isNotEmpty ? const Color(0xFFB388FF) : Colors.white60,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _searchQuery.isNotEmpty ? _searchQuery : l10n.search,
-                                        style: TextStyle(
-                                          fontSize: GoatPlatform.isTv ? 12 : 13.5,
-                                          color: _searchQuery.isNotEmpty ? Colors.white : Colors.white54,
-                                          fontWeight: _searchQuery.isNotEmpty ? FontWeight.w600 : FontWeight.normal,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (_searchQuery.isNotEmpty)
-                                      GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _searchController.clear();
-                                            _searchQuery = '';
-                                          });
-                                        },
-                                        child: Icon(Icons.close, size: GoatPlatform.isTv ? 14 : 16, color: Colors.white70),
-                                      ),
-                                  ],
-                                ),
-                              ),
+                        onSubmitted: (_) {
+                          if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+                            _firstCategoryNode.requestFocus();
+                          } else {
+                            _focusCategoryColumn();
+                          }
+                        },
                       ),
                     ),
                     Expanded(
@@ -505,6 +565,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           }
                           return ListView.builder(
                             controller: _categoryScrollController,
+                            cacheExtent: GoatPlatform.isTv ? 3000.0 : 500.0,
                             itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                             itemCount: categories.length,
                             itemBuilder: (context, index) {
@@ -512,25 +573,47 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               final isSelected = _selectedCategory == cat.categoryId;
                               final isFavorites = cat.categoryId == 'favorites';
 
+                              final itemNode = index == 0
+                                  ? _firstCategoryNode
+                                  : _categoryFocusNodes.putIfAbsent(
+                                      cat.categoryId,
+                                      () => FocusNode(debugLabel: 'cat_${cat.categoryId}'),
+                                    );
+                              if (index == 0) {
+                                _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
+                              }
+
                               return Padding(
+                                key: ValueKey(cat.categoryId),
                                 padding: EdgeInsets.symmetric(
                                   horizontal: GoatPlatform.isTv ? 4 : 6,
                                   vertical: GoatPlatform.isTv ? 1.5 : 2,
                                 ),
                                 child: TvFocusable(
-                                  focusNode: isSelected
-                                      ? _selectedCategoryNode
-                                      : _categoryFocusNodes.putIfAbsent(cat.categoryId, () => FocusNode(debugLabel: 'cat_${cat.categoryId}')),
-                                  autofocus: isSelected || (_selectedCategory == null && index == 0),
+                                  focusNode: itemNode,
+                                  autofocus: false,
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
                                   onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent) {
+                                    if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                       if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                        _focusChannelColumn();
+                                        if (_selectedCategory != cat.categoryId) {
+                                          _focusFirstChannelOnNextBuild = true;
+                                          _selectCategory(cat.categoryId);
+                                        } else {
+                                          _focusChannelColumn();
+                                        }
                                         return KeyEventResult.handled;
+                                      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                        final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
+                                        if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
+                                          sidebarFocus.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
                                       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
                                         _searchFocusNode.requestFocus();
+                                        return KeyEventResult.handled;
+                                      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index >= categories.length - 1) {
                                         return KeyEventResult.handled;
                                       }
                                     }
@@ -658,7 +741,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
                         final channelListView = ListView.builder(
                           controller: _channelScrollController,
-                          cacheExtent: 500.0,
+                          cacheExtent: GoatPlatform.isTv ? 1500.0 : 500.0,
                           itemExtent: GoatPlatform.isTv ? 48.0 : 64.0,
                           itemCount: streams.length,
                           itemBuilder: (context, index) {
@@ -687,7 +770,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                       )
                                     : null);
                             if (index == 0 && GoatPlatform.isTv) {
-                              _channelFocusNodes[stream.streamId] = _firstChannelNode;
+                               _channelFocusNodes[stream.streamId] = _firstChannelNode;
                             }
 
                             if (index == 0 && _focusFirstChannelOnNextBuild) {
@@ -700,6 +783,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             }
 
                             return Padding(
+                              key: ValueKey(stream.streamId),
                               padding: EdgeInsets.symmetric(
                                 horizontal: GoatPlatform.isTv ? 6 : 8,
                                 vertical: GoatPlatform.isTv ? 2 : 3,
@@ -716,20 +800,36 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   }
                                 },
                                 onKeyEvent: (node, event) {
-                                  if (event is KeyDownEvent) {
+                                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                      final activeCatId = _selectedCategory;
+                                      if (activeCatId != null && _categoryFocusNodes.containsKey(activeCatId)) {
+                                        final catNode = _categoryFocusNodes[activeCatId];
+                                        if (catNode != null && catNode.context != null && catNode.canRequestFocus) {
+                                          catNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
+                                      }
                                       _focusCategoryColumn();
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                      _playerNode.requestFocus();
-                                      return KeyEventResult.handled;
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                      if (index >= streams.length - 1) {
-                                        _channelScrollController.jumpTo(0);
-                                        _focusFirstChannelOnNextBuild = true;
-                                        setState(() {});
+                                      if (_isFullWidth) return KeyEventResult.handled;
+                                      final activePlayback = ref.read(playbackControllerProvider);
+                                      final isPlaying = activePlayback != null && activePlayback.streamType == StreamType.live;
+                                      if (isPlaying && _playerNode.context != null && _playerNode.canRequestFocus) {
+                                        _playerNode.requestFocus();
                                         return KeyEventResult.handled;
                                       }
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index >= streams.length - 1) {
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
+                                      final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                                      if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                        headerSearch.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
+                                      return KeyEventResult.handled;
                                     }
                                   }
                                   return KeyEventResult.ignored;
@@ -824,14 +924,32 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   color: Color(0xFF140E24),
                                   border: Border(top: BorderSide(color: Colors.white12)),
                                 ),
-                                child: Text(
-                                  isDe
-                                      ? 'OK: Vorschau / 2× Vollbild  ·  Halten: 🟡 Favorit · 🟢 EPG · 🔵 Gruppen'
-                                      : 'OK: Preview / 2× Fullscreen  ·  Hold: 🟡 Fav · 🟢 EPG · 🔵 Groups',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w500),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        isDe ? 'OK: Vorschau / 2× Vollbild  ·  Halten:' : 'OK: Preview / 2× Fullscreen  ·  Hold:',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w500),
+                                      ),
+                                    ),
+                                    for (final e in [
+                                      (const Color(0xFFFACC15), isDe ? 'Favorit' : 'Fav'),
+                                      (const Color(0xFF22C55E), 'EPG'),
+                                      (const Color(0xFF3B82F6), isDe ? 'Gruppen' : 'Groups'),
+                                    ]) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        width: 9,
+                                        height: 9,
+                                        decoration: BoxDecoration(color: e.$1, shape: BoxShape.circle),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(e.$2, style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w500)),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],
@@ -855,50 +973,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                 Expanded(
                   flex: _isFullWidth ? 100 : 50,
                   child: currentLive != null
-                      ? (GoatPlatform.isTv && !_isFullWidth
-                          ? Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: TvFocusable(
-                                focusNode: _playerNode,
-                                borderRadius: BorderRadius.circular(12),
-                                focusScale: 1.01,
-                                focusBorderColor: const Color(0xFFB388FF),
-                                glowColor: const Color(0x33B388FF),
-                                onPressed: () {
-                                  ref.read(isLiveFullWidthProvider.notifier).set(true);
-                                },
-                                onKeyEvent: (node, event) {
-                                  if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                    _focusChannelColumn();
-                                    return KeyEventResult.handled;
-                                  }
-                                  return KeyEventResult.ignored;
-                                },
-                                child: VideoPreview(
-                                  key: _videoPreviewKey,
-                                  streamUrl: currentLive.streamUrl,
-                                  streamId: currentLive.streamId,
-                                  channelId: currentLive.channelId,
-                                  channelName: currentLive.title,
-                                  isFullWidth: _isFullWidth,
-                                  streams: currentCategoryStreams,
-                                  categoryName: categoryName,
-                                  onSelectStream: _playStream,
-                                  onZapNext: () => _zapNext(currentCategoryStreams),
-                                  onZapPrevious: () => _zapPrevious(currentCategoryStreams),
-                                  onToggleFullWidth: () {
-                                    ref.read(isLiveFullWidthProvider.notifier).toggle();
-                                  },
-                                  onEnsureFullWidth: () {
-                                    if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
-                                  },
-                                  onExitToPreview: () {
-                                    if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
-                                  },
-                                ),
-                              ),
-                            )
-                          : VideoPreview(
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            VideoPreview(
                               key: _videoPreviewKey,
                               streamUrl: currentLive.streamUrl,
                               streamId: currentLive.streamId,
@@ -917,9 +995,52 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 if (!_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(true);
                               },
                               onExitToPreview: () {
-                                if (_isFullWidth) ref.read(isLiveFullWidthProvider.notifier).set(false);
+                                if (_isFullWidth) {
+                                  ref.read(isLiveFullWidthProvider.notifier).set(false);
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) _focusChannelColumn();
+                                  });
+                                }
                               },
-                            ))
+                            ),
+                            if (GoatPlatform.isTv && !_isFullWidth)
+                              Positioned.fill(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4.0),
+                                  child: TvFocusable(
+                                    focusNode: _playerNode,
+                                    borderRadius: BorderRadius.circular(12),
+                                    focusScale: 1.0,
+                                    focusBorderColor: const Color(0xFFB388FF),
+                                    glowColor: const Color(0x33B388FF),
+                                    onPressed: () {
+                                      _playerNode.unfocus();
+                                      ref.read(isLiveFullWidthProvider.notifier).set(true);
+                                    },
+                                    onKeyEvent: (node, event) {
+                                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                          _focusChannelColumn();
+                                          return KeyEventResult.handled;
+                                        } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                          final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                                          if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                            headerSearch.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                        } else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                                            event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                          return KeyEventResult.handled;
+                                        }
+                                      }
+                                      return KeyEventResult.ignored;
+                                    },
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        )
                       : Container(
                           color: Colors.black45,
                           child: Center(

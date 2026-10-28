@@ -1061,13 +1061,13 @@
           if (code === KEY_CODES.LEFT) {
             e.preventDefault();
             e.stopPropagation();
-            if (window._goatPlayer) window._goatPlayer.seekBy(-10);
+            if (window._goatPlayer) window._goatPlayer.seekBy(-10, e.repeat);
             return;
           }
           if (code === KEY_CODES.RIGHT) {
             e.preventDefault();
             e.stopPropagation();
-            if (window._goatPlayer) window._goatPlayer.seekBy(10);
+            if (window._goatPlayer) window._goatPlayer.seekBy(10, e.repeat);
             return;
           }
           if (code === KEY_CODES.DOWN) {
@@ -1983,6 +1983,11 @@
 
   function handleKeyUp(e) {
     var code = e.keyCode || e.which;
+    if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT || code === 412 || code === 417) {
+      if (window._goatPlayer && typeof window._goatPlayer.resetSeekRepeat === 'function') {
+        window._goatPlayer.resetSeekRepeat();
+      }
+    }
     if (code === KEY_CODES.ENTER) {
       if (_enterHoldTimer) {
         clearTimeout(_enterHoldTimer);

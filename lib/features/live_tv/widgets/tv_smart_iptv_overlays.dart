@@ -549,7 +549,7 @@ class TvLiveChannelMenu extends ConsumerStatefulWidget {
 }
 
 class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
-  static const int _pageSize = 10;
+  static const int _pageSize = 7;
   final FocusNode _menuFocusNode = FocusNode(debugLabel: 'tv_live_channel_menu');
   int _focusedIndex = 0;
   Timer? _longPressTimer;
@@ -559,15 +559,24 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
   @override
   void initState() {
     super.initState();
-    if (widget.activeStreamId != null) {
-      final idx = widget.streams.indexWhere((s) => s.streamId == widget.activeStreamId);
-      if (idx >= 0) {
-        _focusedIndex = idx;
-      }
-    }
+    final activeIdx = (widget.activeStreamId != null)
+        ? widget.streams.indexWhere((s) => s.streamId == widget.activeStreamId)
+        : -1;
+    _focusedIndex = activeIdx >= 0 ? activeIdx : 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _menuFocusNode.requestFocus();
     });
+  }
+
+  @override
+  void didUpdateWidget(TvLiveChannelMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.categoryName != widget.categoryName || oldWidget.streams != widget.streams) {
+      final activeIdx = (widget.activeStreamId != null)
+          ? widget.streams.indexWhere((s) => s.streamId == widget.activeStreamId)
+          : -1;
+      _focusedIndex = activeIdx >= 0 ? activeIdx : 0;
+    }
   }
 
   @override
@@ -615,9 +624,12 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     final total = widget.streams.length;
+    final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.goBack ||
+        event.logicalKey == LogicalKeyboardKey.backspace;
+
     if (total == 0) {
-      if (event is KeyDownEvent &&
-          (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.goBack)) {
+      if (event is KeyDownEvent && isBack) {
         widget.onClose();
         return KeyEventResult.handled;
       }
@@ -665,7 +677,7 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
     }
 
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.goBack) {
+      if (isBack) {
         widget.onClose();
         return KeyEventResult.handled;
       }
@@ -720,8 +732,8 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
       onKeyEvent: _handleKeyEvent,
       child: Center(
         child: Container(
-          width: 680,
-          constraints: const BoxConstraints(maxHeight: 510),
+          width: 620,
+          height: 400,
           decoration: BoxDecoration(
             color: const Color(0xF2120D20),
             borderRadius: BorderRadius.circular(16),
@@ -780,21 +792,36 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (int idx = startIdx; idx < endIdx; idx++)
-                        _buildChannelRow(
-                          idx: idx,
-                          stream: widget.streams[idx],
-                          isFocused: idx == _focusedIndex,
-                          isPlaying: widget.streams[idx].streamId == widget.activeStreamId,
-                          isFavorite: favoriteIds.contains(widget.streams[idx].streamId),
-                          currentPrograms: currentPrograms,
-                          now: now,
+                  child: total == 0
+                      ? SizedBox(
+                          height: 410,
+                          child: Center(
+                            child: Text(
+                              isDe ? 'Keine Sender in dieser Kategorie' : 'No channels in this category',
+                              style: const TextStyle(color: Colors.white54, fontSize: 14),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int idx = startIdx; idx < endIdx; idx++)
+                              _buildChannelRow(
+                                idx: idx,
+                                stream: widget.streams[idx],
+                                isFocused: idx == _focusedIndex,
+                                isPlaying: widget.streams[idx].streamId == widget.activeStreamId,
+                                isFavorite: favoriteIds.contains(widget.streams[idx].streamId),
+                                currentPrograms: currentPrograms,
+                                now: now,
+                              ),
+                            for (int i = 0; i < (_pageSize - (endIdx - startIdx)); i++)
+                              Container(
+                                height: 38,
+                                margin: const EdgeInsets.symmetric(vertical: 1.5),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
                 ),
               ),
               const Divider(height: 1, color: Colors.white12),
@@ -995,14 +1022,16 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
 /// Smart-IPTV style Centered Paginated Category / Bouquet Menu (10 categories per page).
 class TvLiveCategoryMenu extends StatefulWidget {
   final List<Category> categories;
-  final String? selectedCategoryId;
+  final String? activeCategoryId;
+  final String? focusedCategoryId;
   final ValueChanged<String> onSelectCategory;
   final VoidCallback onClose;
 
   const TvLiveCategoryMenu({
     super.key,
     required this.categories,
-    required this.selectedCategoryId,
+    this.activeCategoryId,
+    this.focusedCategoryId,
     required this.onSelectCategory,
     required this.onClose,
   });
@@ -1012,15 +1041,16 @@ class TvLiveCategoryMenu extends StatefulWidget {
 }
 
 class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
-  static const int _pageSize = 10;
+  static const int _pageSize = 7;
   final FocusNode _focusNode = FocusNode(debugLabel: 'tv_live_category_menu');
   int _focusedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    if (widget.selectedCategoryId != null) {
-      final idx = widget.categories.indexWhere((c) => c.categoryId == widget.selectedCategoryId);
+    final targetId = widget.focusedCategoryId ?? widget.activeCategoryId;
+    if (targetId != null) {
+      final idx = widget.categories.indexWhere((c) => c.categoryId == targetId);
       if (idx >= 0) _focusedIndex = idx;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1036,9 +1066,12 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     final total = widget.categories.length;
+    final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.goBack ||
+        event.logicalKey == LogicalKeyboardKey.backspace;
+
     if (total == 0) {
-      if (event is KeyDownEvent &&
-          (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.goBack)) {
+      if (event is KeyDownEvent && isBack) {
         widget.onClose();
         return KeyEventResult.handled;
       }
@@ -1046,7 +1079,7 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
     }
 
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.goBack) {
+      if (isBack) {
         widget.onClose();
         return KeyEventResult.handled;
       }
@@ -1101,7 +1134,7 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
       child: Center(
         child: Container(
           width: 500,
-          constraints: const BoxConstraints(maxHeight: 500),
+          height: 400,
           decoration: BoxDecoration(
             color: const Color(0xF2120D20),
             borderRadius: BorderRadius.circular(16),
@@ -1141,64 +1174,79 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
               Flexible(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (int idx = startIdx; idx < endIdx; idx++)
-                        Builder(
-                          builder: (context) {
-                            final cat = widget.categories[idx];
-                            final isFocused = idx == _focusedIndex;
-                            final isSelected = cat.categoryId == widget.selectedCategoryId;
-                            final isFav = cat.categoryId == 'favorites';
-                            return GestureDetector(
-                              onTap: () => widget.onSelectCategory(cat.categoryId),
-                              child: Container(
-                                height: 38,
-                                margin: const EdgeInsets.symmetric(vertical: 1.5),
-                                padding: const EdgeInsets.symmetric(horizontal: 14),
-                                decoration: BoxDecoration(
-                                  color: isFocused
-                                      ? const Color(0xFF3B2370)
-                                      : (isSelected ? const Color(0xFF231742) : Colors.transparent),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isFocused
-                                        ? const Color(0xFFB388FF)
-                                        : (isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.5) : Colors.transparent),
-                                    width: isFocused ? 1.5 : 1.0,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isFav ? Icons.star_rounded : Icons.folder_outlined,
-                                      size: 18,
-                                      color: isFav ? Colors.amber : (isFocused ? const Color(0xFFB388FF) : Colors.white60),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        isFav ? (isDe ? 'Favoriten' : 'Favorites') : cat.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13.5,
-                                          fontWeight: (isFocused || isSelected) ? FontWeight.bold : FontWeight.w500,
+                  child: total == 0
+                      ? SizedBox(
+                          height: 410,
+                          child: Center(
+                            child: Text(
+                              isDe ? 'Keine Kategorien vorhanden' : 'No categories available',
+                              style: const TextStyle(color: Colors.white54, fontSize: 14),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int idx = startIdx; idx < endIdx; idx++)
+                              Builder(
+                                builder: (context) {
+                                  final cat = widget.categories[idx];
+                                  final isFocused = idx == _focusedIndex;
+                                  final isPlayingCat = cat.categoryId == widget.activeCategoryId;
+                                  final isFav = cat.categoryId == 'favorites';
+                                  return GestureDetector(
+                                    onTap: () => widget.onSelectCategory(cat.categoryId),
+                                    child: Container(
+                                      height: 38,
+                                      margin: const EdgeInsets.symmetric(vertical: 1.5),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                                      decoration: BoxDecoration(
+                                        color: isFocused
+                                            ? const Color(0xFF3B2370)
+                                            : (isPlayingCat ? const Color(0xFF231742) : Colors.transparent),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isFocused
+                                              ? const Color(0xFFB388FF)
+                                              : (isPlayingCat ? const Color(0xFF7C3AED).withValues(alpha: 0.5) : Colors.transparent),
+                                          width: isFocused ? 1.5 : 1.0,
                                         ),
                                       ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            isFav ? Icons.star_rounded : Icons.folder_outlined,
+                                            size: 18,
+                                            color: isFav ? Colors.amber : (isFocused ? const Color(0xFFB388FF) : Colors.white60),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              isFav ? (isDe ? 'Favoriten' : 'Favorites') : cat.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13.5,
+                                                fontWeight: (isFocused || isPlayingCat) ? FontWeight.bold : FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isPlayingCat)
+                                            const Icon(Icons.check_circle, size: 16, color: Color(0xFFB388FF)),
+                                        ],
+                                      ),
                                     ),
-                                    if (isSelected)
-                                      const Icon(Icons.check_circle, size: 16, color: Color(0xFFB388FF)),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            );
-                          },
+                            for (int i = 0; i < (_pageSize - (endIdx - startIdx)); i++)
+                              Container(
+                                height: 38,
+                                margin: const EdgeInsets.symmetric(vertical: 1.5),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
                 ),
               ),
               const Divider(height: 1, color: Colors.white12),
@@ -1255,11 +1303,25 @@ class TvLiveEpgOverlay extends ConsumerWidget {
     final programsAsync = ref.watch(channelProgramsProvider(epgId));
     final now = DateTime.now();
 
-    return Center(
-      child: Container(
-        width: 640,
-        constraints: const BoxConstraints(maxHeight: 490),
-        decoration: BoxDecoration(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+          final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack ||
+              event.logicalKey == LogicalKeyboardKey.backspace;
+          if (isBack) {
+            onClose();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Center(
+        child: Container(
+          width: 640,
+          height: 392,
+          decoration: BoxDecoration(
           color: const Color(0xF2120D20),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.45), width: 1.5),
@@ -1421,6 +1483,7 @@ class TvLiveEpgOverlay extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

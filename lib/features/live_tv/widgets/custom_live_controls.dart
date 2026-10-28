@@ -75,6 +75,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   bool _isPlaying = true;
   bool _isBuffering = false;
   String? _optimisticStreamId;
+  Timer? _zapDebounceTimer;
+  StreamItem? _pendingZapStream;
 
   // In-Player EPG Drawer & OSD Banner state
   bool _isDrawerOpen = false;
@@ -96,6 +98,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   Timer? _tvLongPressTimer;
   bool _tvLongPressTriggered = false;
   bool _tvSelectDownHandled = false;
+  int _lastTvSubMenuKeyMs = 0;
 
   @override
   void initState() {
@@ -154,6 +157,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
   @override
   void dispose() {
+    _zapDebounceTimer?.cancel();
     _tvLongPressTimer?.cancel();
     _focusNode.dispose();
     _drawerChannelChangeSub?.cancel();
@@ -287,16 +291,30 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       );
       final prevIdx = (currentIdx != -1) ? (currentIdx - 1 + streams.length) % streams.length : streams.length - 1;
       final prevStream = streams[prevIdx];
-      _optimisticStreamId = prevStream.streamId;
-      widget.onSelectStream?.call(prevStream);
+      setState(() {
+        _optimisticStreamId = prevStream.streamId;
+      });
       _triggerOsdBanner();
       _startHideTimer();
+
+      // Debounce the actual stream switch by 350ms to protect decoder and prevent crashing
+      _zapDebounceTimer?.cancel();
+      _pendingZapStream = prevStream;
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+        if (!mounted || _pendingZapStream == null) return;
+        widget.onSelectStream?.call(_pendingZapStream!);
+        _pendingZapStream = null;
+      });
       return;
     }
     if (widget.onZapPrevious != null) {
-      widget.onZapPrevious!();
       _triggerOsdBanner();
       _startHideTimer();
+      _zapDebounceTimer?.cancel();
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        widget.onZapPrevious?.call();
+      });
     }
   }
 
@@ -317,16 +335,30 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       );
       final nextIdx = (currentIdx != -1) ? (currentIdx + 1) % streams.length : 0;
       final nextStream = streams[nextIdx];
-      _optimisticStreamId = nextStream.streamId;
-      widget.onSelectStream?.call(nextStream);
+      setState(() {
+        _optimisticStreamId = nextStream.streamId;
+      });
       _triggerOsdBanner();
       _startHideTimer();
+
+      // Debounce the actual stream switch by 350ms to protect decoder and prevent crashing
+      _zapDebounceTimer?.cancel();
+      _pendingZapStream = nextStream;
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+        if (!mounted || _pendingZapStream == null) return;
+        widget.onSelectStream?.call(_pendingZapStream!);
+        _pendingZapStream = null;
+      });
       return;
     }
     if (widget.onZapNext != null) {
-      widget.onZapNext!();
       _triggerOsdBanner();
       _startHideTimer();
+      _zapDebounceTimer?.cancel();
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        widget.onZapNext?.call();
+      });
     }
   }
 
@@ -998,8 +1030,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     // 2. In Fullscreen Live TV Mode (isFullOrFullWidth):
     final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
     final effectiveMenuCatId = _tvMenuCategoryId ?? categoryId ?? categories.firstOrNull?.categoryId;
-    final menuStreams = (effectiveMenuCatId != null && effectiveMenuCatId != categoryId)
-        ? (ref.watch(liveStreamsProvider(effectiveMenuCatId)).asData?.value ?? availableStreams)
+    final menuStreams = effectiveMenuCatId != null
+        ? (ref.watch(liveStreamsProvider(effectiveMenuCatId)).asData?.value ?? const <StreamItem>[])
         : availableStreams;
     final menuCatObj = categories.where((c) => c.categoryId == effectiveMenuCatId).firstOrNull;
     final menuCatName = effectiveMenuCatId == 'favorites'
@@ -1013,6 +1045,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       autofocus: !isAnySubMenuOpen,
       onKeyEvent: (node, event) {
         if (isAnySubMenuOpen) {
+          _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
           return KeyEventResult.ignored;
         }
 
@@ -1063,12 +1096,17 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         if (event is KeyDownEvent) {
           // Back / Escape: Exit Fullscreen back to 3-column Live TV view
           if (event.logicalKey == LogicalKeyboardKey.escape ||
-              event.logicalKey == LogicalKeyboardKey.goBack) {
+              event.logicalKey == LogicalKeyboardKey.goBack ||
+              event.logicalKey == LogicalKeyboardKey.backspace) {
+            // Swallow duplicate Back that arrives right after a submenu was closed with Back
+            if (DateTime.now().millisecondsSinceEpoch - _lastTvSubMenuKeyMs < 450) {
+              return KeyEventResult.handled;
+            }
             widget.onBack?.call();
             return KeyEventResult.handled;
           }
 
-          // Up / Right / CH+ -> Zap Next Channel + Show Smart-IPTV Infobar
+          // Up / Right / CH+ -> Zap Next Channel + Show Smart-IPTV Infobar (KeyDown only, no spam on key hold)
           if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
               event.logicalKey == LogicalKeyboardKey.arrowRight ||
               event.logicalKey == LogicalKeyboardKey.channelUp ||
@@ -1077,7 +1115,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             return KeyEventResult.handled;
           }
 
-          // Down / Left / CH- -> Zap Previous Channel + Show Smart-IPTV Infobar
+          // Down / Left / CH- -> Zap Previous Channel + Show Smart-IPTV Infobar (KeyDown only, no spam on key hold)
           if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
               event.logicalKey == LogicalKeyboardKey.arrowLeft ||
               event.logicalKey == LogicalKeyboardKey.channelDown ||
@@ -1125,6 +1163,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
               child: Container(
                 color: Colors.black38,
                 child: TvLiveChannelMenu(
+                  key: ValueKey('tv_live_channel_menu_$effectiveMenuCatId'),
                   streams: menuStreams,
                   activeStreamId: activeStreamId,
                   categoryName: menuCatName,
@@ -1150,6 +1189,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                     });
                   },
                   onClose: () {
+                    _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
                     setState(() => _isTvChannelMenuOpen = false);
                     _triggerOsdBanner();
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1167,14 +1207,14 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 color: Colors.black38,
                 child: TvLiveCategoryMenu(
                   categories: categories,
-                  selectedCategoryId: effectiveMenuCatId,
+                  activeCategoryId: categoryId,
+                  focusedCategoryId: effectiveMenuCatId,
                   onSelectCategory: (catId) {
                     final account = ref.read(activeAccountProvider);
                     final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
                     if (catId != 'favorites' && !isM3u) {
                       ref.read(liveTvControllerProvider).syncLiveStreams(catId);
                     }
-                    ref.read(selectedLiveCategoryProvider.notifier).set(catId);
                     setState(() {
                       _tvMenuCategoryId = catId;
                       _isTvCategoryMenuOpen = false;
@@ -1182,6 +1222,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                     });
                   },
                   onClose: () {
+                    _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
                     setState(() {
                       _isTvCategoryMenuOpen = false;
                       _isTvChannelMenuOpen = true;
@@ -1199,6 +1240,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 child: TvLiveEpgOverlay(
                   stream: _tvEpgStream!,
                   onClose: () {
+                    _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
                     setState(() {
                       _tvEpgStream = null;
                       _isTvChannelMenuOpen = true;

@@ -65,11 +65,12 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
     required AppLocalizations? l10n,
     required ValueChanged<String> onSelect,
     bool autofocusSelected = false,
+    int cols = 3,
   }) {
     final rows = <Widget>[];
-    for (int i = 0; i < codes.length; i += 3) {
+    for (int i = 0; i < codes.length; i += cols) {
       final rowItems = <Widget>[];
-      for (int j = 0; j < 3; j++) {
+      for (int j = 0; j < cols; j++) {
         if (i + j < codes.length) {
           final code = codes[i + j];
           final isSelected = code == selectedCode;
@@ -146,9 +147,9 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
           side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: const BoxConstraints(maxWidth: 760),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 12),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -173,38 +174,59 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '🔊 ${l10n?.preferredAudioLanguage ?? 'Preferred Audio Language'}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildTvGrid(
-                    codes: _audioCodes,
-                    selectedCode: activeAudio,
-                    l10n: l10n,
-                    autofocusSelected: true,
-                    onSelect: (val) {
-                      setState(() => _preferredAudio = val);
-                      ref.read(trackPreferenceServiceProvider).setPreferredAudioLanguage(val);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '💬 ${l10n?.preferredSubtitleLanguage ?? 'Preferred Subtitles'}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildTvGrid(
-                    codes: _subtitleCodes,
-                    selectedCode: activeSub,
-                    l10n: l10n,
-                    onSelect: (val) {
-                      setState(() => _preferredSubtitle = val);
-                      ref.read(trackPreferenceServiceProvider).setPreferredSubtitleLanguage(val);
-                    },
-                  ),
                   const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🔊 ${l10n?.preferredAudioLanguage ?? 'Preferred Audio Language'}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildTvGrid(
+                              codes: _audioCodes,
+                              selectedCode: activeAudio,
+                              l10n: l10n,
+                              cols: 2,
+                              autofocusSelected: true,
+                              onSelect: (val) {
+                                setState(() => _preferredAudio = val);
+                                ref.read(trackPreferenceServiceProvider).setPreferredAudioLanguage(val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '💬 ${l10n?.preferredSubtitleLanguage ?? 'Preferred Subtitles'}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildTvGrid(
+                              codes: _subtitleCodes,
+                              selectedCode: activeSub,
+                              l10n: l10n,
+                              cols: 2,
+                              onSelect: (val) {
+                                setState(() => _preferredSubtitle = val);
+                                ref.read(trackPreferenceServiceProvider).setPreferredSubtitleLanguage(val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   Text(
                     l10n?.playbackPreferencesHint ??
                         'Automatically applied to movies and series when available. Manual track adjustments during playback are remembered per title.',

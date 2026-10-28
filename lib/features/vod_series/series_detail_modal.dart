@@ -83,10 +83,10 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
         final infoMap = details is Map ? details.cast<String, dynamic>() : null;
         
         // Smart season selection: initialSeason > last watched season from DB > first season
+        final lastWatched = await ref.read(databaseProvider).playbackProgressDao.getLastWatchedForSeries(widget.seriesId);
         String? targetSeason = widget.initialSeason;
         final episodesMap = infoMap?['episodes'];
         if (targetSeason == null && episodesMap is Map && episodesMap.isNotEmpty) {
-          final lastWatched = await ref.read(databaseProvider).playbackProgressDao.getLastWatchedForSeries(widget.seriesId);
           if (lastWatched?.season != null && episodesMap.containsKey(lastWatched!.season.toString())) {
             targetSeason = lastWatched.season.toString();
           } else {
@@ -120,6 +120,10 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           }
         }
 
+        if (highlightId == null && lastWatched != null) {
+          highlightId = lastWatched.streamId;
+        }
+
         setState(() {
           xtreamInfo = infoMap;
           isLoading = false;
@@ -132,21 +136,6 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
             currentEpisodes = _getEpisodesForSeason(selectedSeason!);
           }
         });
-
-        if (highlightId != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _contentScrollController.hasClients) {
-              final eps = currentEpisodes;
-              final idx = eps.indexWhere((ep) => ep['id']?.toString() == highlightId);
-              final targetOffset = idx != -1 ? (350.0 + idx * 72.0) : 350.0;
-              _contentScrollController.animateTo(
-                targetOffset,
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOut,
-              );
-            }
-          });
-        }
       }
     } catch (e) {
       debugPrint('Xtream Series Info Error: $e');
@@ -329,10 +318,10 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           ? const EdgeInsets.symmetric(horizontal: 24, vertical: 36)
           : const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Container(
-        width: isMobile ? double.infinity : 540,
+        width: isMobile ? double.infinity : (GoatPlatform.isTv ? 720 : 540),
         constraints: BoxConstraints(
-          maxWidth: 540,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+          maxWidth: GoatPlatform.isTv ? 720 : 540,
+          maxHeight: MediaQuery.sizeOf(context).height * (GoatPlatform.isTv ? 0.92 : 0.78),
         ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -356,7 +345,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: GoatPlatform.isTv ? 720 / 130 : 16 / 9,
               child: Container(
                 color: Colors.black,
                 child: Stack(
@@ -444,38 +433,46 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
             
             // Content
             Flexible(
-              child: SingleChildScrollView(
-                controller: _contentScrollController,
-                padding: isMobile 
-                    ? const EdgeInsets.fromLTRB(16, 14, 16, 14)
-                    : const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              child: Builder(
+                builder: (context) {
+                  final hasProgress = widget.initialEpisodeId != null ||
+                      widget.targetEpisodeNum != null ||
+                      _highlightEpisodeId != null ||
+                      _episodeProgress.values.any((p) => p.position > 0);
+
+                  return SingleChildScrollView(
+                    controller: _contentScrollController,
+                    padding: isMobile 
+                        ? const EdgeInsets.fromLTRB(16, 14, 16, 14)
+                        : const EdgeInsets.all(24.0),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            widget.seriesName, 
-                            style: (isMobile 
-                                ? Theme.of(context).textTheme.titleLarge 
-                                : Theme.of(context).textTheme.headlineMedium)?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.seriesId, streamType: 'series'))).value ?? false;
-                            Future<void> toggleFav() async {
-                              final account = ref.read(activeAccountProvider);
-                              if (account != null) {
-                                await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.seriesId, 'series');
-                              }
-                            }
-                            if (GoatPlatform.isTv) {
-                              return TvFocusable(
-                                borderRadius: BorderRadius.circular(12),
-                                onPressed: toggleFav,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.seriesName, 
+                                style: (isMobile 
+                                    ? Theme.of(context).textTheme.titleLarge 
+                                    : Theme.of(context).textTheme.headlineMedium)?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Consumer(
+                              builder: (context, ref, child) {
+                                final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.seriesId, streamType: 'series'))).value ?? false;
+                                Future<void> toggleFav() async {
+                                  final account = ref.read(activeAccountProvider);
+                                  if (account != null) {
+                                    await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.seriesId, 'series');
+                                  }
+                                }
+                                if (GoatPlatform.isTv) {
+                                  return TvFocusable(
+                                    autofocus: !hasProgress,
+                                    borderRadius: BorderRadius.circular(12),
+                                    onPressed: toggleFav,
                                 child: Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
@@ -591,83 +588,89 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                                 ? (xtreamInfo!['episodes'][selectedSeason] as List<dynamic>) 
                                 : const [];
                             if (episodes.isEmpty) return const Text('No episodes found');
-                            final hasTargetInSeason = episodes.any((e) => (e is Map ? e['id']?.toString() : null) == (_highlightEpisodeId ?? widget.initialEpisodeId));
-                            
-                            return ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: episodes.length,
-                              itemBuilder: (context, index) {
-                                final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
-                                final epId = ep['id']?.toString() ?? '';
-                                final title = ep['title']?.toString() ?? 'Episode ${index + 1}';
-                                final duration = ep['info']?['duration']?.toString() ?? '';
-                                final isTarget = epId == (_highlightEpisodeId ?? widget.initialEpisodeId);
 
-                                final progress = _episodeProgress[epId];
-                                final isCompleted = progress?.isCompleted == true ||
-                                    (progress != null && progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
-                                final double progressRatio = (progress != null && progress.duration > 0)
-                                    ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
-                                    : 0.0;
-                                
-                                final cardWidget = Card(
-                                  margin: EdgeInsets.only(bottom: GoatPlatform.isTv ? 0 : 8),
-                                  clipBehavior: Clip.antiAlias,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: BorderSide(
-                                      color: isTarget
-                                          ? Theme.of(context).colorScheme.primary
-                                          : (isCompleted ? Colors.green.withValues(alpha: 0.4) : Colors.transparent),
-                                      width: isTarget ? 1.5 : 1.0,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      ListTile(
-                                        leading: Icon(
-                                          isCompleted ? Icons.check_circle : Icons.play_circle_fill,
-                                          size: 36,
-                                          color: isCompleted ? Colors.green : Theme.of(context).colorScheme.primary,
-                                        ),
-                                        title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                                        subtitle: duration.isNotEmpty ? Text(duration, style: Theme.of(context).textTheme.bodySmall) : null,
-                                        onTap: GoatPlatform.isTv ? null : () => _playEpisode(ep),
-                                      ),
-                                      if (progressRatio > 0.0)
-                                        LinearProgressIndicator(
-                                          value: progressRatio,
-                                          backgroundColor: Colors.white12,
-                                          color: isCompleted ? Colors.green : Colors.red,
-                                          minHeight: 4,
-                                        ),
-                                    ],
-                                  ),
-                                );
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (int index = 0; index < episodes.length; index++) ...[
+                                  Builder(
+                                    builder: (context) {
+                                      final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
+                                      final epId = ep['id']?.toString() ?? '';
+                                      final title = ep['title']?.toString() ?? 'Episode ${index + 1}';
+                                      final duration = ep['info']?['duration']?.toString() ?? '';
+                                      final isTarget = epId == (_highlightEpisodeId ?? widget.initialEpisodeId);
 
-                                if (GoatPlatform.isTv) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: TvFocusable(
-                                      autofocus: isTarget || (!hasTargetInSeason && index == 0),
-                                      focusScale: 1.01,
-                                      borderRadius: BorderRadius.circular(10),
-                                      onPressed: () => _playEpisode(ep),
-                                      child: cardWidget,
-                                    ),
-                                  );
-                                }
-                                return cardWidget;
-                              },
+                                      final progress = _episodeProgress[epId];
+                                      final isCompleted = progress?.isCompleted == true ||
+                                          (progress != null && progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
+                                      final double progressRatio = (progress != null && progress.duration > 0)
+                                          ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
+                                          : 0.0;
+                                      
+                                      final cardWidget = Card(
+                                        margin: EdgeInsets.only(bottom: GoatPlatform.isTv ? 0 : 8),
+                                        clipBehavior: Clip.antiAlias,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                          side: BorderSide(
+                                            color: isTarget
+                                                ? Theme.of(context).colorScheme.primary
+                                                : (isCompleted ? Colors.green.withValues(alpha: 0.4) : Colors.transparent),
+                                            width: isTarget ? 1.5 : 1.0,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            ListTile(
+                                              leading: Icon(
+                                                isCompleted ? Icons.check_circle : Icons.play_circle_fill,
+                                                size: 36,
+                                                color: isCompleted ? Colors.green : Theme.of(context).colorScheme.primary,
+                                              ),
+                                              title: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                                              subtitle: duration.isNotEmpty ? Text(duration, style: Theme.of(context).textTheme.bodySmall) : null,
+                                              onTap: GoatPlatform.isTv ? null : () => _playEpisode(ep),
+                                            ),
+                                            if (progressRatio > 0.0)
+                                              LinearProgressIndicator(
+                                                value: progressRatio,
+                                                backgroundColor: Colors.white12,
+                                                color: isCompleted ? Colors.green : Colors.red,
+                                                minHeight: 4,
+                                              ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (GoatPlatform.isTv) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 8),
+                                          child: TvFocusable(
+                                            autofocus: hasProgress && isTarget,
+                                            scrollAlignment: 0.3,
+                                            focusScale: 1.01,
+                                            borderRadius: BorderRadius.circular(10),
+                                            onPressed: () => _playEpisode(ep),
+                                            child: cardWidget,
+                                          ),
+                                        );
+                                      }
+                                      return cardWidget;
+                                    },
+                                  ),
+                                ],
+                              ],
                             );
                           },
                         ),
                       ],
                   ],
                 ),
-              ),
-            ),
+              );
+            },
+          ),
+        ),
           ],
         ),
       ),

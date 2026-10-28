@@ -455,12 +455,20 @@
     .m3u-feedback-item {
       display: flex;
       justify-content: space-between;
-      word-break: break-all;
+      align-items: baseline;
+      gap: 12px;
     }
 
     .m3u-feedback-label {
       color: var(--text-muted);
       font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .m3u-feedback-item > span:last-child {
+      word-break: break-all;
+      text-align: right;
     }
 
     /* Playlists Section */
@@ -498,6 +506,12 @@
       flex: 1;
     }
 
+    .svg-icon {
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
     .playlist-card-title {
       font-size: 15px;
       font-weight: 700;
@@ -506,6 +520,9 @@
       overflow: hidden;
       text-overflow: ellipsis;
       line-height: 1.3;
+      display: flex;
+      align-items: center;
+      gap: 7px;
     }
 
     .playlist-card-meta {
@@ -527,8 +544,12 @@
 
     .playlist-meta-icon {
       flex-shrink: 0;
-      font-size: 11px;
-      opacity: 0.85;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      opacity: 0.9;
     }
 
     .playlist-meta-text {
@@ -849,7 +870,7 @@
 
       <!-- State 1: Pairing Section (When not paired) -->
       <div id="manualPairingSection">
-        <h3 class="section-title" data-i18n="connectTitle">📺 Connect to your Player</h3>
+        <h3 class="section-title" data-i18n="connectTitle">Connect to your Player</h3>
         <p class="section-desc" data-i18n="connectDesc">Enter the Device ID and 6-digit PIN displayed on your TV or GOATPlayer app.</p>
         
         <div class="form-group">
@@ -865,7 +886,7 @@
         </button>
 
         <div class="qr-tip" data-i18n="qrTip">
-          💡 <strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!
+          <strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!
         </div>
       </div>
 
@@ -873,7 +894,9 @@
       <div id="playlistManagerSection" style="display: none;">
         <!-- Disconnected Warning Banner -->
         <div class="disconnected-banner" id="disconnectedBanner" style="display: none;">
-          <div class="disconnected-icon">⚠️</div>
+          <div class="disconnected-icon">
+            <svg class="svg-icon" viewBox="0 0 24 24" width="20" height="20" stroke="#EF4444" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
           <div class="disconnected-content">
             <div class="disconnected-title" data-i18n="disconnectedTitle">TV Disconnected</div>
             <div class="disconnected-desc" data-i18n="disconnectedDesc">The pairing session on your TV has ended. Reopen the Web / QR code screen on your TV to make further changes.</div>
@@ -890,8 +913,9 @@
           <!-- Dynamically populated playlist cards -->
         </div>
 
-        <button type="button" class="btn-submit" id="btnOpenAddModal" onclick="openPlaylistModal('add')">
-          <span data-i18n="btnAddPlaylist">+ Add New Playlist</span>
+        <button type="button" class="btn-submit" id="btnOpenAddModal" onclick="openPlaylistModal('add')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span id="btnAddModalIcon"></span>
+          <span data-i18n="btnAddPlaylist">Add New Playlist</span>
         </button>
       </div>
     </div>
@@ -903,6 +927,10 @@
       <div class="modal-header">
         <h3 class="modal-title" id="modalTitle" data-i18n="modalAddTitle">Add New Playlist</h3>
         <button class="modal-close" onclick="closePlaylistModal()">&times;</button>
+      </div>
+
+      <div id="modalEditHint" style="display: none; font-size: 11.5px; color: #CBD5E1; margin-bottom: 14px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.25); padding: 9px 12px; border-radius: 8px; line-height: 1.4;">
+        <span id="modalEditHintText"></span>
       </div>
 
       <form id="playlistForm">
@@ -959,8 +987,9 @@
 
         <div class="modal-actions">
           <button type="button" class="btn-secondary" onclick="closePlaylistModal()" data-i18n="btnCancel">Cancel</button>
-          <button type="submit" class="btn-submit" id="btnSubmitModal" style="margin-top: 0; flex: 2;">
-            <span id="btnSubmitModalText" data-i18n="btnSendToPlayer">🚀 Send to GOATPlayer</span>
+          <button type="submit" class="btn-submit" id="btnSubmitModal" style="margin-top: 0; flex: 2; display: inline-flex; align-items: center; justify-content: center; gap: 7px;">
+            <span id="btnSubmitModalIcon"></span>
+            <span id="btnSubmitModalText" data-i18n="btnSendToPlayer">Send to GOATPlayer</span>
           </button>
         </div>
       </form>
@@ -979,7 +1008,7 @@
       </p>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" onclick="closeDeleteModal()" data-i18n="btnCancel">Cancel</button>
-        <button type="button" class="btn-danger" id="btnConfirmDelete" onclick="executeDeletePlaylist()" data-i18n="btnDelete">Delete</button>
+        <button type="button" class="btn-danger" id="btnConfirmDelete" onclick="executeDeletePlaylist()" data-i18n="btnDelete" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;">Delete</button>
       </div>
     </div>
   </div>
@@ -1011,26 +1040,41 @@
     let pollDeviceInterval = null;
     let pendingAddActionId = null;
 
+    const ICONS = {
+      tv: `<svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>`,
+      globe: `<svg class="svg-icon" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
+      lock: `<svg class="svg-icon" viewBox="0 0 24 24" width="12" height="12" stroke="#FBBF24" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+      user: `<svg class="svg-icon" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
+      m3u: `<svg class="svg-icon" viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`,
+      edit: `<svg class="svg-icon" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`,
+      trash: `<svg class="svg-icon" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
+      plus: `<svg class="svg-icon" viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+      send: `<svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`,
+      save: `<svg class="svg-icon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`
+    };
+
     // Translations Dictionary
     const i18n = {
       en: {
         tagline: "Manage & Push Playlists to your TV",
-        connectTitle: "📺 Connect to your Player",
+        connectTitle: "Connect to your Player",
         connectDesc: "Enter the Device ID and 6-digit PIN displayed on your TV or GOATPlayer app.",
         deviceIdLabel: "Device ID",
         pinLabel: "6-Digit Pairing PIN",
         btnConnect: "Connect to Device",
         connecting: "Connecting...",
-        qrTip: "💡 <strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!",
+        qrTip: "<strong>Tip:</strong> You can also simply scan the QR code displayed in the GOATPlayer app to connect automatically!",
         targetDevice: "Target Device",
         connected: "Connected",
         disconnect: "Disconnect",
         playlistsTitle: "Playlists on Device",
         emptyPlaylistsTitle: "No Playlists on this Device",
         emptyPlaylistsSub: "Add your first IPTV playlist using the button below.",
-        btnAddPlaylist: "+ Add New Playlist",
+        btnAddPlaylist: "Add New Playlist",
         modalAddTitle: "Add New Playlist",
         modalEditTitle: "Edit Playlist",
+        editOptionalHint: "Credentials remain secured on your device. Only fill these fields if you want to update them.",
+        placeholderOptional: "(Optional: Leave empty to keep unchanged)",
         tabXtream: "Xtream Codes API",
         tabM3u: "M3U Playlist URL",
         playlistNameLabel: "Playlist Name (Optional)",
@@ -1042,8 +1086,8 @@
         m3uUrlPlaceholder: "https://example.com/playlist.m3u or Xtream M3U link",
         m3uParsedSuccess: "Xtream credentials extracted!",
         m3uDirectSuccess: "Direct M3U / M3U8 playlist detected!",
-        btnSendToPlayer: "🚀 Send to GOATPlayer",
-        btnUpdatePlaylist: "💾 Save Changes",
+        btnSendToPlayer: "Send to GOATPlayer",
+        btnUpdatePlaylist: "Save Changes",
         sending: "Transmitting to Device...",
         updating: "Updating...",
         deleting: "Deleting...",
@@ -1066,22 +1110,24 @@
       },
       de: {
         tagline: "Playlists verwalten & an deinen Fernseher senden",
-        connectTitle: "📺 Mit GOATPlayer verbinden",
+        connectTitle: "Mit GOATPlayer verbinden",
         connectDesc: "Gib die Geräte-ID und den 6-stelligen PIN ein, die auf deinem TV oder Gerät angezeigt werden.",
         deviceIdLabel: "Geräte-ID",
         pinLabel: "6-stelliger PIN",
         btnConnect: "Mit Gerät verbinden",
         connecting: "Verbinde...",
-        qrTip: "💡 <strong>Tipp:</strong> Du kannst auch einfach den QR-Code in der GOATPlayer-App scannen, um dich sofort zu verbinden!",
+        qrTip: "<strong>Tipp:</strong> Du kannst auch einfach den QR-Code in der GOATPlayer-App scannen, um dich sofort zu verbinden!",
         targetDevice: "Verbundenes Gerät",
         connected: "Verbunden",
         disconnect: "Trennen",
         playlistsTitle: "Playlists auf dem Gerät",
         emptyPlaylistsTitle: "Keine Playlists vorhanden",
         emptyPlaylistsSub: "Füge mit dem Button unten deine erste IPTV-Playlist hinzu.",
-        btnAddPlaylist: "+ Neue Playlist hinzufügen",
+        btnAddPlaylist: "Neue Playlist hinzufügen",
         modalAddTitle: "Neue Playlist hinzufügen",
         modalEditTitle: "Playlist bearbeiten",
+        editOptionalHint: "Zugangsdaten bleiben auf deinem Gerät gesichert. Fülle diese Felder nur aus, wenn du sie ändern möchtest.",
+        placeholderOptional: "(Optional: Nur ausfüllen zum Ändern)",
         tabXtream: "Xtream Codes API",
         tabM3u: "M3U Playlist-Link",
         playlistNameLabel: "Playlist-Name (Optional)",
@@ -1093,8 +1139,8 @@
         m3uUrlPlaceholder: "https://example.com/playlist.m3u oder Xtream M3U-Link",
         m3uParsedSuccess: "Xtream Zugangsdaten erfolgreich erkannt!",
         m3uDirectSuccess: "Direkte M3U / M3U8 Playlist erkannt!",
-        btnSendToPlayer: "🚀 An GOATPlayer senden",
-        btnUpdatePlaylist: "💾 Änderungen speichern",
+        btnSendToPlayer: "An GOATPlayer senden",
+        btnUpdatePlaylist: "Änderungen speichern",
         sending: "Wird an Gerät übertragen...",
         updating: "Wird aktualisiert...",
         deleting: "Wird gelöscht...",
@@ -1142,6 +1188,11 @@
       if (activeDeviceId) {
         setDeviceConnectedState(isDeviceConnected);
       }
+
+      const btnAddIcon = document.getElementById('btnAddModalIcon');
+      if (btnAddIcon) btnAddIcon.innerHTML = ICONS.plus;
+      const btnSubmitIcon = document.getElementById('btnSubmitModalIcon');
+      if (btnSubmitIcon) btnSubmitIcon.innerHTML = (currentModalMode === 'edit') ? ICONS.save : ICONS.send;
 
       renderPlaylists();
     }
@@ -1282,14 +1333,15 @@
       const fX = document.getElementById('xtreamFields');
       const fM = document.getElementById('m3uFields');
 
+      const isEdit = (currentModalMode === 'edit');
       if (mode === 'xtream') {
         tabX.classList.add('active');
         tabM.classList.remove('active');
         fX.style.display = 'block';
         fM.style.display = 'none';
-        document.getElementById('serverUrl').required = true;
-        document.getElementById('username').required = true;
-        document.getElementById('password').required = true;
+        document.getElementById('serverUrl').required = !isEdit;
+        document.getElementById('username').required = !isEdit;
+        document.getElementById('password').required = !isEdit;
         document.getElementById('m3uUrl').required = false;
       } else {
         tabM.classList.add('active');
@@ -1299,7 +1351,7 @@
         document.getElementById('serverUrl').required = false;
         document.getElementById('username').required = false;
         document.getElementById('password').required = false;
-        document.getElementById('m3uUrl').required = true;
+        document.getElementById('m3uUrl').required = !isEdit;
       }
     }
 
@@ -1314,7 +1366,9 @@
       if (activePlaylists.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">📺</div>
+            <div class="empty-state-icon" style="margin-bottom: 12px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" width="44" height="44" stroke="rgba(168, 85, 247, 0.45)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>
+            </div>
             <div class="empty-state-text">${t('emptyPlaylistsTitle')}</div>
             <div class="empty-state-sub">${t('emptyPlaylistsSub')}</div>
           </div>
@@ -1324,21 +1378,21 @@
 
       container.innerHTML = activePlaylists.map((pl, idx) => {
         const id = pl.id !== undefined ? pl.id : idx;
-        const isM3u = pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8')));
+        const isM3u = pl.type === 'm3u' || (!pl.type && (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))));
         const name = pl.playlist_name || (isM3u ? 'M3U Playlist' : pl.username) || 'IPTV Playlist';
         const server = pl.server_url || (isM3u ? 'M3U Stream' : 'Xtream Codes');
         const user = pl.username || (currentLang === 'de' ? 'Gesichert auf dem Gerät' : 'Secured on device');
-        const userIcon = pl.username ? (isM3u ? '📄' : '👤') : '🔒';
+        const userIcon = pl.username ? (isM3u ? ICONS.m3u : ICONS.user) : ICONS.lock;
         const btnOpacity = isDeviceConnected ? '1' : '0.5';
         const btnCursor = isDeviceConnected ? 'pointer' : 'not-allowed';
 
         return `
           <div class="playlist-card">
             <div class="playlist-card-info">
-              <div class="playlist-card-title">📺 ${escapeHtml(name)}</div>
+              <div class="playlist-card-title">${ICONS.tv} <span>${escapeHtml(name)}</span></div>
               <div class="playlist-card-meta">
                 <div class="playlist-meta-row" title="${escapeHtml(server)}">
-                  <span class="playlist-meta-icon">🌐</span>
+                  <span class="playlist-meta-icon">${ICONS.globe}</span>
                   <span class="playlist-meta-text">${escapeHtml(server)}</span>
                 </div>
                 <div class="playlist-meta-row" title="${escapeHtml(user)}">
@@ -1349,10 +1403,10 @@
             </div>
             <div class="playlist-card-actions">
               <button class="btn-action" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" data-id="${escapeHtml(String(id))}" onclick="openPlaylistModal('edit', this.dataset.id)" title="${t('btnEdit')}">
-                ✏️ <span>${t('btnEdit')}</span>
+                ${ICONS.edit} <span>${t('btnEdit')}</span>
               </button>
               <button class="btn-action delete" style="opacity: ${btnOpacity}; cursor: ${btnCursor};" data-id="${escapeHtml(String(id))}" onclick="confirmDeletePlaylist(this.dataset.id)" title="${t('btnDelete')}">
-                🗑️
+                ${ICONS.trash}
               </button>
             </div>
           </div>
@@ -1376,13 +1430,16 @@
       for (const item of list) {
         const normServer = (item.server_url || '').trim().toLowerCase().replace(/\/+$/, '');
         const normUser = (item.username || '').trim().toLowerCase();
-        const key = item.id !== undefined ? `id_${item.id}` : `${normServer}::${normUser}`;
-        const contentKey = `${normServer}::${normUser}`;
-        if (!seen.has(key) && !seen.has(contentKey)) {
-          seen.add(key);
-          seen.add(contentKey);
-          result.push(item);
-        }
+        const hasContent = normServer.length > 0 || normUser.length > 0;
+        const idKey = (item.id !== undefined && item.id !== null && String(item.id).trim() !== '') ? `id_${item.id}` : null;
+        const contentKey = hasContent ? `${normServer}::${normUser}` : null;
+
+        if (idKey && seen.has(idKey)) continue;
+        if (contentKey && seen.has(contentKey)) continue;
+
+        if (idKey) seen.add(idKey);
+        if (contentKey) seen.add(contentKey);
+        result.push(item);
       }
       return result;
     }
@@ -1408,10 +1465,13 @@
         if (pendingDeletedIds.has(String(local.id !== undefined ? local.id : ''))) continue;
         const normServer = (local.server_url || '').trim().toLowerCase().replace(/\/+$/, '');
         const normUser = (local.username || '').trim().toLowerCase();
-        const existsInServer = merged.some(s => 
-          (s.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer &&
-          (s.username || '').trim().toLowerCase() === normUser
-        );
+        const hasContent = normServer.length > 0 || normUser.length > 0;
+        const existsInServer = merged.some(s => {
+          if (local.id !== undefined && s.id !== undefined && String(local.id) === String(s.id)) return true;
+          if (local.playlist_name && s.playlist_name && local.playlist_name.trim().toLowerCase() === s.playlist_name.trim().toLowerCase()) return true;
+          if (hasContent && (s.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer && (s.username || '').trim().toLowerCase() === normUser) return true;
+          return false;
+        });
         if (!existsInServer) {
           merged.push(local);
         }
@@ -1574,13 +1634,9 @@
 
         if (error || !data) return;
 
-        // If an add action was sent and TV has acknowledged it, clear pending flag and merge playlists
+        // If an add action was sent and TV has acknowledged it, clear pending flag
         if (pendingAddActionId && !data.sync_action) {
           pendingAddActionId = null;
-          if (data.playlists && Array.isArray(data.playlists)) {
-            activePlaylists = mergePlaylists(data.playlists, activePlaylists);
-            renderPlaylists();
-          }
         }
 
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
@@ -1594,9 +1650,9 @@
             setDeviceConnectedState(true);
           }
           if (data.playlists && Array.isArray(data.playlists)) {
-            const merged = mergePlaylists(data.playlists, activePlaylists);
-            if (JSON.stringify(merged) !== JSON.stringify(activePlaylists)) {
-              activePlaylists = merged;
+            const updated = deduplicatePlaylists(data.playlists);
+            if (JSON.stringify(updated) !== JSON.stringify(activePlaylists)) {
+              activePlaylists = updated;
               renderPlaylists();
             }
           }
@@ -1625,10 +1681,6 @@
             // Check if pending add action was completed/cleared by TV
             if (pendingAddActionId && !newRecord.sync_action) {
               pendingAddActionId = null;
-              if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
-                activePlaylists = mergePlaylists(newRecord.playlists, activePlaylists);
-                renderPlaylists();
-              }
             }
 
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
@@ -1642,9 +1694,9 @@
               setDeviceConnectedState(true);
             }
             if (newRecord.playlists && Array.isArray(newRecord.playlists)) {
-              const merged = mergePlaylists(newRecord.playlists, activePlaylists);
-              if (JSON.stringify(merged) !== JSON.stringify(activePlaylists)) {
-                activePlaylists = merged;
+              const updated = deduplicatePlaylists(newRecord.playlists);
+              if (JSON.stringify(updated) !== JSON.stringify(activePlaylists)) {
+                activePlaylists = updated;
                 renderPlaylists();
               }
             }
@@ -1698,9 +1750,11 @@
 
       if (btnSubmit) {
         btnSubmit.disabled = false;
+        const iconEl = document.getElementById('btnSubmitModalIcon');
+        if (iconEl) iconEl.innerHTML = (mode === 'edit') ? ICONS.save : ICONS.send;
         let submitText = document.getElementById('btnSubmitModalText');
         if (!submitText) {
-          btnSubmit.innerHTML = `<span id="btnSubmitModalText"></span>`;
+          btnSubmit.innerHTML = `<span id="btnSubmitModalIcon"></span><span id="btnSubmitModalText"></span>`;
           submitText = document.getElementById('btnSubmitModalText');
         }
         submitText.innerText = (mode === 'edit') ? t('btnUpdatePlaylist') : t('btnSendToPlayer');
@@ -1708,6 +1762,17 @@
 
       if (title) {
         title.innerText = (mode === 'edit') ? t('modalEditTitle') : t('modalAddTitle');
+      }
+
+      const editHint = document.getElementById('modalEditHint');
+      const editHintText = document.getElementById('modalEditHintText');
+      if (editHint && editHintText) {
+        if (mode === 'edit') {
+          editHint.style.display = 'block';
+          editHintText.innerText = t('editOptionalHint');
+        } else {
+          editHint.style.display = 'none';
+        }
       }
 
       // Reset form
@@ -1720,16 +1785,19 @@
         if (tabBar) tabBar.style.display = 'none';
 
         const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === String(id));
-        const isM3u = pl && (pl.type === 'm3u' || (!pl.username && !pl.password) || (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))));
+        const isM3u = pl ? (pl.type === 'm3u' || (!pl.type && (pl.server_url && (pl.server_url.includes('.m3u') || pl.server_url.includes('.m3u8'))))) : false;
+        const unchangedPlaceholder = t('placeholderOptional');
 
         if (isM3u) {
           switchTab('m3u');
           const nameEl = document.getElementById('playlistName');
           const m3uUrlEl = document.getElementById('m3uUrl');
-          if (nameEl) nameEl.value = pl.playlist_name || '';
+          if (nameEl) nameEl.value = pl ? (pl.playlist_name || '') : '';
           if (m3uUrlEl) {
-            m3uUrlEl.value = pl.server_url || '';
-            onM3uInput(pl.server_url || '');
+            m3uUrlEl.value = (pl && pl.server_url) ? pl.server_url : '';
+            m3uUrlEl.placeholder = (pl && pl.server_url) ? 'https://example.com/playlist.m3u' : unchangedPlaceholder;
+            m3uUrlEl.required = false;
+            if (pl && pl.server_url) onM3uInput(pl.server_url);
           }
         } else {
           switchTab('xtream');
@@ -1739,9 +1807,21 @@
             const userEl = document.getElementById('username');
             const passEl = document.getElementById('password');
             if (nameEl) nameEl.value = pl.playlist_name || '';
-            if (serverEl) serverEl.value = pl.server_url || '';
-            if (userEl) userEl.value = pl.username || '';
-            if (passEl) passEl.value = pl.password || '';
+            if (serverEl) {
+              serverEl.value = pl.server_url || '';
+              serverEl.placeholder = pl.server_url ? 'http://line.example.com:80' : unchangedPlaceholder;
+              serverEl.required = false;
+            }
+            if (userEl) {
+              userEl.value = pl.username || '';
+              userEl.placeholder = pl.username ? 'Username' : unchangedPlaceholder;
+              userEl.required = false;
+            }
+            if (passEl) {
+              passEl.value = pl.password || '';
+              passEl.placeholder = pl.password ? '••••••••' : unchangedPlaceholder;
+              passEl.required = false;
+            }
           }
         }
       } else {
@@ -1756,15 +1836,27 @@
       const modal = document.getElementById('playlistModal');
       if (modal) modal.style.display = 'none';
       editingPlaylistId = null;
+
+      const editHint = document.getElementById('modalEditHint');
+      if (editHint) editHint.style.display = 'none';
+
+      // Restore inputs & placeholders
+      const serverEl = document.getElementById('serverUrl');
+      const userEl = document.getElementById('username');
+      const passEl = document.getElementById('password');
+      const m3uUrlEl = document.getElementById('m3uUrl');
+      if (serverEl) { serverEl.placeholder = 'http://line.example.com:80'; serverEl.required = true; }
+      if (userEl) { userEl.placeholder = 'Username'; userEl.required = true; }
+      if (passEl) { passEl.placeholder = '••••••••'; passEl.required = true; }
+      if (m3uUrlEl) { m3uUrlEl.placeholder = 'https://example.com/playlist.m3u'; }
+
       const btnSubmit = document.getElementById('btnSubmitModal');
       if (btnSubmit) {
         btnSubmit.disabled = false;
-        let submitText = document.getElementById('btnSubmitModalText');
-        if (!submitText) {
-          btnSubmit.innerHTML = `<span id="btnSubmitModalText">${t('btnSendToPlayer')}</span>`;
-        } else {
-          submitText.innerText = t('btnSendToPlayer');
-        }
+        const iconEl = document.getElementById('btnSubmitModalIcon');
+        if (iconEl) iconEl.innerHTML = ICONS.send;
+        const submitText = document.getElementById('btnSubmitModalText');
+        if (submitText) submitText.innerText = t('btnSendToPlayer');
       }
     }
 
@@ -1788,12 +1880,22 @@
 
       if (currentTabMode === 'm3u') {
         const m3uUrl = document.getElementById('m3uUrl').value.trim();
-        const parsed = parseM3uUrl(m3uUrl);
-        if (parsed) {
-          serverUrl = parsed.serverUrl;
-          username = parsed.username || '';
-          password = parsed.password || '';
-          playlistType = parsed.type || (parsed.isValidXtream ? 'xtream' : 'm3u');
+        if (m3uUrl) {
+          const parsed = parseM3uUrl(m3uUrl);
+          if (parsed) {
+            serverUrl = parsed.serverUrl;
+            username = parsed.username || '';
+            password = parsed.password || '';
+            playlistType = parsed.type || (parsed.isValidXtream ? 'xtream' : 'm3u');
+          } else {
+            showToast(currentLang === 'de' 
+              ? 'Bitte gib eine gültige URL ein (z.B. https://provider.com/playlist.m3u).' 
+              : 'Please enter a valid URL (e.g. https://provider.com/playlist.m3u).');
+            if (btn) btn.disabled = false;
+            return;
+          }
+        } else if (currentModalMode === 'edit') {
+          playlistType = 'm3u';
         } else {
           showToast(currentLang === 'de' 
             ? 'Bitte gib eine gültige URL ein (z.B. https://provider.com/playlist.m3u).' 
@@ -1813,29 +1915,10 @@
           const submitText = document.getElementById('btnSubmitModalText');
           if (submitText) submitText.innerText = t('sending');
 
-          // Optimistic local add only if not already present
-          const normServer = serverUrl.trim().toLowerCase().replace(/\/+$/, '');
-          const normUser = username.trim().toLowerCase();
-          const alreadyExists = activePlaylists.some(p =>
-            (p.server_url || '').trim().toLowerCase().replace(/\/+$/, '') === normServer &&
-            (p.username || '').trim().toLowerCase() === normUser
-          );
-          if (!alreadyExists) {
-            activePlaylists.push({
-              id: Date.now(),
-              playlist_name: playlistName,
-              server_url: serverUrl,
-              username: username,
-              password: password,
-              type: playlistType
-            });
-            renderPlaylists();
-          }
-
           const actionId = `add_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
           pendingAddActionId = actionId;
 
-          // Push to Supabase
+          // Dispatch sync_action ONLY. Device will process and update playlists array cleanly.
           try {
             const res = await supabaseClient.from('remote_devices').update({
               sync_action: {
@@ -1848,38 +1931,21 @@
                 password: password,
                 timestamp: Date.now()
               },
-              playlist_name: playlistName,
-              server_url: serverUrl,
-              username: username,
-              password: password,
-              playlists: activePlaylists,
               status: 'linked',
               updated_at: new Date().toISOString()
             }).eq('device_id', activeDeviceId);
 
             if (res && res.error) {
-              console.warn('Sync action update returned error, attempting fallback:', res.error);
-              await supabaseClient.from('remote_devices').update({
-                playlist_name: playlistName,
-                server_url: serverUrl,
-                username: username,
-                password: password,
-                playlists: activePlaylists,
-                status: 'linked',
-                updated_at: new Date().toISOString()
-              }).eq('device_id', activeDeviceId);
+              console.warn('Sync action error:', res.error);
+              showToast('Error: ' + res.error.message);
+              if (btn) btn.disabled = false;
+              return;
             }
           } catch (colErr) {
-            // Fallback if sync_action column not created
-            await supabaseClient.from('remote_devices').update({
-              playlist_name: playlistName,
-              server_url: serverUrl,
-              username: username,
-              password: password,
-              playlists: activePlaylists,
-              status: 'linked',
-              updated_at: new Date().toISOString()
-            }).eq('device_id', activeDeviceId);
+            console.error('Failed to dispatch add action:', colErr);
+            showToast('Error: ' + colErr.message);
+            if (btn) btn.disabled = false;
+            return;
           }
 
           showToast(t('playlistSentSuccess'));
@@ -1893,10 +1959,10 @@
 
           if (pl) {
             pl.playlist_name = playlistName;
-            pl.server_url = serverUrl;
-            pl.username = username;
-            pl.password = password;
-            pl.type = playlistType;
+            if (serverUrl) pl.server_url = serverUrl;
+            if (username) pl.username = username;
+            if (password) pl.password = password;
+            if (playlistType) pl.type = playlistType;
           }
           renderPlaylists();
 
@@ -1915,7 +1981,6 @@
               password: password,
               timestamp: Date.now()
             },
-            playlists: activePlaylists,
             status: 'linked',
             updated_at: new Date().toISOString()
           };
@@ -1974,11 +2039,8 @@
             action_id: actionId,
             action: 'delete',
             id: idToDelete,
-            server_url: plToDelete ? plToDelete.server_url : undefined,
-            username: plToDelete ? plToDelete.username : undefined,
             timestamp: Date.now()
           },
-          playlists: activePlaylists,
           status: 'linked',
           updated_at: new Date().toISOString()
         }).eq('device_id', activeDeviceId);

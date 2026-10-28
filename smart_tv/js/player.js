@@ -2536,7 +2536,7 @@
     }
   };
 
-  TVPlayer.prototype.seekBy = function(seconds) {
+  TVPlayer.prototype.seekBy = function(seconds, isRepeat) {
     if (!this.videoEl) return;
     var dur = this.videoEl.duration;
     if ((!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) && this.currentVodMeta && typeof this.currentVodMeta.duration === 'number' && this.currentVodMeta.duration > 0) {
@@ -2545,27 +2545,58 @@
     if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) return;
 
     var now = Date.now();
-    if (this._lastSeekPressTime && (now - this._lastSeekPressTime) < 450) {
-      this._consecutiveSeekCount = (this._consecutiveSeekCount || 0) + 1;
+    var sign = seconds >= 0 ? 1 : -1;
+
+    // Detect hold-to-scrub repeat: explicit repeat flag or rapid successive key events (< 180ms)
+    var isHoldRepeat = isRepeat === true || (this._lastSeekPressTime && (now - this._lastSeekPressTime) < 180);
+
+    var step = 10;
+    if (isHoldRepeat) {
+      // 120ms Taktung (rate throttle) for hold-to-scrub (identical to Flutter TV mode)
+      if (this._lastScrubRepeatTime && (now - this._lastScrubRepeatTime) < 120) {
+        return; // Throttled: ignore fast repeat events within 120ms
+      }
+      this._lastScrubRepeatTime = now;
+      this._scrubRepeatCount = (this._scrubRepeatCount || 0) + 1;
+
+      // 5-stage hold-to-scrub progression (identical to Flutter TV mode):
+      // Stage 1 (1-8 ticks, 0-1.0s): 5s (~41s/sec)
+      // Stage 2 (9-20 ticks, 1.0-2.5s): 10s (~83s/sec)
+      // Stage 3 (21-38 ticks, 2.5-4.5s): 20s (~166s/sec)
+      // Stage 4 (39-60 ticks, 4.5-7.0s): 40s (~333s/sec)
+      // Stage 5 (> 60 ticks, > 7.0s): 60s (~500s/sec)
+      if (this._scrubRepeatCount > 60) {
+        step = 60;
+      } else if (this._scrubRepeatCount > 38) {
+        step = 40;
+      } else if (this._scrubRepeatCount > 20) {
+        step = 20;
+      } else if (this._scrubRepeatCount > 8) {
+        step = 10;
+      } else {
+        step = 5;
+      }
     } else {
-      this._consecutiveSeekCount = 0;
+      // Manual single tap progression (identical to Flutter TV mode):
+      // 1-3 taps (<500ms): 10s
+      // 4-7 taps: 20s
+      // 8+ taps: 30s max
+      this._scrubRepeatCount = 0;
+      this._lastScrubRepeatTime = now;
+      if (this._lastSeekPressTime && (now - this._lastSeekPressTime) < 500) {
+        this._consecutiveSeekCount = (this._consecutiveSeekCount || 0) + 1;
+      } else {
+        this._consecutiveSeekCount = 1;
+      }
+      if (this._consecutiveSeekCount >= 8) {
+        step = 30;
+      } else if (this._consecutiveSeekCount >= 4) {
+        step = 20;
+      } else {
+        step = 10;
+      }
     }
     this._lastSeekPressTime = now;
-
-    var sign = seconds >= 0 ? 1 : -1;
-    var step = Math.abs(seconds);
-    // Dynamic progressive acceleration:
-    // 0-3 presses: 10s step
-    // 4-8 presses: 30s step
-    // 9-15 presses: 60s step (1 min)
-    // 16+ presses: 180s step (3 min)
-    if (this._consecutiveSeekCount >= 16) {
-      step = 180;
-    } else if (this._consecutiveSeekCount >= 9) {
-      step = 60;
-    } else if (this._consecutiveSeekCount >= 4) {
-      step = 30;
-    }
 
     var effectiveDelta = sign * step;
     var current = (this._pendingSeekTime !== null && this._pendingSeekTime !== undefined)
@@ -2585,7 +2616,12 @@
     var self = this;
     this._seekDebounceTimer = setTimeout(function() {
       self._commitPendingSeek();
-    }, 400);
+    }, 350);
+  };
+
+  TVPlayer.prototype.resetSeekRepeat = function() {
+    this._scrubRepeatCount = 0;
+    this._lastScrubRepeatTime = 0;
   };
 
   TVPlayer.prototype.seekToRatio = function(ratio) {
@@ -2617,6 +2653,7 @@
       this._seekDebounceTimer = null;
     }
     this._consecutiveSeekCount = 0;
+    this._scrubRepeatCount = 0;
     if (this._pendingSeekTime === null || this._pendingSeekTime === undefined) return;
     var target = this._pendingSeekTime;
     this._pendingSeekTime = null;
@@ -2820,6 +2857,8 @@
     this._queuedSeekTarget = null;
     this._lastTargetSeekTime = null;
     this._consecutiveSeekCount = 0;
+    this._scrubRepeatCount = 0;
+    this._lastScrubRepeatTime = 0;
     this._clearWatchdog();
     this._retriedWithTs = false;
     this._retriedWithHls = false;

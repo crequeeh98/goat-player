@@ -9,6 +9,7 @@ import '../dashboard/widgets/continue_watching_rail.dart';
 import '../dashboard/progress_provider.dart';
 import '../dashboard/dashboard_state.dart';
 import '../../core/widgets/tv_focusable.dart';
+import '../../core/widgets/tv_text_field.dart';
 import '../../core/utils/platform_utils.dart';
 
 class MoviesGridScreen extends ConsumerStatefulWidget {
@@ -22,12 +23,14 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   String? _selectedCategory;
   String _searchQuery = '';
   String _catSearchQuery = '';
-  bool _isCatSearchActive = false;
-  bool _isTopSearchActive = false;
+
+
   final _searchController = TextEditingController();
   final _catSearchController = TextEditingController();
   final ScrollController _movieScrollController = ScrollController();
   final FocusNode _firstMovieNode = FocusNode(debugLabel: 'first_movie');
+  final FocusNode _firstRailItemNode = FocusNode(debugLabel: 'movie_first_rail');
+  final FocusNode _firstCategoryNode = FocusNode(debugLabel: 'movie_first_category');
   final FocusNode _selectedCategoryNode = FocusNode(debugLabel: 'selected_movie_cat');
   final FocusNode _catSearchFocusNode = FocusNode(debugLabel: 'movie_cat_search');
   final FocusNode _topSearchFocusNode = FocusNode(debugLabel: 'movie_top_search');
@@ -36,10 +39,15 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+    });
     _searchController.dispose();
     _catSearchController.dispose();
     _movieScrollController.dispose();
     _firstMovieNode.dispose();
+    _firstRailItemNode.dispose();
+    _firstCategoryNode.dispose();
     _selectedCategoryNode.dispose();
     _catSearchFocusNode.dispose();
     _topSearchFocusNode.dispose();
@@ -52,23 +60,22 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   void _focusCategoryColumn() {
     if (_selectedCategory != null) {
       final node = _categoryFocusNodes[_selectedCategory];
-      if (node != null && node.canRequestFocus) {
+      if (node != null && node.context != null && node.canRequestFocus) {
         node.requestFocus();
         return;
       }
     }
-    if (_selectedCategoryNode.canRequestFocus) {
-      _selectedCategoryNode.requestFocus();
+    if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+      _firstCategoryNode.requestFocus();
       return;
     }
-    if (_categoryFocusNodes.isNotEmpty) {
-      final firstNode = _categoryFocusNodes.values.first;
-      if (firstNode.canRequestFocus) {
-        firstNode.requestFocus();
+    for (final node in _categoryFocusNodes.values) {
+      if (node.context != null && node.canRequestFocus) {
+        node.requestFocus();
         return;
       }
     }
-    if (_catSearchFocusNode.canRequestFocus) {
+    if (_catSearchFocusNode.context != null && _catSearchFocusNode.canRequestFocus) {
       _catSearchFocusNode.requestFocus();
     }
   }
@@ -151,6 +158,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_catSearchFocusNode);
+      }
+    });
     Future.microtask(() {
       ref.read(vodControllerProvider).syncVodCategories();
       if (!GoatPlatform.isTv) {
@@ -194,7 +206,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
               ? Column(
                   children: [
                     if (GoatPlatform.isTv && _searchQuery.isEmpty)
-                      ContinueWatchingRail(type: 'movie', onExitLeft: _focusCategoryColumn),
+                      ContinueWatchingRail(
+                        type: 'movie',
+                        onExitLeft: _focusCategoryColumn,
+                        firstItemFocusNode: _firstRailItemNode,
+                      ),
                     Expanded(
                       child: Center(
                         child: Column(
@@ -256,6 +272,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                             child: ContinueWatchingRail(
                               type: 'movie',
                               onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                              firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
                             ),
                           ),
                         SliverPadding(
@@ -275,7 +292,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 
                                 return Focus(
                                   onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent) {
+                                    if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                       // Rule 6: VOD Grid Leftmost Column Boundary Exit to Active Category
                                       if (GoatPlatform.isTv &&
                                           isLeftmostColumn &&
@@ -285,10 +302,6 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       }
                                       if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
                                           index >= streams.length - (isDesktop ? crossAxisCount : 3)) {
-                                        _movieScrollController.jumpTo(0);
-                                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                                          _firstMovieNode.requestFocus();
-                                        });
                                         return KeyEventResult.handled;
                                       }
                                     }
@@ -409,99 +422,73 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                     ),
                     SizedBox(width: GoatPlatform.isTv ? 16 : 24),
                     Expanded(
-                      child: GoatPlatform.isTv
-                          ? TvFocusable(
-                              focusNode: _topSearchFocusNode,
-                              borderRadius: BorderRadius.circular(20),
-                              onPressed: () => setState(() => _isTopSearchActive = true),
-                              onKeyEvent: (node, event) {
-                                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                  if (_firstMovieNode.canRequestFocus) {
-                                    _firstMovieNode.requestFocus();
-                                  } else {
-                                    _focusCategoryColumn();
-                                  }
-                                  return KeyEventResult.handled;
-                                }
-                                return KeyEventResult.ignored;
-                              },
-                              child: _isTopSearchActive
-                                  ? TextField(
-                                      controller: _searchController,
-                                      autofocus: true,
-                                      style: const TextStyle(fontSize: 12),
-                                      decoration: InputDecoration(
-                                        hintText: l10n.searchMovies,
-                                        hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
-                                        prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFB388FF)),
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                        isDense: true,
-                                      ),
-                                      onChanged: (val) => setState(() => _searchQuery = val),
-                                      onSubmitted: (_) {
-                                        setState(() => _isTopSearchActive = false);
-                                        if (_firstMovieNode.canRequestFocus) {
-                                          _firstMovieNode.requestFocus();
-                                        }
-                                      },
-                                    )
-                                  : Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.06),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: Colors.white12),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.search, size: 16, color: Colors.white60),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              _searchQuery.isNotEmpty ? _searchQuery : l10n.searchMovies,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: _searchQuery.isNotEmpty ? Colors.white : Colors.white54,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                            )
-                          : Focus(
-                              onKeyEvent: (node, event) {
-                                if (event is KeyDownEvent &&
-                                    (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                                     event.logicalKey == LogicalKeyboardKey.enter)) {
-                                  FocusScope.of(context).nextFocus();
-                                  return KeyEventResult.handled;
-                                }
-                                return KeyEventResult.ignored;
-                              },
-                              child: TextField(
-                                controller: _searchController,
-                                onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                                style: const TextStyle(fontSize: 14),
-                                decoration: InputDecoration(
-                                  hintText: l10n.searchMovies,
-                                  hintStyle: const TextStyle(fontSize: 14, color: Colors.white54),
-                                  prefixIcon: const Icon(Icons.search, size: 22),
-                                  suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 20), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ''; })) : null,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  filled: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  isDense: true,
-                                ),
-                                onChanged: (val) => setState(() => _searchQuery = val),
-                              ),
-                            ),
+                      child: TvTextField(
+                        focusNode: _topSearchFocusNode,
+                        controller: _searchController,
+                        style: TextStyle(fontSize: GoatPlatform.isTv ? 13 : 14),
+                        hintText: l10n.searchMovies,
+                        hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 13 : 14, color: Colors.white54),
+                        prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22, color: const Color(0xFFB388FF)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 8 : 12),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
+                                onPressed: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
+                        isDense: true,
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                              if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
+                                _firstMovieNode.requestFocus();
+                              } else if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
+                                _firstRailItemNode.requestFocus();
+                              } else {
+                                _focusCategoryColumn();
+                              }
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              if (_searchController.text.isEmpty || _searchController.selection.extentOffset <= 0) {
+                                _focusCategoryColumn();
+                                return KeyEventResult.handled;
+                              }
+                            } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                event.logicalKey == LogicalKeyboardKey.goBack) {
+                              if (_searchController.text.isNotEmpty) {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                });
+                                return KeyEventResult.handled;
+                              }
+                              _focusCategoryColumn();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        onSubmitted: (_) {
+                          if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
+                            _firstMovieNode.requestFocus();
+                          } else if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
+                            _firstRailItemNode.requestFocus();
+                          } else {
+                            _focusCategoryColumn();
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -559,71 +546,87 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                           if (GoatPlatform.isTv)
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
-                              child: TvFocusable(
+                              child: TvTextField(
                                 focusNode: _catSearchFocusNode,
-                                focusScale: 1.02,
-                                borderRadius: BorderRadius.circular(10),
-                                onPressed: () => setState(() => _isCatSearchActive = true),
+                                controller: _catSearchController,
+                                style: const TextStyle(fontSize: 12),
+                                hintText: l10n.searchCategories,
+                                hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
+                                prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFFB388FF)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                suffixIcon: _catSearchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.close, size: 16),
+                                        onPressed: () {
+                                          setState(() {
+                                            _catSearchController.clear();
+                                            _catSearchQuery = '';
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                isDense: true,
+                                onChanged: (val) => setState(() => _catSearchQuery = val),
                                 onKeyEvent: (node, event) {
-                                  if (event is KeyDownEvent) {
+                                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                      _focusCategoryColumn();
+                                      if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+                                        _firstCategoryNode.requestFocus();
+                                      } else {
+                                        _focusCategoryColumn();
+                                      }
                                       return KeyEventResult.handled;
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && _firstMovieNode.canRequestFocus) {
-                                      _firstMovieNode.requestFocus();
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                      final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                                      if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                        headerSearch.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                      final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
+                                      if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
+                                        sidebarFocus.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                      if (_catSearchController.text.isEmpty || _catSearchController.selection.extentOffset >= _catSearchController.text.length) {
+                                        if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
+                                          _firstMovieNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
+                                        if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
+                                          _firstRailItemNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
+                                        return KeyEventResult.handled;
+                                      }
+                                    } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                        event.logicalKey == LogicalKeyboardKey.goBack) {
+                                      if (_catSearchController.text.isNotEmpty) {
+                                        setState(() {
+                                          _catSearchController.clear();
+                                          _catSearchQuery = '';
+                                        });
+                                        return KeyEventResult.handled;
+                                      }
+                                      _focusCategoryColumn();
                                       return KeyEventResult.handled;
                                     }
                                   }
                                   return KeyEventResult.ignored;
                                 },
-                                child: _isCatSearchActive
-                                    ? TextField(
-                                        controller: _catSearchController,
-                                        autofocus: true,
-                                        style: const TextStyle(fontSize: 12),
-                                        decoration: InputDecoration(
-                                          hintText: l10n.search,
-                                          hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
-                                          prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFB388FF)),
-                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          isDense: true,
-                                        ),
-                                        onChanged: (val) => setState(() => _catSearchQuery = val),
-                                        onSubmitted: (_) {
-                                          setState(() => _isCatSearchActive = false);
-                                          _focusCategoryColumn();
-                                        },
-                                      )
-                                    : Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.05),
-                                          borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.search,
-                                              size: 18,
-                                              color: _catSearchQuery.isNotEmpty ? const Color(0xFFB388FF) : Colors.white60,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                _catSearchQuery.isNotEmpty ? _catSearchQuery : l10n.search,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: _catSearchQuery.isNotEmpty ? Colors.white : Colors.white54,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                onSubmitted: (_) {
+                                  if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
+                                    _firstCategoryNode.requestFocus();
+                                  } else {
+                                    _focusCategoryColumn();
+                                  }
+                                },
                               ),
                             ),
                           Expanded(
@@ -636,40 +639,60 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       .toList();
                                 }
                                 return ListView.builder(
+                                  cacheExtent: GoatPlatform.isTv ? 3000.0 : 500.0,
                                   itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                                   itemCount: categories.length,
                                   itemBuilder: (context, index) {
                                     final cat = categories[index];
                                     final isSelected = _selectedCategory == cat.categoryId;
                                     final isFavorites = cat.categoryId == 'favorites';
-                                    final node = isSelected
-                                        ? _selectedCategoryNode
-                                        : _categoryFocusNodes.putIfAbsent(
-                                            cat.categoryId,
-                                            () => FocusNode(debugLabel: 'mcat_${cat.categoryId}'),
-                                          );
-                                    if (isSelected) {
-                                      _categoryFocusNodes[cat.categoryId] = _selectedCategoryNode;
+                                    final itemNode = index == 0
+                                        ? _firstCategoryNode
+                                        : (GoatPlatform.isTv
+                                            ? _categoryFocusNodes.putIfAbsent(
+                                                cat.categoryId,
+                                                () => FocusNode(debugLabel: 'mcat_${cat.categoryId}'),
+                                              )
+                                            : null);
+                                    if (index == 0) {
+                                      _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
                                     }
 
                                     return Padding(
+                                      key: ValueKey(cat.categoryId),
                                       padding: EdgeInsets.symmetric(
                                         horizontal: GoatPlatform.isTv ? 4 : 6,
                                         vertical: GoatPlatform.isTv ? 1.5 : 2,
                                       ),
                                       child: TvFocusable(
-                                        focusNode: GoatPlatform.isTv ? node : null,
+                                        focusNode: itemNode,
                                         focusScale: 1.02,
                                         borderRadius: BorderRadius.circular(8),
                                         onKeyEvent: GoatPlatform.isTv
                                             ? (n, event) {
-                                                if (event is KeyDownEvent) {
-                                                  if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
-                                                      _firstMovieNode.canRequestFocus) {
-                                                    _firstMovieNode.requestFocus();
+                                                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                                  if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                                    if (_firstMovieNode.context != null &&
+                                                        _firstMovieNode.canRequestFocus) {
+                                                      _firstMovieNode.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    }
+                                                    if (_firstRailItemNode.context != null &&
+                                                        _firstRailItemNode.canRequestFocus) {
+                                                      _firstRailItemNode.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    }
                                                     return KeyEventResult.handled;
+                                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                                    final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
+                                                    if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
+                                                      sidebarFocus.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    }
                                                   } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
                                                     _catSearchFocusNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index >= categories.length - 1) {
                                                     return KeyEventResult.handled;
                                                   }
                                                 }

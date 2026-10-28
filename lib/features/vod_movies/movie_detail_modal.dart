@@ -198,10 +198,10 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           ? const EdgeInsets.symmetric(horizontal: 24, vertical: 36)
           : const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Container(
-        width: isMobile ? double.infinity : 540,
+        width: isMobile ? double.infinity : (GoatPlatform.isTv ? 720 : 540),
         constraints: BoxConstraints(
-          maxWidth: 540,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+          maxWidth: GoatPlatform.isTv ? 720 : 540,
+          maxHeight: MediaQuery.sizeOf(context).height * (GoatPlatform.isTv ? 0.92 : 0.78),
         ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -225,7 +225,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: GoatPlatform.isTv ? 720 / 130 : 16 / 9,
               child: Container(
                 color: Colors.black,
                 child: Stack(

@@ -6,6 +6,7 @@ import '../../main.dart';
 import '../../core/database/app_database.dart';
 import 'package:drift/drift.dart';
 import '../../core/utils/title_sanitizer.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../core/settings/locale_controller.dart';
 
 class SelectedLiveCategory extends Notifier<String?> {
@@ -74,10 +75,17 @@ final liveStreamsProvider = StreamProvider.family.autoDispose<List<StreamItem>, 
   return dao.watchStreamsByCategory(account.id, categoryId);
 });
 
+final _tvLiveSearchSynced = <int>{};
+
 final liveTvSearchProvider = StreamProvider.family.autoDispose<List<StreamItem>, String>((ref, query) {
   final account = ref.watch(activeAccountProvider);
   if (account == null) return const Stream.empty();
-  
+
+  // TV skips the full live sync at startup; fetch lazily once when search is first used.
+  if (GoatPlatform.isTv && _tvLiveSearchSynced.add(account.id)) {
+    Future(() => ref.read(liveTvControllerProvider).syncAllLiveStreams());
+  }
+
   final dao = ref.watch(streamDaoProvider);
   return dao.watchStreamsByQuery(account.id, 'live', query);
 });

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/utils/platform_utils.dart';
@@ -34,12 +35,20 @@ class InPlayerEpisodeDrawer extends StatefulWidget {
 class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
   late String _selectedSeason;
   final ScrollController _scrollController = ScrollController();
+  final FocusScopeNode _drawerScopeNode = FocusScopeNode(debugLabel: 'EpisodeDrawerScope');
+  final FocusNode _targetEpisodeFocusNode = FocusNode(debugLabel: 'target_episode');
 
   @override
   void initState() {
     super.initState();
     _initSeason();
     _scrollToCurrentEpisode();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && GoatPlatform.isTv) {
+        _drawerScopeNode.requestFocus();
+        _targetEpisodeFocusNode.requestFocus();
+      }
+    });
   }
 
   void _initSeason() {
@@ -81,6 +90,8 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
 
   @override
   void dispose() {
+    _drawerScopeNode.dispose();
+    _targetEpisodeFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -91,145 +102,197 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
     final episodes = widget.seasonsWithEpisodes[_selectedSeason] ?? [];
     final seasonKeys = widget.seasonsWithEpisodes.keys.toList();
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          width: GoatPlatform.isMobile ? 330 : 420,
-          color: const Color(0xE814141E), // Frosted glass dark slate
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.only(left: 16, right: 8, top: 14, bottom: 10),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.video_library_outlined, color: Colors.white70, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.seriesName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
-                          ),
-                          Text(
-                            l10n?.episodes ?? 'Episodes',
-                            style: const TextStyle(fontSize: 11, color: Colors.white54),
-                          ),
-                        ],
-                      ),
-                    ),
-                    GoatPlatform.isTv
-                        ? TvFocusable(
-                            borderRadius: BorderRadius.circular(18),
-                            onPressed: widget.onClose,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              child: const Icon(Icons.close, color: Colors.white70, size: 20),
-                            ),
-                          )
-                        : IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                            tooltip: l10n?.close ?? 'Close',
-                            onPressed: widget.onClose,
-                          ),
-                  ],
-                ),
-              ),
-
-              // Season Selector Bar
-              if (seasonKeys.length > 1)
+    return FocusScope(
+      node: _drawerScopeNode,
+      autofocus: true,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            width: GoatPlatform.isMobile ? 330 : 420,
+            color: const Color(0xE814141E), // Frosted glass dark slate
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
                 Container(
-                  height: 46,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                  padding: const EdgeInsets.only(left: 16, right: 8, top: 14, bottom: 10),
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+                    border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
                   ),
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: seasonKeys.length,
-                    itemBuilder: (context, index) {
-                      final seasonKey = seasonKeys[index];
-                      final isSelected = seasonKey == _selectedSeason;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: TvFocusable(
-                          focusScale: 1.05,
-                          borderRadius: BorderRadius.circular(8),
-                          onPressed: () {
-                            setState(() => _selectedSeason = seasonKey);
-                            _scrollToCurrentEpisode();
-                          },
-                          child: ChoiceChip(
-                            label: Text(
-                              '${l10n?.season ?? 'Season'} $seasonKey',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? Colors.white : Colors.white70,
-                              ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.video_library_outlined, color: Colors.white70, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.seriesName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
                             ),
-                            selected: isSelected,
-                            selectedColor: Theme.of(context).colorScheme.primary,
-                            backgroundColor: Colors.white.withValues(alpha: 0.08),
-                            showCheckmark: false,
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() => _selectedSeason = seasonKey);
-                                _scrollToCurrentEpisode();
-                              }
-                            },
-                          ),
+                            Text(
+                              l10n?.episodes ?? 'Episodes',
+                              style: const TextStyle(fontSize: 11, color: Colors.white54),
+                            ),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                      GoatPlatform.isTv
+                          ? TvFocusable(
+                              borderRadius: BorderRadius.circular(18),
+                              onKeyEvent: (node, event) {
+                                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                  if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                                      event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                    return KeyEventResult.handled;
+                                  } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                      event.logicalKey == LogicalKeyboardKey.backspace) {
+                                    widget.onClose();
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              onPressed: widget.onClose,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                child: const Icon(Icons.close, color: Colors.white70, size: 20),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                              tooltip: l10n?.close ?? 'Close',
+                              onPressed: widget.onClose,
+                            ),
+                    ],
                   ),
                 ),
 
-              // Episodes List
-              Expanded(
-                child: episodes.isEmpty
-                    ? Center(
-                        child: const Text(
-                          'Keine Folgen / No episodes found',
-                          style: TextStyle(color: Colors.white54),
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                        itemCount: episodes.length,
-                        itemBuilder: (context, index) {
-                          final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
-                          final epId = ep['id']?.toString() ?? '';
-                          final isCurrent = epId == widget.currentEpisodeId;
-                          final epNum = ep['episode_num']?.toString() ?? '${index + 1}';
-                          final title = ep['title']?.toString() ?? 'Episode $epNum';
-                          final durationStr = ep['info']?['duration']?.toString() ?? '';
-                          final imageUrl = ep['info']?['movie_image']?.toString();
+                // Season Selector Bar
+                if (seasonKeys.length > 1)
+                  Container(
+                    height: 46,
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+                    ),
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: seasonKeys.length,
+                      itemBuilder: (context, index) {
+                        final seasonKey = seasonKeys[index];
+                        final isSelected = seasonKey == _selectedSeason;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: TvFocusable(
+                            focusScale: 1.05,
+                            borderRadius: BorderRadius.circular(8),
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                if (event.logicalKey == LogicalKeyboardKey.arrowLeft && index == 0) {
+                                  return KeyEventResult.handled;
+                                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && index >= seasonKeys.length - 1) {
+                                  return KeyEventResult.handled;
+                                } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                    event.logicalKey == LogicalKeyboardKey.backspace) {
+                                  widget.onClose();
+                                  return KeyEventResult.handled;
+                                }
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            onPressed: () {
+                              setState(() => _selectedSeason = seasonKey);
+                              _scrollToCurrentEpisode();
+                            },
+                            child: ChoiceChip(
+                              label: Text(
+                                '${l10n?.season ?? 'Season'} $seasonKey',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? Colors.white : Colors.white70,
+                                ),
+                              ),
+                              selected: isSelected,
+                              selectedColor: Theme.of(context).colorScheme.primary,
+                              backgroundColor: Colors.white.withValues(alpha: 0.08),
+                              showCheckmark: false,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() => _selectedSeason = seasonKey);
+                                  _scrollToCurrentEpisode();
+                                }
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
 
-                          final progress = widget.episodeProgress[epId];
-                          final isCompleted = progress?.isCompleted == true ||
-                              (progress != null && progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
-                          final progressRatio = (progress != null && progress.duration > 0)
-                              ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
-                              : 0.0;
+                // Episodes List
+                Expanded(
+                  child: episodes.isEmpty
+                      ? Center(
+                          child: const Text(
+                            'Keine Folgen / No episodes found',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                          itemCount: episodes.length,
+                          itemBuilder: (context, index) {
+                            final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
+                            final epId = ep['id']?.toString() ?? '';
+                            final isCurrent = epId == widget.currentEpisodeId;
+                            final epNum = ep['episode_num']?.toString() ?? '${index + 1}';
+                            final title = ep['title']?.toString() ?? 'Episode $epNum';
+                            final durationStr = ep['info']?['duration']?.toString() ?? '';
+                            final imageUrl = ep['info']?['movie_image']?.toString();
 
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: TvFocusable(
-                              autofocus: GoatPlatform.isTv && widget.isOpen && (isCurrent || index == 0),
-                              focusScale: 1.02,
-                              borderRadius: BorderRadius.circular(10),
+                            final progress = widget.episodeProgress[epId];
+                            final isCompleted = progress?.isCompleted == true ||
+                                (progress != null && progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
+                            final progressRatio = (progress != null && progress.duration > 0)
+                                ? (isCompleted ? 1.0 : (progress.position / progress.duration).clamp(0.0, 1.0))
+                                : 0.0;
+
+                            final targetIndex = episodes.indexWhere((e) => e['id']?.toString() == widget.currentEpisodeId);
+                            final resolvedTargetIndex = targetIndex != -1 ? targetIndex : 0;
+                            final isTarget = index == resolvedTargetIndex;
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TvFocusable(
+                                focusNode: isTarget ? _targetEpisodeFocusNode : null,
+                                autofocus: GoatPlatform.isTv && isTarget,
+                                focusScale: 1.02,
+                                borderRadius: BorderRadius.circular(10),
+                                onKeyEvent: (node, event) {
+                                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                    if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                                        event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                        event.logicalKey == LogicalKeyboardKey.backspace) {
+                                      widget.onClose();
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index >= episodes.length - 1) {
+                                      return KeyEventResult.handled;
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0 && seasonKeys.length <= 1) {
+                                      return KeyEventResult.handled;
+                                    }
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
                               onPressed: () => widget.onSelectEpisode(ep),
                               child: Container(
                                 decoration: BoxDecoration(
@@ -348,6 +411,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

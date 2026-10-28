@@ -39,11 +39,13 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        ref.read(epgControllerProvider).syncEpgData();
-      }
-    });
+    if (!GoatPlatform.isTv) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          ref.read(epgControllerProvider).syncEpgData();
+        }
+      });
+    }
   }
 
   @override

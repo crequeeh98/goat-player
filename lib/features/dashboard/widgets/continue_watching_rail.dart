@@ -24,8 +24,14 @@ class _DisplayProgressItem {
 class ContinueWatchingRail extends ConsumerWidget {
   final String type; // 'movie' or 'series'
   final VoidCallback? onExitLeft;
+  final FocusNode? firstItemFocusNode;
   
-  const ContinueWatchingRail({super.key, required this.type, this.onExitLeft});
+  const ContinueWatchingRail({
+    super.key,
+    required this.type,
+    this.onExitLeft,
+    this.firstItemFocusNode,
+  });
 
   List<_DisplayProgressItem> _processItems(List<PlaybackProgressItem> rawItems) {
     if (type == 'movie') {
@@ -187,12 +193,13 @@ class ContinueWatchingRail extends ConsumerWidget {
                         children: [
                           Expanded(
                             child: TvFocusable(
+                              focusNode: index == 0 ? firstItemFocusNode : null,
                               focusScale: 1.04,
                               borderRadius: BorderRadius.circular(8),
                               onKeyEvent: (node, event) {
                                 if (GoatPlatform.isTv &&
                                     index == 0 &&
-                                    event is KeyDownEvent &&
+                                    (event is KeyDownEvent || event is KeyRepeatEvent) &&
                                     event.logicalKey == LogicalKeyboardKey.arrowLeft &&
                                     onExitLeft != null) {
                                   onExitLeft!();

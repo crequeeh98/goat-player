@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import '../../main.dart';
 import '../../core/database/app_database.dart';
 import '../../core/utils/epg_isolate_parser.dart';
+import '../../core/utils/platform_utils.dart';
 import 'package:dio/dio.dart';
 
 import '../../core/settings/locale_controller.dart';
@@ -34,6 +35,12 @@ class EpgController {
     
     final account = _ref.read(activeAccountProvider);
     if (account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+
+    // Smart TVs / Fire TV sticks have constrained memory and bandwidth; full XMLTV parsing triggers ANRs.
+    if (GoatPlatform.isTv) {
+      debugPrint('Skipping full XMLTV EPG sync on TV platform');
+      return;
+    }
 
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;

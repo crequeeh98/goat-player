@@ -46,8 +46,13 @@ class GoatPlatform {
   static bool get isMacOS => !kIsWeb && Platform.isMacOS;
   static bool get isDesktop => isWindows || isLinux || isMacOS;
 
+  static bool _forceTvMode = false;
+  static void setForceTvMode(bool value) => _forceTvMode = value;
+  static bool get forceTvMode => _forceTvMode;
+
   /// True on Android TV, Fire TV, Beamer, or large landscape TV displays
   static bool get isTv {
+    if (_forceTvMode) return true;
     if (_hasNativeTvResult) return _isNativeTv;
     if (_isNativeTv) return true;
     if (kIsWeb) return false;

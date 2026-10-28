@@ -1234,11 +1234,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       child: const ColoredBox(color: Colors.black38),
                     ),
                   ),
-                if (widget.streamType == 'series' && _seasonsWithEpisodes.isNotEmpty)
+                if (widget.streamType == 'series' && _seasonsWithEpisodes.isNotEmpty && _isEpisodeDrawerOpen)
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeOutCubic,
-                    left: _isEpisodeDrawerOpen ? 0 : -440,
+                    left: 0,
                     top: 0,
                     bottom: 0,
                     child: InPlayerEpisodeDrawer(
@@ -1247,12 +1247,20 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       currentEpisodeId: _currentStreamId ?? '',
                       currentSeason: _currentSeason,
                       episodeProgress: _episodeProgress,
-                      isOpen: _isEpisodeDrawerOpen,
+                      isOpen: true,
                       onSelectEpisode: (ep) {
                         setState(() => _isEpisodeDrawerOpen = false);
                         _switchEpisode(ep);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _screenFocusNode.requestFocus();
+                        });
                       },
-                      onClose: () => setState(() => _isEpisodeDrawerOpen = false),
+                      onClose: () {
+                        setState(() => _isEpisodeDrawerOpen = false);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _screenFocusNode.requestFocus();
+                        });
+                      },
                     ),
                   ),
               ],
@@ -1313,6 +1321,9 @@ class _VodControlsState extends State<_VodControls> {
   bool _showSkipRight = false;
   int _lastSkipDelta = 10;
   DateTime _lastSeekKeyTime = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastScrubRepeatTime = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastSeekAction = DateTime.fromMillisecondsSinceEpoch(0);
+  int _scrubRepeatCount = 0;
   int _consecutiveSeekCount = 0;
   Timer? _hideTimer;
   Timer? _skipLeftTimer;
@@ -1323,7 +1334,20 @@ class _VodControlsState extends State<_VodControls> {
   late final FocusNode _focusNode = FocusNode(debugLabel: 'VodControlsRoot');
   late final FocusNode _tvScrubberNode = FocusNode(debugLabel: 'TvVodScrubber');
   late final FocusNode _tvPlayPauseNode = FocusNode(debugLabel: 'TvVodPlayPause');
+  late final FocusNode _tvRewindNode = FocusNode(debugLabel: 'TvVodRewind');
+  late final FocusNode _tvForwardNode = FocusNode(debugLabel: 'TvVodForward');
+  late final FocusNode _tvNextEpNode = FocusNode(debugLabel: 'TvVodNextEp');
+  late final FocusNode _tvEpisodesNode = FocusNode(debugLabel: 'TvVodEpisodes');
+  late final FocusNode _tvAudioNode = FocusNode(debugLabel: 'TvVodAudio');
+  late final FocusNode _tvSubtitlesNode = FocusNode(debugLabel: 'TvVodSubtitles');
+  late final FocusNode _tvFormatNode = FocusNode(debugLabel: 'TvVodFormat');
   bool _isTvScrubberFocused = false;
+
+  FocusNode get _lastLeftBtnNode {
+    if (widget.hasEpisodes) return _tvEpisodesNode;
+    if (widget.hasNextEpisode) return _tvNextEpNode;
+    return _tvForwardNode;
+  }
 
   @override
   void initState() {
@@ -1346,7 +1370,7 @@ class _VodControlsState extends State<_VodControls> {
       }
     });
     _posSub = _player.stream.position.listen((pos) {
-      if (mounted && _dragValue == null) {
+      if (mounted && _dragValue == null && DateTime.now().difference(_lastSeekAction).inMilliseconds > 400) {
         setState(() => _position = pos);
       }
     });
@@ -1373,6 +1397,13 @@ class _VodControlsState extends State<_VodControls> {
     _focusNode.dispose();
     _tvScrubberNode.dispose();
     _tvPlayPauseNode.dispose();
+    _tvRewindNode.dispose();
+    _tvForwardNode.dispose();
+    _tvNextEpNode.dispose();
+    _tvEpisodesNode.dispose();
+    _tvAudioNode.dispose();
+    _tvSubtitlesNode.dispose();
+    _tvFormatNode.dispose();
     _hideTimer?.cancel();
     _skipLeftTimer?.cancel();
     _skipRightTimer?.cancel();
@@ -1385,7 +1416,7 @@ class _VodControlsState extends State<_VodControls> {
   void _startHideTimer() {
     _hideTimer?.cancel();
     if (_isPlaying && !widget.isEpisodeDrawerOpen) {
-      _hideTimer = Timer(Duration(seconds: GoatPlatform.isTv ? 4 : 3), () {
+      _hideTimer = Timer(Duration(seconds: GoatPlatform.isTv ? 8 : 3), () {
         if (mounted && _isPlaying && !widget.isEpisodeDrawerOpen) {
           setState(() => _isControlsVisible = false);
           if (GoatPlatform.isTv) {
@@ -1430,19 +1461,20 @@ class _VodControlsState extends State<_VodControls> {
 
   int _computeAcceleratedDelta(int direction) {
     final now = DateTime.now();
-    if (now.difference(_lastSeekKeyTime).inMilliseconds < 650) {
+    if (now.difference(_lastSeekKeyTime).inMilliseconds < 500) {
       _consecutiveSeekCount++;
     } else {
       _consecutiveSeekCount = 1;
     }
     _lastSeekKeyTime = now;
-    final step = _consecutiveSeekCount >= 8 ? 60 : (_consecutiveSeekCount >= 4 ? 30 : 10);
+    final step = _consecutiveSeekCount >= 8 ? 30 : (_consecutiveSeekCount >= 4 ? 20 : 10);
     return direction * step;
   }
 
   void _seekRelative(int deltaSeconds, {bool showRipple = false}) {
-    final current = _player.state.position;
-    final duration = _player.state.duration;
+    _lastSeekAction = DateTime.now();
+    final current = _position;
+    final duration = _duration > Duration.zero ? _duration : _player.state.duration;
     final target = current + Duration(seconds: deltaSeconds);
     final clamped = target < Duration.zero
         ? Duration.zero
@@ -1488,6 +1520,7 @@ class _VodControlsState extends State<_VodControls> {
     required VoidCallback onPressed,
     FocusNode? focusNode,
     bool isPrimary = false,
+    KeyEventResult Function(FocusNode, KeyEvent)? onKeyEvent,
   }) {
     return Padding(
       padding: const EdgeInsets.only(right: 10),
@@ -1496,6 +1529,10 @@ class _VodControlsState extends State<_VodControls> {
         focusScale: 1.05,
         borderRadius: BorderRadius.circular(10),
         onKeyEvent: (node, event) {
+          if (onKeyEvent != null) {
+            final res = onKeyEvent(node, event);
+            if (res == KeyEventResult.handled) return res;
+          }
           if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
             _tvScrubberNode.requestFocus();
             _startHideTimer();
@@ -1643,15 +1680,13 @@ class _VodControlsState extends State<_VodControls> {
                       if (mounted) setState(() => _isTvScrubberFocused = focused);
                     },
                     onKeyEvent: (node, event) {
+                      final key = event.logicalKey;
                       if (event is KeyDownEvent) {
-                        final key = event.logicalKey;
-                        if (key == LogicalKeyboardKey.arrowLeft) {
-                          _seekRelative(_computeAcceleratedDelta(-1), showRipple: true);
-                          _startHideTimer();
-                          return KeyEventResult.handled;
-                        }
-                        if (key == LogicalKeyboardKey.arrowRight) {
-                          _seekRelative(_computeAcceleratedDelta(1), showRipple: true);
+                        if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+                          _scrubRepeatCount = 0;
+                          _lastScrubRepeatTime = DateTime.now();
+                          final dir = key == LogicalKeyboardKey.arrowLeft ? -1 : 1;
+                          _seekRelative(_computeAcceleratedDelta(dir), showRipple: true);
                           _startHideTimer();
                           return KeyEventResult.handled;
                         }
@@ -1665,6 +1700,29 @@ class _VodControlsState extends State<_VodControls> {
                             key == LogicalKeyboardKey.numpadEnter) {
                           _togglePlayPause();
                           return KeyEventResult.handled;
+                        }
+                      } else if (event is KeyRepeatEvent) {
+                        if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+                          final now = DateTime.now();
+                          if (now.difference(_lastScrubRepeatTime).inMilliseconds >= 120) {
+                            _lastScrubRepeatTime = now;
+                            _scrubRepeatCount++;
+                            final step = _scrubRepeatCount > 60
+                                ? 60
+                                : (_scrubRepeatCount > 38
+                                    ? 40
+                                    : (_scrubRepeatCount > 20
+                                        ? 20
+                                        : (_scrubRepeatCount > 8 ? 10 : 5)));
+                            final dir = key == LogicalKeyboardKey.arrowLeft ? -1 : 1;
+                            _seekRelative(dir * step, showRipple: true);
+                            _startHideTimer();
+                          }
+                          return KeyEventResult.handled;
+                        }
+                      } else if (event is KeyUpEvent) {
+                        if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+                          _scrubRepeatCount = 0;
                         }
                       }
                       return KeyEventResult.ignored;
@@ -1768,9 +1826,17 @@ class _VodControlsState extends State<_VodControls> {
                   Row(
                     children: [
                       _buildTvControlBtn(
+                        focusNode: _tvRewindNode,
                         icon: Icons.replay_10_rounded,
                         label: '-10s',
                         onPressed: () => _seekRelative(-10, showRipple: true),
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                            _tvPlayPauseNode.requestFocus();
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
+                        },
                       ),
                       _buildTvControlBtn(
                         focusNode: _tvPlayPauseNode,
@@ -1780,40 +1846,139 @@ class _VodControlsState extends State<_VodControls> {
                             ? (isDe ? 'Pause' : 'Pause')
                             : (isDe ? 'Abspielen' : 'Play'),
                         onPressed: _togglePlayPause,
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _tvRewindNode.requestFocus();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                              _tvForwardNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
                       ),
                       _buildTvControlBtn(
+                        focusNode: _tvForwardNode,
                         icon: Icons.forward_10_rounded,
                         label: '+10s',
                         onPressed: () => _seekRelative(10, showRipple: true),
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _tvPlayPauseNode.requestFocus();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                              if (widget.hasNextEpisode) {
+                                _tvNextEpNode.requestFocus();
+                              } else if (widget.hasEpisodes) {
+                                _tvEpisodesNode.requestFocus();
+                              } else {
+                                _tvAudioNode.requestFocus();
+                              }
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
                       ),
                       if (widget.hasNextEpisode)
                         _buildTvControlBtn(
+                          focusNode: _tvNextEpNode,
                           icon: Icons.skip_next_rounded,
                           label: isDe ? 'Nächste Folge' : 'Next Ep',
                           onPressed: () => widget.onPlayNextEpisode?.call(),
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                _tvForwardNode.requestFocus();
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                if (widget.hasEpisodes) {
+                                  _tvEpisodesNode.requestFocus();
+                                } else {
+                                  _tvAudioNode.requestFocus();
+                                }
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
                         ),
                       if (widget.hasEpisodes)
                         _buildTvControlBtn(
+                          focusNode: _tvEpisodesNode,
                           icon: Icons.video_library_outlined,
                           label: isDe ? 'Folgen' : 'Episodes',
                           onPressed: () => widget.onToggleEpisodeDrawer?.call(),
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                if (widget.hasNextEpisode) {
+                                  _tvNextEpNode.requestFocus();
+                                } else {
+                                  _tvForwardNode.requestFocus();
+                                }
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                _tvAudioNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
                         ),
                       const Spacer(),
                       _buildTvControlBtn(
+                        focusNode: _tvAudioNode,
                         icon: Icons.audiotrack_rounded,
                         label: 'Audio',
                         onPressed: () => widget.onShowAudioTracks?.call(),
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _lastLeftBtnNode.requestFocus();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                              _tvSubtitlesNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
                       ),
                       _buildTvControlBtn(
+                        focusNode: _tvSubtitlesNode,
                         icon: Icons.subtitles_rounded,
                         label: isDe ? 'Untertitel' : 'Subtitles',
                         onPressed: () => widget.onShowSubtitleTracks?.call(),
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _tvAudioNode.requestFocus();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && widget.onCycleFit != null && !GoatPlatform.isTv) {
+                              _tvFormatNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
                       ),
-                      if (widget.onCycleFit != null)
+                      if (widget.onCycleFit != null && !GoatPlatform.isTv)
                         _buildTvControlBtn(
+                          focusNode: _tvFormatNode,
                           icon: Icons.aspect_ratio_rounded,
                           label: isDe ? 'Format' : 'Format',
                           onPressed: () => widget.onCycleFit?.call(),
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              _tvSubtitlesNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
                         ),
                     ],
                   ),
@@ -1845,7 +2010,7 @@ class _VodControlsState extends State<_VodControls> {
                   key == LogicalKeyboardKey.goBack) {
                 widget.onCloseDrawer?.call();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _tvPlayPauseNode.requestFocus();
+                  if (mounted) _tvEpisodesNode.requestFocus();
                 });
                 return KeyEventResult.handled;
               }
@@ -1918,7 +2083,7 @@ class _VodControlsState extends State<_VodControls> {
                 setState(() => _isControlsVisible = true);
                 _startHideTimer();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _tvPlayPauseNode.requestFocus();
+                  if (mounted) _tvEpisodesNode.requestFocus();
                 });
                 return KeyEventResult.handled;
               }
@@ -1985,6 +2150,38 @@ class _VodControlsState extends State<_VodControls> {
               widget.onMinimize!();
               return KeyEventResult.handled;
             }
+          }
+        } else if (event is KeyRepeatEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowLeft ||
+              key == LogicalKeyboardKey.arrowRight ||
+              key == LogicalKeyboardKey.mediaRewind ||
+              key == LogicalKeyboardKey.mediaFastForward) {
+            final now = DateTime.now();
+            if (now.difference(_lastScrubRepeatTime).inMilliseconds >= 120) {
+              _lastScrubRepeatTime = now;
+              _scrubRepeatCount++;
+              final step = _scrubRepeatCount > 60
+                  ? 60
+                  : (_scrubRepeatCount > 38
+                      ? 40
+                      : (_scrubRepeatCount > 20
+                          ? 20
+                          : (_scrubRepeatCount > 8 ? 10 : 5)));
+              final isLeft = key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.mediaRewind;
+              _seekRelative((isLeft ? -1 : 1) * step, showRipple: true);
+              if (!_isControlsVisible) setState(() => _isControlsVisible = true);
+              _startHideTimer();
+            }
+            return KeyEventResult.handled;
+          }
+        } else if (event is KeyUpEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.arrowLeft ||
+              key == LogicalKeyboardKey.arrowRight ||
+              key == LogicalKeyboardKey.mediaRewind ||
+              key == LogicalKeyboardKey.mediaFastForward) {
+            _scrubRepeatCount = 0;
           }
         }
         return KeyEventResult.ignored;

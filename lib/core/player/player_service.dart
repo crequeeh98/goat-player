@@ -67,10 +67,18 @@ class PlayerService {
     // When live stream encounters socket or demuxer read error
     _errorSub = engine.stream.error.listen((error) {
       debugPrint('[GOAT_PLAY] engine.stream.error received: $error');
-      if (_isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
-        debugPrint('PlayerService: Live stream error ($error). Auto-reconnecting...');
-        _scheduleLiveReconnect();
+      if (!_isLive || _isDisposed || _isOpening || lastOpenedUrl == null) return;
+      final errStr = error.toString().toLowerCase();
+      if (errStr.contains('cannot seek') ||
+          errStr.contains('force-seekable') ||
+          errStr.contains('desynchronisation') ||
+          errStr.contains('cache is not responding') ||
+          errStr.contains('demuxer') ||
+          errStr.contains('packet corrupt')) {
+        return;
       }
+      debugPrint('PlayerService: Live stream error ($error). Auto-reconnecting...');
+      _scheduleLiveReconnect();
     });
 
     // Watchdog: If live stream stays stuck buffering for >= 12 seconds while playing
@@ -114,7 +122,11 @@ class PlayerService {
   Future<void> open(String url, {bool isLive = false, Duration? startPosition, bool isReconnect = false}) async {
     if (_isDisposed) return;
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _bufferingWatchdogTimer?.cancel();
+    _bufferingWatchdogTimer = null;
+    _stabilityTimer?.cancel();
+    _stabilityTimer = null;
     _isLive = isLive;
     _isOpening = true;
     if (!isReconnect) {

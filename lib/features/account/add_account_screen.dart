@@ -13,6 +13,7 @@ import '../../core/database/app_database.dart';
 import '../../core/remote_sync/remote_sync_service.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../core/widgets/tv_focusable.dart';
+import '../../core/widgets/tv_text_field.dart';
 
 enum AddAccountMode { manual, remote }
 enum PlaylistType { xtream, m3u }
@@ -434,10 +435,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(isEditing ? l10n.editAccount : l10n.addAccount),
+          toolbarHeight: GoatPlatform.isTv ? 56 : null,
+          title: Padding(
+            padding: EdgeInsets.only(top: GoatPlatform.isTv ? 8.0 : 0),
+            child: Text(isEditing ? l10n.editAccount : l10n.addAccount),
+          ),
           leading: GoatPlatform.isTv
               ? Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.only(left: 20.0, top: 8.0),
                   child: TvFocusable(
                     borderRadius: BorderRadius.circular(10),
                     onPressed: _isClosingSession ? null : _handleCloseAndPop,
@@ -630,9 +635,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                           ),
                         SizedBox(height: GoatPlatform.isTv ? 10 : 20),
                         Expanded(
-                          child: _selectedMode == AddAccountMode.manual
-                              ? SingleChildScrollView(child: _buildManualForm(l10n))
-                              : _buildRemotePairingView(l10n),
+                          child: SingleChildScrollView(
+                            child: _selectedMode == AddAccountMode.manual
+                                ? _buildManualForm(l10n)
+                                : _buildRemotePairingView(l10n),
+                          ),
                         ),
                       ],
                     ),
@@ -775,77 +782,69 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ),
             ),
           const SizedBox(height: 14),
-          TextFormField(
+          TvTextField(
             controller: _playlistNameController,
             focusNode: _nameFocusNode,
             textInputAction: TextInputAction.next,
-            onFieldSubmitted: (_) => _urlFocusNode.requestFocus(),
-            decoration: InputDecoration(
-              labelText: l10n.playlistName,
-              hintText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistNameHint : l10n.m3uPlaylistNameDefault,
-              border: const OutlineInputBorder(),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
-              ),
-              prefixIcon: const Icon(Icons.badge_outlined),
+            onSubmitted: (_) => _urlFocusNode.requestFocus(),
+            labelText: l10n.playlistName,
+            hintText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistNameHint : l10n.m3uPlaylistNameDefault,
+            border: const OutlineInputBorder(),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
             ),
+            prefixIcon: const Icon(Icons.badge_outlined),
           ),
           const SizedBox(height: 14),
-          TextFormField(
+          TvTextField(
             controller: _serverUrlController,
             focusNode: _urlFocusNode,
             keyboardType: TextInputType.url,
             textInputAction: _playlistType == PlaylistType.xtream ? TextInputAction.next : TextInputAction.done,
-            onFieldSubmitted: (_) => _playlistType == PlaylistType.xtream
+            onSubmitted: (_) => _playlistType == PlaylistType.xtream
                 ? _userFocusNode.requestFocus()
                 : _submitFocusNode.requestFocus(),
-            decoration: InputDecoration(
-              labelText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistUrl : l10n.serverUrl,
-              hintText: _playlistType == PlaylistType.m3u ? l10n.m3uUrlHint : 'http://example.com:8080',
+            labelText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistUrl : l10n.serverUrl,
+            hintText: _playlistType == PlaylistType.m3u ? l10n.m3uUrlHint : 'http://example.com:8080',
+            border: const OutlineInputBorder(),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
+            ),
+            prefixIcon: const Icon(Icons.link),
+            validator: (v) => v!.trim().isEmpty ? l10n.fieldRequired : null,
+          ),
+          if (_playlistType == PlaylistType.xtream) ...[
+            const SizedBox(height: 14),
+            TvTextField(
+              controller: _usernameController,
+              focusNode: _userFocusNode,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _passFocusNode.requestFocus(),
+              labelText: l10n.username,
               border: const OutlineInputBorder(),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
               ),
-              prefixIcon: const Icon(Icons.link),
-            ),
-            validator: (v) => v!.trim().isEmpty ? l10n.fieldRequired : null,
-          ),
-          if (_playlistType == PlaylistType.xtream) ...[
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _usernameController,
-              focusNode: _userFocusNode,
-              textInputAction: TextInputAction.next,
-              onFieldSubmitted: (_) => _passFocusNode.requestFocus(),
-              decoration: InputDecoration(
-                labelText: l10n.username,
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
-                ),
-                prefixIcon: const Icon(Icons.person_outline),
-              ),
+              prefixIcon: const Icon(Icons.person_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
             const SizedBox(height: 14),
-            TextFormField(
+            TvTextField(
               controller: _passwordController,
               focusNode: _passFocusNode,
               obscureText: true,
               textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => _submitFocusNode.requestFocus(),
-              decoration: InputDecoration(
-                labelText: l10n.password,
-                border: const OutlineInputBorder(),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
-                ),
-                prefixIcon: const Icon(Icons.lock_outline),
+              onSubmitted: (_) => _submitFocusNode.requestFocus(),
+              labelText: l10n.password,
+              border: const OutlineInputBorder(),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
               ),
+              prefixIcon: const Icon(Icons.lock_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
           ],

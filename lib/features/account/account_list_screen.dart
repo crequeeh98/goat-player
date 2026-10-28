@@ -228,14 +228,18 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
             isRoot: true,
             child: Scaffold(
             appBar: AppBar(
+              toolbarHeight: GoatPlatform.isTv ? 56 : null,
               title: Padding(
-                padding: EdgeInsets.only(left: GoatPlatform.isTv ? 32.0 : 0),
+                padding: EdgeInsets.only(
+                  left: GoatPlatform.isTv ? 32.0 : 0,
+                  top: GoatPlatform.isTv ? 8.0 : 0,
+                ),
                 child: Text(l10n.accounts),
               ),
               actions: [
                 if (GoatPlatform.isTv)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    padding: const EdgeInsets.only(right: 24.0, top: 8.0),
                     child: TvFocusable(
                       borderRadius: BorderRadius.circular(10),
                       onPressed: _openAddAccount,
@@ -269,7 +273,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                     tooltip: l10n.addAccount,
                     onPressed: _openAddAccount,
                   ),
-                SizedBox(width: GoatPlatform.isTv ? 32 : 8),
+                SizedBox(width: GoatPlatform.isTv ? 8 : 8),
               ],
             ),
             body: SafeArea(

@@ -6,6 +6,7 @@ import '../../main.dart';
 import '../database/app_database.dart';
 import '../settings/locale_controller.dart';
 import 'title_sanitizer.dart';
+import 'platform_utils.dart';
 
 class VodSyncHelper {
   static int? parseAdded(dynamic val) {
@@ -210,9 +211,16 @@ class VodSyncHelper {
     return dao.watchStreamsByCategory(account.id, categoryId);
   }
 
+  static final Set<String> _tvSearchSynced = {};
+
   static Stream<List<StreamItem>> watchStreamsByQuery(Ref ref, String type, String query) {
     final account = ref.watch(activeAccountProvider);
     if (account == null) return const Stream.empty();
+
+    // TV skips the full-library sync at startup (RAM). Lazily fetch it once when search is first used.
+    if (GoatPlatform.isTv && _tvSearchSynced.add('${account.id}_$type')) {
+      Future(() => syncAllStreams(ref, type: type));
+    }
 
     final dao = ref.watch(streamDaoProvider);
     return dao.watchStreamsByQuery(account.id, type, query);

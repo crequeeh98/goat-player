@@ -41,6 +41,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   bool _isSearchOpen = false;
   bool _wasLiveExpandedBeforeSearch = false;
 
+  late final FocusNode _headerSearchFocusNode;
+  late final FocusNode _headerPrefFocusNode;
+  late final FocusNode _headerLangFocusNode;
+  late final FocusNode _headerVpnFocusNode;
+  late final FocusNode _headerSwitchFocusNode;
+  final List<FocusNode> _sidebarFocusNodes = [];
+
   void _openSearch() async {
     ref.read(dashboardTabResetProvider.notifier).reset();
     ref.read(selectedLiveCategoryProvider.notifier).set(null);
@@ -90,14 +97,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     ref.read(selectedLiveStreamProvider.notifier).set(null);
     ref.read(isLiveFullWidthProvider.notifier).set(false);
     final playerService = ref.read(playerServiceProvider);
-    await playerService.player.stop();
-    await Future.delayed(const Duration(milliseconds: 50));
+    playerService.player.stop().catchError((_) {});
     
     ref.read(activeAccountProvider.notifier).set(null);
     if (mounted) {
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const AccountListScreen(fromSwitchAccount: true)),
+        (route) => false,
       );
     }
   }
@@ -155,6 +162,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   void initState() {
     super.initState();
+    _headerSearchFocusNode = FocusNode(debugLabel: 'header_search');
+    _headerPrefFocusNode = FocusNode(debugLabel: 'header_pref');
+    _headerLangFocusNode = FocusNode(debugLabel: 'header_lang');
+    _headerVpnFocusNode = FocusNode(debugLabel: 'header_vpn');
+    _headerSwitchFocusNode = FocusNode(debugLabel: 'header_switch');
+    for (var i = 0; i < 3; i++) {
+      _sidebarFocusNodes.add(FocusNode(debugLabel: 'sidebar_$i'));
+    }
     if (GoatPlatform.isTv) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
@@ -183,23 +198,32 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       if (!mounted) return;
       await ref.read(seriesControllerProvider).syncSeriesCategories();
 
-      // On TV, do not dump tens of thousands of streams into memory concurrently.
-      // Category streams are loaded on-demand when a category is selected.
-      if (!GoatPlatform.isTv) {
-        // Defer full-library heavy background syncs by 5s so initial navigation is 100% fluid
-        await Future.delayed(const Duration(seconds: 5));
-        if (!mounted) return;
-        await ref.read(liveTvControllerProvider).syncAllLiveStreams();
-        if (!mounted) return;
-        await Future.delayed(const Duration(seconds: 3));
-        if (!mounted) return;
-        await ref.read(vodControllerProvider).syncAllVodStreams();
-        if (!mounted) return;
-        await Future.delayed(const Duration(seconds: 3));
-        if (!mounted) return;
-        await ref.read(seriesControllerProvider).syncAllSeriesStreams();
-      }
+      // Defer full-library background syncs so initial UI launch is 100% fluid
+      await Future.delayed(Duration(seconds: GoatPlatform.isTv ? 8 : 5));
+      if (!mounted) return;
+      await ref.read(liveTvControllerProvider).syncAllLiveStreams();
+      if (!mounted) return;
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      await ref.read(vodControllerProvider).syncAllVodStreams();
+      if (!mounted) return;
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      await ref.read(seriesControllerProvider).syncAllSeriesStreams();
     });
+  }
+
+  @override
+  void dispose() {
+    _headerSearchFocusNode.dispose();
+    _headerPrefFocusNode.dispose();
+    _headerLangFocusNode.dispose();
+    _headerVpnFocusNode.dispose();
+    _headerSwitchFocusNode.dispose();
+    for (final node in _sidebarFocusNodes) {
+      node.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -223,6 +247,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     final isLiveFullWidth = ref.watch(isLiveFullWidthProvider);
     final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
     final isCompact = MediaQuery.sizeOf(context).width < 600;
+
+    if (GoatPlatform.isTv) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (ref.read(headerSearchFocusNodeProvider) != _headerSearchFocusNode) {
+          ref.read(headerSearchFocusNodeProvider.notifier).set(_headerSearchFocusNode);
+        }
+        if (_selectedIndex < _sidebarFocusNodes.length &&
+            ref.read(activeSidebarFocusNodeProvider) != _sidebarFocusNodes[_selectedIndex]) {
+          ref.read(activeSidebarFocusNodeProvider.notifier).set(_sidebarFocusNodes[_selectedIndex]);
+        }
+      });
+    }
 
     return TvRemoteScope(
       isRoot: true,
@@ -280,11 +317,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             }
           }
         },
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          appBar: hideChrome ? null : AppBar(
-            toolbarHeight: GoatPlatform.isTv ? 48 : null,
-            titleSpacing: isCompact ? 8 : null,
+        child: Container(
+          color: const Color(0xFF0D0915),
+          padding: EdgeInsets.zero,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            resizeToAvoidBottomInset: false,
+            appBar: hideChrome ? null : AppBar(
+              toolbarHeight: GoatPlatform.isTv ? 46 : null,
+              titleSpacing: isCompact ? 8 : (GoatPlatform.isTv ? 14 : null),
             title: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -396,12 +437,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             : GoatPlatform.isTv
                 ? [
                     _buildTvHeaderButton(
+                      focusNode: _headerSearchFocusNode,
                       icon: Icons.search,
                       label: AppLocalizations.of(context)!.search,
                       onPressed: _openSearch,
+                      isLeftmost: true,
                     ),
                     const SizedBox(width: 8),
                     _buildTvHeaderButton(
+                      focusNode: _headerPrefFocusNode,
                       icon: Icons.tune,
                       label: AppLocalizations.of(context)?.localeName == 'de' ? 'Einstellungen' : 'Preferences',
                       onPressed: () {
@@ -417,6 +461,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         final currentLocale = ref.watch(localeControllerProvider);
                         final isDe = currentLocale.languageCode == 'de';
                         return _buildTvHeaderButton(
+                          focusNode: _headerLangFocusNode,
                           icon: Icons.language,
                           label: isDe ? 'DE' : 'EN',
                           onPressed: () {
@@ -432,6 +477,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                           final stageAsync = ref.watch(vpnStageProvider);
                           final isConnected = stageAsync.value == VpnStage.connected;
                           return _buildTvHeaderButton(
+                            focusNode: _headerVpnFocusNode,
                             icon: isConnected ? Icons.security : Icons.shield_outlined,
                             iconColor: isConnected ? Colors.greenAccent : Colors.white70,
                             label: 'VPN',
@@ -447,9 +493,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       const SizedBox(width: 8),
                     ],
                     _buildTvHeaderButton(
+                      focusNode: _headerSwitchFocusNode,
                       icon: Icons.logout_rounded,
                       label: AppLocalizations.of(context)!.switchAccount,
                       onPressed: _handleSwitchAccount,
+                      isRightmost: true,
                     ),
                     const SizedBox(width: 12),
                     _buildTvLiveClock(),
@@ -612,16 +660,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           ),
           if (_isSearchOpen)
             Positioned.fill(
-              child: MasterSearchModal(
-                onClose: _closeSearch,
-                onSelectTab: (idx) {
-                  _wasLiveExpandedBeforeSearch = false;
-                  ref.read(dashboardTabResetProvider.notifier).reset();
-                  setState(() {
-                    _isSearchOpen = false;
-                    _selectedIndex = idx;
-                  });
-                },
+              child: Container(
+                color: const Color(0xFF0F0817),
+                child: MasterSearchModal(
+                  onClose: _closeSearch,
+                  onSelectTab: (idx) {
+                    _wasLiveExpandedBeforeSearch = false;
+                    ref.read(dashboardTabResetProvider.notifier).reset();
+                    setState(() {
+                      _isSearchOpen = false;
+                      _selectedIndex = idx;
+                    });
+                  },
+                ),
               ),
             ),
           if (!GoatPlatform.isWeb && !GoatPlatform.isTv && (ModalRoute.of(context)?.isCurrent ?? true))
@@ -659,7 +710,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             : null,
       ),
     ),
-  );
+  ),
+);
 }
 
   void _onTabSelected(int idx) {
@@ -705,8 +757,25 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         children: [
           for (final item in items) ...[
             TvFocusable(
+              focusNode: _sidebarFocusNodes.length > item.index ? _sidebarFocusNodes[item.index] : null,
               borderRadius: BorderRadius.circular(12),
               onPressed: () => _onTabSelected(item.index),
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                  if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                    final target = ref.read(activeScreenSearchFocusNodeProvider);
+                    if (target != null && target.context != null && target.canRequestFocus) {
+                      target.requestFocus();
+                      return KeyEventResult.handled;
+                    }
+                  } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && item.index >= items.length - 1) {
+                    return KeyEventResult.handled;
+                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && item.index == 0) {
+                    return KeyEventResult.handled;
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
@@ -753,13 +822,37 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     required IconData icon,
     required String label,
     required VoidCallback onPressed,
+    required FocusNode focusNode,
+    bool isLeftmost = false,
+    bool isRightmost = false,
     Color iconColor = Colors.white70,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: TvFocusable(
+        focusNode: focusNode,
         borderRadius: BorderRadius.circular(10),
         onPressed: onPressed,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              final target = ref.read(activeScreenSearchFocusNodeProvider);
+              if (target != null && target.context != null && target.canRequestFocus) {
+                target.requestFocus();
+                return KeyEventResult.handled;
+              }
+            } else if (isLeftmost && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+              final sidebar = ref.read(activeSidebarFocusNodeProvider);
+              if (sidebar != null && sidebar.context != null && sidebar.canRequestFocus) {
+                sidebar.requestFocus();
+                return KeyEventResult.handled;
+              }
+            } else if (isRightmost && event.logicalKey == LogicalKeyboardKey.arrowRight) {
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(

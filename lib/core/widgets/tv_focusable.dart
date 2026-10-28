@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 /// Global manager that tracks whether the latest user interaction was via keyboard/D-Pad or mouse.
@@ -117,6 +118,7 @@ class _TvFocusableState extends State<TvFocusable> {
     if (widget.focusNode != oldWidget.focusNode) {
       oldWidget.focusNode?.removeListener(_handleFocusChange);
       _effectiveNode.addListener(_handleFocusChange);
+      _isFocused = _effectiveNode.hasFocus;
     }
   }
 
@@ -147,10 +149,28 @@ class _TvFocusableState extends State<TvFocusable> {
     setState(() => _isFocused = hasFocus);
     widget.onFocusChange?.call(hasFocus);
 
-    // Auto-scroll whenever an item gains focus to keep it in view
+    // Auto-scroll whenever an item gains focus to keep it in view, but only if not already visible
     if (hasFocus && widget.autoScroll && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_effectiveNode.hasFocus) return;
+        final renderObj = context.findRenderObject();
+        if (renderObj is RenderBox && renderObj.hasSize) {
+          final viewport = RenderAbstractViewport.maybeOf(renderObj);
+          if (viewport != null) {
+            final scrollable = Scrollable.maybeOf(context);
+            if (scrollable != null && scrollable.position.hasPixels) {
+              final currentScroll = scrollable.position.pixels;
+              final off1 = viewport.getOffsetToReveal(renderObj, 0.0).offset;
+              final off2 = viewport.getOffsetToReveal(renderObj, 1.0).offset;
+              final minOffset = off1 < off2 ? off1 : off2;
+              final maxOffset = off1 > off2 ? off1 : off2;
+              // If already visible within viewport, do NOT jump/scroll! (unless autofocus requested initial alignment)
+              if (!widget.autofocus && currentScroll >= minOffset && currentScroll <= maxOffset) {
+                return;
+              }
+            }
+          }
+        }
         Scrollable.ensureVisible(
           context,
           alignment: widget.scrollAlignment,
@@ -187,6 +207,7 @@ class _TvFocusableState extends State<TvFocusable> {
     }
 
     final isSelectKey = event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonSelect ||
         event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
         event.logicalKey == LogicalKeyboardKey.space ||
@@ -224,14 +245,8 @@ class _TvFocusableState extends State<TvFocusable> {
           widget.onPressed?.call();
           return KeyEventResult.handled;
         } else if (event is KeyUpEvent) {
-          if (_handledKeyDown) {
-            _handledKeyDown = false;
-            return KeyEventResult.handled;
-          } else {
-            // KeyDown was swallowed or omitted by TV browser
-            widget.onPressed?.call();
-            return KeyEventResult.handled;
-          }
+          _handledKeyDown = false;
+          return KeyEventResult.handled;
         }
       }
     }

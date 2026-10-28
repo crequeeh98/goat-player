@@ -1,5 +1,6 @@
 
 
+import 'package:flutter/foundation.dart';
 import 'title_sanitizer.dart';
 
 class EpgItem {
@@ -20,7 +21,8 @@ class EpgItem {
 
 class EpgIsolateParser {
   static Future<List<EpgItem>> parse(String xmlContent) async {
-    return await Future.microtask(() => _parseEpgSync(xmlContent));
+    if (xmlContent.isEmpty) return [];
+    return compute(_parseEpgSync, xmlContent);
   }
 
   static List<EpgItem> _parseEpgSync(String content) {
