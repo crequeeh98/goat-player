@@ -474,27 +474,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       },
                     ),
                     const SizedBox(width: 8),
-                    if (!GoatPlatform.isWeb) ...[
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final stageAsync = ref.watch(vpnStageProvider);
-                          final isConnected = stageAsync.value == VpnStage.connected;
-                          return _buildTvHeaderButton(
-                            focusNode: _headerVpnFocusNode,
-                            icon: isConnected ? Icons.security : Icons.shield_outlined,
-                            iconColor: isConnected ? Colors.greenAccent : Colors.white70,
-                            label: 'VPN',
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => const VpnImportDialog(),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                    ],
                     _buildTvHeaderButton(
                       focusNode: _headerSwitchFocusNode,
                       icon: Icons.logout_rounded,

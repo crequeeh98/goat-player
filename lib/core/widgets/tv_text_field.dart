@@ -158,6 +158,8 @@ class _TvTextFieldState extends State<TvTextField> {
       suffixIconConstraints: widget.suffixIcon != null ? const BoxConstraints(minWidth: 24, minHeight: 24, maxWidth: 28, maxHeight: 28) : null,
       border: effectiveBorder,
       focusedBorder: effectiveFocusedBorder,
+      filled: true,
+      fillColor: _effectiveFocusNode.hasFocus ? const Color(0x1FB388FF) : Colors.white.withValues(alpha: 0.04),
       contentPadding: widget.contentPadding ?? defaultPadding,
       isDense: widget.isDense,
     );
@@ -244,10 +246,10 @@ class _TvTextFieldState extends State<TvTextField> {
       borderRadius: (effectiveBorder is OutlineInputBorder)
           ? effectiveBorder.borderRadius
           : BorderRadius.circular(10),
-      focusScale: 1.01,
+      focusScale: 1.0,
       clipChild: false,
       focusBorderColor: hasOutline ? Colors.transparent : const Color(0xFFB388FF),
-      glowColor: const Color(0x33B388FF),
+      glowColor: Colors.transparent,
       onPressed: _openKeyboard,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {

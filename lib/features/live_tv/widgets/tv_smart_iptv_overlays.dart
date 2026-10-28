@@ -774,14 +774,22 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        '${isDe ? 'Seite' : 'Page'} ${currentPage + 1} / $totalPages   ◀ ▶',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${isDe ? 'Seite' : 'Page'} ${currentPage + 1} / $totalPages',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.chevron_left_rounded, size: 15, color: Colors.white70),
+                          const Icon(Icons.chevron_right_rounded, size: 15, color: Colors.white70),
+                        ],
                       ),
                     ),
                   ],
@@ -835,9 +843,20 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isDe ? 'OK: Wählen  ·  ◀/▶: Seite' : 'OK: Select  ·  ◀/▶: Page',
-                      style: const TextStyle(color: Colors.white60, fontSize: 11.5, fontWeight: FontWeight.w500),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isDe ? 'OK: Wählen  ·  ' : 'OK: Select  ·  ',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11.5, fontWeight: FontWeight.w500),
+                        ),
+                        const Icon(Icons.chevron_left_rounded, size: 13, color: Colors.white70),
+                        const Icon(Icons.chevron_right_rounded, size: 13, color: Colors.white70),
+                        Text(
+                          isDe ? ' Seite' : ' Page',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11.5, fontWeight: FontWeight.w500),
+                        ),
+                      ],
                     ),
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1163,9 +1182,24 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    Text(
-                      '${isDe ? 'Seite' : 'Page'} ${currentPage + 1} / $totalPages   ◀ ▶',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${isDe ? 'Seite' : 'Page'} ${currentPage + 1} / $totalPages',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.chevron_left_rounded, size: 15, color: Colors.white70),
+                          const Icon(Icons.chevron_right_rounded, size: 15, color: Colors.white70),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1259,9 +1293,20 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isDe ? 'OK: Gruppe öffnen  ·  ◀/▶: Seite' : 'OK: Open Group  ·  ◀/▶: Page',
-                      style: const TextStyle(color: Colors.white60, fontSize: 11.5),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isDe ? 'OK: Gruppe öffnen  ·  ' : 'OK: Open Group  ·  ',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11.5),
+                        ),
+                        const Icon(Icons.chevron_left_rounded, size: 13, color: Colors.white70),
+                        const Icon(Icons.chevron_right_rounded, size: 13, color: Colors.white70),
+                        Text(
+                          isDe ? ' Seite' : ' Page',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11.5),
+                        ),
+                      ],
                     ),
                     Text(
                       isDe ? 'Zurück: Schließen' : 'Back: Close',

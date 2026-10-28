@@ -44,6 +44,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   FocusNode? _lastFocusedChannelNode;
   final Set<String> _syncedCategories = {};
   bool _focusFirstChannelOnNextBuild = false;
+  String? _streamIdToFocus;
   Timer? _channelPlayDebounce;
 
   String? _lastScrolledStreamId;
@@ -488,6 +489,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         // When exiting fullscreen back to dashboard, ensure dashboard category
         // matches the currently playing stream's category!
         final activePlayback = ref.read(playbackControllerProvider);
+        final activeStreamId = activePlayback?.streamId ?? ref.read(selectedLiveStreamProvider)?.streamId;
+        _streamIdToFocus = activeStreamId;
+
         if (activePlayback?.categoryId != null && activePlayback!.categoryId != _selectedCategory) {
           setState(() {
             _selectedCategory = activePlayback.categoryId;
@@ -498,9 +502,25 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
           ref.read(selectedLiveCategoryProvider.notifier).set(activePlayback.categoryId);
         }
         if (GoatPlatform.isTv) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _focusChannelColumn();
-          });
+          void attemptFocus(int remaining) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              if (activeStreamId != null) {
+                final node = _channelFocusNodes[activeStreamId];
+                if (node != null && node.context != null && node.canRequestFocus) {
+                  node.requestFocus();
+                  _streamIdToFocus = null;
+                  return;
+                }
+              }
+              if (remaining > 0) {
+                attemptFocus(remaining - 1);
+              } else {
+                _focusChannelColumn();
+              }
+            });
+          }
+          attemptFocus(4);
         }
       }
     });
@@ -647,7 +667,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 ),
                                 child: TvFocusable(
                                   focusNode: itemNode,
-                                  autofocus: false,
+                                  autofocus: GoatPlatform.isTv && index == 0,
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
                                   onFocusChange: (has) {
@@ -839,6 +859,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (mounted) {
                                   _firstChannelNode.requestFocus();
+                                }
+                              });
+                            }
+
+                            if (_streamIdToFocus != null && stream.streamId == _streamIdToFocus) {
+                              _streamIdToFocus = null;
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted && itemFocusNode != null && itemFocusNode.canRequestFocus) {
+                                  itemFocusNode.requestFocus();
                                 }
                               });
                             }
