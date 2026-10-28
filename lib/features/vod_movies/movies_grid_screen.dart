@@ -163,8 +163,9 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && ref.read(activeDashboardTabProvider) == 1) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
       }
     });
     Future.microtask(() {
@@ -177,7 +178,18 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(activeDashboardTabProvider, (prev, next) {
+      if (next == 1 && mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      }
+    });
+
     ref.listen(dashboardTabResetProvider, (_, __) {
+      if (ref.read(activeDashboardTabProvider) == 1 && mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      }
       _searchController.clear();
       _catSearchController.clear();
       if (mounted) {
@@ -501,6 +513,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 6 : 12),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                 icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
                                 onPressed: () {
                                   setState(() {
@@ -627,6 +641,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 suffixIcon: _catSearchController.text.isNotEmpty
                                     ? IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                         icon: const Icon(Icons.close, size: 16),
                                         onPressed: () {
                                           setState(() {
@@ -673,16 +689,12 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       }
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
                                       if (_catSearchController.text.isEmpty || _catSearchController.selection.extentOffset >= _catSearchController.text.length) {
-                                        if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
-                                          _firstMovieNode.requestFocus();
-                                          return KeyEventResult.handled;
-                                        }
                                         if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
                                           _firstRailItemNode.requestFocus();
                                           return KeyEventResult.handled;
                                         }
-                                        if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
-                                          _topSearchFocusNode.requestFocus();
+                                        if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
+                                          _firstMovieNode.requestFocus();
                                           return KeyEventResult.handled;
                                         }
                                         return KeyEventResult.handled;
@@ -763,19 +775,14 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                             ? (n, event) {
                                                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                                   if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                                    if (_firstMovieNode.context != null &&
-                                                        _firstMovieNode.canRequestFocus) {
-                                                      _firstMovieNode.requestFocus();
-                                                      return KeyEventResult.handled;
-                                                    }
                                                     if (_firstRailItemNode.context != null &&
                                                         _firstRailItemNode.canRequestFocus) {
                                                       _firstRailItemNode.requestFocus();
                                                       return KeyEventResult.handled;
                                                     }
-                                                    if (_topSearchFocusNode.context != null &&
-                                                        _topSearchFocusNode.canRequestFocus) {
-                                                      _topSearchFocusNode.requestFocus();
+                                                    if (_firstMovieNode.context != null &&
+                                                        _firstMovieNode.canRequestFocus) {
+                                                      _firstMovieNode.requestFocus();
                                                       return KeyEventResult.handled;
                                                     }
                                                     return KeyEventResult.handled;

@@ -248,8 +248,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && ref.read(activeDashboardTabProvider) == 0) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
       }
     });
     if (!GoatPlatform.isTv) {
@@ -350,27 +351,24 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     ref.read(selectedLiveCategoryProvider.notifier).set(effectiveCat);
 
     _channelPlayDebounce?.cancel();
-    _channelPlayDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (!mounted) return;
-      ref.read(selectedLiveStreamProvider.notifier).set(stream);
-      final account = ref.read(activeAccountProvider);
-      if (account == null) return;
-      final cleanName = ChannelNameCleaner.clean(stream.name);
-      final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
-      final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-      final url = (stream.url != null && stream.url!.startsWith('http'))
-          ? stream.url!
-          : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
-      final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+    ref.read(selectedLiveStreamProvider.notifier).set(stream);
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+    final cleanName = ChannelNameCleaner.clean(stream.name);
+    final baseUrl = account.serverUrl.endsWith('/') ? account.serverUrl.substring(0, account.serverUrl.length - 1) : account.serverUrl;
+    final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+    final url = (stream.url != null && stream.url!.startsWith('http'))
+        ? stream.url!
+        : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
+    final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
 
-      ref.read(playbackControllerProvider.notifier).playLive(
-        title: cleanName,
-        url: url,
-        channelId: epgChannelId,
-        streamId: stream.streamId,
-        categoryId: effectiveCat,
-      );
-    });
+    ref.read(playbackControllerProvider.notifier).playLive(
+      title: cleanName,
+      url: url,
+      channelId: epgChannelId,
+      streamId: stream.streamId,
+      categoryId: effectiveCat,
+    );
   }
 
   void _zapNext(List<StreamItem> streams) {
@@ -422,7 +420,18 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final currentCatObj = categories.where((c) => c.categoryId == _selectedCategory).firstOrNull;
     final categoryName = currentCatObj?.name;
 
+    ref.listen(activeDashboardTabProvider, (prev, next) {
+      if (next == 0 && mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      }
+    });
+
     ref.listen(dashboardTabResetProvider, (_, __) {
+      if (ref.read(activeDashboardTabProvider) == 0 && mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      }
       _searchController.clear();
       if (mounted) {
         setState(() {
@@ -505,6 +514,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 4 : 12),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                 icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
                                 onPressed: () {
                                   setState(() {

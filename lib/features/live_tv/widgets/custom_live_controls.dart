@@ -297,10 +297,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       _triggerOsdBanner();
       _startHideTimer();
 
-      // Debounce the actual stream switch by 350ms to protect decoder and prevent crashing
+      // Debounce the actual stream switch by 250ms to protect decoder and prevent crashing
       _zapDebounceTimer?.cancel();
       _pendingZapStream = prevStream;
-      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
         if (!mounted || _pendingZapStream == null) return;
         widget.onSelectStream?.call(_pendingZapStream!);
         _pendingZapStream = null;
@@ -311,7 +311,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       _triggerOsdBanner();
       _startHideTimer();
       _zapDebounceTimer?.cancel();
-      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
         if (!mounted) return;
         widget.onZapPrevious?.call();
       });
@@ -341,10 +341,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       _triggerOsdBanner();
       _startHideTimer();
 
-      // Debounce the actual stream switch by 350ms to protect decoder and prevent crashing
+      // Debounce the actual stream switch by 250ms to protect decoder and prevent crashing
       _zapDebounceTimer?.cancel();
       _pendingZapStream = nextStream;
-      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
         if (!mounted || _pendingZapStream == null) return;
         widget.onSelectStream?.call(_pendingZapStream!);
         _pendingZapStream = null;
@@ -355,7 +355,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       _triggerOsdBanner();
       _startHideTimer();
       _zapDebounceTimer?.cancel();
-      _zapDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
         if (!mounted) return;
         widget.onZapNext?.call();
       });

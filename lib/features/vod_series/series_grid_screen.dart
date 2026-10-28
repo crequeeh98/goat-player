@@ -158,8 +158,9 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && ref.read(activeDashboardTabProvider) == 2) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
       }
     });
     Future.microtask(() {
@@ -172,7 +173,18 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(activeDashboardTabProvider, (prev, next) {
+      if (next == 2 && mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      }
+    });
+
     ref.listen(dashboardTabResetProvider, (_, __) {
+      if (ref.read(activeDashboardTabProvider) == 2 && mounted) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      }
       _searchController.clear();
       _catSearchController.clear();
       if (mounted) {
@@ -483,6 +495,8 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                         contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 6 : 12),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                 icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
                                 onPressed: () {
                                   setState(() {
@@ -609,6 +623,8 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 suffixIcon: _catSearchController.text.isNotEmpty
                                     ? IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                         icon: const Icon(Icons.close, size: 16),
                                         onPressed: () {
                                           setState(() {
@@ -654,14 +670,11 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                         return KeyEventResult.handled;
                                       }
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                      if (_firstSeriesNode.context != null && _firstSeriesNode.canRequestFocus) {
-                                        _firstSeriesNode.requestFocus();
-                                        return KeyEventResult.handled;
-                                      } else if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
+                                      if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
                                         _firstRailItemNode.requestFocus();
                                         return KeyEventResult.handled;
-                                      } else if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
-                                        _topSearchFocusNode.requestFocus();
+                                      } else if (_firstSeriesNode.context != null && _firstSeriesNode.canRequestFocus) {
+                                        _firstSeriesNode.requestFocus();
                                         return KeyEventResult.handled;
                                       }
                                       return KeyEventResult.handled;
@@ -741,14 +754,11 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                             ? (n, event) {
                                                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                                   if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                                    if (_firstSeriesNode.context != null && _firstSeriesNode.canRequestFocus) {
-                                                      _firstSeriesNode.requestFocus();
-                                                      return KeyEventResult.handled;
-                                                    } else if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
+                                                    if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
                                                       _firstRailItemNode.requestFocus();
                                                       return KeyEventResult.handled;
-                                                    } else if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
-                                                      _topSearchFocusNode.requestFocus();
+                                                    } else if (_firstSeriesNode.context != null && _firstSeriesNode.canRequestFocus) {
+                                                      _firstSeriesNode.requestFocus();
                                                       return KeyEventResult.handled;
                                                     }
                                                     return KeyEventResult.handled;

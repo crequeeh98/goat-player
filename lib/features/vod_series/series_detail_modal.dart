@@ -290,6 +290,30 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     return '$minutes:$secs';
   }
 
+  Widget _buildTvChip(String text, {bool isHighlight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: isHighlight
+            ? const Color(0xFFEAB308).withValues(alpha: 0.18)
+            : Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isHighlight ? const Color(0xFFEAB308).withValues(alpha: 0.6) : Colors.white12,
+          width: 0.8,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: isHighlight ? const Color(0xFFFDE047) : Colors.white70,
+          fontSize: 11,
+          fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final info = xtreamInfo?['info'] is Map ? (xtreamInfo!['info'] as Map).cast<String, dynamic>() : null;
@@ -299,6 +323,322 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     final cast = info?['cast'] ?? info?['actors'];
     final genre = info?['genre'];
     final releaseDate = info?['releaseDate'] ?? info?['year'];
+    final rating = info?['rating'] ?? info?['rating_5based'];
+
+    if (GoatPlatform.isTv) {
+      final episodes = (xtreamInfo?['episodes'] is Map && xtreamInfo!['episodes'][selectedSeason] is List)
+          ? (xtreamInfo!['episodes'][selectedSeason] as List<dynamic>)
+          : const [];
+      final seasonKeys = (xtreamInfo?['episodes'] is Map)
+          ? (xtreamInfo!['episodes'] as Map).keys.map((k) => k.toString()).toList()
+          : <String>[];
+
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Container(
+          width: 740,
+          height: 400,
+          decoration: BoxDecoration(
+            color: const Color(0xFF160F26),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.75),
+                blurRadius: 28,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              // 1. Top Section: Poster + Info (height: ~190)
+              SizedBox(
+                height: 190,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Left: Series Poster (width: 135)
+                    SizedBox(
+                      width: 135,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (widget.coverUrl != null)
+                            Image.network(
+                              widget.coverUrl!,
+                              fit: BoxFit.cover,
+                              cacheWidth: 200,
+                              cacheHeight: 300,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: const Color(0xFF23183C),
+                                child: const Center(child: Icon(Icons.tv, size: 48, color: Colors.white24)),
+                              ),
+                            )
+                          else
+                            Container(
+                              color: const Color(0xFF23183C),
+                              child: const Center(child: Icon(Icons.tv, size: 48, color: Colors.white24)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Right: Info Column
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header Row: Title + Close Button
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    widget.seriesName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Consumer(
+                                  builder: (context, ref, _) {
+                                    final isFav = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.seriesId, streamType: 'series'))).value ?? false;
+                                    Future<void> toggleFav() async {
+                                      final account = ref.read(activeAccountProvider);
+                                      if (account != null) {
+                                        await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.seriesId, 'series');
+                                      }
+                                    }
+                                    return TvFocusable(
+                                      borderRadius: BorderRadius.circular(16),
+                                      focusScale: 1.05,
+                                      onPressed: toggleFav,
+                                      child: Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: isFav ? Colors.amber.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                                          color: isFav ? Colors.amber : Colors.white70,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 6),
+                                TvFocusable(
+                                  borderRadius: BorderRadius.circular(16),
+                                  focusScale: 1.05,
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Meta chips
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (releaseDate != null) _buildTvChip('$releaseDate'),
+                                if (rating != null && rating.toString().isNotEmpty)
+                                  _buildTvChip('★ $rating', isHighlight: true),
+                                if (genre != null && genre.toString().isNotEmpty)
+                                  _buildTvChip('$genre'),
+                                if (seasonKeys.isNotEmpty)
+                                  _buildTvChip('${seasonKeys.length} ${seasonKeys.length == 1 ? AppLocalizations.of(context)!.season.trim() : 'Staffeln'}'),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Plot
+                            Text(
+                              plot,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
+                            ),
+                            const Spacer(),
+                            if (cast != null && cast.toString().isNotEmpty)
+                              Text(
+                                'Besetzung: $cast',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 1, color: Colors.white12),
+
+              // 2. Seasons Selector Bar (height: 36)
+              if (seasonKeys.isNotEmpty)
+                Container(
+                  height: 36,
+                  color: Colors.black.withValues(alpha: 0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: seasonKeys.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (context, idx) {
+                      final sKey = seasonKeys[idx];
+                      final isSelected = selectedSeason == sKey;
+                      return TvFocusable(
+                        borderRadius: BorderRadius.circular(6),
+                        focusScale: 1.02,
+                        onPressed: () {
+                          setState(() {
+                            selectedSeason = sKey;
+                            currentEpisodes = _getEpisodesForSeason(sKey);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF7C3AED)
+                                : Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFFB388FF) : Colors.white10,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            '${AppLocalizations.of(context)!.season} $sKey',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? Colors.white : Colors.white70,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+              // 3. Episodes List (Expanded, scrollable)
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : (errorMessage != null
+                        ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.white60)))
+                        : (episodes.isEmpty
+                            ? const Center(child: Text('Keine Episoden gefunden', style: TextStyle(color: Colors.white54)))
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                itemCount: episodes.length,
+                                itemBuilder: (context, index) {
+                                  final ep = episodes[index] is Map ? (episodes[index] as Map).cast<String, dynamic>() : <String, dynamic>{};
+                                  final epId = ep['id']?.toString() ?? '';
+                                  final epNum = ep['episode_num']?.toString() ?? '${index + 1}';
+                                  final epTitle = ep['title']?.toString() ?? 'Episode $epNum';
+                                  final duration = ep['info']?['duration']?.toString() ?? '';
+                                  final isTarget = epId == (_highlightEpisodeId ?? widget.initialEpisodeId);
+
+                                  final progress = _episodeProgress[epId];
+                                  final isCompleted = progress?.isCompleted == true ||
+                                      (progress != null && progress.duration > 0 && (progress.position / progress.duration) >= 0.95);
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: TvFocusable(
+                                      autofocus: isTarget,
+                                      borderRadius: BorderRadius.circular(8),
+                                      focusScale: 1.01,
+                                      onPressed: () => _playEpisode(ep),
+                                      child: Container(
+                                        height: 38,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        decoration: BoxDecoration(
+                                          color: isTarget
+                                              ? const Color(0xFF7C3AED).withValues(alpha: 0.2)
+                                              : Colors.white.withValues(alpha: 0.04),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isTarget ? const Color(0xFFB388FF).withValues(alpha: 0.5) : Colors.white10,
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              isCompleted ? Icons.check_circle : Icons.play_arrow_rounded,
+                                              size: 18,
+                                              color: isCompleted ? Colors.greenAccent : const Color(0xFFB388FF),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.08),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'E$epNum',
+                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white70),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                epTitle,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                                              ),
+                                            ),
+                                            if (duration.isNotEmpty) ...[
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                duration,
+                                                style: const TextStyle(fontSize: 11, color: Colors.white38),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ))),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     
     String? backdropUrl;
     if (info?['backdrop_path'] != null && info!['backdrop_path'] is List && (info['backdrop_path'] as List).isNotEmpty) {

@@ -36,6 +36,16 @@ class ActiveCategoryFocusNodeNotifier extends Notifier<FocusNode?> {
   void set(FocusNode? node) => state = node;
 }
 
+class ActiveDashboardTabNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int tab) => state = tab;
+}
+
+/// Active tab index in the TV sidebar / dashboard: 0 = Live, 1 = Movies, 2 = Series
+final activeDashboardTabProvider =
+    NotifierProvider<ActiveDashboardTabNotifier, int>(ActiveDashboardTabNotifier.new);
+
 /// FocusNode of the active category search field on the visible dashboard page (Live, Movies, Series)
 final activeScreenSearchFocusNodeProvider =
     NotifierProvider<ActiveSearchFocusNodeNotifier, FocusNode?>(ActiveSearchFocusNodeNotifier.new);

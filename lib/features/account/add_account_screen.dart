@@ -789,7 +789,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             onSubmitted: (_) => _urlFocusNode.requestFocus(),
             labelText: l10n.playlistName,
             hintText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistNameHint : l10n.m3uPlaylistNameDefault,
-            border: const OutlineInputBorder(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
@@ -807,7 +807,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 : _submitFocusNode.requestFocus(),
             labelText: _playlistType == PlaylistType.m3u ? l10n.m3uPlaylistUrl : l10n.serverUrl,
             hintText: _playlistType == PlaylistType.m3u ? l10n.m3uUrlHint : 'http://example.com:8080',
-            border: const OutlineInputBorder(),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
@@ -823,7 +823,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               textInputAction: TextInputAction.next,
               onSubmitted: (_) => _passFocusNode.requestFocus(),
               labelText: l10n.username,
-              border: const OutlineInputBorder(),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
@@ -839,7 +839,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _submitFocusNode.requestFocus(),
               labelText: l10n.password,
-              border: const OutlineInputBorder(),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),

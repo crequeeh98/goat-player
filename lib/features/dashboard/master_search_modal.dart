@@ -117,7 +117,9 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.white70),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    icon: const Icon(Icons.cancel, color: Colors.white70, size: 18),
                     onPressed: () {
                       _searchController.clear();
                       setState(() => _query = '');

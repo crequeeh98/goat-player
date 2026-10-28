@@ -117,7 +117,8 @@ class _TvTextFieldState extends State<TvTextField> {
     if (widget.decoration != null) {
       return widget.decoration!;
     }
-    final effectiveBorder = widget.border ?? const OutlineInputBorder();
+    final effectiveBorder = widget.border ??
+        OutlineInputBorder(borderRadius: BorderRadius.circular(10));
     final effectiveFocusedBorder = widget.focusedBorder ??
         (widget.border == InputBorder.none
             ? InputBorder.none
@@ -126,17 +127,27 @@ class _TvTextFieldState extends State<TvTextField> {
                 borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
               ));
 
+    final hasLabel = widget.labelText != null && widget.labelText!.isNotEmpty;
+    final defaultPadding = hasLabel
+        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+        : const EdgeInsets.symmetric(horizontal: 10, vertical: 4);
+
     return InputDecoration(
       labelText: widget.labelText,
       hintText: widget.hintText,
       hintStyle: widget.hintStyle,
       prefixIcon: widget.prefixIcon,
-      prefixIconConstraints: widget.prefixIcon != null ? const BoxConstraints(minWidth: 32, minHeight: 24) : null,
-      suffixIcon: widget.suffixIcon,
-      suffixIconConstraints: widget.suffixIcon != null ? const BoxConstraints(minWidth: 28, minHeight: 24) : null,
+      prefixIconConstraints: widget.prefixIcon != null ? const BoxConstraints(minWidth: 32, minHeight: 24, maxHeight: 28) : null,
+      suffixIcon: widget.suffixIcon != null
+          ? ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 28, maxHeight: 28),
+              child: widget.suffixIcon,
+            )
+          : null,
+      suffixIconConstraints: widget.suffixIcon != null ? const BoxConstraints(minWidth: 24, minHeight: 24, maxWidth: 28, maxHeight: 28) : null,
       border: effectiveBorder,
       focusedBorder: effectiveFocusedBorder,
-      contentPadding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      contentPadding: widget.contentPadding ?? defaultPadding,
       isDense: widget.isDense,
     );
   }
@@ -158,6 +169,9 @@ class _TvTextFieldState extends State<TvTextField> {
         validator: widget.validator,
       );
     }
+
+    final hasLabel = widget.labelText != null && widget.labelText!.isNotEmpty;
+    final hasOutline = widget.border != null && widget.border != InputBorder.none;
 
     if (_isEditing) {
       return CallbackShortcuts(
@@ -181,22 +195,25 @@ class _TvTextFieldState extends State<TvTextField> {
             ));
           },
         },
-        child: TextFormField(
-          controller: widget.controller,
-          focusNode: _editFocusNode,
-          autofocus: true,
-          obscureText: widget.obscureText,
-          keyboardType: widget.keyboardType,
-          textInputAction: widget.textInputAction ?? TextInputAction.search,
-          style: widget.style,
-          decoration: _buildDecoration(),
-          onChanged: widget.onChanged,
-          onEditingComplete: _closeKeyboard,
-          onFieldSubmitted: (val) {
-            _closeKeyboard();
-            widget.onSubmitted?.call(val);
-          },
-          validator: widget.validator,
+        child: SizedBox(
+          height: hasLabel ? null : 36,
+          child: TextFormField(
+            controller: widget.controller,
+            focusNode: _editFocusNode,
+            autofocus: true,
+            obscureText: widget.obscureText,
+            keyboardType: widget.keyboardType,
+            textInputAction: widget.textInputAction ?? TextInputAction.search,
+            style: widget.style,
+            decoration: _buildDecoration(),
+            onChanged: widget.onChanged,
+            onEditingComplete: _closeKeyboard,
+            onFieldSubmitted: (val) {
+              _closeKeyboard();
+              widget.onSubmitted?.call(val);
+            },
+            validator: widget.validator,
+          ),
         ),
       );
     }
@@ -210,8 +227,9 @@ class _TvTextFieldState extends State<TvTextField> {
       autofocus: widget.autofocus,
       borderRadius: BorderRadius.circular(10),
       focusScale: 1.01,
-      focusBorderColor: const Color(0xFFB388FF),
-      glowColor: const Color(0x33B388FF),
+      // If the field has its own OutlineInputBorder, avoid conflicting outer border
+      focusBorderColor: hasOutline ? Colors.transparent : const Color(0xFFB388FF),
+      glowColor: hasOutline ? Colors.transparent : const Color(0x33B388FF),
       onPressed: _openKeyboard,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
@@ -229,14 +247,18 @@ class _TvTextFieldState extends State<TvTextField> {
         }
         return KeyEventResult.ignored;
       },
-      child: InputDecorator(
-        decoration: _buildDecoration(),
-        isEmpty: !hasText,
-        child: Text(
-          displayText,
-          style: displayStyle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+      child: SizedBox(
+        height: hasLabel ? null : 36,
+        child: InputDecorator(
+          isFocused: _effectiveFocusNode.hasFocus,
+          decoration: _buildDecoration(),
+          isEmpty: !hasText,
+          child: Text(
+            displayText,
+            style: displayStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );

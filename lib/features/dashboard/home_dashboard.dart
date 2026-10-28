@@ -738,6 +738,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       if (idx == 1) ref.read(vodControllerProvider).syncVodCategories();
       if (idx == 2) ref.read(seriesControllerProvider).syncSeriesCategories();
     }
+    ref.read(activeDashboardTabProvider.notifier).set(idx);
     setState(() => _selectedIndex = idx);
   }
 
@@ -849,6 +850,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 target.requestFocus();
                 return KeyEventResult.handled;
               }
+              return KeyEventResult.handled;
             } else if (isLeftmost && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
               final sidebar = ref.read(activeSidebarFocusNodeProvider);
               if (sidebar != null && sidebar.context != null && sidebar.canRequestFocus) {
