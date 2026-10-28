@@ -195,10 +195,10 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     if (GoatPlatform.isTv || !isMobile) {
       return Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         child: Container(
-          width: 820,
-          height: 440,
+          width: 700,
+          height: 340,
           decoration: BoxDecoration(
             color: const Color(0xFF160F26),
             borderRadius: BorderRadius.circular(16),
@@ -221,7 +221,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
             children: [
               // Left: Movie Poster (2:3 aspect ratio)
               SizedBox(
-                width: 220,
+                width: 170,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -231,8 +231,8 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                         child: Image.network(
                           widget.posterUrl!,
                           fit: BoxFit.cover,
-                          cacheWidth: 330,
-                          cacheHeight: 500,
+                          cacheWidth: 260,
+                          cacheHeight: 390,
                           errorBuilder: (_, __, ___) => Container(
                             color: const Color(0xFF23183C),
                             child: const Center(child: Icon(Icons.movie, size: 64, color: Colors.white24)),
@@ -250,7 +250,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
               // Right: Content Details Column
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -262,7 +262,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                             child: Text(
                               widget.movieName,
                               style: const TextStyle(
-                                fontSize: 20,
+                                fontSize: 17,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -270,24 +270,24 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           TvFocusable(
                             borderRadius: BorderRadius.circular(16),
                             focusScale: 1.05,
                             onPressed: () => Navigator.of(context).pop(),
                             child: Container(
-                              width: 32,
-                              height: 32,
+                              width: 28,
+                              height: 28,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.close, color: Colors.white70, size: 18),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 16),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
 
                       // Meta Chips Row
                       Wrap(
@@ -303,26 +303,26 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                             _buildChip(context, '$genre'),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
 
                       // Synopsis / Plot
                       Text(
                         plot,
-                        maxLines: 3,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.35),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
 
                       // Director & Cast in compact layout
                       if (director != null && director.toString().isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
+                          padding: const EdgeInsets.only(bottom: 2),
                           child: Text(
                             'Regie: $director',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white60, fontSize: 12),
+                            style: const TextStyle(color: Colors.white60, fontSize: 11.5),
                           ),
                         ),
                       if (cast != null && cast.toString().isNotEmpty)
@@ -330,7 +330,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                           'Besetzung: $cast',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white60, fontSize: 12),
+                          style: const TextStyle(color: Colors.white60, fontSize: 11.5),
                         ),
 
                       const Spacer(),
@@ -341,22 +341,22 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                           TvFocusable(
                             autofocus: true,
                             focusScale: 1.02,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             onPressed: _playMovie,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF7C3AED),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.play_arrow, size: 20, color: Colors.white),
-                                  const SizedBox(width: 6),
+                                  const Icon(Icons.play_arrow, size: 18, color: Colors.white),
+                                  const SizedBox(width: 5),
                                   Text(
                                     AppLocalizations.of(context)!.playMovie,
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                                   ),
                                 ],
                               ),
@@ -374,13 +374,13 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                               }
                               return TvFocusable(
                                 focusScale: 1.02,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(8),
                                 onPressed: toggleFav,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: Colors.white12),
                                   ),
                                   child: Row(
@@ -389,13 +389,13 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                                       Icon(
                                         isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
                                         color: isFavorite ? Colors.amber : Colors.white70,
-                                        size: 20,
+                                        size: 18,
                                       ),
-                                      const SizedBox(width: 6),
+                                      const SizedBox(width: 5),
                                       Text(
                                         AppLocalizations.of(context)!.favorites,
                                         style: TextStyle(
-                                          fontSize: 13,
+                                          fontSize: 12.5,
                                           fontWeight: FontWeight.w600,
                                           color: isFavorite ? Colors.amber : Colors.white70,
                                         ),

@@ -28,6 +28,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   final _searchController = TextEditingController();
   final _catSearchController = TextEditingController();
   final ScrollController _movieScrollController = ScrollController();
+  final ScrollController _categoryScrollController = ScrollController();
   final FocusNode _firstMovieNode = FocusNode(debugLabel: 'first_movie');
   final FocusNode _firstRailItemNode = FocusNode(debugLabel: 'movie_first_rail');
   final FocusNode _firstCategoryNode = FocusNode(debugLabel: 'movie_first_category');
@@ -35,6 +36,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   final FocusNode _catSearchFocusNode = FocusNode(debugLabel: 'movie_cat_search');
   final FocusNode _topSearchFocusNode = FocusNode(debugLabel: 'movie_top_search');
   final Map<String, FocusNode> _categoryFocusNodes = {};
+  final Map<int, FocusNode> _movieFocusNodes = {};
   String _sortMode = 'default'; // default, asc, desc
 
   @override
@@ -46,6 +48,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     _searchController.dispose();
     _catSearchController.dispose();
     _movieScrollController.dispose();
+    _categoryScrollController.dispose();
     _firstMovieNode.dispose();
     _firstRailItemNode.dispose();
     _firstCategoryNode.dispose();
@@ -53,6 +56,9 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     _catSearchFocusNode.dispose();
     _topSearchFocusNode.dispose();
     for (final node in _categoryFocusNodes.values) {
+      node.dispose();
+    }
+    for (final node in _movieFocusNodes.values) {
       node.dispose();
     }
     super.dispose();
@@ -75,9 +81,6 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
         node.requestFocus();
         return;
       }
-    }
-    if (_catSearchFocusNode.context != null && _catSearchFocusNode.canRequestFocus) {
-      _catSearchFocusNode.requestFocus();
     }
   }
 
@@ -161,7 +164,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_catSearchFocusNode);
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
       }
     });
     Future.microtask(() {
@@ -176,13 +179,18 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   Widget build(BuildContext context) {
     ref.listen(dashboardTabResetProvider, (_, __) {
       _searchController.clear();
+      _catSearchController.clear();
       if (mounted) {
         setState(() {
           _searchQuery = '';
+          _catSearchQuery = '';
           _selectedCategory = null;
         });
         if (_movieScrollController.hasClients) {
           _movieScrollController.jumpTo(0);
+        }
+        if (_categoryScrollController.hasClients) {
+          _categoryScrollController.jumpTo(0);
         }
       }
     });
@@ -247,33 +255,53 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                     }
 
                     if (streams.isEmpty) {
-                      return Focus(
-                        onKeyEvent: (node, event) {
-                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                              _focusCategoryColumn();
-                              return KeyEventResult.handled;
-                            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                              _topSearchFocusNode.requestFocus();
-                              return KeyEventResult.handled;
-                            } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                event.logicalKey == LogicalKeyboardKey.goBack) {
-                              _focusCategoryColumn();
-                              return KeyEventResult.handled;
-                            }
-                          }
-                          return KeyEventResult.ignored;
-                        },
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.search_off, size: 64, color: Colors.white24),
-                              const SizedBox(height: 16),
-                              Text(AppLocalizations.of(context)!.noMoviesFound, style: const TextStyle(color: Colors.white54)),
-                            ],
+                      return CustomScrollView(
+                        controller: _movieScrollController,
+                        slivers: [
+                          if (_searchQuery.isEmpty)
+                            SliverToBoxAdapter(
+                              child: ContinueWatchingRail(
+                                type: 'movie',
+                                onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                                firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
+                              ),
+                            ),
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Focus(
+                              onKeyEvent: (node, event) {
+                                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                  if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                    _focusCategoryColumn();
+                                    return KeyEventResult.handled;
+                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                    if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
+                                      _firstRailItemNode.requestFocus();
+                                    } else {
+                                      _topSearchFocusNode.requestFocus();
+                                    }
+                                    return KeyEventResult.handled;
+                                  } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                      event.logicalKey == LogicalKeyboardKey.goBack) {
+                                    _focusCategoryColumn();
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                                    const SizedBox(height: 16),
+                                    Text(AppLocalizations.of(context)!.noMoviesFound, style: const TextStyle(color: Colors.white54)),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       );
                     }
 
@@ -308,16 +336,38 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 final stream = streams[index];
                                 final progress = progressMap[stream.streamId];
                                 final isLeftmostColumn = index % crossAxisCount == 0;
+                                final isRightmostColumn = (index + 1) % crossAxisCount == 0;
+                                final cardNode = _movieFocusNodes.putIfAbsent(
+                                  index,
+                                  () => index == 0 ? _firstMovieNode : FocusNode(debugLabel: 'movie_card_$index'),
+                                );
                                 
-                                return Focus(
+                                return TvFocusable(
+                                  key: ValueKey('movie_${stream.streamId}'),
+                                  focusNode: cardNode,
+                                  focusScale: 1.03,
+                                  borderRadius: BorderRadius.circular(12),
                                   onKeyEvent: (node, event) {
                                     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                                      // Rule 6: VOD Grid Leftmost Column Boundary Exit to Active Category
+                                      // VOD Grid Leftmost Column Boundary Exit to Active Category
                                       if (GoatPlatform.isTv &&
                                           isLeftmostColumn &&
                                           event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                                         _focusCategoryColumn();
                                         return KeyEventResult.handled;
+                                      }
+                                      // VOD Grid Rightmost Column Wrap to First Element of Next Row
+                                      if (GoatPlatform.isTv &&
+                                          isRightmostColumn &&
+                                          event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                        if (index + 1 < streams.length) {
+                                          final nextNode = _movieFocusNodes.putIfAbsent(
+                                            index + 1,
+                                            () => FocusNode(debugLabel: 'movie_card_${index + 1}'),
+                                          );
+                                          nextNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
                                       }
                                       if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
                                           index >= streams.length - (isDesktop ? crossAxisCount : 3)) {
@@ -326,11 +376,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                     }
                                     return KeyEventResult.ignored;
                                   },
-                                  child: TvFocusable(
-                                    focusNode: index == 0 ? _firstMovieNode : null,
-                                    focusScale: 1.03,
-                                    borderRadius: BorderRadius.circular(12),
-                                    onPressed: () {
+                                  onPressed: () {
                                     Navigator.push(
                                       context,
                                       PageRouteBuilder(
@@ -411,8 +457,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       ],
                                     ),
                                   ),
-                                ),
-                              );
+                                );
                             },
                               childCount: streams.length,
                             ),
@@ -432,7 +477,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
 
             return Scaffold(
               appBar: AppBar(
-                toolbarHeight: GoatPlatform.isTv ? 46 : null,
+                toolbarHeight: GoatPlatform.isTv ? 52 : null,
                 title: Row(
                   children: [
                     Text(
@@ -453,7 +498,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                           borderRadius: BorderRadius.circular(20),
                           borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
                         ),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 8 : 12),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 6 : 12),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
@@ -470,14 +515,18 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         onKeyEvent: (node, event) {
                           if (event is KeyDownEvent || event is KeyRepeatEvent) {
                             if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                              if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
-                                _firstMovieNode.requestFocus();
-                              } else if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
-                                _firstRailItemNode.requestFocus();
+                              if (_catSearchFocusNode.context != null && _catSearchFocusNode.canRequestFocus) {
+                                _catSearchFocusNode.requestFocus();
                               } else {
                                 _focusCategoryColumn();
                               }
                               return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                              if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                headerSearch.requestFocus();
+                                return KeyEventResult.handled;
+                              }
                             } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                               if (_searchController.text.isEmpty || _searchController.selection.extentOffset <= 0) {
                                 _focusCategoryColumn();
@@ -499,10 +548,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                           return KeyEventResult.ignored;
                         },
                         onSubmitted: (_) {
-                          if (_firstMovieNode.context != null && _firstMovieNode.canRequestFocus) {
-                            _firstMovieNode.requestFocus();
-                          } else if (_firstRailItemNode.context != null && _firstRailItemNode.canRequestFocus) {
-                            _firstRailItemNode.requestFocus();
+                          if (_catSearchFocusNode.context != null && _catSearchFocusNode.canRequestFocus) {
+                            _catSearchFocusNode.requestFocus();
                           } else {
                             _focusCategoryColumn();
                           }
@@ -564,12 +611,12 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         children: [
                           if (GoatPlatform.isTv)
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                               child: TvTextField(
                                 focusNode: _catSearchFocusNode,
                                 controller: _catSearchController,
                                 style: const TextStyle(fontSize: 12),
-                                hintText: l10n.searchCategories,
+                                hintText: 'Suchen...',
                                 hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
                                 prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFFB388FF)),
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -577,7 +624,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 suffixIcon: _catSearchController.text.isNotEmpty
                                     ? IconButton(
                                         icon: const Icon(Icons.close, size: 16),
@@ -594,16 +641,28 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 onKeyEvent: (node, event) {
                                   if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                      if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                                        _categoryScrollController.jumpTo(0.0);
+                                      }
                                       if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
                                         _firstCategoryNode.requestFocus();
-                                      } else {
-                                        _focusCategoryColumn();
+                                        return KeyEventResult.handled;
+                                      }
+                                      final favNode = _categoryFocusNodes['favorites'];
+                                      if (favNode != null && favNode.context != null && favNode.canRequestFocus) {
+                                        favNode.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
+                                      for (final n in _categoryFocusNodes.values) {
+                                        if (n.context != null && n.canRequestFocus) {
+                                          n.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
                                       }
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                                      final headerSearch = ref.read(headerSearchFocusNodeProvider);
-                                      if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
-                                        headerSearch.requestFocus();
+                                      if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
+                                        _topSearchFocusNode.requestFocus();
                                         return KeyEventResult.handled;
                                       }
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -644,6 +703,9 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                   return KeyEventResult.ignored;
                                 },
                                 onSubmitted: (_) {
+                                  if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                                    _categoryScrollController.jumpTo(0.0);
+                                  }
                                   if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
                                     _firstCategoryNode.requestFocus();
                                   } else {
@@ -662,6 +724,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       .toList();
                                 }
                                 return ListView.builder(
+                                  controller: _categoryScrollController,
                                   cacheExtent: GoatPlatform.isTv ? 3000.0 : 500.0,
                                   itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                                   itemCount: categories.length,

@@ -840,7 +840,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         onPressed: onPressed,
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent || event is KeyRepeatEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            // Block ArrowUp completely so focus NEVER jumps into category lists
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
               final target = ref.read(activeScreenSearchFocusNodeProvider);
               if (target != null && target.context != null && target.canRequestFocus) {
                 target.requestFocus();

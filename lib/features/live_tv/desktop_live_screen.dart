@@ -422,6 +422,21 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     final currentCatObj = categories.where((c) => c.categoryId == _selectedCategory).firstOrNull;
     final categoryName = currentCatObj?.name;
 
+    ref.listen(dashboardTabResetProvider, (_, __) {
+      _searchController.clear();
+      if (mounted) {
+        setState(() {
+          _searchQuery = '';
+        });
+        if (_categoryScrollController.hasClients) {
+          _categoryScrollController.jumpTo(0.0);
+        }
+        if (_channelScrollController.hasClients) {
+          _channelScrollController.jumpTo(0.0);
+        }
+      }
+    });
+
     ref.listen<String?>(selectedLiveCategoryProvider, (prev, next) {
       if (next != null && next != _selectedCategory) {
         setState(() {
@@ -474,20 +489,20 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                 child: Column(
                   children: [
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 6.0 : 8.0),
+                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 4.0 : 8.0),
                       child: TvTextField(
                         focusNode: _searchFocusNode,
                         controller: _searchController,
-                        style: TextStyle(fontSize: GoatPlatform.isTv ? 13 : 14),
-                        hintText: l10n.search,
-                        hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 13 : 14, color: Colors.white54),
-                        prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 18 : 22, color: const Color(0xFFB388FF)),
+                        style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
+                        hintText: 'Suchen...',
+                        hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14, color: Colors.white54),
+                        prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 16 : 22, color: const Color(0xFFB388FF)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
                         ),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 8 : 12),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 4 : 12),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
                                 icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),

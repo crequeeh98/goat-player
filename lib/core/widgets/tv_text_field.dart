@@ -131,10 +131,12 @@ class _TvTextFieldState extends State<TvTextField> {
       hintText: widget.hintText,
       hintStyle: widget.hintStyle,
       prefixIcon: widget.prefixIcon,
+      prefixIconConstraints: widget.prefixIcon != null ? const BoxConstraints(minWidth: 32, minHeight: 24) : null,
       suffixIcon: widget.suffixIcon,
+      suffixIconConstraints: widget.suffixIcon != null ? const BoxConstraints(minWidth: 28, minHeight: 24) : null,
       border: effectiveBorder,
       focusedBorder: effectiveFocusedBorder,
-      contentPadding: widget.contentPadding,
+      contentPadding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       isDense: widget.isDense,
     );
   }

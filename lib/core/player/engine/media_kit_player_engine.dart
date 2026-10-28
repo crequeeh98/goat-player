@@ -31,10 +31,8 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     );
     controller = VideoController(
       player,
-      configuration: VideoControllerConfiguration(
+      configuration: const VideoControllerConfiguration(
         enableHardwareAcceleration: true,
-        vo: GoatPlatform.isTv ? 'gpu' : null,
-        hwdec: GoatPlatform.isTv ? 'mediacodec-copy' : null,
       ),
     );
     _stream = _MediaKitPlayerStream(player);
@@ -83,8 +81,8 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     try {
       final dynamic platform = player.platform;
       if (GoatPlatform.isTv) {
-        platform?.setProperty('hwdec', 'mediacodec-copy');
-        platform?.setProperty('force-window', 'yes');
+        platform?.setProperty('hwdec', 'mediacodec');
+        platform?.setProperty('force-window', 'no');
       } else {
         platform?.setProperty('hwdec', 'auto-safe');
         platform?.setProperty('force-window', 'no');
@@ -127,6 +125,10 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     _applyMpvOptimizations(isLive: isLive);
 
     try {
+      if (isLive) {
+        // Cleanly stop previous stream to flush hardware decoder and prevent Surface deadlock
+        await player.stop().timeout(const Duration(milliseconds: 300), onTimeout: () {});
+      }
       await player.open(
         Media(
           url,
