@@ -1152,35 +1152,8 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                         isTrackModalOpen: _isTrackModalOpen,
                         onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
                       ),
-                      subtitleViewConfiguration: SubtitleViewConfiguration(
-                        visible: true,
-                        textScaler: GoatPlatform.isMobile ? TextScaler.noScaling : null,
-                        style: TextStyle(
-                          height: 1.3,
-                          fontSize: GoatPlatform.isMobile ? 19.0 : 26.0,
-                          letterSpacing: 0.2,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          shadows: GoatPlatform.isMobile
-                              ? const [
-                                  Shadow(offset: Offset(-1.0, -1.0), color: Colors.black, blurRadius: 1.5),
-                                  Shadow(offset: Offset(1.0, -1.0), color: Colors.black, blurRadius: 1.5),
-                                  Shadow(offset: Offset(1.0, 1.0), color: Colors.black, blurRadius: 1.5),
-                                  Shadow(offset: Offset(-1.0, 1.0), color: Colors.black, blurRadius: 1.5),
-                                  Shadow(offset: Offset(0, 1.5), color: Colors.black87, blurRadius: 3.0),
-                                ]
-                              : const [
-                                  Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
-                                  Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
-                                  Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
-                                  Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
-                                  Shadow(offset: Offset(0, 2.0), color: Colors.black87, blurRadius: 4.0),
-                                ],
-                        ),
-                        textAlign: TextAlign.center,
-                        padding: GoatPlatform.isMobile
-                            ? const EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 22.0)
-                            : const EdgeInsets.fromLTRB(32.0, 0.0, 32.0, 36.0),
+                      subtitleViewConfiguration: const SubtitleViewConfiguration(
+                        visible: false,
                       ),
                     ),
                   ),
@@ -2271,6 +2244,55 @@ class _VodControlsState extends State<_VodControls> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Smoothly elevated subtitle overlay
+                  StreamBuilder<List<String>>(
+                    stream: _player.stream.subtitle,
+                    initialData: _player.state.subtitle,
+                    builder: (context, snapshot) {
+                      final textList = snapshot.data ?? [];
+                      if (textList.isEmpty || textList.every((s) => s.trim().isEmpty)) {
+                        return const SizedBox.shrink();
+                      }
+                      final text = textList.join('\n');
+                      final hudActive = (_isControlsVisible || !_isPlaying) && !widget.isEpisodeDrawerOpen;
+                      return AnimatedPositioned(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        left: 32,
+                        right: 32,
+                        bottom: hudActive ? (GoatPlatform.isMobile ? 100.0 : 136.0) : (GoatPlatform.isMobile ? 22.0 : 36.0),
+                        child: IgnorePointer(
+                          child: Text(
+                            text,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              height: 1.3,
+                              fontSize: GoatPlatform.isMobile ? 19.0 : 26.0,
+                              letterSpacing: 0.2,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              shadows: GoatPlatform.isMobile
+                                  ? const [
+                                      Shadow(offset: Offset(-1.0, -1.0), color: Colors.black, blurRadius: 1.5),
+                                      Shadow(offset: Offset(1.0, -1.0), color: Colors.black, blurRadius: 1.5),
+                                      Shadow(offset: Offset(1.0, 1.0), color: Colors.black, blurRadius: 1.5),
+                                      Shadow(offset: Offset(-1.0, 1.0), color: Colors.black, blurRadius: 1.5),
+                                      Shadow(offset: Offset(0, 1.5), color: Colors.black87, blurRadius: 3.0),
+                                    ]
+                                  : const [
+                                      Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                                      Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                                      Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                                      Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                                      Shadow(offset: Offset(0, 2.0), color: Colors.black87, blurRadius: 4.0),
+                                    ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
                   // Controls Overlay
                   AnimatedOpacity(
                     opacity: (_isControlsVisible || !_isPlaying) && !widget.isEpisodeDrawerOpen ? 1.0 : 0.0,

@@ -74,6 +74,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   double _volume = 100.0;
   bool _isPlaying = true;
   bool _isBuffering = false;
+  bool _hasFirstFrame = true;
+  String? _lastActiveStreamId;
   String? _optimisticStreamId;
   Timer? _zapDebounceTimer;
   StreamItem? _pendingZapStream;
@@ -87,6 +89,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   StreamSubscription? _volumeSub;
   StreamSubscription? _playingSub;
   StreamSubscription? _bufferingSub;
+  StreamSubscription? _videoParamsSub;
   StreamSubscription? _drawerChannelChangeSub;
   double _verticalDragDistance = 0.0;
 
@@ -108,6 +111,13 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _volume = player.state.volume;
     _isPlaying = player.state.playing;
     _isBuffering = player.state.buffering;
+
+    _lastActiveStreamId = widget.currentStreamId ?? widget.streamId;
+    _videoParamsSub = player.stream.videoParams.listen((vp) {
+      if (mounted && !_hasFirstFrame && vp.w != null && vp.w! > 0) {
+        setState(() => _hasFirstFrame = true);
+      }
+    });
 
     _volumeSub = player.stream.volume.listen((v) {
       if (mounted) setState(() => _volume = v);
@@ -139,6 +149,11 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   @override
   void didUpdateWidget(CustomLiveControls oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final curId = widget.currentStreamId ?? widget.streamId;
+    if (curId != _lastActiveStreamId && curId != null) {
+      _lastActiveStreamId = curId;
+      if (mounted) setState(() => _hasFirstFrame = false);
+    }
     if (widget.isFullWidth && !oldWidget.isFullWidth) {
       if (GoatPlatform.isTv) {
         _triggerOsdBanner();
@@ -167,6 +182,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _volumeSub?.cancel();
     _playingSub?.cancel();
     _bufferingSub?.cancel();
+    _videoParamsSub?.cancel();
     super.dispose();
   }
 
@@ -293,6 +309,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       final prevStream = streams[prevIdx];
       setState(() {
         _optimisticStreamId = prevStream.streamId;
+        _hasFirstFrame = false;
       });
       _triggerOsdBanner();
       _startHideTimer();
@@ -337,6 +354,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       final nextStream = streams[nextIdx];
       setState(() {
         _optimisticStreamId = nextStream.streamId;
+        _hasFirstFrame = false;
       });
       _triggerOsdBanner();
       _startHideTimer();
@@ -574,6 +592,12 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             },
             child: Stack(
               children: [
+                // 0. Black transition veil masking previous channel frame until new video renders
+                if (!_hasFirstFrame)
+                  Positioned.fill(
+                    child: Container(color: Colors.black),
+                  ),
+
                 // 1. Dark gradient overlay
                 AnimatedOpacity(
                   opacity: (_showOverlay || !_isPlaying || _isDrawerOpen) ? 1.0 : 0.0,
@@ -596,7 +620,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 ),
 
                 // Buffering spinner when controls overlay is hidden
-                if (_isBuffering && !_showOverlay)
+                if ((_isBuffering || !_hasFirstFrame) && !_showOverlay)
                   const Center(
                     child: SizedBox(
                       width: 48,

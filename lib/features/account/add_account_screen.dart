@@ -636,6 +636,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                         SizedBox(height: GoatPlatform.isTv ? 10 : 20),
                         Expanded(
                           child: SingleChildScrollView(
+                            clipBehavior: Clip.none,
                             child: _selectedMode == AddAccountMode.manual
                                 ? _buildManualForm(l10n)
                                 : _buildRemotePairingView(l10n),

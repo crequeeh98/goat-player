@@ -88,13 +88,26 @@ class PlayerService {
     _errorSub = engine.stream.error.listen((error) {
       debugPrint('[GOAT_PLAY] engine.stream.error received: $error');
       if (!_isLive || _isDisposed || _isOpening || !_hasStartedPlaying || lastOpenedUrl == null) return;
+      // If the engine is already actively playing, non-fatal track/codec/demux warnings should not interrupt playback
+      if (engine.state.playing) return;
+
       final errStr = error.toString().toLowerCase();
       if (errStr.contains('cannot seek') ||
           errStr.contains('force-seekable') ||
           errStr.contains('desynchronisation') ||
           errStr.contains('cache is not responding') ||
           errStr.contains('demuxer') ||
-          errStr.contains('packet corrupt')) {
+          errStr.contains('codec') ||
+          errStr.contains('unsupported') ||
+          errStr.contains('track') ||
+          errStr.contains('could not open') ||
+          errStr.contains('failed to open') ||
+          errStr.contains('packet corrupt') ||
+          errStr.contains('invalid data') ||
+          errStr.contains('error parsing') ||
+          errStr.contains('subtitle') ||
+          errStr.contains('teletext') ||
+          errStr.contains('filter')) {
         return;
       }
       debugPrint('PlayerService: Live stream error ($error). Auto-reconnecting...');

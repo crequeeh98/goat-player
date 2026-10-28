@@ -62,6 +62,7 @@ class TvFocusable extends StatefulWidget {
   final double scrollAlignment;
   final EdgeInsetsGeometry? padding;
   final bool enabled;
+  final bool clipChild;
   final KeyEventResult Function(FocusNode node, KeyEvent event)? onKeyEvent;
 
   const TvFocusable({
@@ -81,6 +82,7 @@ class TvFocusable extends StatefulWidget {
     this.scrollAlignment = 0.5,
     this.padding,
     this.enabled = true,
+    this.clipChild = true,
     this.onKeyEvent,
   }) : assert(child != null || builder != null, 'Either child or builder must be provided');
 
@@ -312,12 +314,16 @@ class _TvFocusableState extends State<TvFocusable> {
                       ]
                     : null,
               ),
-              child: ClipRRect(
-                borderRadius: effectiveRadius,
-                child: widget.builder != null
-                    ? widget.builder!(context, isHighlighted, isHighlighted)
-                    : widget.child!,
-              ),
+              child: widget.clipChild
+                  ? ClipRRect(
+                      borderRadius: effectiveRadius,
+                      child: widget.builder != null
+                          ? widget.builder!(context, isHighlighted, isHighlighted)
+                          : widget.child!,
+                    )
+                  : (widget.builder != null
+                      ? widget.builder!(context, isHighlighted, isHighlighted)
+                      : widget.child!),
             ),
           ),
         ),

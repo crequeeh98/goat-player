@@ -81,13 +81,18 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     try {
       final dynamic platform = player.platform;
       if (GoatPlatform.isTv) {
-        platform?.setProperty('hwdec', 'mediacodec');
+        platform?.setProperty('hwdec', 'mediacodec-copy');
+        platform?.setProperty('opengl-pbo', 'yes');
+        platform?.setProperty('framedrop', 'vo');
+        platform?.setProperty('vd-lavc-threads', '4');
         platform?.setProperty('force-window', 'no');
       } else {
         platform?.setProperty('hwdec', 'auto-safe');
         platform?.setProperty('force-window', 'no');
       }
       platform?.setProperty('video-sync', 'audio');
+      platform?.setProperty('audio-pitch-correction', 'no');
+      platform?.setProperty('sub-auto', 'no');
 
       if (isLive) {
         platform?.setProperty('demuxer-lavf-analyzeduration', '1.5');

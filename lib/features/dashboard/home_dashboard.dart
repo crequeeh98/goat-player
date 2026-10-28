@@ -715,6 +715,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 }
 
   void _onTabSelected(int idx) {
+    ref.read(activeDashboardTabProvider.notifier).set(idx);
     if (_selectedIndex != idx) {
       ref.read(dashboardTabResetProvider.notifier).reset();
       ref.read(selectedLiveCategoryProvider.notifier).set(null);
@@ -738,7 +739,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       if (idx == 1) ref.read(vodControllerProvider).syncVodCategories();
       if (idx == 2) ref.read(seriesControllerProvider).syncSeriesCategories();
     }
-    ref.read(activeDashboardTabProvider.notifier).set(idx);
     setState(() => _selectedIndex = idx);
   }
 
@@ -769,11 +769,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       catTarget.requestFocus();
                       return KeyEventResult.handled;
                     }
-                    final target = ref.read(activeScreenSearchFocusNodeProvider);
-                    if (target != null && target.context != null && target.canRequestFocus) {
-                      target.requestFocus();
-                      return KeyEventResult.handled;
-                    }
+                    return KeyEventResult.handled;
                   } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && item.index >= items.length - 1) {
                     return KeyEventResult.handled;
                   } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && item.index == 0) {

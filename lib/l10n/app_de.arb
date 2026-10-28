@@ -19,6 +19,8 @@
   "allCategories": "Alle Kategorien",
   "typeToSearch": "Tippen Sie, um im gesamten Katalog zu suchen.",
   "noResultsFound": "Keine Ergebnisse gefunden.",
+  "noChannelsInCategory": "Keine Sender in dieser Kategorie",
+  "loadingChannels": "Sender werden geladen...",
   "error": "Fehler: ",
   "selectCategory": "Wählen Sie eine Kategorie",
   "selectChannel": "Wählen Sie einen Kanal",

@@ -514,6 +514,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                       final sKey = seasonKeys[idx];
                       final isSelected = selectedSeason == sKey;
                       return TvFocusable(
+                        autofocus: (selectedSeason != null ? isSelected : idx == 0),
                         borderRadius: BorderRadius.circular(6),
                         focusScale: 1.02,
                         onPressed: () {

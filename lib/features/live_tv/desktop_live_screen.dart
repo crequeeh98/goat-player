@@ -424,6 +424,22 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       if (next == 0 && mounted) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
         ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+        final defaultCat = categories.firstOrNull?.categoryId;
+        if (_selectedCategory != defaultCat) {
+          setState(() {
+            _selectedCategory = defaultCat;
+            _lastScrolledStreamId = null;
+            _lastFocusedChannelNode = null;
+            _channelFocusNodes.clear();
+          });
+          ref.read(selectedLiveCategoryProvider.notifier).set(null);
+          if (_categoryScrollController.hasClients) {
+            _categoryScrollController.jumpTo(0.0);
+          }
+          if (_channelScrollController.hasClients) {
+            _channelScrollController.jumpTo(0.0);
+          }
+        }
       }
     });
 
@@ -434,9 +450,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
       }
       _searchController.clear();
       if (mounted) {
+        final defaultCat = categories.firstOrNull?.categoryId;
         setState(() {
           _searchQuery = '';
+          _selectedCategory = defaultCat;
+          _lastScrolledStreamId = null;
+          _lastFocusedChannelNode = null;
+          _channelFocusNodes.clear();
         });
+        ref.read(selectedLiveCategoryProvider.notifier).set(null);
         if (_categoryScrollController.hasClients) {
           _categoryScrollController.jumpTo(0.0);
         }
@@ -743,13 +765,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         final hasSynced = _syncedCategories.contains(_selectedCategory);
                         if (streams.isEmpty) {
                           if (isSyncing || (!hasSynced && _selectedCategory != 'favorites')) {
-                            return const Center(
+                            return Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  CircularProgressIndicator(color: Color(0xFF7C3AED)),
-                                  SizedBox(height: 16),
-                                  Text('Loading channels...', style: TextStyle(color: Colors.white70)),
+                                  const CircularProgressIndicator(color: Color(0xFF7C3AED)),
+                                  const SizedBox(height: 16),
+                                  Text(l10n.loadingChannels, style: const TextStyle(color: Colors.white70)),
                                 ],
                               ),
                             );
@@ -760,7 +782,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               children: [
                                 const Icon(Icons.tv_off, size: 48, color: Colors.white24),
                                 const SizedBox(height: 16),
-                                Text('No channels in this category', style: const TextStyle(color: Colors.white54)),
+                                Text(l10n.noChannelsInCategory, style: const TextStyle(color: Colors.white54)),
                               ],
                             ),
                           );

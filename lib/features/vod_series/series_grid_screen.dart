@@ -561,6 +561,23 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                       child: TvFocusable(
                         borderRadius: BorderRadius.circular(10),
                         onPressed: () => _showTvSortDialog(l10n),
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                              if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
+                                _topSearchFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                              if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
+                                headerSearch.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
@@ -733,6 +750,18 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                             : null);
                                     if (index == 0) {
                                       _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        if (mounted && ref.read(activeDashboardTabProvider) == 2) {
+                                          ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+                                        }
+                                      });
+                                    }
+                                    if (isSelected && itemNode != null) {
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        if (mounted && ref.read(activeDashboardTabProvider) == 2) {
+                                          ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                        }
+                                      });
                                     }
 
                                     return Padding(

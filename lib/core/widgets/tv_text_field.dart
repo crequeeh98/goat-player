@@ -66,6 +66,7 @@ class _TvTextFieldState extends State<TvTextField> {
   void initState() {
     super.initState();
     widget.controller?.addListener(_onControllerChanged);
+    _effectiveFocusNode.addListener(_onFocusChanged);
   }
 
   @override
@@ -75,15 +76,24 @@ class _TvTextFieldState extends State<TvTextField> {
       oldWidget.controller?.removeListener(_onControllerChanged);
       widget.controller?.addListener(_onControllerChanged);
     }
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode?.removeListener(_onFocusChanged);
+      _effectiveFocusNode.addListener(_onFocusChanged);
+    }
   }
 
   void _onControllerChanged() {
     if (mounted) setState(() {});
   }
 
+  void _onFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     widget.controller?.removeListener(_onControllerChanged);
+    _effectiveFocusNode.removeListener(_onFocusChanged);
     _editFocusNode.dispose();
     _internalFocusNode?.dispose();
     super.dispose();
@@ -129,11 +139,12 @@ class _TvTextFieldState extends State<TvTextField> {
 
     final hasLabel = widget.labelText != null && widget.labelText!.isNotEmpty;
     final defaultPadding = hasLabel
-        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+        ? const EdgeInsets.fromLTRB(14, 16, 14, 14)
         : const EdgeInsets.symmetric(horizontal: 10, vertical: 4);
 
     return InputDecoration(
       labelText: widget.labelText,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
       hintText: widget.hintText,
       hintStyle: widget.hintStyle,
       prefixIcon: widget.prefixIcon,
@@ -195,24 +206,27 @@ class _TvTextFieldState extends State<TvTextField> {
             ));
           },
         },
-        child: SizedBox(
-          height: hasLabel ? null : 36,
-          child: TextFormField(
-            controller: widget.controller,
-            focusNode: _editFocusNode,
-            autofocus: true,
-            obscureText: widget.obscureText,
-            keyboardType: widget.keyboardType,
-            textInputAction: widget.textInputAction ?? TextInputAction.search,
-            style: widget.style,
-            decoration: _buildDecoration(),
-            onChanged: widget.onChanged,
-            onEditingComplete: _closeKeyboard,
-            onFieldSubmitted: (val) {
-              _closeKeyboard();
-              widget.onSubmitted?.call(val);
-            },
-            validator: widget.validator,
+        child: Padding(
+          padding: EdgeInsets.only(top: hasLabel ? 6.0 : 0.0),
+          child: SizedBox(
+            height: hasLabel ? null : 36,
+            child: TextFormField(
+              controller: widget.controller,
+              focusNode: _editFocusNode,
+              autofocus: true,
+              obscureText: widget.obscureText,
+              keyboardType: widget.keyboardType,
+              textInputAction: widget.textInputAction ?? TextInputAction.search,
+              style: widget.style,
+              decoration: _buildDecoration(),
+              onChanged: widget.onChanged,
+              onEditingComplete: _closeKeyboard,
+              onFieldSubmitted: (val) {
+                _closeKeyboard();
+                widget.onSubmitted?.call(val);
+              },
+              validator: widget.validator,
+            ),
           ),
         ),
       );
@@ -227,9 +241,9 @@ class _TvTextFieldState extends State<TvTextField> {
       autofocus: widget.autofocus,
       borderRadius: BorderRadius.circular(10),
       focusScale: 1.01,
-      // If the field has its own OutlineInputBorder, avoid conflicting outer border
-      focusBorderColor: hasOutline ? Colors.transparent : const Color(0xFFB388FF),
-      glowColor: hasOutline ? Colors.transparent : const Color(0x33B388FF),
+      clipChild: false,
+      focusBorderColor: (hasOutline && hasLabel) ? Colors.transparent : const Color(0xFFB388FF),
+      glowColor: const Color(0x33B388FF),
       onPressed: _openKeyboard,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
@@ -247,17 +261,20 @@ class _TvTextFieldState extends State<TvTextField> {
         }
         return KeyEventResult.ignored;
       },
-      child: SizedBox(
-        height: hasLabel ? null : 36,
-        child: InputDecorator(
-          isFocused: _effectiveFocusNode.hasFocus,
-          decoration: _buildDecoration(),
-          isEmpty: !hasText,
-          child: Text(
-            displayText,
-            style: displayStyle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+      child: Padding(
+        padding: EdgeInsets.only(top: hasLabel ? 6.0 : 0.0),
+        child: SizedBox(
+          height: hasLabel ? null : 36,
+          child: InputDecorator(
+            isFocused: _effectiveFocusNode.hasFocus,
+            decoration: _buildDecoration(),
+            isEmpty: !hasText,
+            child: Text(
+              displayText,
+              style: displayStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ),
