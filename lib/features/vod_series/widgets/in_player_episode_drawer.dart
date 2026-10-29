@@ -102,9 +102,14 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
     final episodes = widget.seasonsWithEpisodes[_selectedSeason] ?? [];
     final seasonKeys = widget.seasonsWithEpisodes.keys.toList();
 
-    return FocusScope(
-      node: _drawerScopeNode,
-      autofocus: true,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) widget.onClose();
+      },
+      child: FocusScope(
+        node: _drawerScopeNode,
+        autofocus: true,
       child: ClipRRect(
         borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
         child: BackdropFilter(
@@ -151,7 +156,8 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                       event.logicalKey == LogicalKeyboardKey.arrowRight) {
                                     return KeyEventResult.handled;
                                   } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                      event.logicalKey == LogicalKeyboardKey.backspace) {
+                                      event.logicalKey == LogicalKeyboardKey.backspace ||
+                                      event.logicalKey == LogicalKeyboardKey.goBack) {
                                     widget.onClose();
                                     return KeyEventResult.handled;
                                   }
@@ -199,6 +205,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                 } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && index >= seasonKeys.length - 1) {
                                   return KeyEventResult.handled;
                                 } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                    event.logicalKey == LogicalKeyboardKey.goBack ||
                                     (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace)) {
                                   widget.onClose();
                                   return KeyEventResult.handled;
@@ -282,6 +289,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                         event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                        event.logicalKey == LogicalKeyboardKey.goBack ||
                                         (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace)) {
                                       widget.onClose();
                                       return KeyEventResult.handled;
@@ -411,6 +419,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
           ),
         ),
       ),
+    ),
     ),
   );
 }

@@ -176,9 +176,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     });
     Future.microtask(() {
       ref.read(vodControllerProvider).syncVodCategories();
-      if (!GoatPlatform.isTv) {
-        ref.read(vodControllerProvider).syncAllVodStreams();
-      }
+      ref.read(vodControllerProvider).syncAllVodStreams();
     });
   }
 
@@ -697,16 +695,20 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 suffixIcon: _catSearchController.text.isNotEmpty
-                                    ? IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                                        icon: const Icon(Icons.close, size: 16),
-                                        onPressed: () {
-                                          setState(() {
-                                            _catSearchController.clear();
-                                            _catSearchQuery = '';
-                                          });
-                                        },
+                                    ? Focus(
+                                        canRequestFocus: false,
+                                        skipTraversal: true,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                                          icon: const Icon(Icons.close, size: 16),
+                                          onPressed: () {
+                                            setState(() {
+                                              _catSearchController.clear();
+                                              _catSearchQuery = '';
+                                            });
+                                          },
+                                        ),
                                       )
                                     : null,
                                 isDense: true,
@@ -839,7 +841,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       ),
                                       child: TvFocusable(
                                         focusNode: itemNode,
-                                        autofocus: GoatPlatform.isTv && index == 0,
+                                        autofocus: GoatPlatform.isTv && index == 0 && _catSearchQuery.isEmpty && !_catSearchFocusNode.hasFocus,
                                         focusScale: 1.02,
                                         borderRadius: BorderRadius.circular(8),
                                         onFocusChange: (has) {

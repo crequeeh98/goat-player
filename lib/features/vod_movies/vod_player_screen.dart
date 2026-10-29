@@ -889,7 +889,16 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     return PopScope(
       canPop: _canPop,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _handleMinimize();
+        if (!didPop) {
+          if (_isEpisodeDrawerOpen) {
+            setState(() => _isEpisodeDrawerOpen = false);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _screenFocusNode.requestFocus();
+            });
+            return;
+          }
+          _handleMinimize();
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.black,

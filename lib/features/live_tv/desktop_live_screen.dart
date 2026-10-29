@@ -563,16 +563,20 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         ),
                         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 4 : 12),
                         suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                                icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
-                                onPressed: () {
-                                  setState(() {
-                                    _searchController.clear();
-                                    _searchQuery = '';
-                                  });
-                                },
+                            ? Focus(
+                                canRequestFocus: false,
+                                skipTraversal: true,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                                  icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                ),
                               )
                             : null,
                         isDense: true,
@@ -688,7 +692,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 ),
                                 child: TvFocusable(
                                   focusNode: itemNode,
-                                  autofocus: GoatPlatform.isTv && index == 0,
+                                  autofocus: GoatPlatform.isTv && index == 0 && _searchQuery.isEmpty && !_searchFocusNode.hasFocus,
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
                                   onFocusChange: (has) {

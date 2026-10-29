@@ -1064,9 +1064,43 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
     final isAnySubMenuOpen = _isTvChannelMenuOpen || _isTvCategoryMenuOpen || _tvEpgStream != null;
 
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: !isAnySubMenuOpen,
+    return PopScope(
+      canPop: !isFullOrFullWidth,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _lastTvSubMenuKeyMs < 300) return;
+        if (_tvEpgStream != null) {
+          _lastTvSubMenuKeyMs = now;
+          setState(() {
+            _tvEpgStream = null;
+            _isTvChannelMenuOpen = true;
+          });
+          return;
+        }
+        if (_isTvCategoryMenuOpen) {
+          _lastTvSubMenuKeyMs = now;
+          setState(() {
+            _isTvCategoryMenuOpen = false;
+            _isTvChannelMenuOpen = true;
+          });
+          return;
+        }
+        if (_isTvChannelMenuOpen) {
+          _lastTvSubMenuKeyMs = now;
+          setState(() => _isTvChannelMenuOpen = false);
+          _triggerOsdBanner();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _focusNode.requestFocus();
+          });
+          return;
+        }
+        _lastTvSubMenuKeyMs = now;
+        widget.onBack?.call();
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: !isAnySubMenuOpen,
       onKeyEvent: (node, event) {
         if (isAnySubMenuOpen) {
           _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
@@ -1275,6 +1309,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

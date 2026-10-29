@@ -171,9 +171,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
     });
     Future.microtask(() {
       ref.read(seriesControllerProvider).syncSeriesCategories();
-      if (!GoatPlatform.isTv) {
-        ref.read(seriesControllerProvider).syncAllSeriesStreams();
-      }
+      ref.read(seriesControllerProvider).syncAllSeriesStreams();
     });
   }
 
@@ -679,16 +677,20 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 suffixIcon: _catSearchController.text.isNotEmpty
-                                    ? IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                                        icon: const Icon(Icons.close, size: 16),
-                                        onPressed: () {
-                                          setState(() {
-                                            _catSearchController.clear();
-                                            _catSearchQuery = '';
-                                          });
-                                        },
+                                    ? Focus(
+                                        canRequestFocus: false,
+                                        skipTraversal: true,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                                          icon: const Icon(Icons.close, size: 16),
+                                          onPressed: () {
+                                            setState(() {
+                                              _catSearchController.clear();
+                                              _catSearchQuery = '';
+                                            });
+                                          },
+                                        ),
                                       )
                                     : null,
                                 isDense: true,
@@ -818,7 +820,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                       ),
                                       child: TvFocusable(
                                         focusNode: itemNode,
-                                        autofocus: GoatPlatform.isTv && index == 0,
+                                        autofocus: GoatPlatform.isTv && index == 0 && _catSearchQuery.isEmpty && !_catSearchFocusNode.hasFocus,
                                         focusScale: 1.02,
                                         borderRadius: BorderRadius.circular(8),
                                         onFocusChange: (has) {
