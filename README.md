@@ -91,12 +91,12 @@ Before you begin, download the appropriate package for your device from the offi
 ### 3. 📺 Amazon Fire TV & Fire TV Stick
 Pick whichever installation path is most convenient for you:
 
-#### Weg A: Via Android-Smartphone (Am einfachsten — Easy Fire Tools)
+#### Method A: Via Android Smartphone (Easiest — Easy Fire Tools)
 1. Install the free app **Easy Fire Tools** from the Google Play Store on your Android phone.
 2. On your Fire TV: Go to **Settings** -> **My Fire TV** -> **Developer Options** and enable **ADB Debugging**.
 3. In Easy Fire Tools on your phone, connect to your Fire TV over the local Wi-Fi, select the downloaded `app-armeabi-v7a-release.apk` (or GOATPlayer installed on your phone), and tap Install.
 
-#### Weg B: Via Fire TV "Downloader" App
+#### Method B: Via Fire TV "Downloader" App
 1. Install **Downloader** from the Amazon Appstore.
 2. In Fire TV Settings: **My Fire TV** -> **Developer Options** -> **Install unknown apps** -> Enable for **Downloader**.
 3. Open Downloader, select the **Browser** tab, navigate to:
@@ -105,15 +105,13 @@ Pick whichever installation path is most convenient for you:
    ```
 4. Scroll to the latest release assets, click on `app-armeabi-v7a-release.apk`, and Downloader will automatically download and start the installation dialog.
 
-#### Weg C: Via PC (ADB Sideload)
+#### Method C: Via PC (ADB Sideload)
 1. In Fire TV Settings: Enable **ADB Debugging**.
 2. Open PowerShell on your PC and run:
    ```powershell
    adb connect <FIRE_TV_IP_ADDRESS>:5555
    adb install -r app-armeabi-v7a-release.apk
    ```
-
-*GOATPlayer will automatically appear in **Meine Apps und Sender** with native 1:1 rounded icons and on **Projectivy Launcher** with borderless 16:9 3D banners.*
 
 ---
 
@@ -136,8 +134,6 @@ Pick whichever installation path is most convenient for you:
    ares-install -d <DEVICE_NAME> com.goatplayer.tv_1.2.7_all.ipk
    ```
 
-*GOATPlayer includes full 16:9 LG webOS Dock banner support (`dockIcon.png`).*
-
 ---
 
 ### 6. 📺 Samsung Smart TV (Tizen OS 2018+)
@@ -158,7 +154,6 @@ Pick whichever installation path is most convenient for you:
    # Install signed W3C widget
    sdb install com.goatplayer.tv.signed.wgt
    ```
-*(Alternative for Samsung TV without SDK setup: Open the Samsung TV Web Browser and navigate to the hosted Web Player).*
 
 ---
 
