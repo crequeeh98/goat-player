@@ -71,7 +71,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     
     // Check for existing progress
     final db = ref.read(databaseProvider);
-    final progress = await db.playbackProgressDao.getProgress(widget.streamId);
+    final progress = await db.playbackProgressDao.getProgress(widget.streamId, accountId: account.id);
     
     int? startPosition;
     

@@ -42,8 +42,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   @override
   void dispose() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
-      ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
+      if (ref.read(activeDashboardTabProvider) == 1) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
+      }
+      ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, null);
     });
     _searchController.dispose();
     _catSearchController.dispose();
@@ -163,9 +166,12 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && ref.read(activeDashboardTabProvider) == 1) {
-        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
-        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      if (mounted) {
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, _firstCategoryNode);
+        if (ref.read(activeDashboardTabProvider) == 1) {
+          ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
+          ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+        }
       }
     });
     Future.microtask(() {
@@ -180,6 +186,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   Widget build(BuildContext context) {
     ref.listen(activeDashboardTabProvider, (prev, next) {
       if (next == 1 && mounted) {
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, _firstCategoryNode);
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
         ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
       }
@@ -187,6 +194,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
 
     ref.listen(dashboardTabResetProvider, (_, __) {
       if (ref.read(activeDashboardTabProvider) == 1 && mounted) {
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, _firstCategoryNode);
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_topSearchFocusNode);
         ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
       }
@@ -772,15 +780,21 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                     if (index == 0) {
                                       _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
                                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        if (mounted && ref.read(activeDashboardTabProvider) == 1) {
-                                          ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+                                        if (mounted) {
+                                          ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, _firstCategoryNode);
+                                          if (ref.read(activeDashboardTabProvider) == 1) {
+                                            ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+                                          }
                                         }
                                       });
                                     }
                                     if (isSelected && itemNode != null) {
                                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        if (mounted && ref.read(activeDashboardTabProvider) == 1) {
-                                          ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                        if (mounted) {
+                                          ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, itemNode);
+                                          if (ref.read(activeDashboardTabProvider) == 1) {
+                                            ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                          }
                                         }
                                       });
                                     }
@@ -793,10 +807,12 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       ),
                                       child: TvFocusable(
                                         focusNode: itemNode,
+                                        autofocus: GoatPlatform.isTv && index == 0,
                                         focusScale: 1.02,
                                         borderRadius: BorderRadius.circular(8),
                                         onFocusChange: (has) {
                                           if (has && itemNode != null) {
+                                            ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(1, itemNode);
                                             ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
                                           }
                                         },

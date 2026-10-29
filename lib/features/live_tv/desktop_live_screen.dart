@@ -55,8 +55,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void dispose() {
     _channelPlayDebounce?.cancel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
-      ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
+      if (ref.read(activeDashboardTabProvider) == 0) {
+        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
+      }
+      ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, null);
     });
     _categoryScrollController.dispose();
     _channelScrollController.dispose();
@@ -249,9 +252,12 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && ref.read(activeDashboardTabProvider) == 0) {
-        ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
-        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+      if (mounted) {
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
+        if (ref.read(activeDashboardTabProvider) == 0) {
+          ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
+          ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+        }
       }
     });
     if (!GoatPlatform.isTv) {
@@ -423,6 +429,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
     ref.listen(activeDashboardTabProvider, (prev, next) {
       if (next == 0 && mounted) {
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
         ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
         final defaultCat = categories.firstOrNull?.categoryId;
@@ -446,6 +453,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
     ref.listen(dashboardTabResetProvider, (_, __) {
       if (ref.read(activeDashboardTabProvider) == 0 && mounted) {
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
         ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
       }
@@ -652,10 +660,23 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                     );
                               if (index == 0) {
                                 _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) {
+                                    ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
+                                    if (ref.read(activeDashboardTabProvider) == 0) {
+                                      ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+                                    }
+                                  }
+                                });
                               }
                               if (isSelected && itemNode.context != null) {
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (mounted) ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                  if (mounted) {
+                                    ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, itemNode);
+                                    if (ref.read(activeDashboardTabProvider) == 0) {
+                                      ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                    }
+                                  }
                                 });
                               }
 
@@ -672,6 +693,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                   onFocusChange: (has) {
                                     if (has) {
+                                      ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, itemNode);
                                       ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
                                     }
                                   },

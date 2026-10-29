@@ -358,7 +358,11 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     if (widget.streamType != 'series' || widget.seriesId == null) return;
 
     final db = ref.read(databaseProvider);
-    final progressList = await db.playbackProgressDao.getEpisodesProgressForSeries(widget.seriesId!);
+    final activeAccount = ref.read(activeAccountProvider);
+    final progressList = await db.playbackProgressDao.getEpisodesProgressForSeries(
+      widget.seriesId!,
+      accountId: activeAccount?.id,
+    );
     if (mounted) {
       setState(() {
         _episodeProgress = {for (var p in progressList) p.streamId: p};
@@ -445,9 +449,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
     if (_currentStreamId != null) {
       final db = ref.read(databaseProvider);
-      final prevProgress = await db.playbackProgressDao.getProgress(_currentStreamId!);
+      final activeAccount = ref.read(activeAccountProvider);
+      final prevProgress = await db.playbackProgressDao.getProgress(_currentStreamId!, accountId: activeAccount?.id);
       if (prevProgress != null && prevProgress.duration > 0) {
-        await db.playbackProgressDao.markCompleted(_currentStreamId!);
+        await db.playbackProgressDao.markCompleted(_currentStreamId!, accountId: activeAccount?.id);
       }
     }
 
@@ -688,8 +693,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     final duration = player.state.duration.inSeconds;
     if (duration > 0 && position > 0) {
       final db = ref.read(databaseProvider);
+      final activeAccount = ref.read(activeAccountProvider);
       final isComp = (position / duration) >= 0.95;
       final item = PlaybackProgressItem(
+        accountId: activeAccount?.id,
         streamId: _currentStreamId!,
         streamType: widget.streamType!,
         seriesId: widget.seriesId,

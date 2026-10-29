@@ -743,15 +743,32 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               focusNode: _sidebarFocusNodes.length > item.index ? _sidebarFocusNodes[item.index] : null,
               borderRadius: BorderRadius.circular(12),
               onPressed: () => _onTabSelected(item.index),
+              onFocusChange: (has) {
+                if (has && _sidebarFocusNodes.length > item.index) {
+                  ref.read(activeSidebarFocusNodeProvider.notifier).set(_sidebarFocusNodes[item.index]);
+                }
+              },
               onKeyEvent: (node, event) {
                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
                   if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                    final catTarget = ref.read(activeCategoryFocusNodeProvider);
+                    if (_selectedIndex != item.index) {
+                      _onTabSelected(item.index);
+                    }
+                    final catTarget = ref.read(tabCategoryFocusNodesProvider)[item.index] ??
+                        ref.read(activeCategoryFocusNodeProvider);
                     if (catTarget != null && catTarget.context != null && catTarget.canRequestFocus) {
                       catTarget.requestFocus();
                       return KeyEventResult.handled;
                     }
-                    return KeyEventResult.handled;
+                    final searchTarget = ref.read(activeScreenSearchFocusNodeProvider);
+                    if (searchTarget != null && searchTarget.context != null && searchTarget.canRequestFocus) {
+                      searchTarget.requestFocus();
+                      return KeyEventResult.handled;
+                    }
+                    if (FocusScope.of(context).focusInDirection(TraversalDirection.right)) {
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
                   } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && item.index >= items.length - 1) {
                     return KeyEventResult.handled;
                   } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && item.index == 0) {

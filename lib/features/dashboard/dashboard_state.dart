@@ -36,6 +36,21 @@ class ActiveCategoryFocusNodeNotifier extends Notifier<FocusNode?> {
   void set(FocusNode? node) => state = node;
 }
 
+class TabCategoryFocusNodesNotifier extends Notifier<Map<int, FocusNode?>> {
+  @override
+  Map<int, FocusNode?> build() => <int, FocusNode?>{};
+
+  void setForTab(int tab, FocusNode? node) {
+    final updated = Map<int, FocusNode?>.from(state);
+    if (node == null) {
+      updated.remove(tab);
+    } else {
+      updated[tab] = node;
+    }
+    state = updated;
+  }
+}
+
 class ActiveDashboardTabNotifier extends Notifier<int> {
   @override
   int build() => 0;
@@ -53,6 +68,12 @@ final activeScreenSearchFocusNodeProvider =
 /// FocusNode of the active/last-focused category item on the visible dashboard page
 final activeCategoryFocusNodeProvider =
     NotifierProvider<ActiveCategoryFocusNodeNotifier, FocusNode?>(ActiveCategoryFocusNodeNotifier.new);
+
+/// Per-tab category FocusNodes (0 = Live, 1 = Movies, 2 = Series) preventing cross-tab disposal race conditions
+final tabCategoryFocusNodesProvider =
+    NotifierProvider<TabCategoryFocusNodesNotifier, Map<int, FocusNode?>>(
+  TabCategoryFocusNodesNotifier.new,
+);
 
 /// FocusNode of the Master Search button in the Dashboard header
 final headerSearchFocusNodeProvider =

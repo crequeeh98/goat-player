@@ -22,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(connection.openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,6 +52,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(playbackProgress, playbackProgress.episode);
             await m.addColumn(playbackProgress, playbackProgress.episodeTitle);
             await m.addColumn(playbackProgress, playbackProgress.isCompleted);
+          }
+          if (from < 8) {
+            await m.addColumn(playbackProgress, playbackProgress.accountId);
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_playback_progress_account ON playback_progress(account_id, stream_type);');
           }
         },
         beforeOpen: (details) async {

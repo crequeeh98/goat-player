@@ -61,6 +61,7 @@ class Favorites extends Table {
 
 @DataClassName('PlaybackProgressItem')
 class PlaybackProgress extends Table {
+  IntColumn get accountId => integer().nullable().references(Accounts, #id)();
   TextColumn get streamId => text()(); // The API stream ID (movie ID or episode ID)
   TextColumn get streamType => text()(); // 'movie' or 'series'
   TextColumn get seriesId => text().nullable()(); // If episode, the parent series ID

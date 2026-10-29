@@ -57,7 +57,8 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
 
   Future<void> _fetchProgress() async {
     final db = ref.read(databaseProvider);
-    final list = await db.playbackProgressDao.getEpisodesProgressForSeries(widget.seriesId);
+    final account = ref.read(activeAccountProvider);
+    final list = await db.playbackProgressDao.getEpisodesProgressForSeries(widget.seriesId, accountId: account?.id);
     if (mounted) {
       setState(() {
         _episodeProgress = { for (var item in list) item.streamId : item };
@@ -83,7 +84,8 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
         final infoMap = details is Map ? details.cast<String, dynamic>() : null;
         
         // Smart season selection: initialSeason > last watched season from DB > first season
-        final lastWatched = await ref.read(databaseProvider).playbackProgressDao.getLastWatchedForSeries(widget.seriesId);
+        final account = ref.read(activeAccountProvider);
+        final lastWatched = await ref.read(databaseProvider).playbackProgressDao.getLastWatchedForSeries(widget.seriesId, accountId: account?.id);
         String? targetSeason = widget.initialSeason;
         final episodesMap = infoMap?['episodes'];
         if (targetSeason == null && episodesMap is Map && episodesMap.isNotEmpty) {
@@ -167,7 +169,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
     
     // Check for existing progress
     final db = ref.read(databaseProvider);
-    final progress = await db.playbackProgressDao.getProgress(episodeId);
+    final progress = await db.playbackProgressDao.getProgress(episodeId, accountId: account.id);
     
     int? startPosition;
     

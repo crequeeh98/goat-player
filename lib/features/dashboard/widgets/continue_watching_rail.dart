@@ -216,10 +216,11 @@ class ContinueWatchingRail extends ConsumerWidget {
                                       );
                                       if (confirm == true) {
                                         final db = ref.read(databaseProvider);
+                                        final account = ref.read(activeAccountProvider);
                                         if (type == 'series') {
-                                          db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId);
+                                          db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId, accountId: account?.id);
                                         } else {
-                                          db.playbackProgressDao.deleteProgress(item.streamId);
+                                          db.playbackProgressDao.deleteProgress(item.streamId, accountId: account?.id);
                                         }
                                       }
                                     }
@@ -338,10 +339,11 @@ class ContinueWatchingRail extends ConsumerWidget {
                                             customBorder: const CircleBorder(),
                                             onTap: () {
                                               final db = ref.read(databaseProvider);
+                                              final account = ref.read(activeAccountProvider);
                                               if (type == 'series') {
-                                                db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId);
+                                                db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId, accountId: account?.id);
                                               } else {
-                                                db.playbackProgressDao.deleteProgress(item.streamId);
+                                                db.playbackProgressDao.deleteProgress(item.streamId, accountId: account?.id);
                                               }
                                             },
                                             child: const Padding(
