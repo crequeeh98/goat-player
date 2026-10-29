@@ -11,9 +11,10 @@
         android:description="@string/app_description"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:banner="@drawable/banner_clean"
         android:logo="@drawable/banner_clean">
+        <meta-data android:name="isGame" android:value="false" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
