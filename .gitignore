@@ -69,5 +69,4 @@ key.properties
 
 # Android signing keys
 *.jks
-!android/app/goat_keystore.jks
 *.keystore
