@@ -486,8 +486,40 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                       ],
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  loading: () => CustomScrollView(
+                    controller: _movieScrollController,
+                    slivers: [
+                      if (_searchQuery.isEmpty)
+                        SliverToBoxAdapter(
+                          child: ContinueWatchingRail(
+                            type: 'movie',
+                            onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                            firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
+                          ),
+                        ),
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ],
+                  ),
+                  error: (err, stack) => CustomScrollView(
+                    controller: _movieScrollController,
+                    slivers: [
+                      if (_searchQuery.isEmpty)
+                        SliverToBoxAdapter(
+                          child: ContinueWatchingRail(
+                            type: 'movie',
+                            onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                            firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
+                          ),
+                        ),
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: Text('Error: $err')),
+                      ),
+                    ],
+                  ),
                 );
 
           if (isDesktop) {

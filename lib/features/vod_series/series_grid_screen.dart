@@ -468,8 +468,40 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                       ],
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error: $err')),
+                  loading: () => CustomScrollView(
+                    controller: _seriesScrollController,
+                    slivers: [
+                      if (_searchQuery.isEmpty)
+                        SliverToBoxAdapter(
+                          child: ContinueWatchingRail(
+                            type: 'series',
+                            onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                            firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
+                          ),
+                        ),
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ],
+                  ),
+                  error: (err, stack) => CustomScrollView(
+                    controller: _seriesScrollController,
+                    slivers: [
+                      if (_searchQuery.isEmpty)
+                        SliverToBoxAdapter(
+                          child: ContinueWatchingRail(
+                            type: 'series',
+                            onExitLeft: GoatPlatform.isTv ? _focusCategoryColumn : null,
+                            firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
+                          ),
+                        ),
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: Text('Error: $err')),
+                      ),
+                    ],
+                  ),
                 );
 
           if (isDesktop) {
