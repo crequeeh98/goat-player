@@ -24,8 +24,7 @@ class StreamQualityBadges extends StatefulWidget {
 class _StreamQualityBadgesState extends State<StreamQualityBadges> {
   StreamSubscription? _videoParamsSub;
   StreamSubscription? _tracksSub;
-  Timer? _fpsPollTimer1;
-  Timer? _fpsPollTimer2;
+  Timer? _fpsPollTimer;
 
   int? _width;
   int? _height;
@@ -57,11 +56,16 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
   void _cancelSubscriptions() {
     _videoParamsSub?.cancel();
     _tracksSub?.cancel();
-    _fpsPollTimer1?.cancel();
-    _fpsPollTimer2?.cancel();
+    _fpsPollTimer?.cancel();
   }
 
   void _initQualityFromPlayer() {
+    _width = null;
+    _height = null;
+    _fps = null;
+    _hdr = null;
+    _audio = null;
+
     final player = widget.player;
     if (player == null) {
       _parseFromTitle();
@@ -96,11 +100,8 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
       }
     });
 
-    // 3. Poll asynchronous MPV properties after demuxing settles (600ms and 1800ms)
-    _fpsPollTimer1 = Timer(const Duration(milliseconds: 600), () {
-      if (mounted) _queryMpvProperties();
-    });
-    _fpsPollTimer2 = Timer(const Duration(milliseconds: 1800), () {
+    // 3. Poll asynchronous MPV properties after demuxing settles
+    _fpsPollTimer = Timer(const Duration(milliseconds: 1200), () {
       if (mounted) _queryMpvProperties();
     });
 
@@ -109,12 +110,13 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
   }
 
   void _updateFpsFromTracks(Tracks tracks) {
-    if (_fps != null && _fps! >= 15.0) return;
     final realVideo = tracks.video.where((t) => t.id != 'auto' && t.id != 'no').toList();
     final selectedId = widget.player?.state.track.video.id;
     final activeVideo = realVideo.firstWhereOrNull((t) => t.id == selectedId) ?? realVideo.firstOrNull;
     if (activeVideo != null && activeVideo.fps != null && activeVideo.fps! >= 15.0) {
-      setState(() => _fps = activeVideo.fps);
+      if (mounted && _fps != activeVideo.fps) {
+        setState(() => _fps = activeVideo.fps);
+      }
     }
   }
 
@@ -185,13 +187,11 @@ class _StreamQualityBadgesState extends State<StreamQualityBadges> {
     try {
       final dynamic platform = player.platform;
       if (platform != null) {
-        // 1. Live FPS from mpv properties
+        // 1. Container FPS fallback if tracks didn't expose it
         if (_fps == null || _fps! < 15.0) {
-          final dynamic rawVfFps = await platform.getProperty('estimated-vf-fps');
           final dynamic rawContFps = await platform.getProperty('container-fps');
-          final rawFpsStr = rawVfFps?.toString() ?? rawContFps?.toString();
-          if (rawFpsStr != null) {
-            final val = double.tryParse(rawFpsStr);
+          if (rawContFps != null) {
+            final val = double.tryParse(rawContFps.toString());
             if (val != null && val >= 15.0 && val <= 240.0 && mounted) {
               setState(() => _fps = val);
             }

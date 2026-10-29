@@ -38,4 +38,25 @@ class TitleSanitizer {
   /// Sanitizes live TV channel names during ingest.
   /// Delegates directly to ChannelNameCleaner to unify sanitization rules.
   static String sanitizeLiveTvChannel(String rawTitle) => ChannelNameCleaner.clean(rawTitle);
+
+  /// Unescapes common HTML entities (e.g., &amp; -> &, &quot; -> ", etc.)
+  static String unescapeHtml(String text) {
+    if (!text.contains('&')) return text;
+    return text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#039;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAllMapped(RegExp(r'&#(\d+);'), (match) {
+          final code = int.tryParse(match.group(1) ?? '');
+          return code != null ? String.fromCharCode(code) : match.group(0)!;
+        })
+        .replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]+);'), (match) {
+          final code = int.tryParse(match.group(1) ?? '', radix: 16);
+          return code != null ? String.fromCharCode(code) : match.group(0)!;
+        });
+  }
 }

@@ -2346,6 +2346,20 @@ class $PlaybackProgressTable extends PlaybackProgress
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $PlaybackProgressTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<int> accountId = GeneratedColumn<int>(
+    'account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES accounts (id)',
+    ),
+  );
   static const VerificationMeta _streamIdMeta = const VerificationMeta(
     'streamId',
   );
@@ -2481,6 +2495,7 @@ class $PlaybackProgressTable extends PlaybackProgress
   );
   @override
   List<GeneratedColumn> get $columns => [
+    accountId,
     streamId,
     streamType,
     seriesId,
@@ -2506,6 +2521,12 @@ class $PlaybackProgressTable extends PlaybackProgress
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
     if (data.containsKey('stream_id')) {
       context.handle(
         _streamIdMeta,
@@ -2603,6 +2624,10 @@ class $PlaybackProgressTable extends PlaybackProgress
   PlaybackProgressItem map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return PlaybackProgressItem(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}account_id'],
+      ),
       streamId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}stream_id'],
@@ -2662,6 +2687,7 @@ class $PlaybackProgressTable extends PlaybackProgress
 
 class PlaybackProgressItem extends DataClass
     implements Insertable<PlaybackProgressItem> {
+  final int? accountId;
   final String streamId;
   final String streamType;
   final String? seriesId;
@@ -2675,6 +2701,7 @@ class PlaybackProgressItem extends DataClass
   final bool isCompleted;
   final DateTime updatedAt;
   const PlaybackProgressItem({
+    this.accountId,
     required this.streamId,
     required this.streamType,
     this.seriesId,
@@ -2691,6 +2718,9 @@ class PlaybackProgressItem extends DataClass
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<int>(accountId);
+    }
     map['stream_id'] = Variable<String>(streamId);
     map['stream_type'] = Variable<String>(streamType);
     if (!nullToAbsent || seriesId != null) {
@@ -2718,6 +2748,9 @@ class PlaybackProgressItem extends DataClass
 
   PlaybackProgressCompanion toCompanion(bool nullToAbsent) {
     return PlaybackProgressCompanion(
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
       streamId: Value(streamId),
       streamType: Value(streamType),
       seriesId: seriesId == null && nullToAbsent
@@ -2749,6 +2782,7 @@ class PlaybackProgressItem extends DataClass
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PlaybackProgressItem(
+      accountId: serializer.fromJson<int?>(json['accountId']),
       streamId: serializer.fromJson<String>(json['streamId']),
       streamType: serializer.fromJson<String>(json['streamType']),
       seriesId: serializer.fromJson<String?>(json['seriesId']),
@@ -2767,6 +2801,7 @@ class PlaybackProgressItem extends DataClass
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'accountId': serializer.toJson<int?>(accountId),
       'streamId': serializer.toJson<String>(streamId),
       'streamType': serializer.toJson<String>(streamType),
       'seriesId': serializer.toJson<String?>(seriesId),
@@ -2783,6 +2818,7 @@ class PlaybackProgressItem extends DataClass
   }
 
   PlaybackProgressItem copyWith({
+    Value<int?> accountId = const Value.absent(),
     String? streamId,
     String? streamType,
     Value<String?> seriesId = const Value.absent(),
@@ -2796,6 +2832,7 @@ class PlaybackProgressItem extends DataClass
     bool? isCompleted,
     DateTime? updatedAt,
   }) => PlaybackProgressItem(
+    accountId: accountId.present ? accountId.value : this.accountId,
     streamId: streamId ?? this.streamId,
     streamType: streamType ?? this.streamType,
     seriesId: seriesId.present ? seriesId.value : this.seriesId,
@@ -2811,6 +2848,7 @@ class PlaybackProgressItem extends DataClass
   );
   PlaybackProgressItem copyWithCompanion(PlaybackProgressCompanion data) {
     return PlaybackProgressItem(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
       streamId: data.streamId.present ? data.streamId.value : this.streamId,
       streamType: data.streamType.present
           ? data.streamType.value
@@ -2835,6 +2873,7 @@ class PlaybackProgressItem extends DataClass
   @override
   String toString() {
     return (StringBuffer('PlaybackProgressItem(')
+          ..write('accountId: $accountId, ')
           ..write('streamId: $streamId, ')
           ..write('streamType: $streamType, ')
           ..write('seriesId: $seriesId, ')
@@ -2853,6 +2892,7 @@ class PlaybackProgressItem extends DataClass
 
   @override
   int get hashCode => Object.hash(
+    accountId,
     streamId,
     streamType,
     seriesId,
@@ -2870,6 +2910,7 @@ class PlaybackProgressItem extends DataClass
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is PlaybackProgressItem &&
+          other.accountId == this.accountId &&
           other.streamId == this.streamId &&
           other.streamType == this.streamType &&
           other.seriesId == this.seriesId &&
@@ -2885,6 +2926,7 @@ class PlaybackProgressItem extends DataClass
 }
 
 class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
+  final Value<int?> accountId;
   final Value<String> streamId;
   final Value<String> streamType;
   final Value<String?> seriesId;
@@ -2899,6 +2941,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const PlaybackProgressCompanion({
+    this.accountId = const Value.absent(),
     this.streamId = const Value.absent(),
     this.streamType = const Value.absent(),
     this.seriesId = const Value.absent(),
@@ -2914,6 +2957,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     this.rowid = const Value.absent(),
   });
   PlaybackProgressCompanion.insert({
+    this.accountId = const Value.absent(),
     required String streamId,
     required String streamType,
     this.seriesId = const Value.absent(),
@@ -2933,6 +2977,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
        position = Value(position),
        duration = Value(duration);
   static Insertable<PlaybackProgressItem> custom({
+    Expression<int>? accountId,
     Expression<String>? streamId,
     Expression<String>? streamType,
     Expression<String>? seriesId,
@@ -2948,6 +2993,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
       if (streamId != null) 'stream_id': streamId,
       if (streamType != null) 'stream_type': streamType,
       if (seriesId != null) 'series_id': seriesId,
@@ -2965,6 +3011,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
   }
 
   PlaybackProgressCompanion copyWith({
+    Value<int?>? accountId,
     Value<String>? streamId,
     Value<String>? streamType,
     Value<String?>? seriesId,
@@ -2980,6 +3027,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
     Value<int>? rowid,
   }) {
     return PlaybackProgressCompanion(
+      accountId: accountId ?? this.accountId,
       streamId: streamId ?? this.streamId,
       streamType: streamType ?? this.streamType,
       seriesId: seriesId ?? this.seriesId,
@@ -2999,6 +3047,9 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<int>(accountId.value);
+    }
     if (streamId.present) {
       map['stream_id'] = Variable<String>(streamId.value);
     }
@@ -3044,6 +3095,7 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
   @override
   String toString() {
     return (StringBuffer('PlaybackProgressCompanion(')
+          ..write('accountId: $accountId, ')
           ..write('streamId: $streamId, ')
           ..write('streamType: $streamType, ')
           ..write('seriesId: $seriesId, ')
@@ -3190,6 +3242,26 @@ final class $$AccountsTableReferences
     ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_favoritesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PlaybackProgressTable, List<PlaybackProgressItem>>
+  _playbackProgressRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.playbackProgress,
+    aliasName: 'accounts__id__playback_progress__account_id',
+  );
+
+  $$PlaybackProgressTableProcessedTableManager get playbackProgressRefs {
+    final manager = $$PlaybackProgressTableTableManager(
+      $_db,
+      $_db.playbackProgress,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _playbackProgressRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -3341,6 +3413,31 @@ class $$AccountsTableFilterComposer
           }) => $$FavoritesTableFilterComposer(
             $db: $db,
             $table: $db.favorites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> playbackProgressRefs(
+    Expression<bool> Function($$PlaybackProgressTableFilterComposer f) f,
+  ) {
+    final $$PlaybackProgressTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.playbackProgress,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaybackProgressTableFilterComposer(
+            $db: $db,
+            $table: $db.playbackProgress,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3545,6 +3642,31 @@ class $$AccountsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> playbackProgressRefs<T extends Object>(
+    Expression<T> Function($$PlaybackProgressTableAnnotationComposer a) f,
+  ) {
+    final $$PlaybackProgressTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.playbackProgress,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlaybackProgressTableAnnotationComposer(
+            $db: $db,
+            $table: $db.playbackProgress,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AccountsTableTableManager
@@ -3565,6 +3687,7 @@ class $$AccountsTableTableManager
             bool streamsRefs,
             bool epgProgramsRefs,
             bool favoritesRefs,
+            bool playbackProgressRefs,
           })
         > {
   $$AccountsTableTableManager(_$AppDatabase db, $AccountsTable table)
@@ -3636,6 +3759,7 @@ class $$AccountsTableTableManager
                 streamsRefs = false,
                 epgProgramsRefs = false,
                 favoritesRefs = false,
+                playbackProgressRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -3644,6 +3768,7 @@ class $$AccountsTableTableManager
                     if (streamsRefs) db.streams,
                     if (epgProgramsRefs) db.epgPrograms,
                     if (favoritesRefs) db.favorites,
+                    if (playbackProgressRefs) db.playbackProgress,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3732,6 +3857,27 @@ class $$AccountsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (playbackProgressRefs)
+                        await $_getPrefetchedData<
+                          Account,
+                          $AccountsTable,
+                          PlaybackProgressItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountsTableReferences
+                              ._playbackProgressRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).playbackProgressRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3757,6 +3903,7 @@ typedef $$AccountsTableProcessedTableManager =
         bool streamsRefs,
         bool epgProgramsRefs,
         bool favoritesRefs,
+        bool playbackProgressRefs,
       })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
@@ -5138,6 +5285,7 @@ typedef $$FavoritesTableProcessedTableManager =
     >;
 typedef $$PlaybackProgressTableCreateCompanionBuilder =
     PlaybackProgressCompanion Function({
+      Value<int?> accountId,
       required String streamId,
       required String streamType,
       Value<String?> seriesId,
@@ -5154,6 +5302,7 @@ typedef $$PlaybackProgressTableCreateCompanionBuilder =
     });
 typedef $$PlaybackProgressTableUpdateCompanionBuilder =
     PlaybackProgressCompanion Function({
+      Value<int?> accountId,
       Value<String> streamId,
       Value<String> streamType,
       Value<String?> seriesId,
@@ -5168,6 +5317,37 @@ typedef $$PlaybackProgressTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
+
+final class $$PlaybackProgressTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $PlaybackProgressTable,
+          PlaybackProgressItem
+        > {
+  $$PlaybackProgressTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $AccountsTable _accountIdTable(_$AppDatabase db) =>
+      db.accounts.createAlias('playback_progress__account_id__accounts__id');
+
+  $$AccountsTableProcessedTableManager? get accountId {
+    final $_column = $_itemColumn<int>('account_id');
+    if ($_column == null) return null;
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$PlaybackProgressTableFilterComposer
     extends Composer<_$AppDatabase, $PlaybackProgressTable> {
@@ -5237,6 +5417,29 @@ class $$PlaybackProgressTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$AccountsTableFilterComposer get accountId {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PlaybackProgressTableOrderingComposer
@@ -5307,6 +5510,29 @@ class $$PlaybackProgressTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$AccountsTableOrderingComposer get accountId {
+    final $$AccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PlaybackProgressTableAnnotationComposer
@@ -5359,6 +5585,29 @@ class $$PlaybackProgressTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$AccountsTableAnnotationComposer get accountId {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PlaybackProgressTableTableManager
@@ -5372,16 +5621,9 @@ class $$PlaybackProgressTableTableManager
           $$PlaybackProgressTableAnnotationComposer,
           $$PlaybackProgressTableCreateCompanionBuilder,
           $$PlaybackProgressTableUpdateCompanionBuilder,
-          (
-            PlaybackProgressItem,
-            BaseReferences<
-              _$AppDatabase,
-              $PlaybackProgressTable,
-              PlaybackProgressItem
-            >,
-          ),
+          (PlaybackProgressItem, $$PlaybackProgressTableReferences),
           PlaybackProgressItem,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool accountId})
         > {
   $$PlaybackProgressTableTableManager(
     _$AppDatabase db,
@@ -5398,6 +5640,7 @@ class $$PlaybackProgressTableTableManager
               $$PlaybackProgressTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<int?> accountId = const Value.absent(),
                 Value<String> streamId = const Value.absent(),
                 Value<String> streamType = const Value.absent(),
                 Value<String?> seriesId = const Value.absent(),
@@ -5412,6 +5655,7 @@ class $$PlaybackProgressTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion(
+                accountId: accountId,
                 streamId: streamId,
                 streamType: streamType,
                 seriesId: seriesId,
@@ -5428,6 +5672,7 @@ class $$PlaybackProgressTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<int?> accountId = const Value.absent(),
                 required String streamId,
                 required String streamType,
                 Value<String?> seriesId = const Value.absent(),
@@ -5442,6 +5687,7 @@ class $$PlaybackProgressTableTableManager
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlaybackProgressCompanion.insert(
+                accountId: accountId,
                 streamId: streamId,
                 streamType: streamType,
                 seriesId: seriesId,
@@ -5457,9 +5703,52 @@ class $$PlaybackProgressTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PlaybackProgressTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({accountId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (accountId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.accountId,
+                        referencedTable: $$PlaybackProgressTableReferences
+                            ._accountIdTable(db),
+                        referencedColumn: $$PlaybackProgressTableReferences
+                            ._accountIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5474,16 +5763,9 @@ typedef $$PlaybackProgressTableProcessedTableManager =
       $$PlaybackProgressTableAnnotationComposer,
       $$PlaybackProgressTableCreateCompanionBuilder,
       $$PlaybackProgressTableUpdateCompanionBuilder,
-      (
-        PlaybackProgressItem,
-        BaseReferences<
-          _$AppDatabase,
-          $PlaybackProgressTable,
-          PlaybackProgressItem
-        >,
-      ),
+      (PlaybackProgressItem, $$PlaybackProgressTableReferences),
       PlaybackProgressItem,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool accountId})
     >;
 
 class $AppDatabaseManager {

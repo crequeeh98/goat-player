@@ -12,10 +12,12 @@ import '../../../features/live_tv/mobile_live_view.dart';
 
 class FloatingMiniPlayer extends ConsumerStatefulWidget {
   final VoidCallback? onExpandLiveDesktop;
+  final bool openedFromChannelList;
 
   const FloatingMiniPlayer({
     super.key,
     this.onExpandLiveDesktop,
+    this.openedFromChannelList = false,
   });
 
   @override
@@ -87,6 +89,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
                 channelId: active.channelId,
                 streamId: active.streamId,
                 categoryId: active.categoryId,
+                openedFromChannelList: widget.openedFromChannelList,
               ),
               transitionDuration: Duration.zero,
               reverseTransitionDuration: Duration.zero,
@@ -110,7 +113,7 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
 
     final playerService = ref.watch(playerServiceProvider);
     final size = MediaQuery.sizeOf(context);
-    final isDesktop = size.width > 800;
+    final isDesktop = size.width > 800 && !GoatPlatform.isPhone;
 
     if (isDesktop) {
       return _buildDesktopCard(active, playerService);

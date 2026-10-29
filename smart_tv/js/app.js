@@ -5669,10 +5669,10 @@
 
           if (code === 412) { // MediaRewind hardware key -> seek -10s
             e.preventDefault();
-            _player.seekBy(-10);
+            _player.seekBy(-10, e.repeat);
           } else if (code === 417) { // MediaFastForward hardware key -> seek +10s
             e.preventDefault();
-            _player.seekBy(10);
+            _player.seekBy(10, e.repeat);
           } else if (code === 415 || code === 19 || code === 10252) { // MediaPlay/Pause hardware key
             e.preventDefault();
             _player.togglePlayPause();
@@ -5680,14 +5680,14 @@
             // When HUD is hidden, ArrowLeft / ArrowRight directly seek and focus the scrubber
             if (code === 37) { // Left -> Seek -10s
               e.preventDefault();
-              _player.seekBy(-10);
+              _player.seekBy(-10, e.repeat);
               var scrL = document.getElementById('vod-progress-bar');
               if (scrL && window.SpatialNav) {
                 window.SpatialNav.setFocus(scrL);
               }
             } else if (code === 39) { // Right -> Seek +10s
               e.preventDefault();
-              _player.seekBy(10);
+              _player.seekBy(10, e.repeat);
               var scrR = document.getElementById('vod-progress-bar');
               if (scrR && window.SpatialNav) {
                 window.SpatialNav.setFocus(scrR);

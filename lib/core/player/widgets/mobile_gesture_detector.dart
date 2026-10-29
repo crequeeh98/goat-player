@@ -125,6 +125,29 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
     return '$minutes:$seconds';
   }
 
+  void _triggerSkipLeft() {
+    final current = widget.player.state.position;
+    final target = current - const Duration(seconds: 10);
+    widget.player.seek(target < Duration.zero ? Duration.zero : target);
+    _skipLeftTimer?.cancel();
+    setState(() => _showSkipLeft = true);
+    _skipLeftTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) setState(() => _showSkipLeft = false);
+    });
+  }
+
+  void _triggerSkipRight() {
+    final current = widget.player.state.position;
+    final duration = widget.player.state.duration;
+    final target = current + const Duration(seconds: 10);
+    widget.player.seek(duration > Duration.zero && target > duration ? duration : target);
+    _skipRightTimer?.cancel();
+    setState(() => _showSkipRight = true);
+    _skipRightTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) setState(() => _showSkipRight = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -134,26 +157,35 @@ class _MobileGestureDetectorState extends State<MobileGestureDetector> with Sing
           children: [
             widget.child,
 
-            // Gesture Area
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: widget.onSingleTap,
-                onDoubleTapDown: (details) {
-                  if (widget.onDoubleTap != null) {
-                    widget.onDoubleTap!();
-                  } else {
-                    widget.player.playOrPause();
-                  }
-                },
-                onVerticalDragStart: _onVerticalDragStart,
-                onVerticalDragUpdate: _onVerticalDragUpdate,
-                onVerticalDragEnd: _onVerticalDragEnd,
-                onHorizontalDragStart: (d) => _onHorizontalDragStart(d, constraints),
-                onHorizontalDragUpdate: (d) => _onHorizontalDragUpdate(d, constraints),
-                onHorizontalDragEnd: _onDragEnd,
+            // Gesture Area (only intercepts vertical pull-down when configured, or double-tap left/right seek in VOD)
+            if (widget.onPullDown != null || widget.enableSeek || widget.onSingleTap != null || widget.onDoubleTap != null)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: widget.onSingleTap,
+                  onDoubleTapDown: (widget.enableSeek || widget.onDoubleTap != null)
+                      ? (details) {
+                          if (widget.enableSeek) {
+                            final dx = details.localPosition.dx;
+                            final w = constraints.maxWidth;
+                            if (dx < w * 0.45) {
+                              _triggerSkipLeft();
+                            } else if (dx > w * 0.55) {
+                              _triggerSkipRight();
+                            } else {
+                              widget.player.playOrPause();
+                            }
+                          } else if (widget.onDoubleTap != null) {
+                            widget.onDoubleTap!();
+                          }
+                        }
+                      : null,
+                  onDoubleTap: (widget.enableSeek || widget.onDoubleTap != null) ? () {} : null,
+                  onVerticalDragStart: widget.onPullDown != null ? _onVerticalDragStart : null,
+                  onVerticalDragUpdate: widget.onPullDown != null ? _onVerticalDragUpdate : null,
+                  onVerticalDragEnd: widget.onPullDown != null ? _onVerticalDragEnd : null,
+                ),
               ),
-            ),
 
             // Double Tap Visual Ripples
             if (_showSkipLeft)

@@ -26,79 +26,32 @@ class TvRemoteScope extends ConsumerStatefulWidget {
     this.onBackAtRoot,
   });
 
-  static Future<bool> showTvExitDialog(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    final confirmExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1B1528),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-          title: Row(
-            children: [
-              const Icon(Icons.exit_to_app, color: Color(0xFFB388FF), size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  l10n?.exitApp ?? 'Exit GOATPlayer',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            l10n?.localeName == 'de'
-                ? 'Möchtest du GOATPlayer wirklich beenden?'
-                : 'Are you sure you want to exit GOATPlayer?',
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
-          ),
-          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: TvFocusable(
-                    autofocus: true,
-                    borderRadius: BorderRadius.circular(8),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: Center(
-                      child: Text(
-                        l10n?.cancel ?? (l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel'),
-                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TvFocusable(
-                    borderRadius: BorderRadius.circular(8),
-                    focusBorderColor: Colors.redAccent,
-                    glowColor: const Color(0x33FF5252),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    child: Center(
-                      child: Text(
-                        l10n?.localeName == 'de' ? 'Beenden' : 'Exit',
-                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
+  static bool _isExitDialogOpen = false;
 
-    return confirmExit ?? false;
+  static Future<bool> showTvExitDialog(BuildContext context) async {
+    if (_isExitDialogOpen) return false;
+    _isExitDialogOpen = true;
+    try {
+      final l10n = AppLocalizations.of(context);
+      final confirmExit = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _TvExitDialogContent(l10n: l10n),
+      );
+
+      return confirmExit ?? false;
+    } finally {
+      _isExitDialogOpen = false;
+    }
+  }
+
+  static Future<void> performExit() async {
+    if (GoatPlatform.isDesktop) {
+      exit(0);
+    } else {
+      await SystemNavigator.pop(animated: true);
+      Future.delayed(const Duration(milliseconds: 250), () => exit(0));
+    }
   }
 
   @override
@@ -121,9 +74,6 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
   }
 
   bool _handleGlobalHardwareKey(KeyEvent event) {
-    if (event is KeyDownEvent || event is KeyUpEvent) {
-      print('[GOAT_KEY] ${event.runtimeType}: ${event.logicalKey.keyLabel} (id: ${event.logicalKey.keyId})');
-    }
     if ((event is! KeyDownEvent && event is! KeyUpEvent) || !mounted) return false;
 
     final key = event.logicalKey;
@@ -156,49 +106,215 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
       return true;
     }
 
-    // Smart TV / Desktop Back key: Escape or Android/TV goBack
-    if (widget.isRoot &&
-        (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack)) {
-      // Debounce back key to prevent double trigger if TV sends both KeyDown and KeyUp
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (now - _lastBackTriggerTime < 350) {
-        return true;
-      }
-      _lastBackTriggerTime = now;
-
-      // If HomeDashboard is NOT the current active route (e.g. VodPlayerScreen or a modal route is open above it),
-      // do not intercept here! Let the active route handle its own back key / escape.
-      if (ModalRoute.of(context)?.isCurrent != true) {
-        return false;
-      }
-
-      // If a root back callback is supplied (e.g. restoring Live TV 3-column view, closing search, etc.)
-      if (widget.onBackAtRoot != null) {
-        widget.onBackAtRoot!();
-        return true;
-      }
-
-      // Root Level Exit Confirmation
-      _promptExit();
-      return true;
-    }
-
     return false;
   }
 
+  bool _isTextInputFocused() {
+    final primary = FocusManager.instance.primaryFocus;
+    final ctx = primary?.context;
+    if (ctx == null) return false;
+    if (ctx.widget is EditableText) return true;
+    return ctx.findAncestorStateOfType<EditableTextState>() != null;
+  }
+
   void _promptExit() async {
+    if (GoatPlatform.isDesktop) return;
     final shouldExit = await TvRemoteScope.showTvExitDialog(context);
     if (shouldExit && mounted) {
-      if (GoatPlatform.isDesktop) {
-        exit(0);
-      } else {
-        SystemNavigator.pop();
-      }
+      await TvRemoteScope.performExit();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
+    if (!widget.isRoot) {
+      return widget.child;
+    }
+
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (node, event) {
+        final key = event.logicalKey;
+        final isTextFocused = _isTextInputFocused();
+
+        // Backspace is a text-deletion key on Desktop/Mobile, and whenever a text field has focus on TV.
+        final isBackKey = key == LogicalKeyboardKey.escape ||
+            key == LogicalKeyboardKey.goBack ||
+            (GoatPlatform.isTv && !isTextFocused && key == LogicalKeyboardKey.backspace);
+
+        if (!isBackKey) return KeyEventResult.ignored;
+
+        // Consume trailing KeyUpEvent so Android does not invoke window onBackPressed
+        if (event is KeyUpEvent) return KeyEventResult.handled;
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+        // Debounce back key to prevent double trigger if TV sends both KeyDown and KeyUp
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _lastBackTriggerTime < 450) {
+          return KeyEventResult.handled;
+        }
+        _lastBackTriggerTime = now;
+
+        // If HomeDashboard is NOT the current active route (e.g. VodPlayerScreen or a modal route is open above it),
+        // do not intercept here! Let the active route handle its own back key / escape.
+        if (ModalRoute.of(context)?.isCurrent != true) {
+          return KeyEventResult.ignored;
+        }
+
+        // On Desktop/Mobile, pressing Escape inside an inline text field simply unfocuses it
+        // (unless a root overlay like MasterSearchModal handles it via onBackAtRoot).
+        if (!GoatPlatform.isTv && isTextFocused && key == LogicalKeyboardKey.escape) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          if (widget.onBackAtRoot != null) {
+            widget.onBackAtRoot!();
+          }
+          return KeyEventResult.handled;
+        }
+
+        // If a root back callback is supplied (e.g. restoring Live TV 3-column view, closing search, etc.)
+        if (widget.onBackAtRoot != null) {
+          widget.onBackAtRoot!();
+          return KeyEventResult.handled;
+        }
+
+        // Root Level Exit Confirmation (TV / Mobile only)
+        if (!GoatPlatform.isDesktop) {
+          _promptExit();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _TvExitDialogContent extends StatefulWidget {
+  final AppLocalizations? l10n;
+  const _TvExitDialogContent({this.l10n});
+
+  @override
+  State<_TvExitDialogContent> createState() => _TvExitDialogContentState();
+}
+
+class _TvExitDialogContentState extends State<_TvExitDialogContent> {
+  final FocusNode _cancelFocus = FocusNode(debugLabel: 'exit_dialog_cancel');
+  final FocusNode _exitFocus = FocusNode(debugLabel: 'exit_dialog_exit');
+  final int _openTime = DateTime.now().millisecondsSinceEpoch;
+
+  @override
+  void dispose() {
+    _cancelFocus.dispose();
+    _exitFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (DateTime.now().millisecondsSinceEpoch - _openTime > 600) {
+          Navigator.of(context).pop(false);
+        }
+      },
+      child: Focus(
+        autofocus: false,
+        onKeyEvent: (node, event) {
+          final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack ||
+              event.logicalKey == LogicalKeyboardKey.backspace;
+          if (isBack) {
+            if (event is KeyDownEvent && DateTime.now().millisecondsSinceEpoch - _openTime > 600) {
+              Navigator.of(context).pop(false);
+            }
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1B1528),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.exit_to_app, color: Color(0xFFB388FF), size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n?.exitApp ?? 'Exit GOATPlayer',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            l10n?.localeName == 'de'
+                ? 'Möchtest du GOATPlayer wirklich beenden?'
+                : 'Are you sure you want to exit GOATPlayer?',
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: TvFocusable(
+                    focusNode: _cancelFocus,
+                    autofocus: true,
+                    borderRadius: BorderRadius.circular(8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                        _exitFocus.requestFocus();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: Center(
+                      child: Text(
+                        l10n?.cancel ?? (l10n?.localeName == 'de' ? 'Abbrechen' : 'Cancel'),
+                        style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TvFocusable(
+                    focusNode: _exitFocus,
+                    borderRadius: BorderRadius.circular(8),
+                    focusBorderColor: Colors.redAccent,
+                    glowColor: const Color(0x33FF5252),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                        _cancelFocus.requestFocus();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: Center(
+                      child: Text(
+                        l10n?.localeName == 'de' ? 'Beenden' : 'Exit',
+                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'connection/connection.dart' as connection;
 
 import 'tables.dart';
+import '../utils/platform_utils.dart';
 import 'daos/account_dao.dart';
 import 'daos/category_dao.dart';
 import 'daos/stream_dao.dart';
@@ -21,7 +22,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(connection.openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,12 +53,18 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(playbackProgress, playbackProgress.episodeTitle);
             await m.addColumn(playbackProgress, playbackProgress.isCompleted);
           }
+          if (from < 8) {
+            await m.addColumn(playbackProgress, playbackProgress.accountId);
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_playback_progress_account ON playback_progress(account_id, stream_type);');
+          }
         },
         beforeOpen: (details) async {
           try {
             await customStatement('PRAGMA journal_mode = WAL;');
             await customStatement('PRAGMA synchronous = NORMAL;');
-            await customStatement('PRAGMA cache_size = -64000;'); // 64MB RAM cache
+            await customStatement(GoatPlatform.isTv || GoatPlatform.isMobile
+                ? 'PRAGMA cache_size = -16000;' // 16MB RAM cache on constrained mobile/TV devices
+                : 'PRAGMA cache_size = -64000;'); // 64MB RAM cache on desktop
             await customStatement('PRAGMA temp_store = MEMORY;');
           } catch (e) {
             debugPrint('Note: WAL / memory cache PRAGMA not supported on this platform: $e');

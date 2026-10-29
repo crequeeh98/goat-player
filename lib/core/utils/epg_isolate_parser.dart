@@ -1,5 +1,8 @@
 
 
+import 'package:flutter/foundation.dart';
+import 'title_sanitizer.dart';
+
 class EpgItem {
   final String channelId;
   final String title;
@@ -18,7 +21,8 @@ class EpgItem {
 
 class EpgIsolateParser {
   static Future<List<EpgItem>> parse(String xmlContent) async {
-    return await Future.microtask(() => _parseEpgSync(xmlContent));
+    if (xmlContent.isEmpty) return [];
+    return compute(_parseEpgSync, xmlContent);
   }
 
   static List<EpgItem> _parseEpgSync(String content) {
@@ -47,10 +51,13 @@ class EpgIsolateParser {
       final titleMatch = titleRegex.firstMatch(innerContent);
       final descMatch = descRegex.firstMatch(innerContent);
 
+      final rawTitle = titleMatch?.group(1) ?? 'Unknown';
+      final rawDesc = descMatch?.group(1);
+
       items.add(EpgItem(
         channelId: channelId,
-        title: titleMatch?.group(1) ?? 'Unknown',
-        description: descMatch?.group(1),
+        title: TitleSanitizer.unescapeHtml(rawTitle),
+        description: rawDesc != null ? TitleSanitizer.unescapeHtml(rawDesc) : null,
         start: start,
         stop: stop,
       ));

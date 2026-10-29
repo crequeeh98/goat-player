@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 /// Global manager that tracks whether the latest user interaction was via keyboard/D-Pad or mouse.
@@ -60,6 +62,7 @@ class TvFocusable extends StatefulWidget {
   final double scrollAlignment;
   final EdgeInsetsGeometry? padding;
   final bool enabled;
+  final bool clipChild;
   final KeyEventResult Function(FocusNode node, KeyEvent event)? onKeyEvent;
 
   const TvFocusable({
@@ -79,6 +82,7 @@ class TvFocusable extends StatefulWidget {
     this.scrollAlignment = 0.5,
     this.padding,
     this.enabled = true,
+    this.clipChild = true,
     this.onKeyEvent,
   }) : assert(child != null || builder != null, 'Either child or builder must be provided');
 
@@ -91,6 +95,8 @@ class _TvFocusableState extends State<TvFocusable> {
   bool _isHovered = false;
   bool _isFocused = false;
   bool _handledKeyDown = false;
+  Timer? _longPressTimer;
+  bool _isLongPressTriggered = false;
 
   FocusNode get _effectiveNode => widget.focusNode ?? (_internalNode ??= FocusNode());
 
@@ -114,11 +120,13 @@ class _TvFocusableState extends State<TvFocusable> {
     if (widget.focusNode != oldWidget.focusNode) {
       oldWidget.focusNode?.removeListener(_handleFocusChange);
       _effectiveNode.addListener(_handleFocusChange);
+      _isFocused = _effectiveNode.hasFocus;
     }
   }
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     TvInputModeManager.instance.isKeyboardMode.removeListener(_handleInputModeChange);
     _effectiveNode.removeListener(_handleFocusChange);
     if (widget.focusNode == null) {
@@ -135,13 +143,36 @@ class _TvFocusableState extends State<TvFocusable> {
 
   void _handleFocusChange() {
     final hasFocus = _effectiveNode.hasFocus;
+    if (!hasFocus) {
+      _longPressTimer?.cancel();
+      _isLongPressTriggered = false;
+      _handledKeyDown = false;
+    }
     setState(() => _isFocused = hasFocus);
     widget.onFocusChange?.call(hasFocus);
 
-    // Auto-scroll whenever an item gains focus to keep it in view
+    // Auto-scroll whenever an item gains focus to keep it in view, but only if not already visible
     if (hasFocus && widget.autoScroll && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_effectiveNode.hasFocus) return;
+        final renderObj = context.findRenderObject();
+        if (renderObj is RenderBox && renderObj.hasSize) {
+          final viewport = RenderAbstractViewport.maybeOf(renderObj);
+          if (viewport != null) {
+            final scrollable = Scrollable.maybeOf(context);
+            if (scrollable != null && scrollable.position.hasPixels) {
+              final currentScroll = scrollable.position.pixels;
+              final off1 = viewport.getOffsetToReveal(renderObj, 0.0).offset;
+              final off2 = viewport.getOffsetToReveal(renderObj, 1.0).offset;
+              final minOffset = off1 < off2 ? off1 : off2;
+              final maxOffset = off1 > off2 ? off1 : off2;
+              // If already visible within viewport, do NOT jump/scroll! (unless autofocus requested initial alignment)
+              if (!widget.autofocus && currentScroll >= minOffset && currentScroll <= maxOffset) {
+                return;
+              }
+            }
+          }
+        }
         Scrollable.ensureVisible(
           context,
           alignment: widget.scrollAlignment,
@@ -160,28 +191,63 @@ class _TvFocusableState extends State<TvFocusable> {
       }
     }
 
-    if (!widget.enabled || widget.onPressed == null) {
+    if (!widget.enabled) {
+      return KeyEventResult.ignored;
+    }
+
+    // Support Fire TV remote Menu / ContextMenu button directly for onLongPress actions
+    if (event.logicalKey == LogicalKeyboardKey.contextMenu) {
+      if (event is KeyDownEvent && widget.onLongPress != null) {
+        widget.onLongPress!();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    if (widget.onPressed == null && widget.onLongPress == null) {
       return KeyEventResult.ignored;
     }
 
     final isSelectKey = event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonSelect ||
         event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
         event.logicalKey == LogicalKeyboardKey.space ||
         event.logicalKey == LogicalKeyboardKey.gameButtonA;
 
     if (isSelectKey) {
-      if (event is KeyDownEvent) {
-        _handledKeyDown = true;
-        widget.onPressed!();
-        return KeyEventResult.handled;
-      } else if (event is KeyUpEvent) {
-        if (_handledKeyDown) {
-          _handledKeyDown = false;
+      if (widget.onLongPress != null) {
+        if (event is KeyDownEvent) {
+          _handledKeyDown = true;
+          _isLongPressTriggered = false;
+          _longPressTimer?.cancel();
+          _longPressTimer = Timer(const Duration(milliseconds: 500), () {
+            if (mounted && _effectiveNode.hasFocus) {
+              _isLongPressTriggered = true;
+              widget.onLongPress?.call();
+            }
+          });
           return KeyEventResult.handled;
-        } else {
-          // KeyDown was swallowed or omitted by TV browser
-          widget.onPressed!();
+        } else if (event is KeyRepeatEvent) {
+          return KeyEventResult.handled;
+        } else if (event is KeyUpEvent) {
+          _longPressTimer?.cancel();
+          if (_handledKeyDown) {
+            _handledKeyDown = false;
+            if (!_isLongPressTriggered) {
+              widget.onPressed?.call();
+            }
+            _isLongPressTriggered = false;
+            return KeyEventResult.handled;
+          }
+        }
+      } else {
+        if (event is KeyDownEvent) {
+          _handledKeyDown = true;
+          widget.onPressed?.call();
+          return KeyEventResult.handled;
+        } else if (event is KeyUpEvent) {
+          _handledKeyDown = false;
           return KeyEventResult.handled;
         }
       }
@@ -248,12 +314,16 @@ class _TvFocusableState extends State<TvFocusable> {
                       ]
                     : null,
               ),
-              child: ClipRRect(
-                borderRadius: effectiveRadius,
-                child: widget.builder != null
-                    ? widget.builder!(context, isHighlighted, isHighlighted)
-                    : widget.child!,
-              ),
+              child: widget.clipChild
+                  ? ClipRRect(
+                      borderRadius: effectiveRadius,
+                      child: widget.builder != null
+                          ? widget.builder!(context, isHighlighted, isHighlighted)
+                          : widget.child!,
+                    )
+                  : (widget.builder != null
+                      ? widget.builder!(context, isHighlighted, isHighlighted)
+                      : widget.child!),
             ),
           ),
         ),

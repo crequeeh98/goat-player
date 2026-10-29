@@ -38,12 +38,14 @@ class PlayerService {
   String? get lastOpenedUrl => engine.state.lastOpenedUrl;
   bool _isLive = false;
   bool _isOpening = false;
+  bool _hasStartedPlaying = false;
   bool _isDisposed = false;
 
   StreamSubscription? _completedSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _bufferingSub;
   StreamSubscription? _playingSub;
+  StreamSubscription? _videoParamsSub;
   Timer? _reconnectTimer;
   Timer? _bufferingWatchdogTimer;
   Timer? _stabilityTimer;
@@ -55,10 +57,28 @@ class PlayerService {
   }
 
   void _setupAutoReconnect() {
+    _playingSub = engine.stream.playing.listen((isPlaying) {
+      if (isPlaying && !_hasStartedPlaying) {
+        _hasStartedPlaying = true;
+        _isOpening = false;
+        debugPrint('PlayerService: Live stream playback confirmed.');
+      }
+    });
+
+    if (engine is MediaKitPlayerEngine) {
+      _videoParamsSub = (engine as MediaKitPlayerEngine).rawPlayer.stream.videoParams.listen((params) {
+        if (!_hasStartedPlaying && params.w != null && params.w! > 0) {
+          _hasStartedPlaying = true;
+          _isOpening = false;
+          debugPrint('PlayerService: Live stream video confirmed rendering (${params.w}x${params.h})');
+        }
+      });
+    }
+
     // When live stream reaches premature EOF or server drops connection
     _completedSub = engine.stream.completed.listen((completed) {
-      debugPrint('[GOAT_PLAY] engine.stream.completed received: $completed');
-      if (completed && _isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
+      debugPrint('[GOAT_PLAY] engine.stream.completed received: $completed (isOpening=$_isOpening, hasPlayed=$_hasStartedPlaying)');
+      if (completed && _isLive && !_isDisposed && !_isOpening && _hasStartedPlaying && lastOpenedUrl != null) {
         debugPrint('PlayerService: Live stream disconnected or completed. Auto-reconnecting...');
         _scheduleLiveReconnect();
       }
@@ -67,10 +87,31 @@ class PlayerService {
     // When live stream encounters socket or demuxer read error
     _errorSub = engine.stream.error.listen((error) {
       debugPrint('[GOAT_PLAY] engine.stream.error received: $error');
-      if (_isLive && !_isDisposed && !_isOpening && lastOpenedUrl != null) {
-        debugPrint('PlayerService: Live stream error ($error). Auto-reconnecting...');
-        _scheduleLiveReconnect();
+      if (!_isLive || _isDisposed || _isOpening || !_hasStartedPlaying || lastOpenedUrl == null) return;
+      // If the engine is already actively playing, non-fatal track/codec/demux warnings should not interrupt playback
+      if (engine.state.playing) return;
+
+      final errStr = error.toString().toLowerCase();
+      if (errStr.contains('cannot seek') ||
+          errStr.contains('force-seekable') ||
+          errStr.contains('desynchronisation') ||
+          errStr.contains('cache is not responding') ||
+          errStr.contains('demuxer') ||
+          errStr.contains('codec') ||
+          errStr.contains('unsupported') ||
+          errStr.contains('track') ||
+          errStr.contains('could not open') ||
+          errStr.contains('failed to open') ||
+          errStr.contains('packet corrupt') ||
+          errStr.contains('invalid data') ||
+          errStr.contains('error parsing') ||
+          errStr.contains('subtitle') ||
+          errStr.contains('teletext') ||
+          errStr.contains('filter')) {
+        return;
       }
+      debugPrint('PlayerService: Live stream error ($error). Auto-reconnecting...');
+      _scheduleLiveReconnect();
     });
 
     // Watchdog: If live stream stays stuck buffering for >= 12 seconds while playing
@@ -114,9 +155,14 @@ class PlayerService {
   Future<void> open(String url, {bool isLive = false, Duration? startPosition, bool isReconnect = false}) async {
     if (_isDisposed) return;
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _bufferingWatchdogTimer?.cancel();
+    _bufferingWatchdogTimer = null;
+    _stabilityTimer?.cancel();
+    _stabilityTimer = null;
     _isLive = isLive;
     _isOpening = true;
+    _hasStartedPlaying = false;
     if (!isReconnect) {
       _reconnectAttempts = 0;
     }
@@ -129,7 +175,12 @@ class PlayerService {
         _scheduleLiveReconnect();
       }
     } finally {
-      _isOpening = false;
+      // Delay resetting _isOpening by 2000ms so trailing shutdown/flush events cannot trigger false reconnects
+      Future.delayed(const Duration(milliseconds: 2000), () {
+        if (!_isDisposed) {
+          _isOpening = false;
+        }
+      });
     }
   }
 
@@ -216,6 +267,7 @@ class PlayerService {
     _errorSub?.cancel();
     _bufferingSub?.cancel();
     _playingSub?.cancel();
+    _videoParamsSub?.cancel();
     try {
       await engine.stop();
       await engine.dispose();

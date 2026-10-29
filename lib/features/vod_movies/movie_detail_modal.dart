@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import '../../main.dart';
+import '../../core/utils/platform_utils.dart';
+import '../../core/widgets/tv_focusable.dart';
 import '../dashboard/favorites_provider.dart';
 import 'vod_player_screen.dart';
 
@@ -69,7 +71,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     
     // Check for existing progress
     final db = ref.read(databaseProvider);
-    final progress = await db.playbackProgressDao.getProgress(widget.streamId);
+    final progress = await db.playbackProgressDao.getProgress(widget.streamId, accountId: account.id);
     
     int? startPosition;
     
@@ -80,14 +82,44 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           title: Text(AppLocalizations.of(ctx)!.resumePlayback),
           content: Text('${AppLocalizations.of(ctx)!.resumeFrom} ${_formatDuration(progress.position)}?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(AppLocalizations.of(ctx)!.startOver),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(AppLocalizations.of(ctx)!.resume),
-            ),
+            if (GoatPlatform.isTv) ...[
+              TvFocusable(
+                borderRadius: BorderRadius.circular(8),
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Text(AppLocalizations.of(ctx)!.startOver),
+                ),
+              ),
+              TvFocusable(
+                autofocus: true,
+                borderRadius: BorderRadius.circular(8),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    AppLocalizations.of(ctx)!.resume,
+                    style: TextStyle(
+                      color: Theme.of(ctx).colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(AppLocalizations.of(ctx)!.startOver),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(AppLocalizations.of(ctx)!.resume),
+              ),
+            ],
           ],
         ),
       );
@@ -158,7 +190,233 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     }
 
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final isMobile = screenWidth < 600;
+    final isMobile = screenWidth < 600 && !GoatPlatform.isTv;
+
+    if (GoatPlatform.isTv) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        child: Container(
+          width: 700,
+          height: 340,
+          decoration: BoxDecoration(
+            color: const Color(0xFF160F26),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.75),
+                blurRadius: 28,
+                spreadRadius: 2,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left: Movie Poster (2:3 aspect ratio)
+              SizedBox(
+                width: 170,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (widget.posterUrl != null)
+                      Hero(
+                        tag: 'movie_${widget.streamId}',
+                        child: Image.network(
+                          widget.posterUrl!,
+                          fit: BoxFit.cover,
+                          cacheWidth: 260,
+                          cacheHeight: 390,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: const Color(0xFF23183C),
+                            child: const Center(child: Icon(Icons.movie, size: 64, color: Colors.white24)),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        color: const Color(0xFF23183C),
+                        child: const Center(child: Icon(Icons.movie, size: 64, color: Colors.white24)),
+                      ),
+                  ],
+                ),
+              ),
+              // Right: Content Details Column
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row: Title + Close Button
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.movieName,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          TvFocusable(
+                            borderRadius: BorderRadius.circular(16),
+                            focusScale: 1.05,
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Meta Chips Row
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (releaseDate != null) _buildChip(context, '$releaseDate'),
+                          if (rating != null && rating.toString().isNotEmpty)
+                            _buildChip(context, '★ $rating', isHighlight: true),
+                          if (info?['duration'] != null || info?['runtime'] != null)
+                            _buildChip(context, '${info?['duration'] ?? info?['runtime']}'),
+                          if (genre != null && genre.toString().isNotEmpty)
+                            _buildChip(context, '$genre'),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Synopsis / Plot
+                      Text(
+                        plot,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Director & Cast in compact layout
+                      if (director != null && director.toString().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            'Regie: $director',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white60, fontSize: 11.5),
+                          ),
+                        ),
+                      if (cast != null && cast.toString().isNotEmpty)
+                        Text(
+                          'Besetzung: $cast',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white60, fontSize: 11.5),
+                        ),
+
+                      const Spacer(),
+
+                      // Action Buttons Row
+                      Row(
+                        children: [
+                          TvFocusable(
+                            autofocus: true,
+                            focusScale: 1.02,
+                            borderRadius: BorderRadius.circular(8),
+                            onPressed: _playMovie,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.play_arrow, size: 18, color: Colors.white),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    AppLocalizations.of(context)!.playMovie,
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.streamId, streamType: 'movie'))).value ?? false;
+                              Future<void> toggleFav() async {
+                                final account = ref.read(activeAccountProvider);
+                                if (account != null) {
+                                  await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
+                                }
+                              }
+                              return TvFocusable(
+                                focusScale: 1.02,
+                                borderRadius: BorderRadius.circular(8),
+                                onPressed: toggleFav,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                        color: isFavorite ? Colors.amber : Colors.white70,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        AppLocalizations.of(context)!.favorites,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: isFavorite ? Colors.amber : Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -166,10 +424,10 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           ? const EdgeInsets.symmetric(horizontal: 24, vertical: 36)
           : const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Container(
-        width: isMobile ? double.infinity : 540,
+        width: isMobile ? double.infinity : (GoatPlatform.isTv ? 720 : 540),
         constraints: BoxConstraints(
-          maxWidth: 540,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+          maxWidth: GoatPlatform.isTv ? 720 : 540,
+          maxHeight: MediaQuery.sizeOf(context).height * (GoatPlatform.isTv ? 0.92 : 0.78),
         ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -193,7 +451,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: GoatPlatform.isTv ? 720 / 130 : 16 / 9,
               child: Container(
                 color: Colors.black,
                 child: Stack(
@@ -238,14 +496,28 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                     Positioned(
                       top: 16,
                       right: 16,
-                      child: IconButton.filled(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black.withAlpha(150),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
+                      child: GoatPlatform.isTv
+                          ? TvFocusable(
+                              borderRadius: BorderRadius.circular(20),
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withAlpha(150),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                              ),
+                            )
+                          : IconButton.filled(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.black.withAlpha(150),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -322,7 +594,39 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isMobile)
+                  if (GoatPlatform.isTv)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+                      child: TvFocusable(
+                        autofocus: true,
+                        borderRadius: BorderRadius.circular(12),
+                        onPressed: _playMovie,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.play_arrow, size: 24, color: Theme.of(context).colorScheme.onPrimary),
+                              const SizedBox(width: 8),
+                              Text(
+                                AppLocalizations.of(context)!.playMovie,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (isMobile)
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: _playMovie,
@@ -361,6 +665,30 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                   Consumer(
                     builder: (context, ref, child) {
                       final isFavorite = ref.watch(isFavoriteProvider(FavoriteQuery(streamId: widget.streamId, streamType: 'movie'))).value ?? false;
+                      Future<void> toggleFav() async {
+                        final account = ref.read(activeAccountProvider);
+                        if (account != null) {
+                          await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
+                        }
+                      }
+                      if (GoatPlatform.isTv) {
+                        return TvFocusable(
+                          borderRadius: BorderRadius.circular(12),
+                          onPressed: toggleFav,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: isFavorite ? Colors.redAccent : Colors.white70,
+                              size: 24,
+                            ),
+                          ),
+                        );
+                      }
                       return IconButton.filledTonal(
                         icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border),
                         color: isFavorite ? Colors.redAccent : Colors.white70,
@@ -369,12 +697,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                           padding: const EdgeInsets.all(12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: () async {
-                          final account = ref.read(activeAccountProvider);
-                          if (account != null) {
-                            await ref.read(databaseProvider).favoriteDao.toggleFavorite(account.id, widget.streamId, 'movie');
-                          }
-                        },
+                        onPressed: toggleFav,
                       );
                     },
                   ),

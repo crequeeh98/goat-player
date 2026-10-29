@@ -12,9 +12,12 @@ import '../../../core/player/playback_controller.dart';
 import '../../../core/player/widgets/stream_quality_badge.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
 import '../../../core/utils/live_stream_matcher.dart';
+import '../../../main.dart';
+import '../../dashboard/favorites_provider.dart';
 import '../epg_controller.dart';
 import '../live_tv_controller.dart';
 import 'in_player_epg_drawer.dart';
+import 'tv_smart_iptv_overlays.dart';
 
 class CustomLiveControls extends ConsumerStatefulWidget {
   final VideoState state;
@@ -71,18 +74,34 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   double _volume = 100.0;
   bool _isPlaying = true;
   bool _isBuffering = false;
+  bool _hasFirstFrame = true;
+  String? _lastActiveStreamId;
   String? _optimisticStreamId;
+  Timer? _zapDebounceTimer;
+  StreamItem? _pendingZapStream;
 
   // In-Player EPG Drawer & OSD Banner state
   bool _isDrawerOpen = false;
   bool _showOsdBanner = false;
   Timer? _osdBannerTimer;
+  bool _showFitBanner = false;
+  Timer? _fitBannerTimer;
   StreamSubscription? _volumeSub;
   StreamSubscription? _playingSub;
   StreamSubscription? _bufferingSub;
+  StreamSubscription? _videoParamsSub;
   StreamSubscription? _drawerChannelChangeSub;
-  String? _channelChangingToStreamId;
   double _verticalDragDistance = 0.0;
+
+  // Smart-IPTV TV Fullscreen Overlays state (GoatPlatform.isTv)
+  bool _isTvChannelMenuOpen = false;
+  bool _isTvCategoryMenuOpen = false;
+  StreamItem? _tvEpgStream;
+  String? _tvMenuCategoryId;
+  Timer? _tvLongPressTimer;
+  bool _tvLongPressTriggered = false;
+  bool _tvSelectDownHandled = false;
+  int _lastTvSubMenuKeyMs = 0;
 
   @override
   void initState() {
@@ -92,6 +111,13 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _volume = player.state.volume;
     _isPlaying = player.state.playing;
     _isBuffering = player.state.buffering;
+
+    _lastActiveStreamId = widget.currentStreamId ?? widget.streamId;
+    _videoParamsSub = player.stream.videoParams.listen((vp) {
+      if (mounted && !_hasFirstFrame && vp.w != null && vp.w! > 0) {
+        setState(() => _hasFirstFrame = true);
+      }
+    });
 
     _volumeSub = player.stream.volume.listen((v) {
       if (mounted) setState(() => _volume = v);
@@ -123,22 +149,40 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   @override
   void didUpdateWidget(CustomLiveControls oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final curId = widget.currentStreamId ?? widget.streamId;
+    if (curId != _lastActiveStreamId && curId != null) {
+      _lastActiveStreamId = curId;
+      if (mounted) setState(() => _hasFirstFrame = false);
+    }
     if (widget.isFullWidth && !oldWidget.isFullWidth) {
+      if (GoatPlatform.isTv) {
+        _triggerOsdBanner();
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusNode.requestFocus();
+      });
+    } else if (!widget.isFullWidth && oldWidget.isFullWidth && GoatPlatform.isTv) {
+      setState(() {
+        _isTvChannelMenuOpen = false;
+        _isTvCategoryMenuOpen = false;
+        _tvEpgStream = null;
       });
     }
   }
 
   @override
   void dispose() {
+    _zapDebounceTimer?.cancel();
+    _tvLongPressTimer?.cancel();
     _focusNode.dispose();
     _drawerChannelChangeSub?.cancel();
     _hideTimer?.cancel();
     _osdBannerTimer?.cancel();
+    _fitBannerTimer?.cancel();
     _volumeSub?.cancel();
     _playingSub?.cancel();
     _bufferingSub?.cancel();
+    _videoParamsSub?.cancel();
     super.dispose();
   }
 
@@ -148,6 +192,27 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     _osdBannerTimer = Timer(const Duration(milliseconds: 3500), () {
       if (mounted) setState(() => _showOsdBanner = false);
     });
+  }
+
+  void _triggerFitBanner() {
+    _fitBannerTimer?.cancel();
+    setState(() => _showFitBanner = true);
+    _fitBannerTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _showFitBanner = false);
+    });
+  }
+
+  String _fitLabel(BuildContext context, BoxFit? fit) {
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+    switch (fit) {
+      case BoxFit.cover:
+        return 'Zoom';
+      case BoxFit.fill:
+        return isDe ? 'Ausfüllen' : 'Fill';
+      case BoxFit.contain:
+      default:
+        return 'Original';
+    }
   }
 
   DateTime _lastLiveTimerReset = DateTime.now();
@@ -189,22 +254,28 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   }
 
   void _toggleFullscreen(BuildContext context) async {
+    if (GoatPlatform.isPhone && (widget.onEnterFullWidth != null || widget.onBack != null)) {
+      if (widget.isFullWidth) {
+        widget.onBack?.call();
+      } else {
+        widget.onEnterFullWidth?.call();
+      }
+      _startHideTimer();
+      return;
+    }
     final currentlyFull = isFullscreen(context);
     if (widget.onEnterFullWidth != null) {
       widget.onEnterFullWidth!();
     }
     if (currentlyFull) {
-      if (GoatPlatform.isMobile) {
+      if (GoatPlatform.isPhone) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
         ]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     } else {
-      if (GoatPlatform.isMobile) {
+      if (GoatPlatform.isPhone) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,
@@ -236,16 +307,31 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       );
       final prevIdx = (currentIdx != -1) ? (currentIdx - 1 + streams.length) % streams.length : streams.length - 1;
       final prevStream = streams[prevIdx];
-      _optimisticStreamId = prevStream.streamId;
-      widget.onSelectStream?.call(prevStream);
+      setState(() {
+        _optimisticStreamId = prevStream.streamId;
+        _hasFirstFrame = false;
+      });
       _triggerOsdBanner();
       _startHideTimer();
+
+      // Debounce the actual stream switch by 250ms to protect decoder and prevent crashing
+      _zapDebounceTimer?.cancel();
+      _pendingZapStream = prevStream;
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+        if (!mounted || _pendingZapStream == null) return;
+        widget.onSelectStream?.call(_pendingZapStream!);
+        _pendingZapStream = null;
+      });
       return;
     }
     if (widget.onZapPrevious != null) {
-      widget.onZapPrevious!();
       _triggerOsdBanner();
       _startHideTimer();
+      _zapDebounceTimer?.cancel();
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+        if (!mounted) return;
+        widget.onZapPrevious?.call();
+      });
     }
   }
 
@@ -266,16 +352,31 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       );
       final nextIdx = (currentIdx != -1) ? (currentIdx + 1) % streams.length : 0;
       final nextStream = streams[nextIdx];
-      _optimisticStreamId = nextStream.streamId;
-      widget.onSelectStream?.call(nextStream);
+      setState(() {
+        _optimisticStreamId = nextStream.streamId;
+        _hasFirstFrame = false;
+      });
       _triggerOsdBanner();
       _startHideTimer();
+
+      // Debounce the actual stream switch by 250ms to protect decoder and prevent crashing
+      _zapDebounceTimer?.cancel();
+      _pendingZapStream = nextStream;
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+        if (!mounted || _pendingZapStream == null) return;
+        widget.onSelectStream?.call(_pendingZapStream!);
+        _pendingZapStream = null;
+      });
       return;
     }
     if (widget.onZapNext != null) {
-      widget.onZapNext!();
       _triggerOsdBanner();
       _startHideTimer();
+      _zapDebounceTimer?.cancel();
+      _zapDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+        if (!mounted) return;
+        widget.onZapNext?.call();
+      });
     }
   }
 
@@ -304,7 +405,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isFull = isFullscreen(context);
+    final isFull = isFullscreen(context) || (GoatPlatform.isPhone && widget.isFullWidth);
 
     // Dynamically watch active playback state so fullscreen mode immediately updates
     // on channel zap without relying on frozen constructor parameters
@@ -352,6 +453,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
         : (currentStreamItem != null ? ChannelNameCleaner.clean(currentStreamItem.name) : activeTitle);
 
     final isFullOrFullWidth = widget.isFullWidth || isFullscreen(context);
+
+    if (GoatPlatform.isTv) {
+      return _buildTvSmartIptvControls(
+        context: context,
+        isFullOrFullWidth: isFullOrFullWidth,
+        currentStreamItem: currentStreamItem,
+        channelIndex: channelIndex,
+        availableStreams: availableStreams,
+        activeStreamId: activeStreamId,
+        categoryId: categoryId,
+      );
+    }
 
     return Focus(
       focusNode: _focusNode,
@@ -479,6 +592,12 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             },
             child: Stack(
               children: [
+                // 0. Black transition veil masking previous channel frame until new video renders
+                if (!_hasFirstFrame)
+                  Positioned.fill(
+                    child: Container(color: Colors.black),
+                  ),
+
                 // 1. Dark gradient overlay
                 AnimatedOpacity(
                   opacity: (_showOverlay || !_isPlaying || _isDrawerOpen) ? 1.0 : 0.0,
@@ -501,7 +620,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 ),
 
                 // Buffering spinner when controls overlay is hidden
-                if (_isBuffering && !_showOverlay)
+                if ((_isBuffering || !_hasFirstFrame) && !_showOverlay)
                   const Center(
                     child: SizedBox(
                       width: 48,
@@ -530,6 +649,10 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                               icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
                               tooltip: l10n?.close ?? 'Back',
                               onPressed: () {
+                                if (GoatPlatform.isPhone && widget.isFullWidth) {
+                                  widget.onBack?.call();
+                                  return;
+                                }
                                 if (isFull) {
                                   _toggleFullscreen(context);
                                 }
@@ -562,6 +685,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                                   visualDensity: VisualDensity.compact,
                                   onPressed: () {
                                     widget.onCycleFit!();
+                                    _triggerFitBanner();
                                     _startHideTimer();
                                   },
                                 ),
@@ -687,7 +811,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                           ),
 
                         // BOTTOM CENTER: Title & Current Show (Only in Fullscreen or Desktop, not mobile portrait where AppBar already has it)
-                        if (isFullOrFullWidth || !GoatPlatform.isMobile)
+                        if ((isFullOrFullWidth || !GoatPlatform.isMobile) && !(_showOsdBanner && currentStreamItem != null && isFull))
                           Positioned(
                             bottom: 18,
                             left: 90,
@@ -736,19 +860,56 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                   ),
                 ),
 
-                // 3. In-Player OSD Channel Info Banner (Appears on zap, only in fullscreen)
+                // Aspect Ratio Indicator Toast
+                if (_showFitBanner && isFull)
+                  Positioned(
+                    top: 24,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xD914141E),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.aspect_ratio, color: Colors.white, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                _fitLabel(context, widget.currentFit),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 3. In-Player OSD Channel Info Banner (Appears on zap at bottom-center in fullscreen)
                 if (_showOsdBanner && currentStreamItem != null && isFull)
                   Positioned(
-                    top: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)) ? 8 : 40,
-                    left: 12,
-                    right: 12,
-                    child: Center(
-                      child: InPlayerOsdBanner(
-                        stream: currentStreamItem,
-                        currentProgram: currentProgram,
-                        channelNumber: channelIndex,
-                        isCompact: (!isFull || (GoatPlatform.isMobile && MediaQuery.sizeOf(context).width <= 800)),
-                        player: widget.state.widget.controller.player,
+                    bottom: 18,
+                    left: 72,
+                    right: 72,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: InPlayerOsdBanner(
+                          stream: currentStreamItem,
+                          currentProgram: currentProgram,
+                          channelNumber: channelIndex,
+                          isCompact: GoatPlatform.isMobile || !isFull,
+                          player: widget.state.widget.controller.player,
+                        ),
                       ),
                     ),
                   ),
@@ -756,9 +917,9 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                 // 4. In-Player Slide-Out EPG & Channel List Drawer (Only in Full-Width or Fullscreen)
                 if (canShowDrawer && availableStreams.isNotEmpty)
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 250),
+                    duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
-                    left: _isDrawerOpen ? 0 : -360,
+                    left: _isDrawerOpen ? 0 : -280,
                     top: 0,
                     bottom: 0,
                     child: InPlayerEpgDrawer(
@@ -768,58 +929,18 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                       isOpen: _isDrawerOpen,
                       onSelectStream: (stream) {
                         _optimisticStreamId = stream.streamId;
-                        _channelChangingToStreamId = stream.streamId;
-                        setState(() {}); // Rebuild so the drawer highlight updates to the new channel immediately!
-
+                        _drawerChannelChangeSub?.cancel();
+                        _drawerChannelChangeSub = null;
+                        setState(() {
+                          _isDrawerOpen = false;
+                          _showOverlay = false;
+                        });
                         widget.onSelectStream?.call(stream);
                         _triggerOsdBanner();
-
-                        _hideTimer?.cancel();
-                        _drawerChannelChangeSub?.cancel();
-
-                        // Keep the drawer open with the channel highlighted until the stream is loaded and playing!
-                        final player = widget.state.widget.controller.player;
-                        int ticks = 0;
-                        _drawerChannelChangeSub = player.stream.position.listen((pos) {
-                          final uri = player.state.playlist.medias.firstOrNull?.uri;
-                          final hasVideo = player.state.videoParams.w != null && player.state.videoParams.w! > 0;
-                          final targetId = stream.streamId;
-                          if (uri != null && uri.contains('/$targetId.') && hasVideo) {
-                            ticks++;
-                            if (ticks >= 2) {
-                              _drawerChannelChangeSub?.cancel();
-                              _drawerChannelChangeSub = null;
-                              if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
-                                // Short 300ms pause so the user clearly sees the channel confirmed before closing
-                                Future.delayed(const Duration(milliseconds: 300), () {
-                                  if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
-                                    setState(() {
-                                      _isDrawerOpen = false;
-                                      _channelChangingToStreamId = null;
-                                    });
-                                    _startHideTimer();
-                                  }
-                                });
-                              }
-                            }
-                          }
-                        });
-
-                        // Fallback: close drawer after 4 seconds if stream takes unusually long
-                        Future.delayed(const Duration(seconds: 4), () {
-                          if (mounted && _isDrawerOpen && _channelChangingToStreamId == stream.streamId) {
-                            setState(() {
-                              _isDrawerOpen = false;
-                              _channelChangingToStreamId = null;
-                            });
-                            _startHideTimer();
-                          }
-                        });
                       },
                       onClose: () {
                         _drawerChannelChangeSub?.cancel();
                         _drawerChannelChangeSub = null;
-                        _channelChangingToStreamId = null;
                         setState(() => _isDrawerOpen = false);
                         _startHideTimer();
                       },
@@ -830,5 +951,330 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
           ),
         ),
       );
+  }
+
+  Future<void> _toggleTvFavorite(StreamItem stream) async {
+    final acc = ref.read(activeAccountProvider);
+    if (acc == null) return;
+    await ref.read(databaseProvider).favoriteDao.toggleFavorite(acc.id, stream.streamId, 'live');
+    if (mounted) {
+      _triggerOsdBanner();
+    }
+  }
+
+  Future<void> _openTvColorPickerInFullscreen(StreamItem? currentStreamItem) async {
+    if (currentStreamItem == null) return;
+    final favIds = ref.read(favoriteStreamIdsProvider('live')).value ?? const <String>{};
+    final isFav = favIds.contains(currentStreamItem.streamId);
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+
+    final action = await TvColorActionPicker.showLiveActions(
+      context: context,
+      channelName: ChannelNameCleaner.clean(currentStreamItem.name),
+      isFavorite: isFav,
+      isDe: isDe,
+    );
+    if (!mounted || action == null) {
+      _focusNode.requestFocus();
+      return;
+    }
+
+    if (action == TvLiveColorAction.toggleFavorite) {
+      await _toggleTvFavorite(currentStreamItem);
+      if (mounted) _focusNode.requestFocus();
+    } else if (action == TvLiveColorAction.openEpg) {
+      setState(() {
+        _tvEpgStream = currentStreamItem;
+        _isTvChannelMenuOpen = false;
+        _isTvCategoryMenuOpen = false;
+      });
+    } else if (action == TvLiveColorAction.openCategories) {
+      setState(() {
+        _isTvCategoryMenuOpen = true;
+        _isTvChannelMenuOpen = false;
+        _tvEpgStream = null;
+      });
+    }
+  }
+
+  Widget _buildTvSmartIptvControls({
+    required BuildContext context,
+    required bool isFullOrFullWidth,
+    required StreamItem? currentStreamItem,
+    required int channelIndex,
+    required List<StreamItem> availableStreams,
+    required String? activeStreamId,
+    required String? categoryId,
+  }) {
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+
+    // 1. In 3-Column Preview Mode (!isFullOrFullWidth):
+    // Keep preview clean; the outer TvFocusable in DesktopLiveScreen handles OK -> Fullscreen.
+    if (!isFullOrFullWidth) {
+      return Stack(
+        children: [
+          if (_isBuffering)
+            const Center(
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3.0,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB388FF)),
+                ),
+              ),
+            ),
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    isDe ? 'OK: Vollbild' : 'OK: Fullscreen',
+                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 2. In Fullscreen Live TV Mode (isFullOrFullWidth):
+    final categories = ref.watch(liveCategoriesProvider).asData?.value ?? const <Category>[];
+    final effectiveMenuCatId = _tvMenuCategoryId ?? categoryId ?? categories.firstOrNull?.categoryId;
+    final menuStreams = effectiveMenuCatId != null
+        ? (ref.watch(liveStreamsProvider(effectiveMenuCatId)).asData?.value ?? const <StreamItem>[])
+        : availableStreams;
+    final menuCatObj = categories.where((c) => c.categoryId == effectiveMenuCatId).firstOrNull;
+    final menuCatName = effectiveMenuCatId == 'favorites'
+        ? (isDe ? 'Favoriten' : 'Favorites')
+        : (menuCatObj?.name ?? widget.categoryName ?? 'Live TV');
+
+    final isAnySubMenuOpen = _isTvChannelMenuOpen || _isTvCategoryMenuOpen || _tvEpgStream != null;
+
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: !isAnySubMenuOpen,
+      onKeyEvent: (node, event) {
+        if (isAnySubMenuOpen) {
+          _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
+          return KeyEventResult.ignored;
+        }
+
+        if (event.logicalKey == LogicalKeyboardKey.contextMenu) {
+          if (event is KeyDownEvent) {
+            _openTvColorPickerInFullscreen(currentStreamItem);
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.handled;
+        }
+
+        final isSelectKey = event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter;
+
+        if (isSelectKey) {
+          if (event is KeyDownEvent) {
+            _tvSelectDownHandled = true;
+            _tvLongPressTriggered = false;
+            _tvLongPressTimer?.cancel();
+            _tvLongPressTimer = Timer(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                _tvLongPressTriggered = true;
+                _openTvColorPickerInFullscreen(currentStreamItem);
+              }
+            });
+            return KeyEventResult.handled;
+          } else if (event is KeyRepeatEvent) {
+            return KeyEventResult.handled;
+          } else if (event is KeyUpEvent) {
+            _tvLongPressTimer?.cancel();
+            if (_tvSelectDownHandled) {
+              _tvSelectDownHandled = false;
+              if (!_tvLongPressTriggered) {
+                // Short press OK -> Open Smart-IPTV Channel Menu
+                setState(() {
+                  _tvMenuCategoryId = categoryId;
+                  _isTvChannelMenuOpen = true;
+                  _showOsdBanner = false;
+                });
+              }
+              _tvLongPressTriggered = false;
+              return KeyEventResult.handled;
+            }
+          }
+        }
+
+        if (event is KeyDownEvent) {
+          // Back / Escape: Exit Fullscreen back to 3-column Live TV view
+          if (event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack ||
+              event.logicalKey == LogicalKeyboardKey.backspace) {
+            // Swallow duplicate Back that arrives right after a submenu was closed with Back
+            if (DateTime.now().millisecondsSinceEpoch - _lastTvSubMenuKeyMs < 450) {
+              return KeyEventResult.handled;
+            }
+            widget.onBack?.call();
+            return KeyEventResult.handled;
+          }
+
+          // Up / Right / CH+ -> Zap Next Channel + Show Smart-IPTV Infobar (KeyDown only, no spam on key hold)
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+              event.logicalKey == LogicalKeyboardKey.arrowRight ||
+              event.logicalKey == LogicalKeyboardKey.channelUp ||
+              event.logicalKey == LogicalKeyboardKey.pageUp) {
+            _zapNext();
+            return KeyEventResult.handled;
+          }
+
+          // Down / Left / CH- -> Zap Previous Channel + Show Smart-IPTV Infobar (KeyDown only, no spam on key hold)
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+              event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+              event.logicalKey == LogicalKeyboardKey.channelDown ||
+              event.logicalKey == LogicalKeyboardKey.pageDown) {
+            _zapPrevious();
+            return KeyEventResult.handled;
+          }
+        }
+
+        return KeyEventResult.ignored;
+      },
+      child: Stack(
+        children: [
+          // Buffering spinner
+          if (_isBuffering)
+            const Center(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB388FF)),
+                ),
+              ),
+            ),
+
+          // 1. Smart-IPTV Bottom Infobar (Shown for 3.5s on channel zap or fullscreen entry)
+          if (_showOsdBanner && currentStreamItem != null && !isAnySubMenuOpen)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: TvLiveInfobar(
+                  stream: currentStreamItem,
+                  channelNumber: channelIndex,
+                  player: widget.state.widget.controller.player,
+                ),
+              ),
+            ),
+
+          // 2. Smart-IPTV Centered Paginated Channel Menu
+          if (_isTvChannelMenuOpen)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black38,
+                child: TvLiveChannelMenu(
+                  key: ValueKey('tv_live_channel_menu_$effectiveMenuCatId'),
+                  streams: menuStreams,
+                  activeStreamId: activeStreamId,
+                  categoryName: menuCatName,
+                  onSelectStream: (stream) {
+                    _optimisticStreamId = stream.streamId;
+                    if (_tvMenuCategoryId != null && _tvMenuCategoryId != categoryId) {
+                      ref.read(selectedLiveCategoryProvider.notifier).set(_tvMenuCategoryId);
+                    }
+                    widget.onSelectStream?.call(stream);
+                    _triggerOsdBanner();
+                  },
+                  onToggleFavorite: _toggleTvFavorite,
+                  onOpenEpg: (stream) {
+                    setState(() {
+                      _isTvChannelMenuOpen = false;
+                      _tvEpgStream = stream;
+                    });
+                  },
+                  onOpenCategories: () {
+                    setState(() {
+                      _isTvChannelMenuOpen = false;
+                      _isTvCategoryMenuOpen = true;
+                    });
+                  },
+                  onClose: () {
+                    _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
+                    setState(() => _isTvChannelMenuOpen = false);
+                    _triggerOsdBanner();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _focusNode.requestFocus();
+                    });
+                  },
+                ),
+              ),
+            ),
+
+          // 3. Smart-IPTV Centered Paginated Category / Bouquet Menu
+          if (_isTvCategoryMenuOpen)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black38,
+                child: TvLiveCategoryMenu(
+                  categories: categories,
+                  activeCategoryId: categoryId,
+                  focusedCategoryId: effectiveMenuCatId,
+                  onSelectCategory: (catId) {
+                    final account = ref.read(activeAccountProvider);
+                    final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
+                    if (catId != 'favorites' && !isM3u) {
+                      ref.read(liveTvControllerProvider).syncLiveStreams(catId);
+                    }
+                    setState(() {
+                      _tvMenuCategoryId = catId;
+                      _isTvCategoryMenuOpen = false;
+                      _isTvChannelMenuOpen = true;
+                    });
+                  },
+                  onClose: () {
+                    _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
+                    setState(() {
+                      _isTvCategoryMenuOpen = false;
+                      _isTvChannelMenuOpen = true;
+                    });
+                  },
+                ),
+              ),
+            ),
+
+          // 4. Smart-IPTV Centered Full Channel EPG Schedule Overlay
+          if (_tvEpgStream != null)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black45,
+                child: TvLiveEpgOverlay(
+                  stream: _tvEpgStream!,
+                  onClose: () {
+                    _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
+                    setState(() {
+                      _tvEpgStream = null;
+                      _isTvChannelMenuOpen = true;
+                    });
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

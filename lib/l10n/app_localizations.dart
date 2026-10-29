@@ -212,6 +212,18 @@ abstract class AppLocalizations {
   /// **'No results found.'**
   String get noResultsFound;
 
+  /// No description provided for @noChannelsInCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'No channels in this category'**
+  String get noChannelsInCategory;
+
+  /// No description provided for @loadingChannels.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading channels...'**
+  String get loadingChannels;
+
   /// No description provided for @error.
   ///
   /// In en, this message translates to:

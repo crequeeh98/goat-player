@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/utils/platform_utils.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'live_tv_controller.dart';
 import 'epg_controller.dart';
 import '../../core/utils/channel_name_cleaner.dart';
 import '../../core/player/playback_controller.dart';
+import '../../core/player/widgets/floating_mini_player.dart';
 import '../../core/database/app_database.dart';
 import '../../core/utils/live_stream_matcher.dart';
 import '../../main.dart';
@@ -37,11 +39,13 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        ref.read(epgControllerProvider).syncEpgData();
-      }
-    });
+    if (!GoatPlatform.isTv) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          ref.read(epgControllerProvider).syncEpgData();
+        }
+      });
+    }
   }
 
   @override
@@ -129,6 +133,7 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
                     ),
                     trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.white38),
                     onTap: () {
+                      ref.read(selectedLiveCategoryProvider.notifier).set(cat.categoryId);
                       final account = ref.read(activeAccountProvider);
                       final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
                       if (!isM3u) {
@@ -173,21 +178,24 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final displayCategoryName = widget.categoryId == 'favorites' ? l10n.favorites : widget.categoryName;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: _isSearching
             ? TextField(
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search channels...',
+                decoration: InputDecoration(
+                  hintText: '${l10n.search}...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.white70),
+                  hintStyle: const TextStyle(color: Colors.white70),
                 ),
                 style: const TextStyle(color: Colors.white),
                 onChanged: (val) => setState(() => _channelSearchQuery = val),
               )
-            : Text(widget.categoryName),
+            : Text(displayCategoryName),
         actions: [
           IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -215,18 +223,20 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
               }
 
               if (streams.isEmpty) {
-                return const Center(child: Text('No channels found'));
+                return Center(child: Text(l10n.noResultsFound));
               }
 
               final currentPrograms = ref.watch(currentProgramsMapProvider).asData?.value ?? const {};
               final favoriteStreamIds = ref.watch(favoriteStreamIdsProvider('live')).asData?.value ?? const <String>{};
+              final activePlayback = ref.watch(playbackControllerProvider);
+              final isMiniPlayerVisible = activePlayback != null && activePlayback.isMinimized;
               final now = DateTime.now();
               final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
               return ListView.builder(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.only(
-                  bottom: 16 + bottomPadding,
+                  bottom: (isMiniPlayerVisible ? 80 : 16) + bottomPadding,
                 ),
                 itemCount: streams.length,
                 itemBuilder: (context, index) {
@@ -336,7 +346,8 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                             channelName: cleanName,
                             streamId: stream.streamId,
                             categoryId: widget.categoryId,
-                            categoryName: widget.categoryName,
+                            categoryName: displayCategoryName,
+                            openedFromChannelList: true,
                           ),
                           transitionDuration: Duration.zero,
                           reverseTransitionDuration: Duration.zero,
@@ -348,8 +359,10 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(child: Text('Error: $err')),
+            error: (err, stack) => Center(child: Text('${l10n.error}$err')),
           ),
+          if (!GoatPlatform.isWeb && !GoatPlatform.isTv && (ModalRoute.of(context)?.isCurrent ?? true))
+            const FloatingMiniPlayer(openedFromChannelList: true),
         ],
       ),
     );
@@ -363,6 +376,7 @@ class MobilePlayerScreen extends ConsumerStatefulWidget {
   final String? streamId;
   final String? categoryId;
   final String? categoryName;
+  final bool openedFromChannelList;
   
   const MobilePlayerScreen({
     super.key,
@@ -372,6 +386,7 @@ class MobilePlayerScreen extends ConsumerStatefulWidget {
     this.streamId,
     this.categoryId,
     this.categoryName,
+    this.openedFromChannelList = false,
   });
 
   @override
@@ -385,6 +400,8 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
   String? _streamId;
   String? _categoryId;
   String? _categoryName;
+  bool _isFullscreen = false;
+  StreamSubscription<String>? _orientationSub;
 
   @override
   void initState() {
@@ -395,6 +412,17 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
     _streamId = widget.streamId;
     _categoryId = widget.categoryId;
     _categoryName = widget.categoryName;
+
+    if (GoatPlatform.isPhone) {
+      _orientationSub = GoatPlatform.deviceOrientationStream.listen((orientation) {
+        if (!mounted || _isMinimizing) return;
+        if (orientation == 'landscapeLeft' || orientation == 'landscapeRight') {
+          _setFullscreen(true);
+        } else if (orientation == 'portrait') {
+          _setFullscreen(false);
+        }
+      });
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -411,6 +439,27 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
         ref.read(playbackControllerProvider.notifier).expand();
       }
     });
+  }
+
+  void _setFullscreen(bool full) {
+    if (!mounted || _isFullscreen == full) return;
+    setState(() {
+      _isFullscreen = full;
+    });
+    if (GoatPlatform.isPhone) {
+      if (full) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+      }
+    }
   }
 
   void _onSelectStream(StreamItem newStream) {
@@ -445,12 +494,15 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
 
   @override
   void dispose() {
-    if (GoatPlatform.isMobile) {
+    _orientationSub?.cancel();
+    if (GoatPlatform.isTv) {
       SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
       ]);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
@@ -459,38 +511,69 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
 
   bool _isMinimizing = false;
 
+  void _navigateBackToChannelList() {
+    final l10n = AppLocalizations.of(context);
+    final effectiveCatId = _categoryId ?? ref.read(selectedLiveCategoryProvider);
+    final categories = ref.read(liveCategoriesProvider).asData?.value;
+    final resolvedCat = categories?.where((c) => c.categoryId == effectiveCatId).firstOrNull;
+    final resolvedCategoryName = effectiveCatId == 'favorites'
+        ? (l10n?.favorites ?? 'Favoriten')
+        : (_categoryName ?? resolvedCat?.name ?? (l10n?.liveTv ?? 'Live TV'));
+
+    if (widget.openedFromChannelList || effectiveCatId == null) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => MobileLiveChannelsScreen(
+            categoryId: effectiveCatId,
+            categoryName: resolvedCategoryName,
+          ),
+        ),
+      );
+    }
+  }
+
   void _handleMinimize() {
     if (_isMinimizing) return;
     _isMinimizing = true;
-    if (GoatPlatform.isMobile) {
+    _orientationSub?.cancel();
+    if (GoatPlatform.isTv) {
       SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
       ]);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     final notifier = ref.read(playbackControllerProvider.notifier);
     notifier.minimize();
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    _navigateBackToChannelList();
   }
 
   void _handleClose() {
     if (_isMinimizing) return;
     _isMinimizing = true;
-    if (GoatPlatform.isMobile) {
+    _orientationSub?.cancel();
+    if (GoatPlatform.isTv) {
       SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
+      ]);
+    } else if (GoatPlatform.isPhone) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
       ]);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
     final notifier = ref.read(playbackControllerProvider.notifier);
     notifier.stop();
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    _navigateBackToChannelList();
   }
 
   @override
@@ -508,93 +591,127 @@ class _MobilePlayerScreenState extends ConsumerState<MobilePlayerScreen> {
     final resolvedCat = categories?.where((c) => c.categoryId == effectiveCatId).firstOrNull;
     final resolvedCategoryName = _categoryName ?? resolvedCat?.name;
 
+    final videoWidget = VideoPreview(
+      streamUrl: _streamUrl,
+      channelId: _channelId,
+      channelName: _channelName,
+      streamId: _streamId,
+      isFullWidth: _isFullscreen,
+      onEnsureFullWidth: () => _setFullscreen(true),
+      onExitToPreview: () => _setFullscreen(false),
+      streams: categoryStreams,
+      categoryName: resolvedCategoryName,
+      onSelectStream: _onSelectStream,
+      onZapPrevious: (categoryStreams != null && categoryStreams.length > 1) ? () {
+        final idx = LiveStreamMatcher.indexOf(
+          categoryStreams,
+          streamId: _streamId,
+          channelId: _channelId,
+          streamUrl: _streamUrl,
+        );
+        final prevIdx = (idx != -1) ? (idx - 1 + categoryStreams.length) % categoryStreams.length : categoryStreams.length - 1;
+        _onSelectStream(categoryStreams[prevIdx]);
+      } : null,
+      onZapNext: (categoryStreams != null && categoryStreams.length > 1) ? () {
+        final idx = LiveStreamMatcher.indexOf(
+          categoryStreams,
+          streamId: _streamId,
+          channelId: _channelId,
+          streamUrl: _streamUrl,
+        );
+        final nextIdx = (idx != -1) ? (idx + 1) % categoryStreams.length : 0;
+        _onSelectStream(categoryStreams[nextIdx]);
+      } : null,
+      onPullDown: _isFullscreen ? null : _handleMinimize,
+    );
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _handleMinimize();
+        if (_isFullscreen) {
+          _setFullscreen(false);
+        } else {
+          _handleMinimize();
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.keyboard_arrow_down, size: 28),
-            tooltip: 'Minimize',
-            onPressed: _handleMinimize,
-          ),
-          title: Text(_channelName),
-          actions: [
-            if (_streamId != null)
-              IconButton(
-                icon: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? Colors.redAccent : Colors.white,
+        body: _isFullscreen
+            ? SizedBox.expand(child: videoWidget)
+            : SafeArea(
+                child: Column(
+                  children: [
+                    // Top Bar (Inert, no Material 3 scroll tinting or elevation)
+                    Container(
+                      height: 52,
+                      color: Colors.black,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.keyboard_arrow_down, size: 28),
+                              tooltip: 'Minimize',
+                              onPressed: _handleMinimize,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _channelName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (_streamId != null)
+                              IconButton(
+                                icon: Icon(
+                                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                                  color: isFavorite ? Colors.redAccent : Colors.white,
+                                ),
+                                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                                onPressed: () async {
+                                  if (account != null && _streamId != null) {
+                                    await ref.read(databaseProvider).favoriteDao.toggleFavorite(
+                                      account.id,
+                                      _streamId!,
+                                      'live',
+                                    );
+                                  }
+                                },
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              tooltip: 'Close',
+                              onPressed: _handleClose,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: videoWidget,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (_) => true,
+                          child: ClipRect(
+                            child: EpgTimelineWidget(channelId: _channelId),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
-                onPressed: () async {
-                  if (account != null && _streamId != null) {
-                    await ref.read(databaseProvider).favoriteDao.toggleFavorite(
-                      account.id,
-                      _streamId!,
-                      'live',
-                    );
-                  }
-                },
               ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close',
-              onPressed: _handleClose,
-            ),
-          ],
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: VideoPreview(
-                  streamUrl: _streamUrl,
-                  channelId: _channelId,
-                  channelName: _channelName,
-                  streamId: _streamId,
-                  streams: categoryStreams,
-                  categoryName: resolvedCategoryName,
-                  onSelectStream: _onSelectStream,
-                  onZapPrevious: (categoryStreams != null && categoryStreams.length > 1) ? () {
-                    final idx = LiveStreamMatcher.indexOf(
-                      categoryStreams,
-                      streamId: _streamId,
-                      channelId: _channelId,
-                      streamUrl: _streamUrl,
-                    );
-                    final prevIdx = (idx != -1) ? (idx - 1 + categoryStreams.length) % categoryStreams.length : categoryStreams.length - 1;
-                    _onSelectStream(categoryStreams[prevIdx]);
-                  } : null,
-                  onZapNext: (categoryStreams != null && categoryStreams.length > 1) ? () {
-                    final idx = LiveStreamMatcher.indexOf(
-                      categoryStreams,
-                      streamId: _streamId,
-                      channelId: _channelId,
-                      streamUrl: _streamUrl,
-                    );
-                    final nextIdx = (idx != -1) ? (idx + 1) % categoryStreams.length : 0;
-                    _onSelectStream(categoryStreams[nextIdx]);
-                  } : null,
-                  onPullDown: _handleMinimize,
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: EpgTimelineWidget(channelId: _channelId),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

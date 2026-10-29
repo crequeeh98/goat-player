@@ -48,7 +48,7 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
           channelId: widget.currentStreamId,
         );
         if (idx > 3 && _scrollController.hasClients) {
-          _scrollController.jumpTo((idx - 2) * 68.0);
+          _scrollController.jumpTo((idx - 2) * 50.0);
         }
       }
     });
@@ -100,25 +100,25 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
     }
 
     return ClipRRect(
-      borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
+      borderRadius: const BorderRadius.horizontal(right: Radius.circular(14)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          width: 350,
+          width: 270,
           color: const Color(0xE814141E), // Deep frosted glass slate
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header: Category Title + Channel count + Close
               Container(
-                padding: const EdgeInsets.only(left: 16, right: 8, top: 12, bottom: 10),
+                padding: const EdgeInsets.only(left: 12, right: 4, top: 8, bottom: 6),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.format_list_bulleted, color: Colors.white70, size: 22),
-                    const SizedBox(width: 10),
+                    const Icon(Icons.format_list_bulleted, color: Colors.white70, size: 18),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,17 +127,20 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                             widget.categoryName ?? (l10n?.epgDrawer ?? 'Channel List & EPG'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white),
                           ),
                           Text(
                             '${widget.streams.length} Sender',
-                            style: const TextStyle(fontSize: 11, color: Colors.white54),
+                            style: const TextStyle(fontSize: 10, color: Colors.white54),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       tooltip: l10n?.close ?? 'Close',
                       onPressed: widget.onClose,
                     ),
@@ -147,17 +150,20 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
 
               // Search Bar
               Padding(
-                padding: const EdgeInsets.all(10.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
                   decoration: InputDecoration(
                     hintText: l10n?.search ?? 'Search channels...',
-                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 18),
+                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 16),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 32, maxHeight: 28),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.white54, size: 16),
+                            icon: const Icon(Icons.clear, color: Colors.white54, size: 14),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 28, maxHeight: 28),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
@@ -168,10 +174,10 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.08),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                   ),
                   onChanged: (v) => setState(() => _searchQuery = v),
                 ),
@@ -183,13 +189,13 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                     ? Center(
                         child: Text(
                           l10n?.noResultsFound ?? 'No channels found',
-                          style: const TextStyle(color: Colors.white54, fontSize: 13),
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                       )
                     : ListView.builder(
                         controller: _scrollController,
                         itemCount: filteredStreams.length,
-                        itemExtent: 68.0,
+                        itemExtent: 50.0,
                         itemBuilder: (context, index) {
                           final stream = filteredStreams[index];
                           final cleanName = ChannelNameCleaner.clean(stream.name);
@@ -215,20 +221,20 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                             child: InkWell(
                               onTap: () => widget.onSelectStream(stream),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   border: Border(
                                     left: BorderSide(
                                       color: isSelected ? Colors.purpleAccent : Colors.transparent,
-                                      width: 4,
+                                      width: 3,
                                     ),
                                     bottom: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
                                   ),
                                 ),
                                 child: Row(
                                   children: [
-                                    ChannelIcon(iconUrl: stream.streamIcon, channelName: cleanName, size: 38),
-                                    const SizedBox(width: 10),
+                                    ChannelIcon(iconUrl: stream.streamIcon, channelName: cleanName, size: 28),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
@@ -239,12 +245,12 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: 13,
+                                              fontSize: 11.5,
                                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                               color: isSelected ? Colors.purpleAccent : Colors.white,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
+                                          const SizedBox(height: 1),
                                           if (program != null) ...[
                                             Row(
                                               children: [
@@ -253,23 +259,23 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                                                     program.title,
                                                     maxLines: 1,
                                                     overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                                    style: const TextStyle(fontSize: 10, color: Colors.white70),
                                                   ),
                                                 ),
                                                 if (timeString != null)
                                                   Text(
                                                     timeString,
-                                                    style: const TextStyle(fontSize: 9, color: Colors.white38),
+                                                    style: const TextStyle(fontSize: 8.5, color: Colors.white38),
                                                   ),
                                               ],
                                             ),
-                                            const SizedBox(height: 3),
+                                            const SizedBox(height: 2),
                                             if (progress != null)
                                               ClipRRect(
-                                                borderRadius: BorderRadius.circular(2),
+                                                borderRadius: BorderRadius.circular(1.5),
                                                 child: LinearProgressIndicator(
                                                   value: progress,
-                                                  minHeight: 2.5,
+                                                  minHeight: 2.0,
                                                   backgroundColor: Colors.white12,
                                                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
                                                 ),
@@ -277,15 +283,15 @@ class _InPlayerEpgDrawerState extends ConsumerState<InPlayerEpgDrawer> {
                                           ] else ...[
                                             Text(
                                               l10n?.noProgramInfo ?? 'No program info',
-                                              style: const TextStyle(fontSize: 10, color: Colors.white30),
+                                              style: const TextStyle(fontSize: 9.5, color: Colors.white30),
                                             ),
                                           ],
                                         ],
                                       ),
                                     ),
                                     if (isSelected) ...[
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.play_arrow, color: Colors.purpleAccent, size: 18),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.play_arrow, color: Colors.purpleAccent, size: 15),
                                     ],
                                   ],
                                 ),
@@ -348,9 +354,9 @@ class InPlayerOsdBanner extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           width: isCompact ? null : 520,
-          constraints: isCompact ? const BoxConstraints(maxWidth: 340) : null,
+          constraints: isCompact ? const BoxConstraints(maxWidth: 420) : null,
           padding: isCompact
-              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
               : const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: const Color(0xE614141E),

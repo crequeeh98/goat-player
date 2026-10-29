@@ -93,7 +93,11 @@ final remoteSyncServiceProvider = Provider<RemoteSyncService>((ref) {
   return RemoteSyncService(accountDao, categoryDao, streamDao, epgDao, prefs);
 });
 
-void main() {
+void main(List<String> args) {
+  if (args.contains('--tv')) {
+    GoatPlatform.setForceTvMode(true);
+    print('[GOAT] Fire TV emulation mode forced (--tv flag detected).');
+  }
   print('[GOAT] main() starting...');
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -139,8 +143,15 @@ void main() {
       );
     };
 
+    await GoatPlatform.init();
+
     if (!GoatPlatform.isWeb) {
       MediaKit.ensureInitialized();
+    }
+
+    if (GoatPlatform.isTv || GoatPlatform.isMobile) {
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 25 * 1024 * 1024; // 25 MB max
+      PaintingBinding.instance.imageCache.maximumSize = 100;
     }
 
     if (GoatPlatform.isDesktop) {
@@ -232,7 +243,35 @@ class MyApp extends ConsumerWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
         colorSchemeSeed: Colors.deepPurple,
+        scaffoldBackgroundColor: const Color(0xFF0D0915),
+        canvasColor: const Color(0xFF0D0915),
       ),
+      builder: (context, child) {
+        if (GoatPlatform.isTv) {
+          final mq = MediaQuery.of(context);
+          // TV Overscan Insets: Physical TVs often clip outer 2-3% of the display.
+          // Inset by 18dp horizontally and 10dp vertically to ensure all buttons,
+          // sidebar, headers, and modals are safely within the visible TV glass while maximizing screen area.
+          final overscan = EdgeInsets.only(
+            left: mq.padding.left > 16 ? mq.padding.left : 18.0,
+            right: mq.padding.right > 16 ? mq.padding.right : 18.0,
+            top: mq.padding.top > 8 ? mq.padding.top : 10.0,
+            bottom: mq.padding.bottom > 8 ? mq.padding.bottom : 10.0,
+          );
+          return Container(
+            color: const Color(0xFF0D0915),
+            padding: overscan,
+            child: MediaQuery(
+              data: mq.copyWith(
+                padding: EdgeInsets.zero,
+                viewPadding: EdgeInsets.zero,
+              ),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        }
+        return child ?? const SizedBox.shrink();
+      },
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,
         const SingleActivator(LogicalKeyboardKey.arrowUp): const DirectionalFocusIntent(TraversalDirection.up),

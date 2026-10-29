@@ -19,6 +19,8 @@
   "allCategories": "All Categories",
   "typeToSearch": "Type to search across entire catalog.",
   "noResultsFound": "No results found.",
+  "noChannelsInCategory": "No channels in this category",
+  "loadingChannels": "Loading channels...",
   "error": "Error: ",
   "selectCategory": "Select a category",
   "selectChannel": "Select a channel",

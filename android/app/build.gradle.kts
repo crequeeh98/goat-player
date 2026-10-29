@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -29,21 +32,30 @@ android {
         versionName = flutter.versionName
     }
 
-    val keystoreFile = file("goat_keystore.jks")
-    if (keystoreFile.exists()) {
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+
+    val keystoreFileName = keystoreProperties.getProperty("storeFile") ?: "goat_keystore.jks"
+    val keystoreFile = file(keystoreFileName)
+    val hasReleaseSigning = keystorePropertiesFile.exists() && keystoreFile.exists()
+
+    if (hasReleaseSigning) {
         signingConfigs {
             create("release") {
                 storeFile = keystoreFile
-                storePassword = "goatplayer123"
-                keyAlias = "goatkey"
-                keyPassword = "goatplayer123"
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (keystoreFile.exists()) {
+            signingConfig = if (hasReleaseSigning) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")

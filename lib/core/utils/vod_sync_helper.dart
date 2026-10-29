@@ -150,11 +150,13 @@ class VodSyncHelper {
     if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
 
     final prefs = ref.read(sharedPreferencesProvider);
+    final dao = ref.read(streamDaoProvider);
+    final existingCount = await dao.countStreamsByType(account.id, type);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final lastSyncKey = 'last_sync_all_${type == 'movie' ? 'vod' : 'series'}_${account.id}';
     final lastSync = prefs.getInt(lastSyncKey) ?? 0;
-    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
-      debugPrint('$type streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
+    if (!force && existingCount > 0 && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+      debugPrint('$type streams were synced recently ($existingCount streams cached). Skipping full sync.');
       return;
     }
 
@@ -210,9 +212,16 @@ class VodSyncHelper {
     return dao.watchStreamsByCategory(account.id, categoryId);
   }
 
+  static final Set<String> _tvSearchSynced = {};
+
   static Stream<List<StreamItem>> watchStreamsByQuery(Ref ref, String type, String query) {
     final account = ref.watch(activeAccountProvider);
     if (account == null) return const Stream.empty();
+
+    // Lazily fetch full library if not yet cached when search is first used
+    if (_tvSearchSynced.add('${account.id}_$type')) {
+      Future(() => syncAllStreams(ref, type: type));
+    }
 
     final dao = ref.watch(streamDaoProvider);
     return dao.watchStreamsByQuery(account.id, type, query);

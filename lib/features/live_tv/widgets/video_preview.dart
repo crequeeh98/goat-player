@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/platform_utils.dart';
+import '../../../core/utils/title_sanitizer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../core/database/app_database.dart';
-import '../../../core/player/playback_controller.dart';
 import '../../../core/player/player_service.dart';
 import 'epg_timeline.dart';
 import 'custom_live_controls.dart';
@@ -53,40 +53,6 @@ class VideoPreview extends ConsumerStatefulWidget {
 class _VideoPreviewState extends ConsumerState<VideoPreview> {
   BoxFit _fit = BoxFit.contain;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final active = ref.read(playbackControllerProvider);
-      if (active?.streamUrl == widget.streamUrl) {
-        return;
-      }
-      final playerService = ref.read(playerServiceProvider);
-      final player = playerService.player;
-      final currentUri = player.state.playlist.medias.firstOrNull?.uri;
-      if (currentUri != widget.streamUrl && playerService.lastOpenedUrl != widget.streamUrl) {
-        playerService.open(widget.streamUrl, isLive: true);
-      }
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant VideoPreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.streamUrl != widget.streamUrl) {
-      final active = ref.read(playbackControllerProvider);
-      if (active?.streamUrl == widget.streamUrl) {
-        return;
-      }
-      final playerService = ref.read(playerServiceProvider);
-      final player = playerService.player;
-      final currentUri = player.state.playlist.medias.firstOrNull?.uri;
-      if (currentUri != widget.streamUrl && playerService.lastOpenedUrl != widget.streamUrl) {
-        playerService.open(widget.streamUrl, isLive: true);
-      }
-    }
-  }
-
   void _cycleFit() {
     setState(() {
       if (_fit == BoxFit.contain) {
@@ -109,12 +75,22 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
       final epgList = ref.watch(channelProgramsProvider(widget.channelId!));
       final now = DateTime.now();
       
-      final currentShow = epgList.asData?.value.where((p) {
-        return now.isAfter(p.startTime) && now.isBefore(p.stopTime);
-      }).firstOrNull;
+      final candidates = epgList.asData?.value.where((p) {
+        return (now.isAfter(p.startTime) || now.isAtSameMomentAs(p.startTime)) && now.isBefore(p.stopTime);
+      }).toList();
+
+      EpgProgram? currentShow;
+      if (candidates != null && candidates.isNotEmpty) {
+        candidates.sort((a, b) {
+          final cmp = b.startTime.compareTo(a.startTime);
+          if (cmp != 0) return cmp;
+          return a.stopTime.difference(a.startTime).compareTo(b.stopTime.difference(b.startTime));
+        });
+        currentShow = candidates.first;
+      }
 
       if (currentShow != null && currentShow.title.isNotEmpty) {
-        displayTitle = '${widget.channelName} - ${currentShow.title}';
+        displayTitle = '${widget.channelName} - ${TitleSanitizer.unescapeHtml(currentShow.title)}';
       }
     }
 
@@ -152,7 +128,7 @@ class _VideoPreviewState extends ConsumerState<VideoPreview> {
     return Container(
       color: Colors.black,
       child: Center(
-        child: GoatPlatform.isMobile
+        child: GoatPlatform.isPhone
             ? MobileGestureDetector(
                 player: playerService.player,
                 enableSeek: false,

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../utils/platform_utils.dart';
 import 'goat_player_engine.dart';
 import 'goat_player_types.dart';
 
@@ -24,8 +25,8 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
 
   MediaKitPlayerEngine() {
     player = Player(
-      configuration: const PlayerConfiguration(
-        bufferSize: 32 * 1024 * 1024, // 32MB buffer
+      configuration: PlayerConfiguration(
+        bufferSize: GoatPlatform.isTv ? 16 * 1024 * 1024 : 32 * 1024 * 1024,
       ),
     );
     controller = VideoController(
@@ -72,20 +73,34 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     // MediaKit.ensureInitialized is called in main.dart
   }
 
+  bool? _lastAppliedIsLive;
+
   void _applyMpvOptimizations({bool isLive = false}) {
+    if (_lastAppliedIsLive == isLive) return;
+    _lastAppliedIsLive = isLive;
     try {
       final dynamic platform = player.platform;
-      platform?.setProperty('hwdec', 'auto-safe');
+      if (GoatPlatform.isTv) {
+        platform?.setProperty('hwdec', 'mediacodec');
+        platform?.setProperty('framedrop', 'vo');
+        platform?.setProperty('vd-lavc-threads', '4');
+        platform?.setProperty('force-window', 'no');
+      } else {
+        platform?.setProperty('hwdec', 'auto-safe');
+        platform?.setProperty('force-window', 'no');
+      }
       platform?.setProperty('video-sync', 'audio');
+      platform?.setProperty('audio-pitch-correction', 'no');
+      platform?.setProperty('sub-auto', 'no');
 
       if (isLive) {
-        platform?.setProperty('demuxer-lavf-analyzeduration', '2.0');
-        platform?.setProperty('demuxer-lavf-probesize', '4194304');
-        platform?.setProperty('demuxer-readahead-secs', '10');
-        platform?.setProperty('demuxer-max-bytes', '33554432');
+        platform?.setProperty('demuxer-lavf-analyzeduration', '1.5');
+        platform?.setProperty('demuxer-lavf-probesize', '2097152');
+        platform?.setProperty('demuxer-readahead-secs', '6');
+        platform?.setProperty('demuxer-max-bytes', '16777216');
         platform?.setProperty('cache', 'yes');
         platform?.setProperty('cache-pause', 'no');
-        platform?.setProperty('network-timeout', '10');
+        platform?.setProperty('network-timeout', '8');
       } else {
         platform?.setProperty('demuxer-lavf-analyzeduration', '3.0');
         platform?.setProperty('demuxer-lavf-probesize', '6291456');
@@ -97,7 +112,6 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
       }
 
       platform?.setProperty('keep-open', 'yes');
-      platform?.setProperty('force-window', 'no');
       platform?.setProperty('ytdl', 'no');
       platform?.setProperty('secondary-sid', 'no');
       platform?.setProperty('sub-visibility', 'no');
@@ -124,18 +138,15 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
           start: startPosition,
         ),
         play: true,
+      ).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () {
+          debugPrint('[GOAT_PLAY] player.open TIMED OUT after 6s for: $url');
+        },
       );
       debugPrint('[GOAT_PLAY] player.open RESOLVED successfully for: $url');
     } catch (e, st) {
       debugPrint('[GOAT_PLAY] player.open CAUGHT EXCEPTION: $e\n$st');
-    }
-
-    if (!_isDisposed) {
-      if (isLive) {
-        await player.setSubtitleTrack(SubtitleTrack.no());
-      }
-      await player.play();
-      debugPrint('[GOAT_PLAY] player.play() called for: $url');
     }
   }
 
@@ -159,7 +170,9 @@ class MediaKitPlayerEngine implements GoatPlayerEngine {
     if (!_isDisposed) {
       _lastOpenedUrl = null;
       _isLive = false;
-      await player.stop();
+      try {
+        await player.stop().timeout(const Duration(milliseconds: 500), onTimeout: () {});
+      } catch (_) {}
     }
   }
 

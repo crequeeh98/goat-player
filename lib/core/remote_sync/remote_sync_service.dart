@@ -122,15 +122,13 @@ class RemoteSyncService {
     }
   }
 
-  /// Formats all local accounts into JSON to sync with Supabase
+  /// Formats all local accounts into JSON to sync with Supabase (zero-knowledge: no passwords or URLs uploaded)
   Future<List<Map<String, dynamic>>> getLocalPlaylistsJson() async {
     final localAccounts = await _accountDao.getAllAccounts();
     return localAccounts.map((a) => {
       'id': a.id,
-      'playlist_name': a.playlistName ?? a.username,
-      'server_url': a.serverUrl,
-      'username': a.username,
-      'password': a.password,
+      'playlist_name': (a.playlistName != null && a.playlistName!.trim().isNotEmpty) ? a.playlistName!.trim() : 'IPTV Playlist',
+      'type': (a.serverUrl.toLowerCase().contains('.m3u') || (a.username.trim().isEmpty && a.password.trim().isEmpty)) ? 'm3u' : 'xtream',
     }).toList();
   }
 
@@ -309,9 +307,13 @@ class RemoteSyncService {
               final existing = await _accountDao.getAccountById(accountId);
               if (existing != null) {
                 final playlistName = syncAction['playlist_name']?.toString();
-                final serverUrl = syncAction['server_url']?.toString().trim() ?? existing.serverUrl;
-                final username = syncAction['username']?.toString().trim() ?? existing.username;
-                final password = syncAction['password']?.toString().trim() ?? existing.password;
+                final serverUrlRaw = syncAction['server_url']?.toString().trim();
+                final usernameRaw = syncAction['username']?.toString().trim();
+                final passwordRaw = syncAction['password']?.toString().trim();
+
+                final serverUrl = (serverUrlRaw != null && serverUrlRaw.isNotEmpty) ? serverUrlRaw : existing.serverUrl;
+                final username = (usernameRaw != null && usernameRaw.isNotEmpty) ? usernameRaw : existing.username;
+                final password = (passwordRaw != null && passwordRaw.isNotEmpty) ? passwordRaw : existing.password;
 
                 final updated = existing.copyWith(
                   playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : null),

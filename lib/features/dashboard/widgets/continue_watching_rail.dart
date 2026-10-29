@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../progress_provider.dart';
+import '../../live_tv/widgets/tv_smart_iptv_overlays.dart';
 import '../../vod_movies/movie_detail_modal.dart';
 import '../../vod_series/series_detail_modal.dart';
 import 'package:goat_player/core/database/app_database.dart';
+import 'package:goat_player/core/utils/platform_utils.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
 import 'package:goat_player/main.dart';
 import '../../../core/widgets/tv_focusable.dart';
@@ -20,8 +23,15 @@ class _DisplayProgressItem {
 
 class ContinueWatchingRail extends ConsumerWidget {
   final String type; // 'movie' or 'series'
+  final VoidCallback? onExitLeft;
+  final FocusNode? firstItemFocusNode;
   
-  const ContinueWatchingRail({super.key, required this.type});
+  const ContinueWatchingRail({
+    super.key,
+    required this.type,
+    this.onExitLeft,
+    this.firstItemFocusNode,
+  });
 
   List<_DisplayProgressItem> _processItems(List<PlaybackProgressItem> rawItems) {
     if (type == 'movie') {
@@ -124,14 +134,40 @@ class ContinueWatchingRail extends ConsumerWidget {
         final displayItems = _processItems(rawItems);
         if (displayItems.isEmpty) return const SizedBox.shrink();
         
+        final isDe = Localizations.localeOf(context).languageCode == 'de';
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 6.0),
-              child: Text(
-                AppLocalizations.of(context)!.continueWatching,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppLocalizations.of(context)!.continueWatching,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (GoatPlatform.isTv)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF87171),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          isDe ? 'OK Halten: Entfernen' : 'Hold OK: Remove',
+                          style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
             SizedBox(
@@ -157,8 +193,38 @@ class ContinueWatchingRail extends ConsumerWidget {
                         children: [
                           Expanded(
                             child: TvFocusable(
+                              focusNode: index == 0 ? firstItemFocusNode : null,
                               focusScale: 1.04,
                               borderRadius: BorderRadius.circular(8),
+                              onKeyEvent: (node, event) {
+                                if (GoatPlatform.isTv &&
+                                    index == 0 &&
+                                    (event is KeyDownEvent || event is KeyRepeatEvent) &&
+                                    event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+                                    onExitLeft != null) {
+                                  onExitLeft!();
+                                  return KeyEventResult.handled;
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              onLongPress: GoatPlatform.isTv
+                                  ? () async {
+                                      final confirm = await TvColorActionPicker.showRemoveContinueWatching(
+                                        context: context,
+                                        itemTitle: seriesTitle,
+                                        isDe: isDe,
+                                      );
+                                      if (confirm == true) {
+                                        final db = ref.read(databaseProvider);
+                                        final account = ref.read(activeAccountProvider);
+                                        if (type == 'series') {
+                                          db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId, accountId: account?.id);
+                                        } else {
+                                          db.playbackProgressDao.deleteProgress(item.streamId, accountId: account?.id);
+                                        }
+                                      }
+                                    }
+                                  : null,
                               onPressed: () {
                                 if (type == 'movie') {
                                   Navigator.push(
@@ -261,30 +327,32 @@ class ContinueWatchingRail extends ConsumerWidget {
                                       child: Icon(Icons.play_circle_fill, size: 34, color: Colors.white70),
                                     ),
 
-                                    // Delete / Remove Card Button
-                                    Positioned(
-                                      top: 3,
-                                      right: 3,
-                                      child: Material(
-                                        color: Colors.black54,
-                                        shape: const CircleBorder(),
-                                        child: InkWell(
-                                          customBorder: const CircleBorder(),
-                                          onTap: () {
-                                            final db = ref.read(databaseProvider);
-                                            if (type == 'series') {
-                                              db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId);
-                                            } else {
-                                              db.playbackProgressDao.deleteProgress(item.streamId);
-                                            }
-                                          },
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(3.0),
-                                            child: Icon(Icons.close, size: 13, color: Colors.white),
+                                    // Delete / Remove Card Button (Desktop/Mobile touch only; TV uses Long-Press OK)
+                                    if (!GoatPlatform.isTv)
+                                      Positioned(
+                                        top: 3,
+                                        right: 3,
+                                        child: Material(
+                                          color: Colors.black54,
+                                          shape: const CircleBorder(),
+                                          child: InkWell(
+                                            customBorder: const CircleBorder(),
+                                            onTap: () {
+                                              final db = ref.read(databaseProvider);
+                                              final account = ref.read(activeAccountProvider);
+                                              if (type == 'series') {
+                                                db.playbackProgressDao.deleteSeriesProgress(item.seriesId ?? item.streamId, accountId: account?.id);
+                                              } else {
+                                                db.playbackProgressDao.deleteProgress(item.streamId, accountId: account?.id);
+                                              }
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(3.0),
+                                              child: Icon(Icons.close, size: 13, color: Colors.white),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
                               ),

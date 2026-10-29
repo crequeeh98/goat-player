@@ -67,6 +67,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noResultsFound => 'No results found.';
 
   @override
+  String get noChannelsInCategory => 'No channels in this category';
+
+  @override
+  String get loadingChannels => 'Loading channels...';
+
+  @override
   String get error => 'Error: ';
 
   @override

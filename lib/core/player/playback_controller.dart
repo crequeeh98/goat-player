@@ -102,7 +102,6 @@ class PlaybackController extends Notifier<ActivePlayback?> {
       categoryId: categoryId,
       isMinimized: false,
     );
-    await playerService.stop();
     await playerService.open(url, isLive: true);
   }
 

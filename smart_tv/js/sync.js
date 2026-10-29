@@ -33,11 +33,8 @@
     return accounts.map(function(acc) {
       return {
         id: acc.id,
-        playlist_name: acc.name || acc.username,
-        server_url: acc.serverUrl,
-        username: acc.username,
-        password: acc.password,
-        type: acc.type || (acc.serverUrl && (acc.serverUrl.indexOf('.m3u') !== -1 || (!acc.username && !acc.password)) ? 'm3u' : undefined)
+        playlist_name: acc.name || 'IPTV Playlist',
+        type: acc.type || (acc.serverUrl && acc.serverUrl.indexOf('.m3u') !== -1 ? 'm3u' : 'xtream')
       };
     });
   }
