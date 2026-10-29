@@ -192,7 +192,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isMobile = screenWidth < 600 && !GoatPlatform.isTv;
 
-    if (GoatPlatform.isTv || !isMobile) {
+    if (GoatPlatform.isTv) {
       return Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),

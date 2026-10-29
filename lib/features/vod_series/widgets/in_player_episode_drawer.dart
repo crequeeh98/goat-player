@@ -199,7 +199,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                 } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && index >= seasonKeys.length - 1) {
                                   return KeyEventResult.handled;
                                 } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                    event.logicalKey == LogicalKeyboardKey.backspace) {
+                                    (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace)) {
                                   widget.onClose();
                                   return KeyEventResult.handled;
                                 }
@@ -282,7 +282,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                         event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                        event.logicalKey == LogicalKeyboardKey.backspace) {
+                                        (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace)) {
                                       widget.onClose();
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index >= episodes.length - 1) {

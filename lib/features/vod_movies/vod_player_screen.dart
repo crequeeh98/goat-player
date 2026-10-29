@@ -2144,9 +2144,8 @@ class _VodControlsState extends State<_VodControls> {
             }
           }
 
-          // Back keys (Escape, Backspace, Android/TV GoBack, Tizen 10009, webOS 461)
+          // Back keys (Escape, Android/TV GoBack)
           if (key == LogicalKeyboardKey.escape ||
-              key == LogicalKeyboardKey.backspace ||
               key == LogicalKeyboardKey.goBack) {
             if (widget.isEpisodeDrawerOpen) {
               widget.onCloseDrawer?.call();

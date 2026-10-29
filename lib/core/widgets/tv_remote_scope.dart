@@ -109,7 +109,16 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
     return false;
   }
 
+  bool _isTextInputFocused() {
+    final primary = FocusManager.instance.primaryFocus;
+    final ctx = primary?.context;
+    if (ctx == null) return false;
+    if (ctx.widget is EditableText) return true;
+    return ctx.findAncestorStateOfType<EditableTextState>() != null;
+  }
+
   void _promptExit() async {
+    if (GoatPlatform.isDesktop) return;
     final shouldExit = await TvRemoteScope.showTvExitDialog(context);
     if (shouldExit && mounted) {
       await TvRemoteScope.performExit();
@@ -127,9 +136,12 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
       skipTraversal: true,
       onKeyEvent: (node, event) {
         final key = event.logicalKey;
+        final isTextFocused = _isTextInputFocused();
+
+        // Backspace is a text-deletion key on Desktop/Mobile, and whenever a text field has focus on TV.
         final isBackKey = key == LogicalKeyboardKey.escape ||
             key == LogicalKeyboardKey.goBack ||
-            key == LogicalKeyboardKey.backspace;
+            (GoatPlatform.isTv && !isTextFocused && key == LogicalKeyboardKey.backspace);
 
         if (!isBackKey) return KeyEventResult.ignored;
 
@@ -150,15 +162,28 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
           return KeyEventResult.ignored;
         }
 
+        // On Desktop/Mobile, pressing Escape inside an inline text field simply unfocuses it
+        // (unless a root overlay like MasterSearchModal handles it via onBackAtRoot).
+        if (!GoatPlatform.isTv && isTextFocused && key == LogicalKeyboardKey.escape) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          if (widget.onBackAtRoot != null) {
+            widget.onBackAtRoot!();
+          }
+          return KeyEventResult.handled;
+        }
+
         // If a root back callback is supplied (e.g. restoring Live TV 3-column view, closing search, etc.)
         if (widget.onBackAtRoot != null) {
           widget.onBackAtRoot!();
           return KeyEventResult.handled;
         }
 
-        // Root Level Exit Confirmation
-        _promptExit();
-        return KeyEventResult.handled;
+        // Root Level Exit Confirmation (TV / Mobile only)
+        if (!GoatPlatform.isDesktop) {
+          _promptExit();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       },
       child: widget.child,
     );

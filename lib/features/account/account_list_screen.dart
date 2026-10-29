@@ -216,9 +216,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         }
 
         return PopScope(
-          canPop: false,
+          canPop: GoatPlatform.isDesktop,
           onPopInvokedWithResult: (didPop, result) async {
-            if (didPop) return;
+            if (didPop || GoatPlatform.isDesktop) return;
             final shouldExit = await TvRemoteScope.showTvExitDialog(context);
             if (shouldExit && context.mounted) {
               await TvRemoteScope.performExit();

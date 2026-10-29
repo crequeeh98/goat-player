@@ -1,4 +1,3 @@
-import 'dart:io' show exit;
 import 'package:flutter/material.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../core/player/player_service.dart';
@@ -287,10 +286,12 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
           return;
         }
 
-        // Priority 3: Root Level Exit Confirmation
-        final shouldExit = await TvRemoteScope.showTvExitDialog(context);
-        if (shouldExit && context.mounted) {
-          await TvRemoteScope.performExit();
+        // Priority 3: Root Level Exit Confirmation (TV / Mobile only)
+        if (!GoatPlatform.isDesktop) {
+          final shouldExit = await TvRemoteScope.showTvExitDialog(context);
+          if (shouldExit && context.mounted) {
+            await TvRemoteScope.performExit();
+          }
         }
       },
       child: PopScope(
@@ -311,12 +312,10 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             _closeSearch();
             return;
           }
-          final shouldExit = await TvRemoteScope.showTvExitDialog(context);
-          if (shouldExit && context.mounted) {
-            if (GoatPlatform.isDesktop) {
-              exit(0);
-            } else {
-              SystemNavigator.pop();
+          if (!GoatPlatform.isDesktop) {
+            final shouldExit = await TvRemoteScope.showTvExitDialog(context);
+            if (shouldExit && context.mounted) {
+              await TvRemoteScope.performExit();
             }
           }
         },
