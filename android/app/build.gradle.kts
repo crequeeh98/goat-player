@@ -40,15 +40,15 @@ android {
 
     val keystoreFileName = keystoreProperties.getProperty("storeFile") ?: "goat_keystore.jks"
     val keystoreFile = file(keystoreFileName)
-    val hasReleaseSigning = keystorePropertiesFile.exists() && keystoreFile.exists()
+    val hasReleaseSigning = keystoreFile.exists()
 
     if (hasReleaseSigning) {
         signingConfigs {
             create("release") {
                 storeFile = keystoreFile
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storePassword = keystoreProperties.getProperty("storePassword") ?: "goatplayer123"
+                keyAlias = keystoreProperties.getProperty("keyAlias") ?: "goatkey"
+                keyPassword = keystoreProperties.getProperty("keyPassword") ?: "goatplayer123"
             }
         }
     }
