@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var CURRENT_VERSION = '1.2.7';
+  var CURRENT_VERSION = '2.0.0';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 

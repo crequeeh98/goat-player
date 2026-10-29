@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release Tag (e.g. v1.2.0)'
+        description: 'Release Tag (e.g. v2.0.0)'
         required: true
-        default: 'v1.2.0'
+        default: 'v2.0.0'
 
 permissions:
   contents: write
@@ -46,7 +46,7 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || '1.2.1' }}"
+            VERSION="${{ github.event.inputs.release_tag || '2.0.0' }}"
             VERSION="${VERSION#v}"
           fi
           flutter build apk --release --build-name="$VERSION"
@@ -59,7 +59,7 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || '1.2.1' }}"
+            VERSION="${{ github.event.inputs.release_tag || '2.0.0' }}"
             VERSION="${VERSION#v}"
           fi
           flutter build apk --release --split-per-abi --build-name="$VERSION"
@@ -95,7 +95,7 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || '1.2.1' }}"
+            VERSION="${{ github.event.inputs.release_tag || '2.0.0' }}"
             VERSION="${VERSION#v}"
           fi
           flutter build windows --release --build-name="$VERSION"
@@ -107,7 +107,7 @@ jobs:
           if (-not $ver -or $ver -eq 'main') {
             $ver = "${{ github.event.inputs.release_tag }}".TrimStart('v')
           }
-          if (-not $ver) { $ver = '1.2.1' }
+          if (-not $ver) { $ver = '2.0.0' }
           Set-Content -Path "build\windows\x64\runner\Release\version.txt" -Value $ver -Encoding utf8
           New-Item -ItemType Directory -Force -Path dist/windows
           Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "dist\windows\GOATPlayer-Windows-x64.zip" -Force
@@ -141,7 +141,7 @@ jobs:
           mkdir -p dist/smart_tv
           VERSION="${{ github.ref_name }}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || 'v1.2.0' }}"
+            VERSION="${{ github.event.inputs.release_tag || 'v2.0.0' }}"
           fi
           
           # Generate version manifest for TV OTA Updater
@@ -224,7 +224,7 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           if [[ ! "$TAG" =~ ^v[0-9] ]]; then
-            TAG="${{ github.event.inputs.release_tag || 'v1.2.0' }}"
+            TAG="${{ github.event.inputs.release_tag || 'v2.0.0' }}"
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
@@ -237,20 +237,18 @@ jobs:
           prerelease: false
           files: release_assets/*
           body: |
-            ## 🐐 GOATPlayer Release ${{ steps.vars.outputs.tag }}
+            ## 🐐 GOATPlayer v2.0.0 — The Cross-Platform IPTV & VOD Milestone
 
-            ### 🇩🇪 Neuerungen
-            - **Smart TV Fokus-Fix**: Doppelte Event-Listener bei OTA-Updates beseitigt und Singleton-Guard in die Navigations-Engine integriert (sauberer Einzelfokus auf allen Smart TVs).
-            - **Live TV Lautstärkeregelung (Desktop)**: Lautstärkeregler und Stummschalten-Schaltfläche jetzt einheitlich in allen drei Live-TV-Modi (Vorschau-Player, Theatre-Mode und Vollbild) mit Mausrad-Unterstützung verfügbar.
-            - **Smart TV Badges**:
-              - Live TV: Auf das Wesentliche reduziert – nur noch die Auflösung dezent und passgenau direkt unter dem LIVE-Badge.
-              - VOD: Badges oben rechts im HUD mit harmonischem Abstand platziert, um die Fortschrittsleiste und Spieldauer nicht zu überlagern.
-            - **Desktop Optimierung**: Klick- und Mausinteraktionen im Live TV Screen verbessert.
+            ### 🇩🇪 Highlights (v2.0.0)
+            - **Dual-Stack Architektur**: Vereinheitlichte Player-Logik über Flutter (Windows, Android Phone, Android TV, Amazon Fire TV) und Smart TV WebOS/Tizen.
+            - **Amazon Fire TV & Android TV**: Vollständige Leanback-D-Pad-Steuerung, native 16:9 3D-Banner für Projectivy Launcher und optimierte 1:1 Fire OS Icons.
+            - **Web Pairing Portal**: Schnelle Playlist-Verwaltung via QR-Code und PIN mit client-seitiger Zero-Knowledge AES-GCM Verschlüsselung ([goat-player.vercel.app](https://goat-player.vercel.app)).
+            - **Live TV & Dual-Drawer Navigation**: Blitzschnelles Channel Zapping (<1s), EPG-Timeline und kompakte Sender- & Kategorie-Drawer.
+            - **Cinema VOD**: Intelligente Continue-Watching Rail (automatische Episoden-Weiterschaltung ab 95%), Netflix-Style Episoden-Drawer und Multi-Track Audio-/Untertitel-Synchronisation.
 
-            ### 🇬🇧 What's New
-            - **Smart TV Focus Fix**: Eliminated duplicate event listeners during OTA updates and introduced singleton guard in spatial navigation engine (restoring crisp, single focus across Smart TVs).
-            - **Live TV Volume Control (Desktop)**: Volume slider and mute toggle now uniformly available in all three Live TV playback modes (Preview Player, Theatre Mode, and Fullscreen) with mouse wheel scroll support.
-            - **Smart TV Badges**:
-              - Live TV: Streamlined to resolution badge only, styled identically and aligned directly beneath the LIVE badge.
-              - VOD: Badges relocated to top-right of the HUD with clean spacing away from the progress bar and runtime.
-            - **Desktop Optimization**: Refined click and mouse pointer handling in Live TV preview and theatre modes.
+            ### 🇬🇧 Highlights (v2.0.0)
+            - **Dual-Stack Architecture**: Unified core streaming player logic across Flutter (Windows, Android Mobile/Tablet, Android TV, Fire TV) and Smart TV (LG webOS, Samsung Tizen).
+            - **Amazon Fire TV & Android TV Optimization**: Full 4-way D-Pad remote navigation, native 16:9 3D banners for Projectivy Launcher, and tailored 1:1 Fire OS icons.
+            - **Web Pairing Portal**: Effortless remote playlist management via QR code & PIN with Zero-Knowledge client-side AES-GCM encryption ([goat-player.vercel.app](https://goat-player.vercel.app)).
+            - **Live TV & Dual-Drawer Navigation**: Sub-second channel zapping, interactive EPG timeline, and streamlined leanback drawers.
+            - **Cinema VOD**: Smart Continue Watching rail (auto-advancing next episode at 95% completion), slide-out episode drawer, and multi-track audio/subtitle switching.

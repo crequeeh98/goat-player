@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets" 
         xmlns:tizen="http://tizen.org/ns/widgets" 
         id="goatplayer" 
-        version="1.2.7" 
+        version="2.0.0" 
         viewmodes="maximized">
     <tizen:application id="goatplayer.GOATPlayerTV" 
                        package="goatplayer" 
@@ -10,7 +10,7 @@
     <content src="index.html"/>
     <feature name="http://tizen.org/feature/screen.size.all"/>
     <feature name="http://tizen.org/feature/network.internet"/>
-    <icon src="assets/icon.png"/>
+    <icon src="icon.png"/>
     <name>GOATPlayer TV</name>
     <access origin="*" subdomains="true"/>
     <tizen:allow-navigation>*</tizen:allow-navigation>

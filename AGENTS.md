@@ -114,7 +114,7 @@ rtk node -c smart_tv/js/storage.js smart_tv/js/player.js smart_tv/js/app.js smar
 powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_tizen.ps1
 
 # Build LG webOS Package (.ipk)
-# Output: build/smart_tv_out/com.goatplayer.tv_1.2.7_all.ipk
+# Output: build/smart_tv_out/com.goatplayer.tv_2.0.0_all.ipk
 powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_webos.ps1
 ```
 
@@ -132,7 +132,7 @@ powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_webos.ps1
 #### LG webOS TV (via ares-cli / Dev Manager)
 ```powershell
 # 1. Install via ares-install
-ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.goatplayer.tv_1.2.7_all.ipk"
+ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.goatplayer.tv_2.0.0_all.ipk"
 ```
 
 ---

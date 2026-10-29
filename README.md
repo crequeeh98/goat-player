@@ -123,15 +123,15 @@ Pick whichever installation path is most convenient for you:
 ---
 
 ### 5. 📺 LG Smart TV (webOS 4.0+)
-1. Download `com.goatplayer.tv_1.2.7_all.ipk` from [Releases](https://github.com/crequeeh98/goat-player/releases) to your computer.
+1. Download `com.goatplayer.tv_2.0.0_all.ipk` from [Releases](https://github.com/crequeeh98/goat-player/releases) to your computer.
 2. Install the **Developer Mode** app from the LG Content Store on your TV, launch it, log in with your free LG Developer account, and turn **Dev Mode Status** to **ON** (note the TV IP and Passphrase).
 3. **Easiest Installation (1-Click GUI via PC/Mac)**:
    - Download and open the free open-source [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your computer.
    - Click **Add Device**, enter the TV IP and Passphrase.
-   - Click **Install App**, select `com.goatplayer.tv_1.2.7_all.ipk`.
+   - Click **Install App**, select `com.goatplayer.tv_2.0.0_all.ipk`.
 4. **Alternative via CLI (`ares-cli`)**:
    ```powershell
-   ares-install -d <DEVICE_NAME> com.goatplayer.tv_1.2.7_all.ipk
+   ares-install -d <DEVICE_NAME> com.goatplayer.tv_2.0.0_all.ipk
    ```
 
 ---
