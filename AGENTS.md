@@ -6,16 +6,16 @@
 
 ## 📌 Project Overview & Philosophy
 
-**GOATPlayer** is an ultra-fast, premium IPTV client tailored for dual-stack operation:
-1. **Flutter Application**: Targets Android Mobile, Android TV / Amazon Fire TV, Windows Desktop, macOS, and Linux. Built with Flutter, Dart, Drift (SQLite), and `media_kit` (`libmpv`).
-2. **Smart TV Web Application (`smart_tv/`)**: Targets **Samsung Tizen** (2018+) and **LG webOS** (4.0+). Built with zero-dependency Vanilla JS/CSS for blistering speed on low-power TV chips (ARM Cortex-A53/A7) where heavy web frameworks stutter.
-3. **Web Pairing Portal ([goat-player.vercel.app](https://goat-player.vercel.app))**: Zero-typing remote playlist manager using Supabase Realtime for instant QR/PIN pairing with TVs.
+**GOATPlayer** is an ultra-fast, premium IPTV client tailored for cross-platform operation:
+1. **Flutter Application (`lib/`)**: Targets **Android Mobile / Tablets** (`arm64-v8a`), **Android TV / Amazon Fire TV** (`armeabi-v7a`), **Windows Desktop**, **macOS**, and **Linux**. Built with Flutter, Dart, Drift (SQLite WAL), and `media_kit` (`libmpv`).
+2. **Smart TV Web Application (`smart_tv/`)**: Targets **Samsung Tizen (2018+)** and **LG webOS (4.0+)**. Built with zero-dependency Vanilla JS/CSS for blistering speed on low-power TV chips (ARM Cortex-A53/A7) where heavy web frameworks stutter.
+3. **Web Pairing Portal (`portal/` & [goat-player.vercel.app](https://goat-player.vercel.app))**: Zero-typing remote playlist manager using Supabase Realtime with client-side **Zero-Knowledge AES-GCM encryption** for instant QR/PIN pairing with TVs.
 
 ### Core Philosophy
 - **Speed First**: Sub-second channel zapping, instant focus response (<70ms), 60 FPS scrolling even with 20,000+ streams.
-- **Native Aspect Ratio**: Never stretch video by default. Always preserve original aspect ratio (`object-fit: contain`) unless explicitly overridden.
+- **Native Aspect Ratio**: Never stretch video by default. Always preserve original aspect ratio (`object-fit: contain` / `BoxFit.contain`) unless explicitly overridden.
 - **Dual-Stack Alignment**: Features and bug fixes in one stack must be mirrored or accounted for in the other where applicable.
-- **Fail-Safe Playback**: Multi-tier video playback fallback (Native -> HLS -> TS -> Container extension fallback).
+- **Zero-Knowledge Security**: TV credentials and server URLs must never be stored in plaintext on third-party cloud brokers.
 
 ---
 
@@ -26,22 +26,24 @@ d:/Projects/iptv-player/
 ├── lib/                             # Flutter Application (Dart)
 │   ├── core/                        # Core system services & shared utilities
 │   │   ├── database/                # Drift SQLite database (tables, DAOs, migrations)
-│   │   │   ├── daos/                # StreamDao, AccountDao, EpgDao, PlaybackDao
+│   │   │   ├── daos/                # StreamDao, AccountDao, EpgDao, PlaybackProgressDao
 │   │   │   └── app_database.dart    # AppDatabase schema definition
 │   │   ├── network/                 # Xtream Codes API client
 │   │   ├── player/                  # Video player engine abstraction
 │   │   │   ├── engine/              # MediaKitPlayerEngine (libmpv hardware decoding)
 │   │   │   ├── widgets/             # Mini-player, mobile gestures, controls
 │   │   │   └── player_service.dart  # Playback state, track selection, resume
+│   │   ├── remote_sync/             # Supabase Realtime pairing client with AES-GCM
 │   │   ├── utils/                   # M3U isolate parser, title cleaner, string utils
 │   │   ├── updater/                 # AppUpdaterService, multi-platform updater dialog
-│   │   └── widgets/                 # TvRemoteScope, TvFocusable, shared UI
+│   │   └── widgets/                 # TvRemoteScope, TvFocusable, tv_text_field
 │   ├── features/                    # Feature modules
 │   │   ├── account/                 # Playlist management, QR/PIN pairing
 │   │   ├── dashboard/               # Home dashboard, Continue Watching rail
 │   │   ├── live_tv/                 # Live channel grid, EPG drawer, preview player
-│   │   ├── vod_movies/              # Movie grid, categories, detail modal
-│   │   ├── vod_series/              # Series grid, episode drawer, auto-play
+│   │   │   └── widgets/             # tv_smart_iptv_overlays.dart, custom_live_controls
+│   │   ├── vod_movies/              # Movie grid, categories, detail modal, player
+│   │   ├── vod_series/              # Series grid, episode drawer, auto-play, modal
 │   │   └── settings/                # Playback settings, track preferences, i18n
 │   ├── l10n/                        # Localization files (app_en.arb, app_de.arb)
 │   └── main.dart                    # Application entry point & service initialization
@@ -60,17 +62,17 @@ d:/Projects/iptv-player/
 │       ├── api.js                   # Xtream Codes API client & playlist URL builder
 │       ├── m3u.js                   # Client-side M3U/M3U8 playlist parser
 │       ├── subtitles.js             # WebVTT/SRT subtitle parser & renderer
-│       ├── sync.js                  # Supabase Realtime pairing client for TV
+│       ├── sync.js                  # Supabase Realtime pairing client with Web Crypto AES-GCM
 │       ├── diagnostics.js           # Media diagnostics, stream prober, error reporter
 │       ├── i18n.js                  # TV internationalization (EN, DE)
-│       ├── virtual_list.js          # High-performance DOM recycling list
-│       └── updater.js               # In-App OTA updater for Smart TVs
+│       └── virtual_list.js          # High-performance DOM recycling list
 │
-├── tool/                            # Automation & Packaging scripts
+├── portal/                          # Web Pairing Portal (https://goat-player.vercel.app)
+│   └── index.html                   # Zero-Knowledge remote playlist management portal
+│
+├── tool/                            # Packaging & Automation scripts
 │   ├── package_smart_tv_tizen.ps1   # Builds signed .wgt for Samsung Tizen
-│   ├── package_smart_tv_webos.ps1   # Builds .ipk for LG webOS
-│   ├── package_tizen.ps1            # Flutter Web Tizen packager
-│   └── package_webos.ps1            # Flutter Web webOS packager
+│   └── package_smart_tv_webos.ps1   # Builds .ipk for LG webOS
 │
 ├── AGENTS.md                        # Master AI agent instructions
 ├── ARCHITECTURE.md                  # Dual-stack system architecture
@@ -87,29 +89,32 @@ Always run these commands from the repository root (`d:\Projects\iptv-player`).
 ### 1. Flutter Testing & Compilation
 ```powershell
 # Run Flutter unit & widget tests
-flutter test
+rtk flutter test
 
 # Verify Dart code analysis
-flutter analyze
+rtk flutter analyze
 
-# Build Android APK (Mobile & Fire TV)
-flutter build apk --release
+# Build Android APK for Phone / Modern TV (arm64-v8a)
+rtk flutter build apk --release --target-platform android-arm64 --split-per-abi
+
+# Build Android APK for Amazon Fire TV / Older Stick (armeabi-v7a)
+rtk flutter build apk --release --target-platform android-arm --split-per-abi
 
 # Build Windows Desktop executable
-flutter build windows --release
+rtk flutter build windows --release
 ```
 
 ### 2. Smart TV Packaging (Samsung Tizen & LG webOS)
 ```powershell
 # Check JavaScript syntax on TV codebase
-node -c smart_tv/js/storage.js smart_tv/js/player.js smart_tv/js/app.js smart_tv/js/spatial_nav.js
+rtk node -c smart_tv/js/storage.js smart_tv/js/player.js smart_tv/js/app.js smart_tv/js/spatial_nav.js
 
 # Build Signed Samsung Tizen W3C Package (.wgt)
 # Output: build/smart_tv_out/com.goatplayer.tv.signed.wgt
 powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_tizen.ps1
 
 # Build LG webOS Package (.ipk)
-# Output: build/smart_tv_out/com.goatplayer.tv_1.2.0_all.ipk
+# Output: build/smart_tv_out/com.goatplayer.tv_1.2.7_all.ipk
 powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_webos.ps1
 ```
 
@@ -122,17 +127,12 @@ powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_webos.ps1
 
 # 2. Install signed widget
 & "C:\Users\crequ\.tizen-extension-platform\server\sdktools\data\tools\sdb.exe" install "D:\Projects\iptv-player\build\smart_tv_out\com.goatplayer.tv.signed.wgt"
-
-# 3. View debug logs (filter by GOATPlayer or TVPlayer)
-& "C:\Users\crequ\.tizen-extension-platform\server\sdktools\data\tools\sdb.exe" dlog | Select-String "TVPlayer"
 ```
 
 #### LG webOS TV (via ares-cli / Dev Manager)
 ```powershell
 # 1. Install via ares-install
-ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.goatplayer.tv_1.2.0_all.ipk"
-
-# 2. Or drag & drop the .ipk into LG webOS Dev Manager UI
+ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.goatplayer.tv_1.2.7_all.ipk"
 ```
 
 ---
@@ -147,11 +147,11 @@ ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.go
   - Root fields: `stream.duration_secs`, `stream.duration`, `stream.runtime`
   - Sub-objects: `info.movie_data.duration`, `info.movie_data.runtime`
 - **Rule**: ALWAYS use `parseDurationSecs()` and `extractDurationFromInfo()` in `smart_tv/js/storage.js`. Never write custom regex or assume durations are integers.
-- On Samsung Tizen TV, HTML5 `<video>.duration` often returns `Infinity`, `NaN`, or `1` during streaming. We rely on metadata and the MP4 container prober (`TVContainerProber.parseMp4` reading the `mvhd` atom).
+- On Samsung Tizen TV, HTML5 `<video>.duration` often returns `Infinity`, `NaN`, or `1` during streaming. Rely on metadata and the MP4 container prober (`TVContainerProber.parseMp4` reading the `mvhd` atom).
 
 ### 2. Video Aspect Ratio Discipline
 - **Rule**: Never use `object-fit: fill` on VOD video elements without user request.
-- Video must use `object-fit: contain` to preserve the provider's native resolution and aspect ratio (eliminating stretched picture on Samsung/LG TVs).
+- Video must use `object-fit: contain` / `BoxFit.contain` to preserve the provider's native resolution and aspect ratio (eliminating stretched picture on TVs).
 
 ### 3. Remote Control Key Mapping (D-Pad & Back Key)
 - **webOS Back Key**: `keyCode: 461`
@@ -159,28 +159,20 @@ ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.go
 - **D-Pad Direction Keys**: `ArrowUp (38)`, `ArrowDown (40)`, `ArrowLeft (37)`, `ArrowRight (39)`, `Enter (13)`.
 - **TV Media Keys**: `MediaPlay (415 / 19)`, `MediaPause (19)`, `MediaPlayPause (10252)`, `MediaFastForward (417)`, `MediaRewind (412)`, `MediaStop (413)`.
 - **Color Keys**: `ColorF0Red (403)`, `ColorF1Green (404)`, `ColorF2Yellow (405)`, `ColorF3Blue (406)`.
-- In `smart_tv/js/spatial_nav.js`, Back key precedence is strictly prioritized:
-  1. Close open modal or drawer.
-  2. If video player is in fullscreen, minimize or exit fullscreen.
+- In `smart_tv/js/spatial_nav.js` and `lib/core/widgets/tv_remote_scope.dart`, Back-key precedence is strictly prioritized:
+  1. Close open modal, drawer, or search overlay.
+  2. If video player is in fullscreen, minimize or exit playback.
   3. If on Dashboard, show exit confirmation dialog.
 
-### 4. Smart TV Sandboxed LocalStorage
-- When running as an installed widget (`file://` protocol), some Tizen TVs disable `window.localStorage` or throw SecurityError.
+### 4. Amazon Fire OS Sideload Display vs Projectivy Launcher
+- On Amazon Fire TV, Fire OS places all sideloaded apps into a fixed gray 16:9 card containing a centered **1:1 square icon slot** (`fitXY`).
+- Projectivy Launcher, however, is a standard Android Leanback launcher displaying full **16:9 cards** using `@drawable/banner_3d`.
+- To look optimal in both:
+  - Use seamless 16:9 banners in `@drawable/banner_3d` for Projectivy.
+  - Use rounded 1:1 square icons in `res/mipmap-television-*` for Fire OS icon queries.
+  - Never place a 16:9 bitmap directly into `ic_launcher`, as Fire OS will squish it horizontally into the 1:1 slot.
+
+### 5. Smart TV Sandboxed LocalStorage
+- When running as an installed widget (`file://` protocol), some Tizen TVs disable `window.localStorage` or throw `SecurityError`.
 - `smart_tv/js/storage.js` wraps all storage access with an automatic in-memory fallback store (`_memStore`).
 - Always use `window.TVStorage` API methods (`saveProgress`, `getProgress`, `getContinueWatching`, `toggleFavorite`, `isFavorite`). Never call raw `localStorage` directly in TV views.
-
-### 5. Memory & Performance on Low-End TVs
-- Smart TVs have limited RAM (often 1GB to 1.5GB total, with web sandbox restricted to ~300MB).
-- Never render 10,000 DOM elements at once.
-- The Smart TV app uses `VirtualList` (`smart_tv/js/virtual_list.js`) for Live TV channels and pagination/lazy chunking for VOD grids.
-- Always clean up image error handlers (`onerror="this.style.display='none';"`) and avoid memory leaks in event listeners.
-
-### 6. Smart TV 2D Spatial Navigation & Boundary Exit
-- **Preferences Modal**: Uses dedicated 2D 3-column navigation (`ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`). Do not lump `pref-option-btn` into simple 1D vertical lists.
-- **VOD Grid Exit**: When on the leftmost card of any VOD row (`isGridCard`), pressing `ArrowLeft` must cleanly exit the grid and focus the active category in `#movies-categories-list` or `#series-categories-list`, rather than wrapping upward to the previous row.
-
-### 7. Subtitle Cue Synchronization & Persistence
-- Smart TV subtitle tracks from `TVContainerProber` or API are kept in `currentVodMeta.subtitleTracks`.
-- On-demand cue parsing uses `TVSubtitles.fetchTrackSubtitle(url, format)`.
-- Parsed cues are attached to `track.cues` to avoid refetching.
-- The active cue renderer runs inside the `timeupdate` handler and synchronizes `#player-subtitle-overlay`.

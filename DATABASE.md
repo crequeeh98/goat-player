@@ -1,147 +1,117 @@
 # 🗄️ DATABASE.md — GOATPlayer Database Architecture
 
-GOATPlayer utilizes a dual-database architecture designed for maximum performance, offline reliability, and platform suitability across native Flutter clients and Smart TV web engines.
+GOATPlayer uses a high-performance dual-database architecture tailored to its target platforms:
+1. **Flutter Native Client (Desktop & Android)**: Powered by **Drift** (SQLite with Write-Ahead Logging).
+2. **Smart TV Web Application (Samsung Tizen & LG webOS)**: Powered by a sandboxed, fault-tolerant key-value engine with in-memory fallback.
 
 ---
 
 ## 1. Flutter Client Database: Drift (SQLite)
 
-The native Flutter application uses **Drift** (type-safe SQLite ORM) located in `lib/core/database/`.
+Located in `lib/core/database/`, Drift provides compile-time type safety, asynchronous query streams, and isolate-based background transactions.
 
 ### 1.1 Core Tables Schema
 
-#### 1. `Accounts` (`Accounts` Table)
-Stores configured IPTV provider connections (Xtream Codes & M3U).
+#### 1. `Accounts` Table (`lib/core/database/tables.dart`)
+Stores IPTV provider credentials and playlist configurations.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | Int | Primary Key, Auto-Increment | Unique account ID |
-| `playlistName` | Text | Nullable | User-friendly playlist display name |
-| `serverUrl` | Text | Not Null | Base IPTV provider URL or M3U URL |
+| `playlistName` | Text | Nullable | User-friendly display label |
+| `serverUrl` | Text | Not Null | IPTV server base URL or direct M3U URL |
 | `username` | Text | Not Null | Xtream username or empty for direct M3U |
 | `password` | Text | Not Null | Xtream password or empty for direct M3U |
-| `isTrial` | Bool | Default false | Trial account indicator |
-| `maxConnections` | Int | Nullable | Maximum allowed concurrent connections |
-| `expDate` | Int | Nullable | Subscription expiry timestamp (Unix) |
+| `isTrial` | Bool | Default `false` | Trial account indicator |
+| `maxConnections` | Int | Nullable | Maximum allowed concurrent streams |
+| `expDate` | Int | Nullable | Subscription expiration Unix timestamp |
 | `createdAt` | DateTime | Default `currentDateAndTime` | Account creation timestamp |
 
-#### 2. `Categories` (`Categories` Table)
-Categorizes Live TV, Movies, and Series.
+#### 2. `Categories` Table
+Stores stream categories partitioned by type and account.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Int | Primary Key, Auto-Increment | Unique category row ID |
-| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
-| `categoryId` | Text | Not Null | Provider or parsed category ID |
+| `id` | Int | Primary Key, Auto-Increment | Internal row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owning account ID |
+| `categoryId` | Text | Not Null | Provider category ID or M3U group name |
 | `name` | Text | Not Null | Category display name |
-| `type` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
+| `type` | Text | Not Null | Category type: `'live'`, `'movie'`, or `'series'` |
 
-#### 3. `Streams` (`Streams` Table)
-Unified stream items table caching channels, movies, and series.
+#### 3. `Streams` Table
+Unified table indexing Live TV channels, VOD movies, and series episodes.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Int | Primary Key, Auto-Increment | Unique stream row ID |
-| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
-| `categoryId` | Text | Not Null | Category ID |
-| `streamId` | Text | Not Null | Provider stream ID |
-| `epgChannelId` | Text | Nullable | EPG mapping channel ID |
-| `name` | Text | Not Null | Stream / title name |
+| `id` | Int | Primary Key, Auto-Increment | Internal row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owning account ID |
+| `categoryId` | Text | Not Null | Category ID mapping |
+| `streamId` | Text | Not Null | Provider stream ID or episode ID |
+| `parentStreamId` | Text | Nullable | Parent series stream ID (for TV episodes) |
+| `epgChannelId` | Text | Nullable | XMLTV channel ID mapping for EPG |
+| `name` | Text | Not Null | Cleaned stream or episode title |
 | `streamType` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
-| `streamIcon` | Text | Nullable | Stream icon or cover poster URL |
+| `streamIcon` | Text | Nullable | Poster or channel logo URL |
 | `url` | Text | Nullable | Direct playback URL (constructed or M3U) |
-| `added` | Int | Nullable | Unix timestamp added (for VOD sorting) |
+| `added` | Int | Nullable | Timestamp added (for sorting newest VODs) |
 
-#### 4. `EpgPrograms` (`EpgPrograms` Table)
-Electronic Program Guide schedule.
+#### 4. `EpgPrograms` Table
+Stores Electronic Program Guide schedule entries.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Int | Primary Key, Auto-Increment | Unique program row ID |
-| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
-| `channelId` | Text | Not Null | Stream ID matching live channel |
+| `id` | Int | Primary Key, Auto-Increment | Internal row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owning account ID |
+| `channelId` | Text | Not Null | Mapping to `Streams.epgChannelId` |
 | `title` | Text | Not Null | Program title |
-| `description` | Text | Nullable | Program synopsis / plot |
-| `startTime` | DateTime | Not Null | Broadcast start time |
-| `stopTime` | DateTime | Not Null | Broadcast stop time |
+| `description` | Text | Nullable | Synopsis or episode description |
+| `startTime` | DateTime | Not Null | Program start time (UTC) |
+| `endTime` | DateTime | Not Null | Program end time (UTC) |
 
-#### 5. `Favorites` (`Favorites` Table)
-User bookmarked channels, movies, and series.
+#### 5. `PlaybackProgress` Table
+Maintains granular playback state, watch history, and episode completion.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | Int | Primary Key, Auto-Increment | Unique favorite row ID |
-| `accountId` | Int | Foreign Key (`Accounts.id`) | Owner account |
-| `streamId` | Text | Not Null | Target stream ID |
-| `streamType` | Text | Not Null | `'live'`, `'movie'`, or `'series'` |
-| `addedAt` | DateTime | Default `currentDateAndTime` | Timestamp added |
-| **Unique Key** | (`accountId`, `streamId`, `streamType`) | Composite | Prevents duplicate bookmarks |
-
-#### 6. `PlaybackProgress` (`PlaybackProgress` Table)
-Tracks Continue Watching and resume points for Movies and Series episodes.
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `streamId` | Text | Primary Key | Movie or Episode stream ID |
-| `streamType` | Text | Not Null | `'movie'` or `'series'` |
-| `seriesId` | Text | Nullable | Parent series ID (null for movies) |
-| `title` | Text | Not Null | Title of movie or episode |
-| `coverUrl` | Text | Nullable | Poster URL |
-| `position` | Int | Not Null | Last watched position (seconds) |
-| `duration` | Int | Not Null | Total duration (seconds) |
-| `season` | Int | Nullable | Season number |
-| `episode` | Int | Nullable | Episode number |
-| `episodeTitle` | Text | Nullable | Specific episode title |
-| `isCompleted` | Bool | Default false | Flagged true if watched >= 95% |
-| `updatedAt` | DateTime | Default `currentDateAndTime` | Timestamp for sorting |
-
-### 1.2 Performance & Optimization Settings
-- **WAL Mode (Write-Ahead Logging)**: Enabled at initialization to allow concurrent background EPG/stream updates without blocking UI reads.
-- **Synchronous = NORMAL**: Reduces disk write latency on flash storage (Android TV / Fire TV sticks).
-- **Cache Size = -64000**: Allocates 64MB memory cache for instant queries.
-- **Indexes**:
-  - `idx_live_acc_cat`: `ON live_streams(account_id, category_id)`
-  - `idx_vod_acc_cat`: `ON vod_streams(account_id, category_id)`
-  - `idx_epg_chan_time`: `ON epg_programs(channel_id, start_time, end_time)`
+| `id` | Int | Primary Key, Auto-Increment | Internal row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owning account ID |
+| `streamId` | Text | Not Null | Stream ID or episode ID |
+| `seriesId` | Text | Nullable | Parent series ID (if episode) |
+| `positionSecs` | Int | Not Null | Current playback position in seconds |
+| `durationSecs` | Int | Not Null | Total duration in seconds |
+| `isCompleted` | Bool | Default `false` | True when position $\ge 95\%$ of duration |
+| `lastWatched` | DateTime | Default `currentDateAndTime` | Timestamp of last playback |
 
 ---
 
-## 2. Smart TV Client Storage (`smart_tv/js/storage.js`)
+### 1.2 Data Access Objects (DAOs)
 
-On Samsung Tizen and LG webOS, data is stored in `localStorage` with automatic in-memory fallback (`_memStore`) if `file://` sandboxing restricts disk access.
+1. **`StreamDao` (`lib/core/database/daos/stream_dao.dart`)**:
+   - Manages batch stream ingestion via SQLite transactions.
+   - Implements fast indexed queries by `accountId`, `categoryId`, and `streamType`.
+   - Handles global search queries with prefix and substring matching.
+2. **`AccountDao` (`lib/core/database/daos/account_dao.dart`)**:
+   - Manages account creation, credential updates, and playlist deletion with cascading cleanup.
+3. **`EpgDao` (`lib/core/database/daos/epg_dao.dart`)**:
+   - Queries currently airing and upcoming programs for channel lists and OSD infobars.
+   - Calculates real-time program progress percentages.
+4. **`PlaybackProgressDao` (`lib/core/database/daos/playback_progress_dao.dart`)**:
+   - Powers the **Continue Watching Rail**:
+     - Automatically deduplicates series, displaying only the single latest or next episode.
+     - Automatically advances to the next episode when the previous episode reaches $\ge 95\%$ completion.
+     - Safely evicts finished movies and series finales.
 
-### 2.1 Storage Key Registry
+---
 
-| Storage Key | Format | Description |
+## 2. Smart TV Web Application Storage (`smart_tv/js/storage.js`)
+
+On low-powered Smart TVs (Samsung Tizen & LG webOS), the application uses an abstracted key-value store with sandbox-safe fallbacks.
+
+### 2.1 Schema & Keys
+
+| Key | Storage Target | Description |
 |---|---|---|
-| `goat_accounts` | JSON Array | Array of account objects (`id`, `name`, `serverUrl`, `username`, `password`, `type`: `'xtream'` \| `'m3u'`) |
-| `goat_active_acc` | String | ID of currently selected account |
-| `goat_prog_${accId}_${streamId}` | JSON Object | Individual stream progress record |
-| `goat_cw_${accId}` | JSON Array | Continue Watching rail items (LRU sorted, capped at 100) |
-| `goat_favs_${accId}` | JSON Object | Favorites mapping: `{ live: [], movie: [], series: [] }` |
-| `goat_device_id` | String | Unique Virtual Device ID (e.g. `GP-8832-1940`) |
-| `goat_settings` | JSON Object | Audio/subtitle track preferences (`audio_pref`, `sub_pref`: `'deu'`, `'eng'`, `'auto'`), app language (`lang`: `'de'`, `'en'`) |
+| `goat_accounts` | JSON Array | Array of configured IPTV accounts |
+| `goat_active_account` | String | ID of currently selected active account |
+| `goat_favs_<accountId>` | JSON Array | Array of pinned favorite stream IDs |
+| `goat_progress_<accountId>` | JSON Object | Map of `streamId` to progress objects `{ position, duration, completed, lastWatched }` |
+| `goat_settings` | JSON Object | Audio/subtitle language preferences and UI settings |
 
-### 2.2 Continue Watching Item Schema
-```json
-{
-  "streamId": "184920",
-  "seriesId": "4810",
-  "type": "series",
-  "title": "Chapter One: The Vanishing",
-  "seriesName": "Stranger Things",
-  "season": 1,
-  "episode": 1,
-  "posterUrl": "http://provider.com/images/poster.jpg",
-  "containerExtension": "mp4",
-  "position": 1240,
-  "duration": 2980,
-  "isCompleted": false,
-  "updatedAt": 1726402800000
-}
-```
+### 2.2 Sandboxed In-Memory Fallback
 
----
-
-## 3. Cloud Synchronization: Supabase Realtime
-
-The remote web manager portal communicates with devices via Supabase Realtime.
-- **Pairing Table (`device_pairings`)**:
-  - `device_id`: `GP-XXXX-XXXX`
-  - `pin`: 6-digit numeric string (20-minute expiry)
-  - `accounts_payload`: Encrypted JSON string of IPTV credentials
-  - `status`: `'waiting'`, `'connected'`, `'completed'`
+When running as an installed W3C widget (`file://` protocol) on select Samsung Tizen firmware, accessing `window.localStorage` throws a `SecurityError`. `TVStorage` intercepts this condition and seamlessly routes all read/write operations to an in-memory dictionary (`_memStore`), ensuring that video playback and UI navigation remain uninterrupted.

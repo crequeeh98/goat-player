@@ -2,12 +2,13 @@
 
 <div align="center">
 
-**The Ultimate Modern, High-Performance IPTV & VOD Player**
+**The Ultimate Modern, High-Performance IPTV & Cinema VOD Player**
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20iOS%20%7C%20SmartTV-blue)](#-roadmap-v2--beyond)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20FireTV%20%7C%20Tizen%20%7C%20webOS-blue)](#-device-installation-guides)
 [![Repository](https://img.shields.io/badge/Repo-GitHub-blue)](https://github.com/crequeeh98/goat-player)
-[![Release](https://img.shields.io/badge/Release-v1.1.0-purple)](https://github.com/crequeeh98/goat-player)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-purple)](https://github.com/crequeeh98/goat-player/releases)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 </div>
 
@@ -15,272 +16,150 @@
 
 ## 🌟 Overview
 
-**GOATPlayer** is a sleek, modern desktop & cross-platform IPTV application built from the ground up with **Flutter**, **Drift (SQLite)**, and **MediaKit (`libmpv`)**. Designed for speed, smooth playback, and an intuitive user experience, it effortlessly handles massive Xtream Codes / M3U playlists, live channel guides (EPG), movies, and TV series.
+**GOATPlayer** is an ultra-fast, premium IPTV and VOD streaming application engineered for dual-stack operation across desktop, mobile, and television ecosystems:
+
+1. **Native Flutter Application (`lib/`)**: Built for **Windows Desktop**, **Android Phones / Tablets**, **Android TV / Google TV**, and **Amazon Fire TV**. Powered by **Drift (SQLite WAL)** and **`media_kit` (`libmpv`)** for direct hardware-accelerated video decoding.
+2. **Smart TV Web Application (`smart_tv/`)**: Built for **Samsung Tizen (2018+)** and **LG webOS (4.0+)** using zero-dependency Vanilla JavaScript and CSS for blistering speed and instant focus response (<70ms) on low-power TV chipsets.
+3. **Web Pairing Portal ([goat-player.vercel.app](https://goat-player.vercel.app))**: Zero-typing remote playlist manager featuring client-side **Zero-Knowledge AES-GCM encryption** for instantaneous QR code and PIN pairing.
 
 ---
 
-## ✨ Current Features
+## ✨ Features
 
-### 🌐 Remote Playlist Manager & QR Sync (Web Portal)
-- **Zero-Typing Smart TV Setup**: Add, edit, or delete IPTV playlists on your TV directly from your phone, tablet, or PC browser without tedious on-screen keyboard typing.
-- **Hosted Live Web Portal**: Free, instant web portal at [goat-player.vercel.app](https://goat-player.vercel.app) with no backend servers (powered by Supabase Realtime).
-- **1-Tap QR Code Pairing**: Scan the pairing QR code displayed in the GOATPlayer TV app to automatically connect in under a second.
-- **Virtual Device ID & Expiring PIN**: Unique virtual ID (`GP-XXXX-XXXX`) and 20-minute expiring security PIN with live countdown and one-click copy buttons.
-- **Full Playlist Manager**: View all playlists currently configured on the TV, add new accounts, edit server URLs/credentials/names, and delete accounts remotely with automatic local database updates.
-- **Smart M3U Link Breakdown**: Paste any raw M3U link with credentials (`http://domain.com/get.php?username=...`), and the portal automatically extracts the server host, username, password, and output format.
-- **Real-Time TV Disconnection Detection**: Realtime WebSocket channel + 2.5s polling heartbeat detects when the TV finishes pairing (`Fertig` or TV back button), displays an alert banner with a 1-click reconnect button, and guards against stale actions.
-- **Responsive Bilingual UI**: English & German (`EN` / `DE`) localization with an optimized mobile interface.
+### 🌐 Remote Pairing Portal & Zero-Knowledge Cloud Sync
+- **Zero-Typing Smart TV Setup**: Add, edit, test, or remove IPTV playlists on your TV from your phone, tablet, or PC browser without tedious on-screen keyboard typing.
+- **Client-Side Zero-Knowledge Encryption**: All server credentials and playlist URLs are encrypted via AES-GCM (256-bit) using keys derived directly from the TV's pairing PIN. The cloud relay never sees plaintext credentials.
+- **1-Tap QR Code Pairing**: Scan the pairing QR code on the TV screen to automatically link in under a second.
+- **Smart M3U Link Breakdown**: Paste raw M3U URLs (`http://server:port/get.php?username=...`), and the portal automatically extracts the host, username, password, and output format.
+- **Real-Time Disconnection Guard**: WebSocket heartbeat monitoring alerts you when the TV exits pairing mode, preventing orphaned edits.
 
-### 📺 Live TV & EPG
-- **Multi-Account Support**: Add and manage multiple Xtream Codes / M3U playlists with ease.
-- **Smart Category Browsing**: Searchable category rail with instant search & clear functions.
-- **Interactive EPG Timeline**: Real-time Electronic Program Guide with progress bars, program details, and schedules.
-- **In-Player Slide-Out EPG & Channel Drawer**: Frosted glass sidebar accessible directly inside the player (both Full-Width and Fullscreen modes). Search channels, inspect logos, and view live show progress bars without exiting the stream.
-- **Quick In-Stream Zapping (CH- / CH+)**: Channel flipping buttons and keyboard/remote shortcuts (`ArrowUp` / `ArrowDown` or `PageUp` / `PageDown`) with real-time translucent OSD info banner.
-- **Split-Screen & Full-Width Player**: Seamless toggle between category/channel list browsing and full-width playback, with automatic scroll-position restoration on return.
-- **Illuminated Channel Selection**: Dynamic glowing border and card container highlight for the active channel; zero-stutter channel tuning in Favorites without stream reloading penalties.
-- **Favorites / Favoriten**: Pin and manage your top live channels with instant filtering.
-- **Dedicated Volume Controls**: Hover volume slider and quick-mute toggle right next to fullscreen controls.
+### 📺 Live TV & Smart IPTV Overlays
+- **Sub-Second Channel Zapping**: Instantaneous stream tuning on native Flutter and Smart TV web engines.
+- **Dual-Drawer Leanback Navigation**:
+  - **Category Drawer (`ArrowLeft`)**: Instant category browsing with stream count badges.
+  - **Channel Drawer (`Enter`)**: Live channel guide featuring current airing show, schedule times, and live progress bars.
+- **Zapping OSD Infobar**: Clean lower-third HUD showing resolution badges (4K, FHD, HD), audio codecs, current program, and next upcoming program.
+- **Interactive EPG Timeline**: Real-time Electronic Program Guide with timeline scrubbing and schedule details.
+- **Illuminated Focus Indicators**: Dynamic glowing borders and cards designed for optimal readability at couch distance.
 
-### 🎬 Movies & Series (VOD)
-- **In-Player Slide-Out Episode Drawer**: Frosted glass sidebar with season selectors, episode thumbnails, and active glowing indicator. Quickly browse and change episodes on the fly without exiting cinema playback.
-- **Dedicated Episode Badge & Clean Headers**: Dynamic season/episode pill badge (`[S01 E03]`) alongside full episode titles with multiline support (up to 3 lines) to prevent title truncation.
-- **Automatic Title Sanitation**: Smart `VodTitleCleaner` strips redundant series name prefixes and cleans country code tags (`DE - `, `EN | `) across all VOD titles.
-- **Stream Completion Auto-Play**: Automatically buffers and loads the subsequent episode upon finishing, featuring seamless cross-season rollover.
-- **Continue Watching Rail with Progression**: Automatically advances cards to the next episode upon $\ge 95\%$ completion, removes completed series finales and movies, and deduplicates shows to display only the single latest or next episode.
-- **Smart Deep-Linking & Per-Episode Watch Progress**: Clicking Continue Watching deep-links to the exact episode in the Series Details modal with primary border highlight and auto-scroll. Every episode card features a persistent SQLite progress bar (red for in-progress, green checkmark for completed).
-- **Flexible Sorting (Standard / Added, A-Z, Z-A)**: Real-time sorting by server added date (newest added first using Xtream Unix timestamp metadata), alphabetical A-Z, and reverse Z-A.
-- **Unified High-Contrast Category Rails**: Sleek category navigation with vibrant left purple accent indicators and dedicated Watchlist icons.
-- **Rich Grid Catalogs**: Responsive poster grids with cover art, genres, ratings, and release years.
-- **Watchlist**: Dedicated Watchlist system for both Movies and TV Shows.
-- **Global Master Search**: Search across Live TV, Movies, and TV Shows simultaneously with category filtering.
-- **Seamless Instant Transition**: Non-blocking `pushReplacement` navigation from modals directly into the cinema player with zero stutter or lag.
-- **Clean Account Switch Isolation**: Instant teardown of active playback and stream states when switching accounts to ensure 100% playlist isolation.
+### 🎬 Cinema VOD (Movies & Series)
+- **Netflix-Style Series Drawer**: Slide-out episode navigation drawer with season chips, episode thumbnails, and active glowing indicators.
+- **Auto-Play Next Episode**: Smooth continuous playback across episodes, including automatic cross-season rollovers.
+- **Intelligent Continue Watching Rail**:
+  - Automatically deduplicates series, displaying only the single latest or next episode.
+  - Advances cards to the next episode upon $\ge 95\%$ completion.
+  - Safely purges finished movies and series finales.
+- **Native Aspect Ratio Letterboxing**: Enforces `object-fit: contain` / `BoxFit.contain` by default, eliminating stretched picture on 16:9 and 21:9 television panels.
+- **Universal Duration Extraction**: Robust parsing of irregular IPTV duration formats (`"98 min"`, `"1h 38m"`, `"01:30:00"`) and direct MP4 `mvhd` atom demuxing.
 
-### 🪟 Picture-in-Picture (Floating Mini-Player)
-- **Universal Multi-Tasking**: Seamlessly browse movies, series, or settings while Live TV or VOD streams keep playing in the corner.
-- **Smooth Drag & Reposition**: Click-and-drag the floating player anywhere across your screen.
-- **Native OS Border Resizing**: Interactive diagonal resize grip zones with system cursor (`resizeUpLeft`) and double-tap cycle presets (Small, Medium, Large).
-- **Rich Mini-Player Controls**:
-  - **Center Play/Pause Button**: Instant playback control.
-  - **Interactive Seek Scrubber (VOD)**: Drag or tap along the seek bar to jump directly to any timestamp.
-  - **Live Runtime Display**: Formatted timestamp indicator (`00:15:30 / 01:42:00`).
-  - **Expandable Volume Slider**: Smoothly slides out on hover with tap-to-mute and mouse-wheel support for both Live TV and VOD.
-  - **One-Click Fullscreen Restore**: Instantly return to the full-size player with smooth state preservation.
-- **Mobile Mini-Bar**: Bottom dock mini-player for mobile devices with quick play/pause and close controls.
-
-### ⚡ Player Engine & Cinema Experience
-- **Powered by `libmpv` (MediaKit)**: Hardware-accelerated decoding for HLS (`.m3u8`), MPEG-TS (`.ts`), MKV, MP4, and exotic IPTV stream formats.
-- **Zero-Ghost-Frame Architecture**: Multi-buffered Direct3D protection eliminates the split-second flash of previous streams on channel or movie switches.
-- **Frame-Perfect Audio/Video Synchronization**: Silent buffering pipeline guarantees audio and video reveal in 100% lockstep synchrony.
-- **Permanent "Next Episode" Button Overlay**: Dedicated on-screen button in the player control bar next to audio and subtitle menus, with instant `N` hotkey support.
-- **State-Preserving Drawer & ESC Handling**: Pressing `ESC` closes the episode or channel drawer gracefully without minimizing or interrupting playback. Minimizing to mini-player strictly retains series metadata and drawer access.
-- **Intelligent Audio & Subtitle Language Matcher**: Fuzzy language matching supporting multilingual aliases (`German`, `Deutsch`, `Ger`, `Deu` / `English`, `Englisch`, `Eng`), audio codecs, channels (5.1 / 7.1 surround sound prioritization), and forced subtitles.
-- **Per-Media Track Memory**: Remembers preferred audio language and subtitle selections per show and per movie across sessions.
-- **Netflix-Style Subtitles**: Refined single subtitle rendering with crisp white text, multi-directional drop shadows, transparent background, and tuned bottom spacing above the control bar.
-- **Bilingual Playback Settings**: Configurable global preferred audio and subtitle languages (`Icons.tune`) with dynamic English and German UI localization.
-- **Prominent Center Play/Pause HUD**: Large 76px center Play/Pause button in VOD matching the Live TV experience.
-- **Keyboard Shortcuts**:
-  - `Space`: Play / Pause
-  - `Left` / `Right` Arrow: Seek backward / forward 10s
-  - `N`: Next episode (Series VOD)
-  - `Esc`: Close open drawer / Exit fullscreen
-
-### 🌍 Localization & UI
-- **English & German Support**: Dynamic in-app language switcher (`English` / `Deutsch`) with complete translations for player controls and mini-player.
-- **Dark Modern Aesthetic**: Deep purple / slate dark mode with pixel-perfect borders and polished layout.
+### 🔊 Audio & Subtitle Engine
+- **Multi-Track Audio Switching**: Seamless switching between audio language tracks with codec, channel layout, and bitrate details.
+- **Synchronized Subtitle Overlay**: On-demand WebVTT/SRT cue fetching, caching, and synchronized rendering (`TVSubtitles`).
+- **Language Preference Matching**: Automatic pre-selection of preferred audio and subtitle languages (Deutsch, English, Auto).
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## 📱 Device Installation Guides
 
-- **Framework**: [Flutter](https://flutter.dev) (3.24+)
-- **State Management**: [Riverpod 2.x](https://riverpod.dev)
-- **Local Database & Cache**: [Drift (SQLite)](https://drift.simonbinder.eu/) + Isolate Parsing
-- **Media Engine**: [MediaKit](https://github.com/media-kit/media-kit) (`libmpv` native backend)
-- **HTTP & Networking**: [Dio](https://pub.dev/packages/dio) with retry & timeout policies
-- **Localization**: Flutter `intl` (`.arb` based)
-- **Window Management**: `window_manager` for desktop sizing, maximization, and multi-display handling
+### 1. 🪟 Windows Desktop
+1. Download the latest `goat_player_windows_x64.zip` from [Releases](https://github.com/crequeeh98/goat-player/releases).
+2. Extract the ZIP archive to a folder of your choice (e.g. `C:\Program Files\GOATPlayer`).
+3. Run `goat_player.exe`.
 
 ---
 
-## 🚀 Getting Started & Building
+### 2. 📱 Android Phone & Tablet
+1. Download `app-arm64-v8a-release.apk` from [Releases](https://github.com/crequeeh98/goat-player/releases).
+2. Open the downloaded APK on your Android device.
+3. If prompted, allow "Install unknown apps" in Android Settings.
+4. Tap **Install** and launch GOATPlayer from your homescreen.
+
+---
+
+### 3. 📺 Amazon Fire TV & Fire TV Stick
+1. Install the **Downloader** app from the Amazon Appstore on your Fire TV.
+2. In Fire TV Settings:
+   - Go to **My Fire TV** -> **Developer Options**.
+   - Enable **Install unknown apps** for the Downloader app.
+3. Open Downloader and enter the direct APK download URL for `app-armeabi-v7a-release.apk` (or use ADB):
+   ```powershell
+   adb connect <FIRE_TV_IP>:5555
+   adb install -r app-armeabi-v7a-release.apk
+   ```
+4. GOATPlayer will appear in **Meine Apps und Sender** as well as on **Projectivy Launcher** with native 16:9 3D banners.
+
+---
+
+### 4. 📺 Android TV & Google TV (Sony, Philips, TCL, Nvidia Shield)
+1. Download `app-arm64-v8a-release.apk` (or `app-armeabi-v7a-release.apk` for older 32-bit TV boxes).
+2. Transfer the APK to your TV using a USB flash drive or the **Send Files to TV** app.
+3. Open a file manager on your TV (e.g. File Commander) and click the APK to install.
+
+---
+
+### 5. 📺 Samsung Smart TV (Tizen OS 2018+)
+1. Enable **Developer Mode** on your Samsung TV:
+   - Open **Apps** on your TV.
+   - Press `1`, `2`, `3`, `4`, `5` on the remote.
+   - Set Developer Mode to **ON** and enter your computer's local IP address.
+   - Restart the TV (hold Power button until Samsung logo appears).
+2. Connect and install using the Samsung Tizen SDK CLI:
+   ```powershell
+   # Connect to TV over local network
+   sdb connect <TV_IP_ADDRESS>
+
+   # Install signed W3C widget
+   sdb install com.goatplayer.tv.signed.wgt
+   ```
+
+---
+
+### 6. 📺 LG Smart TV (webOS 4.0+)
+1. Install the **Developer Mode** app from the LG Content Store on your TV and log in with your LG Developer credentials.
+2. Turn **Dev Mode Status** to **ON** and note the TV IP and Passphrase.
+3. Install via LG webOS CLI (`ares-install`) or **LG webOS Dev Manager**:
+   ```powershell
+   ares-install -d <DEVICE_NAME> com.goatplayer.tv_1.2.7_all.ipk
+   ```
+4. GOATPlayer will launch with full 16:9 LG webOS Dock tile support.
+
+---
+
+## 🛠️ Building from Source
 
 ### Prerequisites
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.24+ recommended)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/) with **"Desktop development with C++"** workload (for Windows builds)
+- [Flutter SDK](https://flutter.dev/docs/get-started/install) (3.x or higher)
+- [Node.js](https://nodejs.org) (for Smart TV packaging tools)
+- [PowerShell](https://microsoft.com/powershell) (Windows)
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/crequeeh98/goat-player.git
-cd goat-player
-```
-
-### 2. Install dependencies
-```bash
+### 1. Build Flutter Desktop & Mobile
+```powershell
+# Get packages
 flutter pub get
+
+# Run test suite
+flutter test
+
+# Build Android APK (arm64-v8a)
+flutter build apk --release --target-platform android-arm64 --split-per-abi
+
+# Build Android TV / Fire TV APK (armeabi-v7a)
+flutter build apk --release --target-platform android-arm --split-per-abi
+
+# Build Windows Release
+flutter build windows --release
 ```
 
-### 3. Generate Database & Localization Code (if needed)
-```bash
-dart run build_runner build --delete-conflicting-outputs
-flutter gen-l10n
-```
-
-### 4. Run in Development
-```bash
-flutter run -d windows
-```
-
-### 5. Build Release Executable (Windows)
-```bash
-flutter build windows
-```
-The compiled output will be located in:
-`build\windows\x64\runner\Release\`
-
-### 6. Build Samsung Tizen TV Package (.wgt)
+### 2. Package Smart TV (Tizen & webOS)
 ```powershell
-powershell -ExecutionPolicy Bypass -File tool/package_smart_tv_tizen.ps1
+# Package signed Samsung Tizen widget (.wgt)
+powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_tizen.ps1
+
+# Package LG webOS package (.ipk)
+powershell -ExecutionPolicy Bypass -File .\tool\package_smart_tv_webos.ps1
 ```
-The signed `.wgt` package will be located in:
-`build/smart_tv_out/com.goatplayer.tv.signed.wgt`
-
-**Installation on Samsung Smart TVs:**
-- Sideload via **Samsung Tizen Device Manager** (Connect to TV IP -> drag & drop `.wgt`).
-- Or install via SDB CLI:
-  ```bash
-  sdb connect <TV_IP>
-  sdb install build/smart_tv_out/com.goatplayer.tv.signed.wgt
-  ```
-
-### 7. Build LG webOS TV Package (.ipk)
-```powershell
-powershell -ExecutionPolicy Bypass -File tool/package_smart_tv_webos.ps1
-```
-The generated `.ipk` package will be located in:
-`build/smart_tv_out/com.goatplayer.tv_1.2.0_all.ipk`
-
-**Installation on LG Smart TVs:**
-- Sideload via [webOS Dev Manager](https://github.com/webosbrew/dev-manager) (1-click install via GUI).
-- Or install via webOS CLI (`ares-cli`):
-  ```bash
-  ares-install -d <device_name> build/smart_tv_out/com.goatplayer.tv_1.2.0_all.ipk
-  ```
 
 ---
 
-## 🗺️ Roadmap & Planned Features
-
-### ✅ Polish & In-Stream Navigation (Completed)
-- [x] **High-Visibility Selection & Active Highlighting**:
-  - Distinct, high-contrast visual styling for the currently selected category in the category rail across Live TV, Movies, and Series.
-  - Prominent playing indicator for the currently active channel in the channel list (illuminated border, rich card background, bold high-contrast text).
-- [x] **Category & Channel Auto-Scroll Sync**:
-  - When switching away to another tab (Movies, Series) or toggling full-width mode, restores the active category (including Favorites) and auto-scrolls the channel list directly to the active channel's position.
-- [x] **Master Search Direct Jump**:
-  - Selecting a live channel from Master Search reliably initiates playback in the preview player and auto-scrolls down to the exact selected channel.
-- [x] **Performance & Concurrency Optimization**:
-  - SQLite WAL mode, database indexes, 64MB cache, EPG throttling, and atomic category/stream replacements to eliminate freezes and stutter.
-
-### ✅ Remote Playlist Management Web Portal (Completed)
-- [x] **Virtual Device ID & Pairing PIN**:
-  - Persistent, unique virtual Device ID (`GP-XXXX-XXXX`) and 20-minute expiring 6-digit PIN with live countdown and refresh option.
-  - QR Code generation in the TV app (`add_account_screen.dart`) for 1-tap mobile camera pairing.
-  - Copy-to-clipboard buttons for Device ID and PIN in the TV UI.
-- [x] **Web Management Portal ([goat-player.vercel.app](https://goat-player.vercel.app))**:
-  - Fully responsive, dark-mode web application deployed on Vercel with zero backend footprint (direct Supabase Realtime).
-  - Bilingual localization (**English** & **German**) with persistent language switcher.
-  - Full remote playlist manager: View all active playlists on the device, Add new playlists, Edit existing credentials, and Delete playlists remotely.
-  - **Smart M3U Link Breakdown**: Automatically parses raw M3U URLs (extracting server host, username, password, and output format) into structured Xtream accounts.
-  - Mobile-optimized responsive layout: top utility navigation, 2-tier device status banner, and structured playlist card metadata.
-- [x] **Real-Time Bidirectional Synchronization & Handshake**:
-  - Real-time Supabase WebSocket stream (`postgres_changes`) paired with an active 2.5s polling heartbeat fallback.
-  - Awaited disconnection handshake on TV: tapping *"Fertig"* (Done) or pressing TV remote "Back" (`PopScope`) immediately transmits disconnection status.
-  - Web portal disconnection state awareness: status badge turns amber, display of a prominent warning banner with 1-click reconnect button, and action guards preventing stale mutations.
-
-### ✅ Phase 1: VOD Series Overhaul (Netflix-Style Experience) - Completed
-- [x] **In-Player Episode Navigation & Frosted Drawer**:
-  - Slide-out episode drawer with season chips, episode thumbnails, and active glowing indicator.
-  - Dedicated season/episode pill badge (`[S01 E03]`) + episode title layout in player header to prevent title truncation.
-  - Permanent "Next Episode" button overlay and `N` keyboard shortcut.
-  - ESC key integration: closes the drawer gracefully without minimizing playback.
-  - Mini-player state retention: preserved series metadata and drawer access when minimizing and restoring player.
-- [x] **Stream Completion Auto-Play**:
-  - Automatically loads and plays subsequent episodes upon completion, including seamless season rollovers.
-- [x] **Audio & Subtitle Preferences & Memory**:
-  - Fuzzy language matching supporting multi-lingual aliases, audio codecs, channels (5.1/7.1), and forced subtitles.
-  - Remembers user's track selections per series and per movie.
-  - Fully localized Playback Settings dialog for configuring global preferred languages.
-  - Subtitle visibility enabled by default when subtitle track is selected.
-- [x] **Continue Watching Deduplication & Card Progression**:
-  - Deduplicates series in Continue Watching so only the latest/next episode appears.
-  - Cleans country code prefixes (`DE - `, `EN | `) to ensure clean titles and subtitle labels.
-  - Automatically advances cards to the next episode upon completion ($\ge 95\%$), and removes finished series finales / movies.
-- [x] **Smart Deep-Linking & Per-Episode Watch Progress**:
-  - Clicking Continue Watching deep-links to the exact next episode in the Series Details modal with primary border highlight and auto-scroll.
-  - Persistent SQLite watch progress bars on every episode card (in-progress red bar, completed green bar + checkmark).
-
-### 📺 Phase 2: Smart TV Expansion (Samsung Tizen & LG webOS) - Completed
-- [x] **Smart TV Remote & D-Pad Engine (`TvFocusable` & `spatial_nav.js`)**:
-  - Pixel-perfect focus indicator with customizable glow, 1.4px border, and instant 30ms/70ms transitions to eliminate focus ghosting.
-  - Wrap-around list navigation: scrolling to the bottom of channel lists or movie/series grids restarts at the top.
-  - Smooth search flow: pressing `ArrowDown` or `Enter` in search fields navigates directly down into results/chips without requiring Tab.
-  - Dedicated 2D grid traversal for Preferences modal and natural left-exit boundary routing from VOD grids back to category menus.
-- [x] **Smart TV 3-Tier Back Key Interception (`TvRemoteScope`)**:
-  - Global TV remote Back key routing (LG keyCode 461, Tizen keyCode 10009, Escape) with localized Exit Confirmation Dialog at root.
-- [x] **Universal Media Player Abstraction (`GoatPlayerEngine` & `TVPlayer`)**:
-  - Pluggable video engine architecture supporting `libmpv` (desktop/mobile), Samsung Tizen, and LG webOS HTML5/HLS.
-  - Multi-audio track switching and synchronized subtitle cue rendering (SRT/WebVTT) with auto language matching.
-- [x] **Smart TV Production Packaging**:
-  - Automated signed `.wgt` generation via `tool/package_smart_tv_tizen.ps1`.
-  - Automated `.ipk` generation via `tool/package_smart_tv_webos.ps1` for 1-click install.
-
-### 🌐 Phase 2.5: Universal M3U & M3U8 Playlist Engine - Completed
-- [x] **High-Performance M3U Parsers**:
-  - Background isolate parsing in Flutter (`m3u_isolate_parser.dart`) and client-side streaming parser for Smart TVs (`m3u.js`).
-  - Comprehensive tag extraction (`#EXTINF`, `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, `#EXTM3U` EPG endpoints).
-- [x] **Direct Remote Pairing & Sync**:
-  - Direct M3U URL import in web pairing portal with auto-classification into Live TV, Movies, and Series and eager TV caching.
-
-### 📱 Phase 3: Android TV, Fire TV & Mobile Adaptations (Next Up)
-- [ ] **Android TV & Amazon Fire TV Leanback**:
-  - Leanback banner (`banner.png`), Leanback Intent filter, and D-Pad focus integration.
-- [ ] **Physical Mobile & Tablet Adaptations**:
-  - Touch HUD gestures: swipe left/right for seek, left side for brightness, right side for volume.
-  - Automatic landscape lock upon entering cinema playback.
-
-### 📋 Phase 3: Category Management
-- [ ] **Hide / Show Categories**:
-  - Ability to toggle visibility for unwanted categories (e.g., international language packages, adult content).
-- [ ] **Manage & Reorder Categories**:
-  - Reorder categories or prioritize them according to user preference.
-- [ ] **Persistent Category Filter State**:
-  - Store hidden and reordered category states in the local SQLite database per account.
-
-### 🚀 Phase 4: Advanced Media & Cloud Sync (Sync, Multi-View, Catch-Up, Offline Downloads, Custom Categories)
-- [ ] **Cross-Device Profile & State Sync**:
-  - Synchronize "Continue Watching", Watchlist, and Favorites across devices (Desktop ↔ Mobile ↔ Smart TV).
-  - Multi-profile support for family households.
-- [ ] **Multi-View / Multi-Screen Player**:
-  - Split-screen grid to play 2 or 4 Live TV channels simultaneously (customizable layouts for live sports).
-- [ ] **Catch-Up TV (Archive)**:
-  - Play past broadcasts directly from the EPG guide for supported Xtream providers.
-- [ ] **Offline Downloads**:
-  - Download VOD movies and episodes locally for offline viewing during flights or travel.
-- [ ] **Custom User Categories**:
-  - Create personal custom categories and curated playlists mixing channels and VOD from multiple accounts.
-
----
-
-## ⚖️ Legal Disclaimer
-- **No Content Provided**: GOATPlayer is strictly a media player application. It does **not** provide, host, sell, or distribute any video streams, live channels, movies, TV series, or playlists.
-- **User Responsibility**: Users must provide their own playlists and content credentials from legally authorized IPTV providers.
-- **Zero Affiliation**: GOATPlayer has no affiliation with any third-party IPTV providers or content hosts.
-- **Copyright Compliance**: The developers do not endorse or support the streaming of copyrighted material without permission of the respective copyright holders.
-
----
-
-## 🔒 License & Intellectual Property
-Copyright (c) 2026. All rights reserved.  
-This source code is made publicly visible for review, testing, and contribution. Commercial redistribution, re-branding, unauthorized reproduction, or resale of this application or any derivative works via any medium is strictly prohibited without explicit written consent from the author.
+## 📄 License
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
