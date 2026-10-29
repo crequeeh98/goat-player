@@ -12,8 +12,8 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:banner="@drawable/banner_gradient"
-        android:logo="@drawable/banner_gradient">
+        android:banner="@drawable/banner_note1"
+        android:logo="@drawable/banner_note1">
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -27,9 +27,9 @@
             android:name=".MainActivity"
             android:label="@string/app_name"
             android:description="@string/app_description"
-            android:banner="@drawable/banner_gradient"
+            android:banner="@drawable/banner_note1"
             android:icon="@mipmap/ic_launcher"
-            android:logo="@drawable/banner_gradient"
+            android:logo="@drawable/banner_note1"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
