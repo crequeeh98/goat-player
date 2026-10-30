@@ -102,10 +102,19 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   bool _tvLongPressTriggered = false;
   bool _tvSelectDownHandled = false;
   int _lastTvSubMenuKeyMs = 0;
+  LiveFullscreenBackInterceptor? _tvBackInterceptorNotifier;
 
   @override
   void initState() {
     super.initState();
+    if (GoatPlatform.isTv) {
+      _tvBackInterceptorNotifier = ref.read(liveFullscreenBackInterceptorProvider.notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _tvBackInterceptorNotifier?.set(_handleTvFullscreenBack);
+        }
+      });
+    }
     _startHideTimer();
     final player = widget.state.widget.controller.player;
     _volume = player.state.volume;
@@ -156,6 +165,8 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     }
     if (widget.isFullWidth && !oldWidget.isFullWidth) {
       if (GoatPlatform.isTv) {
+        _tvBackInterceptorNotifier ??= ref.read(liveFullscreenBackInterceptorProvider.notifier);
+        _tvBackInterceptorNotifier?.set(_handleTvFullscreenBack);
         _triggerOsdBanner();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -172,6 +183,13 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
   @override
   void dispose() {
+    if (GoatPlatform.isTv && _tvBackInterceptorNotifier != null) {
+      final notifier = _tvBackInterceptorNotifier!;
+      final handler = _handleTvFullscreenBack;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifier.clearIf(handler);
+      });
+    }
     _zapDebounceTimer?.cancel();
     _tvLongPressTimer?.cancel();
     _focusNode.dispose();
@@ -953,6 +971,40 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
       );
   }
 
+  bool _handleTvFullscreenBack() {
+    if (!mounted || !GoatPlatform.isTv) return false;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastTvSubMenuKeyMs < 400) {
+      return true;
+    }
+    if (_tvEpgStream != null) {
+      _lastTvSubMenuKeyMs = now;
+      setState(() {
+        _tvEpgStream = null;
+        _isTvChannelMenuOpen = true;
+      });
+      return true;
+    }
+    if (_isTvCategoryMenuOpen) {
+      _lastTvSubMenuKeyMs = now;
+      setState(() {
+        _isTvCategoryMenuOpen = false;
+        _isTvChannelMenuOpen = true;
+      });
+      return true;
+    }
+    if (_isTvChannelMenuOpen) {
+      _lastTvSubMenuKeyMs = now;
+      setState(() => _isTvChannelMenuOpen = false);
+      _triggerOsdBanner();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _toggleTvFavorite(StreamItem stream) async {
     final acc = ref.read(activeAccountProvider);
     if (acc == null) return;
@@ -1064,46 +1116,23 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
     final isAnySubMenuOpen = _isTvChannelMenuOpen || _isTvCategoryMenuOpen || _tvEpgStream != null;
 
-    return PopScope(
-      canPop: !isFullOrFullWidth,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        final now = DateTime.now().millisecondsSinceEpoch;
-        if (now - _lastTvSubMenuKeyMs < 300) return;
-        if (_tvEpgStream != null) {
-          _lastTvSubMenuKeyMs = now;
-          setState(() {
-            _tvEpgStream = null;
-            _isTvChannelMenuOpen = true;
-          });
-          return;
-        }
-        if (_isTvCategoryMenuOpen) {
-          _lastTvSubMenuKeyMs = now;
-          setState(() {
-            _isTvCategoryMenuOpen = false;
-            _isTvChannelMenuOpen = true;
-          });
-          return;
-        }
-        if (_isTvChannelMenuOpen) {
-          _lastTvSubMenuKeyMs = now;
-          setState(() => _isTvChannelMenuOpen = false);
-          _triggerOsdBanner();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _focusNode.requestFocus();
-          });
-          return;
-        }
-        _lastTvSubMenuKeyMs = now;
-        widget.onBack?.call();
-      },
-      child: Focus(
-        focusNode: _focusNode,
-        autofocus: !isAnySubMenuOpen,
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: !isAnySubMenuOpen,
       onKeyEvent: (node, event) {
+        final isBackKey = event.logicalKey == LogicalKeyboardKey.escape ||
+            event.logicalKey == LogicalKeyboardKey.goBack ||
+            event.logicalKey == LogicalKeyboardKey.backspace;
+
+        if (isBackKey && event is KeyUpEvent) {
+          return KeyEventResult.handled;
+        }
+
         if (isAnySubMenuOpen) {
-          _lastTvSubMenuKeyMs = DateTime.now().millisecondsSinceEpoch;
+          if (isBackKey && (event is KeyDownEvent || event is KeyRepeatEvent)) {
+            _handleTvFullscreenBack();
+            return KeyEventResult.handled;
+          }
           return KeyEventResult.ignored;
         }
 
@@ -1153,9 +1182,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
 
         if (event is KeyDownEvent) {
           // Back / Escape: Exit Fullscreen back to 3-column Live TV view
-          if (event.logicalKey == LogicalKeyboardKey.escape ||
-              event.logicalKey == LogicalKeyboardKey.goBack ||
-              event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (isBackKey) {
             // Swallow duplicate Back that arrives right after a submenu was closed with Back
             if (DateTime.now().millisecondsSinceEpoch - _lastTvSubMenuKeyMs < 450) {
               return KeyEventResult.handled;
@@ -1309,7 +1336,6 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
 }

@@ -37,18 +37,24 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
   final ScrollController _scrollController = ScrollController();
   final FocusScopeNode _drawerScopeNode = FocusScopeNode(debugLabel: 'EpisodeDrawerScope');
   final FocusNode _targetEpisodeFocusNode = FocusNode(debugLabel: 'target_episode');
+  final FocusNode _closeBtnFocusNode = FocusNode(debugLabel: 'drawer_close_btn');
+
+  void _requestDrawerFocus() {
+    if (!mounted || !GoatPlatform.isTv) return;
+    _drawerScopeNode.requestFocus();
+    if (_targetEpisodeFocusNode.context != null && _targetEpisodeFocusNode.canRequestFocus) {
+      _targetEpisodeFocusNode.requestFocus();
+    } else if (_closeBtnFocusNode.context != null && _closeBtnFocusNode.canRequestFocus) {
+      _closeBtnFocusNode.requestFocus();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _initSeason();
     _scrollToCurrentEpisode();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && GoatPlatform.isTv) {
-        _drawerScopeNode.requestFocus();
-        _targetEpisodeFocusNode.requestFocus();
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestDrawerFocus());
   }
 
   void _initSeason() {
@@ -63,11 +69,17 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
 
   void _scrollToCurrentEpisode() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final episodes = widget.seasonsWithEpisodes[_selectedSeason] ?? [];
-      final index = episodes.indexWhere((ep) => ep['id']?.toString() == widget.currentEpisodeId);
-      if (index > 2) {
-        _scrollController.jumpTo((index - 1) * 88.0);
+      if (!mounted) return;
+      if (_scrollController.hasClients) {
+        final episodes = widget.seasonsWithEpisodes[_selectedSeason] ?? [];
+        final index = episodes.indexWhere((ep) => ep['id']?.toString() == widget.currentEpisodeId);
+        if (index > 2) {
+          final target = ((index - 1) * 88.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+          _scrollController.jumpTo(target);
+        }
+      }
+      if (GoatPlatform.isTv) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _requestDrawerFocus());
       }
     });
   }
@@ -92,6 +104,7 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
   void dispose() {
     _drawerScopeNode.dispose();
     _targetEpisodeFocusNode.dispose();
+    _closeBtnFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -102,14 +115,21 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
     final episodes = widget.seasonsWithEpisodes[_selectedSeason] ?? [];
     final seasonKeys = widget.seasonsWithEpisodes.keys.toList();
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) widget.onClose();
+    return FocusScope(
+      node: _drawerScopeNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+            event.logicalKey == LogicalKeyboardKey.goBack ||
+            (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace);
+        if (isBack) {
+          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+            widget.onClose();
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       },
-      child: FocusScope(
-        node: _drawerScopeNode,
-        autofocus: true,
       child: ClipRRect(
         borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
         child: BackdropFilter(
@@ -149,16 +169,21 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                       ),
                       GoatPlatform.isTv
                           ? TvFocusable(
+                              focusNode: _closeBtnFocusNode,
                               borderRadius: BorderRadius.circular(18),
                               onKeyEvent: (node, event) {
+                                final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+                                    event.logicalKey == LogicalKeyboardKey.backspace ||
+                                    event.logicalKey == LogicalKeyboardKey.goBack;
+                                if (isBack) {
+                                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                    widget.onClose();
+                                  }
+                                  return KeyEventResult.handled;
+                                }
                                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                   if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
                                       event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                    return KeyEventResult.handled;
-                                  } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                      event.logicalKey == LogicalKeyboardKey.backspace ||
-                                      event.logicalKey == LogicalKeyboardKey.goBack) {
-                                    widget.onClose();
                                     return KeyEventResult.handled;
                                   }
                                 }
@@ -199,15 +224,19 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                             focusScale: 1.01,
                             borderRadius: BorderRadius.circular(8),
                             onKeyEvent: (node, event) {
+                              final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+                                  event.logicalKey == LogicalKeyboardKey.goBack ||
+                                  (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace);
+                              if (isBack) {
+                                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                  widget.onClose();
+                                }
+                                return KeyEventResult.handled;
+                              }
                               if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                 if (event.logicalKey == LogicalKeyboardKey.arrowLeft && index == 0) {
                                   return KeyEventResult.handled;
                                 } else if (event.logicalKey == LogicalKeyboardKey.arrowRight && index >= seasonKeys.length - 1) {
-                                  return KeyEventResult.handled;
-                                } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                    event.logicalKey == LogicalKeyboardKey.goBack ||
-                                    (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace)) {
-                                  widget.onClose();
                                   return KeyEventResult.handled;
                                 }
                               }
@@ -284,14 +313,18 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
                                 focusScale: 1.01,
                                 borderRadius: BorderRadius.circular(10),
                                 onKeyEvent: (node, event) {
+                                  final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+                                      event.logicalKey == LogicalKeyboardKey.goBack ||
+                                      (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace);
+                                  if (isBack) {
+                                    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                      widget.onClose();
+                                    }
+                                    return KeyEventResult.handled;
+                                  }
                                   if (event is KeyDownEvent || event is KeyRepeatEvent) {
                                     if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                                         event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                      return KeyEventResult.handled;
-                                    } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                        event.logicalKey == LogicalKeyboardKey.goBack ||
-                                        (GoatPlatform.isTv && event.logicalKey == LogicalKeyboardKey.backspace)) {
-                                      widget.onClose();
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index >= episodes.length - 1) {
                                       return KeyEventResult.handled;
@@ -419,7 +452,6 @@ class _InPlayerEpisodeDrawerState extends State<InPlayerEpisodeDrawer> {
           ),
         ),
       ),
-    ),
     ),
   );
 }

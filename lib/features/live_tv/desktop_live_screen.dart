@@ -41,6 +41,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final FocusNode _playerNode = FocusNode(debugLabel: 'player_preview');
   final Map<String, FocusNode> _categoryFocusNodes = {};
   final Map<String, FocusNode> _channelFocusNodes = {};
+  FocusNode? _topVisibleCategoryNode;
+  bool _didInitialCategoryAutofocus = false;
   FocusNode? _lastFocusedChannelNode;
   final Set<String> _syncedCategories = {};
   bool _focusFirstChannelOnNextBuild = false;
@@ -103,16 +105,20 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         final node = _categoryFocusNodes[_selectedCategory];
         if (node != null && node.context != null && node.canRequestFocus) {
           node.requestFocus();
-        } else if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
-          _firstCategoryNode.requestFocus();
+        } else if (_topVisibleCategoryNode != null &&
+            _topVisibleCategoryNode!.context != null &&
+            _topVisibleCategoryNode!.canRequestFocus) {
+          _topVisibleCategoryNode!.requestFocus();
         } else if (_searchFocusNode.context != null && _searchFocusNode.canRequestFocus) {
           _searchFocusNode.requestFocus();
         }
       });
       return;
     }
-    if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
-      _firstCategoryNode.requestFocus();
+    if (_topVisibleCategoryNode != null &&
+        _topVisibleCategoryNode!.context != null &&
+        _topVisibleCategoryNode!.canRequestFocus) {
+      _topVisibleCategoryNode!.requestFocus();
       return;
     }
     for (final node in _categoryFocusNodes.values) {
@@ -253,10 +259,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
+        final targetNode = _topVisibleCategoryNode ?? _firstCategoryNode;
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, targetNode);
         if (ref.read(activeDashboardTabProvider) == 0) {
           ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
-          ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+          ref.read(activeCategoryFocusNodeProvider.notifier).set(targetNode);
         }
       }
     });
@@ -429,9 +436,12 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
     ref.listen(activeDashboardTabProvider, (prev, next) {
       if (next == 0 && mounted) {
-        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
+        final targetNode = (_selectedCategory != null ? _categoryFocusNodes[_selectedCategory] : null) ??
+            _topVisibleCategoryNode ??
+            _firstCategoryNode;
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, targetNode);
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
-        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(targetNode);
         final defaultCat = categories.firstOrNull?.categoryId;
         if (_selectedCategory != defaultCat) {
           setState(() {
@@ -453,9 +463,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
     ref.listen(dashboardTabResetProvider, (_, __) {
       if (ref.read(activeDashboardTabProvider) == 0 && mounted) {
-        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
+        final targetNode = _topVisibleCategoryNode ?? _firstCategoryNode;
+        ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, targetNode);
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(_searchFocusNode);
-        ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+        ref.read(activeCategoryFocusNodeProvider.notifier).set(targetNode);
       }
       _searchController.clear();
       if (mounted) {
@@ -575,17 +586,30 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                       _searchController.clear();
                                       _searchQuery = '';
                                     });
+                                    if (GoatPlatform.isTv && _categoryScrollController.hasClients) {
+                                      _categoryScrollController.jumpTo(0.0);
+                                    }
                                   },
                                 ),
                               )
                             : null,
                         isDense: true,
-                        onChanged: (val) => setState(() => _searchQuery = val),
+                        onChanged: (val) {
+                          setState(() => _searchQuery = val);
+                          if (GoatPlatform.isTv && _categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                            _categoryScrollController.jumpTo(0.0);
+                          }
+                        },
                         onKeyEvent: (node, event) {
                           if (event is KeyDownEvent || event is KeyRepeatEvent) {
                             if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                              if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
-                                _firstCategoryNode.requestFocus();
+                              if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                                _categoryScrollController.jumpTo(0.0);
+                              }
+                              if (_topVisibleCategoryNode != null &&
+                                  _topVisibleCategoryNode!.context != null &&
+                                  _topVisibleCategoryNode!.canRequestFocus) {
+                                _topVisibleCategoryNode!.requestFocus();
                               } else {
                                 _focusCategoryColumn();
                               }
@@ -615,10 +639,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   _searchController.clear();
                                   _searchQuery = '';
                                 });
+                                if (GoatPlatform.isTv && _categoryScrollController.hasClients) {
+                                  _categoryScrollController.jumpTo(0.0);
+                                }
                                 return KeyEventResult.handled;
                               }
-                              if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
-                                _firstCategoryNode.requestFocus();
+                              if (_topVisibleCategoryNode != null &&
+                                  _topVisibleCategoryNode!.context != null &&
+                                  _topVisibleCategoryNode!.canRequestFocus) {
+                                _topVisibleCategoryNode!.requestFocus();
                               } else {
                                 _focusCategoryColumn();
                               }
@@ -628,8 +657,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           return KeyEventResult.ignored;
                         },
                         onSubmitted: (_) {
-                          if (_firstCategoryNode.context != null && _firstCategoryNode.canRequestFocus) {
-                            _firstCategoryNode.requestFocus();
+                          if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                            _categoryScrollController.jumpTo(0.0);
+                          }
+                          if (_topVisibleCategoryNode != null &&
+                              _topVisibleCategoryNode!.context != null &&
+                              _topVisibleCategoryNode!.canRequestFocus) {
+                            _topVisibleCategoryNode!.requestFocus();
                           } else {
                             _focusCategoryColumn();
                           }
@@ -642,6 +676,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           var categories = rawCategories;
                           if (_searchQuery.isNotEmpty) {
                             categories = categories.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+                          }
+                          if (categories.isEmpty) {
+                            _topVisibleCategoryNode = null;
                           }
                           if (!GoatPlatform.isTv && _selectedCategory != null && _selectedCategory != _lastCategoryRailScrolledId) {
                             _scrollToActiveCategory(categories, _selectedCategory);
@@ -656,22 +693,27 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               final isSelected = _selectedCategory == cat.categoryId;
                               final isFavorites = cat.categoryId == 'favorites';
 
-                              final itemNode = index == 0
-                                  ? _firstCategoryNode
-                                  : _categoryFocusNodes.putIfAbsent(
-                                      cat.categoryId,
-                                      () => FocusNode(debugLabel: 'cat_${cat.categoryId}'),
-                                    );
+                              final itemNode = _categoryFocusNodes.putIfAbsent(
+                                cat.categoryId,
+                                () => FocusNode(debugLabel: 'cat_${cat.categoryId}'),
+                              );
                               if (index == 0) {
-                                _categoryFocusNodes[cat.categoryId] = _firstCategoryNode;
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (mounted) {
-                                    ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, _firstCategoryNode);
-                                    if (ref.read(activeDashboardTabProvider) == 0) {
-                                      ref.read(activeCategoryFocusNodeProvider.notifier).set(_firstCategoryNode);
+                                _topVisibleCategoryNode = itemNode;
+                                if (GoatPlatform.isTv && !_didInitialCategoryAutofocus) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) _didInitialCategoryAutofocus = true;
+                                  });
+                                }
+                                if (_selectedCategory == null || _categoryFocusNodes[_selectedCategory]?.context == null) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, itemNode);
+                                      if (ref.read(activeDashboardTabProvider) == 0) {
+                                        ref.read(activeCategoryFocusNodeProvider.notifier).set(itemNode);
+                                      }
                                     }
-                                  }
-                                });
+                                  });
+                                }
                               }
                               if (isSelected && itemNode.context != null) {
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -692,7 +734,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 ),
                                 child: TvFocusable(
                                   focusNode: itemNode,
-                                  autofocus: GoatPlatform.isTv && index == 0 && _searchQuery.isEmpty && !_searchFocusNode.hasFocus,
+                                  autofocus: GoatPlatform.isTv && !_didInitialCategoryAutofocus && index == 0,
                                   focusScale: 1.02,
                                   borderRadius: BorderRadius.circular(8),
                                   onFocusChange: (has) {

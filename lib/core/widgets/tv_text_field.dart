@@ -61,12 +61,15 @@ class _TvTextFieldState extends State<TvTextField> {
   final FocusNode _editFocusNode = FocusNode(debugLabel: 'tv_text_field_editing');
 
   bool _isEditing = false;
+  bool _editHasGainedFocus = false;
+  int _lastKeyboardCloseMs = 0;
 
   @override
   void initState() {
     super.initState();
     widget.controller?.addListener(_onControllerChanged);
     _effectiveFocusNode.addListener(_onFocusChanged);
+    _editFocusNode.addListener(_onEditFocusChanged);
   }
 
   @override
@@ -90,10 +93,22 @@ class _TvTextFieldState extends State<TvTextField> {
     if (mounted) setState(() {});
   }
 
+  void _onEditFocusChanged() {
+    if (!mounted || !GoatPlatform.isTv) return;
+    if (_editFocusNode.hasFocus) {
+      _editHasGainedFocus = true;
+    } else if (_editHasGainedFocus && _isEditing) {
+      _editHasGainedFocus = false;
+      _lastKeyboardCloseMs = DateTime.now().millisecondsSinceEpoch;
+      setState(() => _isEditing = false);
+    }
+  }
+
   @override
   void dispose() {
     widget.controller?.removeListener(_onControllerChanged);
     _effectiveFocusNode.removeListener(_onFocusChanged);
+    _editFocusNode.removeListener(_onEditFocusChanged);
     _editFocusNode.dispose();
     _internalFocusNode?.dispose();
     super.dispose();
@@ -101,9 +116,10 @@ class _TvTextFieldState extends State<TvTextField> {
 
   void _openKeyboard() {
     if (!_isEditing) {
+      _editHasGainedFocus = false;
       setState(() => _isEditing = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        if (mounted && _isEditing) {
           _editFocusNode.requestFocus();
           SystemChannels.textInput.invokeMethod('TextInput.show');
         }
@@ -113,6 +129,8 @@ class _TvTextFieldState extends State<TvTextField> {
 
   void _closeKeyboard() {
     if (_isEditing) {
+      _editHasGainedFocus = false;
+      _lastKeyboardCloseMs = DateTime.now().millisecondsSinceEpoch;
       setState(() => _isEditing = false);
       SystemChannels.textInput.invokeMethod('TextInput.hide');
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -189,47 +207,59 @@ class _TvTextFieldState extends State<TvTextField> {
     final hasOutline = effectiveBorder != InputBorder.none;
 
     if (_isEditing) {
-      return CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): _closeKeyboard,
-          const SingleActivator(LogicalKeyboardKey.goBack): _closeKeyboard,
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () {
-            _closeKeyboard();
-            widget.onKeyEvent?.call(_effectiveFocusNode, const KeyDownEvent(
-              physicalKey: PhysicalKeyboardKey.arrowDown,
-              logicalKey: LogicalKeyboardKey.arrowDown,
-              timeStamp: Duration.zero,
-            ));
-          },
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () {
-            _closeKeyboard();
-            widget.onKeyEvent?.call(_effectiveFocusNode, const KeyDownEvent(
-              physicalKey: PhysicalKeyboardKey.arrowUp,
-              logicalKey: LogicalKeyboardKey.arrowUp,
-              timeStamp: Duration.zero,
-            ));
-          },
+      return Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onKeyEvent: (node, event) {
+          if ((event.logicalKey == LogicalKeyboardKey.escape ||
+                  event.logicalKey == LogicalKeyboardKey.goBack) &&
+              event is KeyUpEvent) {
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
         },
-        child: Padding(
-          padding: EdgeInsets.only(top: hasLabel ? 6.0 : 0.0),
-          child: SizedBox(
-            height: hasLabel ? null : 36,
-            child: TextFormField(
-              controller: widget.controller,
-              focusNode: _editFocusNode,
-              autofocus: true,
-              obscureText: widget.obscureText,
-              keyboardType: widget.keyboardType,
-              textInputAction: widget.textInputAction ?? TextInputAction.search,
-              style: widget.style,
-              decoration: _buildDecoration(),
-              onChanged: widget.onChanged,
-              onEditingComplete: _closeKeyboard,
-              onFieldSubmitted: (val) {
-                _closeKeyboard();
-                widget.onSubmitted?.call(val);
-              },
-              validator: widget.validator,
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): _closeKeyboard,
+            const SingleActivator(LogicalKeyboardKey.goBack): _closeKeyboard,
+            const SingleActivator(LogicalKeyboardKey.arrowDown): () {
+              _closeKeyboard();
+              widget.onKeyEvent?.call(_effectiveFocusNode, const KeyDownEvent(
+                physicalKey: PhysicalKeyboardKey.arrowDown,
+                logicalKey: LogicalKeyboardKey.arrowDown,
+                timeStamp: Duration.zero,
+              ));
+            },
+            const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+              _closeKeyboard();
+              widget.onKeyEvent?.call(_effectiveFocusNode, const KeyDownEvent(
+                physicalKey: PhysicalKeyboardKey.arrowUp,
+                logicalKey: LogicalKeyboardKey.arrowUp,
+                timeStamp: Duration.zero,
+              ));
+            },
+          },
+          child: Padding(
+            padding: EdgeInsets.only(top: hasLabel ? 6.0 : 0.0),
+            child: SizedBox(
+              height: hasLabel ? null : 36,
+              child: TextFormField(
+                controller: widget.controller,
+                focusNode: _editFocusNode,
+                autofocus: true,
+                obscureText: widget.obscureText,
+                keyboardType: widget.keyboardType,
+                textInputAction: widget.textInputAction ?? TextInputAction.search,
+                style: widget.style,
+                decoration: _buildDecoration(),
+                onChanged: widget.onChanged,
+                onEditingComplete: _closeKeyboard,
+                onFieldSubmitted: (val) {
+                  _closeKeyboard();
+                  widget.onSubmitted?.call(val);
+                },
+                validator: widget.validator,
+              ),
             ),
           ),
         ),
@@ -252,6 +282,13 @@ class _TvTextFieldState extends State<TvTextField> {
       glowColor: Colors.transparent,
       onPressed: _openKeyboard,
       onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.escape ||
+            event.logicalKey == LogicalKeyboardKey.goBack) {
+          if (event is KeyUpEvent) return KeyEventResult.handled;
+          if (DateTime.now().millisecondsSinceEpoch - _lastKeyboardCloseMs < 400) {
+            return KeyEventResult.handled;
+          }
+        }
         if (event is KeyDownEvent || event is KeyRepeatEvent) {
           final isSelect = event.logicalKey == LogicalKeyboardKey.select ||
               event.logicalKey == LogicalKeyboardKey.enter ||
