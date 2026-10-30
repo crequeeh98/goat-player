@@ -39,6 +39,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   int _selectedIndex = 0;
   bool _isSearchOpen = false;
   bool _wasLiveExpandedBeforeSearch = false;
+  int _lastDashboardBackMs = 0;
 
   late final FocusNode _headerSearchFocusNode;
   late final FocusNode _headerPrefFocusNode;
@@ -263,61 +264,54 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       });
     }
 
+    Future<void> handleDashboardBack() async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastDashboardBackMs < 350) return;
+      _lastDashboardBackMs = now;
+
+      // Priority 0: If window is in OS fullscreen, restore windowed/full-width mode
+      if (isFullscreen(context)) {
+        if (GoatPlatform.isTv && ref.read(liveFullscreenBackInterceptorProvider)?.call() == true) {
+          return;
+        }
+        ref.read(isLiveFullWidthProvider.notifier).set(true);
+        toggleFullscreen(context);
+        ref.read(isLiveFullWidthProvider.notifier).set(true);
+        return;
+      }
+
+      // Priority 1: If Live TV is in full-width mode, close TV submenus/EPG first, else restore 3-column view
+      if (ref.read(isLiveFullWidthProvider)) {
+        if (GoatPlatform.isTv && ref.read(liveFullscreenBackInterceptorProvider)?.call() == true) {
+          return;
+        }
+        ref.read(isLiveFullWidthProvider.notifier).set(false);
+        return;
+      }
+
+      // Priority 2: Close active master search modal if open
+      if (_isSearchOpen) {
+        _closeSearch();
+        return;
+      }
+
+      // Priority 3: Root Level Exit Confirmation (TV / Mobile only)
+      if (!GoatPlatform.isDesktop) {
+        final shouldExit = await TvRemoteScope.showTvExitDialog(context);
+        if (shouldExit && context.mounted) {
+          await TvRemoteScope.performExit();
+        }
+      }
+    }
+
     return TvRemoteScope(
       isRoot: true,
-      onBackAtRoot: () async {
-        // Priority 0: If window is in OS fullscreen, restore windowed/full-width mode
-        if (isFullscreen(context)) {
-          ref.read(isLiveFullWidthProvider.notifier).set(true);
-          toggleFullscreen(context);
-          ref.read(isLiveFullWidthProvider.notifier).set(true);
-          return;
-        }
-
-        // Priority 1: If Live TV is in full-width mode, restore standard 3-column view
-        if (ref.read(isLiveFullWidthProvider)) {
-          ref.read(isLiveFullWidthProvider.notifier).set(false);
-          return;
-        }
-
-        // Priority 2: Close active master search modal if open
-        if (_isSearchOpen) {
-          _closeSearch();
-          return;
-        }
-
-        // Priority 3: Root Level Exit Confirmation (TV / Mobile only)
-        if (!GoatPlatform.isDesktop) {
-          final shouldExit = await TvRemoteScope.showTvExitDialog(context);
-          if (shouldExit && context.mounted) {
-            await TvRemoteScope.performExit();
-          }
-        }
-      },
+      onBackAtRoot: handleDashboardBack,
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
-          if (isFullscreen(context)) {
-            ref.read(isLiveFullWidthProvider.notifier).set(true);
-            toggleFullscreen(context);
-            ref.read(isLiveFullWidthProvider.notifier).set(true);
-            return;
-          }
-          if (ref.read(isLiveFullWidthProvider)) {
-            ref.read(isLiveFullWidthProvider.notifier).set(false);
-            return;
-          }
-          if (_isSearchOpen) {
-            _closeSearch();
-            return;
-          }
-          if (!GoatPlatform.isDesktop) {
-            final shouldExit = await TvRemoteScope.showTvExitDialog(context);
-            if (shouldExit && context.mounted) {
-              await TvRemoteScope.performExit();
-            }
-          }
+          await handleDashboardBack();
         },
         child: Container(
           color: const Color(0xFF0D0915),

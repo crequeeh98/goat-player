@@ -83,6 +83,19 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
   Map<String, PlaybackProgressItem> _episodeProgress = {};
   bool _isEpisodeDrawerOpen = false;
   bool _isTrackModalOpen = false;
+  int _lastOverlayCloseMs = 0;
+
+  void _closeEpisodeDrawer() {
+    _lastOverlayCloseMs = DateTime.now().millisecondsSinceEpoch;
+    if (_isEpisodeDrawerOpen) {
+      setState(() => _isEpisodeDrawerOpen = false);
+    }
+    if (!GoatPlatform.isTv) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _screenFocusNode.requestFocus();
+      });
+    }
+  }
   bool _appliedAudioTrack = false;
   bool _appliedSubtitleTrack = false;
   String? _lastDemuxedTrackHash;
@@ -889,7 +902,17 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
     return PopScope(
       canPop: _canPop,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _handleMinimize();
+        if (!didPop) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - _lastOverlayCloseMs < 500) {
+            return;
+          }
+          if (_isEpisodeDrawerOpen) {
+            _closeEpisodeDrawer();
+            return;
+          }
+          _handleMinimize();
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -897,9 +920,29 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
           ? const SizedBox.expand() 
           : Focus(
               focusNode: _screenFocusNode,
-              autofocus: true,
+              autofocus: !GoatPlatform.isTv,
               onKeyEvent: (node, event) {
                 if (GoatPlatform.isTv) {
+                  final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+                      event.logicalKey == LogicalKeyboardKey.goBack ||
+                      event.logicalKey == LogicalKeyboardKey.backspace;
+                  if (isBack) {
+                    if (event is KeyUpEvent) {
+                      return KeyEventResult.handled;
+                    }
+                    if (event is KeyDownEvent) {
+                      final now = DateTime.now().millisecondsSinceEpoch;
+                      if (now - _lastOverlayCloseMs < 500) {
+                        return KeyEventResult.handled;
+                      }
+                      if (_isEpisodeDrawerOpen) {
+                        _closeEpisodeDrawer();
+                        return KeyEventResult.handled;
+                      }
+                      _handleMinimize();
+                      return KeyEventResult.handled;
+                    }
+                  }
                   return KeyEventResult.ignored;
                 }
                 if (event is KeyDownEvent) {
@@ -1157,7 +1200,10 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                         onPlayNextEpisode: () => _playNextEpisode(),
                         isEpisodeDrawerOpen: _isEpisodeDrawerOpen,
                         isTrackModalOpen: _isTrackModalOpen,
-                        onCloseDrawer: () => setState(() => _isEpisodeDrawerOpen = false),
+                        onCloseDrawer: _closeEpisodeDrawer,
+                        onOverlayClosedByBack: () {
+                          _lastOverlayCloseMs = DateTime.now().millisecondsSinceEpoch;
+                        },
                       ),
                       subtitleViewConfiguration: const SubtitleViewConfiguration(
                         visible: false,
@@ -1243,18 +1289,16 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
                       episodeProgress: _episodeProgress,
                       isOpen: true,
                       onSelectEpisode: (ep) {
+                        _lastOverlayCloseMs = DateTime.now().millisecondsSinceEpoch;
                         setState(() => _isEpisodeDrawerOpen = false);
                         _switchEpisode(ep);
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) _screenFocusNode.requestFocus();
-                        });
+                        if (!GoatPlatform.isTv) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) _screenFocusNode.requestFocus();
+                          });
+                        }
                       },
-                      onClose: () {
-                        setState(() => _isEpisodeDrawerOpen = false);
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) _screenFocusNode.requestFocus();
-                        });
-                      },
+                      onClose: _closeEpisodeDrawer,
                     ),
                   ),
               ],
@@ -1282,6 +1326,7 @@ class _VodControls extends StatefulWidget {
   final bool isEpisodeDrawerOpen;
   final bool isTrackModalOpen;
   final VoidCallback? onCloseDrawer;
+  final VoidCallback? onOverlayClosedByBack;
 
   const _VodControls({
     super.key,
@@ -1300,6 +1345,7 @@ class _VodControls extends StatefulWidget {
     this.isEpisodeDrawerOpen = false,
     this.isTrackModalOpen = false,
     this.onCloseDrawer,
+    this.onOverlayClosedByBack,
   });
 
   @override
@@ -1338,6 +1384,7 @@ class _VodControlsState extends State<_VodControls> {
   late final FocusNode _tvSubtitlesNode = FocusNode(debugLabel: 'TvVodSubtitles');
   late final FocusNode _tvFormatNode = FocusNode(debugLabel: 'TvVodFormat');
   bool _isTvScrubberFocused = false;
+  int _lastLocalBackMs = 0;
 
   FocusNode get _lastLeftBtnNode {
     if (widget.hasEpisodes) return _tvEpisodesNode;
@@ -1412,11 +1459,31 @@ class _VodControlsState extends State<_VodControls> {
   @override
   void didUpdateWidget(covariant _VodControls oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.isEpisodeDrawerOpen != oldWidget.isEpisodeDrawerOpen) {
+      if (widget.isEpisodeDrawerOpen) {
+        _hideTimer?.cancel();
+      } else {
+        _lastLocalBackMs = DateTime.now().millisecondsSinceEpoch;
+        _startHideTimer();
+        if (GoatPlatform.isTv) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final target = (_isControlsVisible || !_isPlaying)
+                ? (widget.hasEpisodes ? _tvEpisodesNode : _tvPlayPauseNode)
+                : _focusNode;
+            if (target.canRequestFocus) {
+              target.requestFocus();
+            }
+          });
+        }
+      }
+    }
     if (widget.isTrackModalOpen != oldWidget.isTrackModalOpen) {
       if (widget.isTrackModalOpen) {
         _hideTimer?.cancel();
         setState(() => _isControlsVisible = true);
       } else {
+        _lastLocalBackMs = DateTime.now().millisecondsSinceEpoch;
         _startHideTimer();
       }
     }
@@ -2009,6 +2076,14 @@ class _VodControlsState extends State<_VodControls> {
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
+        if (GoatPlatform.isTv && event is KeyUpEvent) {
+          final key = event.logicalKey;
+          if (key == LogicalKeyboardKey.escape ||
+              key == LogicalKeyboardKey.backspace ||
+              key == LogicalKeyboardKey.goBack) {
+            return KeyEventResult.handled;
+          }
+        }
         if (event is KeyDownEvent) {
           final key = event.logicalKey;
 
@@ -2017,10 +2092,8 @@ class _VodControlsState extends State<_VodControls> {
               if (key == LogicalKeyboardKey.escape ||
                   key == LogicalKeyboardKey.backspace ||
                   key == LogicalKeyboardKey.goBack) {
+                _lastLocalBackMs = DateTime.now().millisecondsSinceEpoch;
                 widget.onCloseDrawer?.call();
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _tvEpisodesNode.requestFocus();
-                });
                 return KeyEventResult.handled;
               }
               return KeyEventResult.ignored;
@@ -2052,19 +2125,26 @@ class _VodControlsState extends State<_VodControls> {
             if (key == LogicalKeyboardKey.escape ||
                 key == LogicalKeyboardKey.backspace ||
                 key == LogicalKeyboardKey.goBack) {
+              final now = DateTime.now().millisecondsSinceEpoch;
+              if (now - _lastLocalBackMs < 450) {
+                return KeyEventResult.handled;
+              }
               if (_isControlsVisible && _isPlaying) {
+                _lastLocalBackMs = now;
+                widget.onOverlayClosedByBack?.call();
                 _hideTimer?.cancel();
                 setState(() => _isControlsVisible = false);
                 _focusNode.requestFocus();
                 return KeyEventResult.handled;
               }
+              _lastLocalBackMs = now;
               (widget.onClose ?? widget.onMinimize)?.call();
               return KeyEventResult.handled;
             }
 
             // When HUD is hidden:
             // - Left/Right immediately scrubs +/-10s (accelerated), wakes HUD & focuses Scrubber
-            // - Up/Down/OK wakes HUD & focuses Play/Pause button
+            // - Up/Down/OK wakes HUD & focuses Play/Pause or Episodes button
             if (!hudShown) {
               if (key == LogicalKeyboardKey.arrowLeft) {
                 _seekRelative(_computeAcceleratedDelta(-1), showRipple: true);
@@ -2092,7 +2172,9 @@ class _VodControlsState extends State<_VodControls> {
                 setState(() => _isControlsVisible = true);
                 _startHideTimer();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _tvEpisodesNode.requestFocus();
+                  if (mounted) {
+                    (widget.hasEpisodes ? _tvEpisodesNode : _tvPlayPauseNode).requestFocus();
+                  }
                 });
                 return KeyEventResult.handled;
               }

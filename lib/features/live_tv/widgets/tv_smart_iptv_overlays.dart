@@ -600,14 +600,16 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
       isDe: isDe,
     );
     if (!mounted) return;
-    _menuFocusNode.requestFocus();
 
     if (action == TvLiveColorAction.toggleFavorite) {
+      _menuFocusNode.requestFocus();
       widget.onToggleFavorite(stream);
     } else if (action == TvLiveColorAction.openEpg) {
       widget.onOpenEpg(stream);
     } else if (action == TvLiveColorAction.openCategories) {
       widget.onOpenCategories();
+    } else {
+      _menuFocusNode.requestFocus();
     }
   }
 
@@ -627,6 +629,10 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
     final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
         event.logicalKey == LogicalKeyboardKey.goBack ||
         event.logicalKey == LogicalKeyboardKey.backspace;
+
+    if (isBack && event is KeyUpEvent) {
+      return KeyEventResult.handled;
+    }
 
     if (total == 0) {
       if (event is KeyDownEvent && isBack) {
@@ -1089,6 +1095,10 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
         event.logicalKey == LogicalKeyboardKey.goBack ||
         event.logicalKey == LogicalKeyboardKey.backspace;
 
+    if (isBack && event is KeyUpEvent) {
+      return KeyEventResult.handled;
+    }
+
     if (total == 0) {
       if (event is KeyDownEvent && isBack) {
         widget.onClose();
@@ -1324,7 +1334,7 @@ class _TvLiveCategoryMenuState extends State<TvLiveCategoryMenu> {
 }
 
 /// Smart-IPTV style Centered Full Channel EPG Schedule Overlay.
-class TvLiveEpgOverlay extends ConsumerWidget {
+class TvLiveEpgOverlay extends ConsumerStatefulWidget {
   final StreamItem stream;
   final VoidCallback onClose;
 
@@ -1334,31 +1344,72 @@ class TvLiveEpgOverlay extends ConsumerWidget {
     required this.onClose,
   });
 
+  @override
+  ConsumerState<TvLiveEpgOverlay> createState() => _TvLiveEpgOverlayState();
+}
+
+class _TvLiveEpgOverlayState extends ConsumerState<TvLiveEpgOverlay> {
+  final FocusNode _epgFocusNode = FocusNode(debugLabel: 'tv_live_epg_overlay');
+  final FocusNode _closeBtnFocusNode = FocusNode(debugLabel: 'tv_live_epg_close');
+  final FocusNode _firstProgFocusNode = FocusNode(debugLabel: 'tv_live_epg_first_prog');
+  Timer? _focusGuardTimer;
+
+  void _ensureFocusInsideOverlay() {
+    if (!mounted) return;
+    if (_epgFocusNode.hasFocus || _closeBtnFocusNode.hasFocus || _firstProgFocusNode.hasFocus) {
+      return;
+    }
+    if (_firstProgFocusNode.context != null && _firstProgFocusNode.canRequestFocus) {
+      _firstProgFocusNode.requestFocus();
+    } else if (_closeBtnFocusNode.context != null && _closeBtnFocusNode.canRequestFocus) {
+      _closeBtnFocusNode.requestFocus();
+    } else if (_epgFocusNode.context != null && _epgFocusNode.canRequestFocus) {
+      _epgFocusNode.requestFocus();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureFocusInsideOverlay());
+    _focusGuardTimer = Timer(const Duration(milliseconds: 220), _ensureFocusInsideOverlay);
+  }
+
+  @override
+  void dispose() {
+    _focusGuardTimer?.cancel();
+    _epgFocusNode.dispose();
+    _closeBtnFocusNode.dispose();
+    _firstProgFocusNode.dispose();
+    super.dispose();
+  }
+
   String _fmtTime(DateTime dt) {
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isDe = Localizations.localeOf(context).languageCode == 'de';
-    final cleanName = ChannelNameCleaner.clean(stream.name);
-    final epgId = (stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty)
-        ? stream.epgChannelId!
-        : stream.streamId;
+    final cleanName = ChannelNameCleaner.clean(widget.stream.name);
+    final epgId = (widget.stream.epgChannelId != null && widget.stream.epgChannelId!.isNotEmpty)
+        ? widget.stream.epgChannelId!
+        : widget.stream.streamId;
     final programsAsync = ref.watch(channelProgramsProvider(epgId));
     final now = DateTime.now();
 
     return Focus(
+      focusNode: _epgFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent || event is KeyRepeatEvent) {
-          final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
-              event.logicalKey == LogicalKeyboardKey.goBack ||
-              event.logicalKey == LogicalKeyboardKey.backspace;
-          if (isBack) {
-            onClose();
-            return KeyEventResult.handled;
+        final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+            event.logicalKey == LogicalKeyboardKey.goBack ||
+            event.logicalKey == LogicalKeyboardKey.backspace;
+        if (isBack) {
+          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+            widget.onClose();
           }
+          return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
@@ -1386,7 +1437,7 @@ class TvLiveEpgOverlay extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  ChannelIcon(iconUrl: stream.streamIcon, channelName: cleanName, size: 28),
+                  ChannelIcon(iconUrl: widget.stream.streamIcon, channelName: cleanName, size: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -1397,8 +1448,21 @@ class TvLiveEpgOverlay extends ConsumerWidget {
                     ),
                   ),
                   TvFocusable(
+                    focusNode: _closeBtnFocusNode,
                     borderRadius: BorderRadius.circular(8),
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
+                    onKeyEvent: (node, event) {
+                      final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+                          event.logicalKey == LogicalKeyboardKey.goBack ||
+                          event.logicalKey == LogicalKeyboardKey.backspace;
+                      if (isBack) {
+                        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                          widget.onClose();
+                        }
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
@@ -1436,14 +1500,18 @@ class TvLiveEpgOverlay extends ConsumerWidget {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: TvFocusable(
+                          focusNode: index == 0 ? _firstProgFocusNode : null,
                           autofocus: index == 0,
                           borderRadius: BorderRadius.circular(10),
                           onPressed: () {},
                           onKeyEvent: (node, event) {
-                            if (event is KeyDownEvent &&
-                                (event.logicalKey == LogicalKeyboardKey.escape ||
-                                    event.logicalKey == LogicalKeyboardKey.goBack)) {
-                              onClose();
+                            final isBack = event.logicalKey == LogicalKeyboardKey.escape ||
+                                event.logicalKey == LogicalKeyboardKey.goBack ||
+                                event.logicalKey == LogicalKeyboardKey.backspace;
+                            if (isBack) {
+                              if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                widget.onClose();
+                              }
                               return KeyEventResult.handled;
                             }
                             return KeyEventResult.ignored;

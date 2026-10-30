@@ -74,8 +74,8 @@ final xtreamClientProvider = Provider<XtreamClient?>((ref) {
   return XtreamClient(
     Dio(
       BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 45),
       ),
     ),
     baseUrl: account.serverUrl,

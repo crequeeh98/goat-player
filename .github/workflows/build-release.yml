@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release Tag (e.g. v2.0.0)'
+        description: 'Release Tag (e.g. v2.0.1)'
         required: true
-        default: 'v2.0.0'
+        default: 'v2.0.1'
 
 permissions:
   contents: write
@@ -57,7 +57,7 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || '2.0.0' }}"
+            VERSION="${{ github.event.inputs.release_tag || '2.0.1' }}"
             VERSION="${VERSION#v}"
           fi
           flutter build apk --release --build-name="$VERSION"
@@ -70,7 +70,7 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || '2.0.0' }}"
+            VERSION="${{ github.event.inputs.release_tag || '2.0.1' }}"
             VERSION="${VERSION#v}"
           fi
           flutter build apk --release --split-per-abi --build-name="$VERSION"
@@ -106,7 +106,7 @@ jobs:
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="${{ github.event.inputs.release_tag || '2.0.0' }}"
+            VERSION="${{ github.event.inputs.release_tag || '2.0.1' }}"
             VERSION="${VERSION#v}"
           fi
           flutter build windows --release --build-name="$VERSION"
@@ -248,18 +248,16 @@ jobs:
           prerelease: false
           files: release_assets/*
           body: |
-            ## 🐐 GOATPlayer v2.0.0 — The Cross-Platform IPTV & VOD Milestone
+            ## 🐐 GOATPlayer v2.0.1 (Hotfix)
 
-            ### 🇩🇪 Highlights (v2.0.0)
-            - **Dual-Stack Architektur**: Vereinheitlichte Player-Logik über Flutter (Windows, Android Phone, Android TV, Amazon Fire TV) und Smart TV WebOS/Tizen.
-            - **Amazon Fire TV & Android TV**: Vollständige Leanback-D-Pad-Steuerung, native 16:9 3D-Banner für Projectivy Launcher und optimierte 1:1 Fire OS Icons.
-            - **Web Pairing Portal**: Schnelle Playlist-Verwaltung via QR-Code und PIN mit client-seitiger Zero-Knowledge AES-GCM Verschlüsselung ([goat-player.vercel.app](https://goat-player.vercel.app)).
-            - **Live TV & Dual-Drawer Navigation**: Blitzschnelles Channel Zapping (<1s), EPG-Timeline und kompakte Sender- & Kategorie-Drawer.
-            - **Cinema VOD**: Intelligente Continue-Watching Rail (automatische Episoden-Weiterschaltung ab 95%), Netflix-Style Episoden-Drawer und Multi-Track Audio-/Untertitel-Synchronisation.
+            ### 🇩🇪 Änderungen & Fixes (v2.0.1)
+            - **Kategoriesuche & Tastatur-Fokus**: Behebt das unerwünschte Schließen der TV-Tastatur und den Fokusverlust beim Löschen des Suchtextes in Kanälen, Filmen und Serien.
+            - **Live TV EPG & Menü Back-Navigation**: Das Drücken der Zurück-Taste im Vollbild-EPG oder Kanal-/Kategoriemenü kehrt zur vorherigen Ansicht zurück, statt das Vollbild komplett zum Dashboard zu verlassen.
+            - **Serien-Player Episoden-Drawer Back-Navigation**: Das Schließen des Episoden-Drawers via Zurück-Taste beendet nicht mehr den gesamten Videoplayer.
+            - **Film- & Seriensuche Poster-Navigation**: Direkte D-Pad-Navigation (`Pfeil rechts` / `Pfeil runter`) von der Kategorieliste bzw. Suche zu den gefundenen Film- und Serienpostern wiederhergestellt.
 
-            ### 🇬🇧 Highlights (v2.0.0)
-            - **Dual-Stack Architecture**: Unified core streaming player logic across Flutter (Windows, Android Mobile/Tablet, Android TV, Fire TV) and Smart TV (LG webOS, Samsung Tizen).
-            - **Amazon Fire TV & Android TV Optimization**: Full 4-way D-Pad remote navigation, native 16:9 3D banners for Projectivy Launcher, and tailored 1:1 Fire OS icons.
-            - **Web Pairing Portal**: Effortless remote playlist management via QR code & PIN with Zero-Knowledge client-side AES-GCM encryption ([goat-player.vercel.app](https://goat-player.vercel.app)).
-            - **Live TV & Dual-Drawer Navigation**: Sub-second channel zapping, interactive EPG timeline, and streamlined leanback drawers.
-            - **Cinema VOD**: Smart Continue Watching rail (auto-advancing next episode at 95% completion), slide-out episode drawer, and multi-track audio/subtitle switching.
+            ### 🇬🇧 Changes & Fixes (v2.0.1)
+            - **Category Search & Keyboard Focus**: Fixed premature TV keyboard dismissal and focus disruption when clearing/deleting search text across live channels, movies, and series.
+            - **Live TV Fullscreen EPG & Menu Back Navigation**: Pressing Back inside fullscreen EPG schedule or channel/category menus now returns to the prior menu layer instead of exiting fullscreen to the dashboard.
+            - **Series Player Episode Drawer Back Navigation**: Closing the in-player episode drawer via Back key no longer closes the active video playback.
+            - **VOD Search Poster D-Pad Traversal**: Restored direct D-Pad navigation (`Arrow Right` / `Arrow Down`) from category rails and search inputs to matching movie and series posters.

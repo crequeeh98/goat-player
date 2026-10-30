@@ -31,6 +31,19 @@ class IsLiveFullWidth extends Notifier<bool> {
 }
 final isLiveFullWidthProvider = NotifierProvider<IsLiveFullWidth, bool>(IsLiveFullWidth.new);
 
+class LiveFullscreenBackInterceptor extends Notifier<bool Function()?> {
+  @override
+  bool Function()? build() => null;
+  void set(bool Function()? value) => state = value;
+  void clearIf(bool Function() candidate) {
+    if (state == candidate) {
+      state = null;
+    }
+  }
+}
+final liveFullscreenBackInterceptorProvider =
+    NotifierProvider<LiveFullscreenBackInterceptor, bool Function()?>(LiveFullscreenBackInterceptor.new);
+
 class SyncingCategories extends Notifier<Set<String>> {
   @override
   Set<String> build() => <String>{};
