@@ -48,6 +48,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   bool _focusFirstChannelOnNextBuild = false;
   String? _streamIdToFocus;
   Timer? _channelPlayDebounce;
+  Timer? _shortEpgFocusDebounce;
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
@@ -56,6 +57,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   void dispose() {
     _channelPlayDebounce?.cancel();
+    _shortEpgFocusDebounce?.cancel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (ref.read(activeDashboardTabProvider) == 0) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
@@ -376,6 +378,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
     final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
 
+    if (GoatPlatform.isTv) {
+      ref.read(epgControllerProvider).ensureShortEpg(
+        streamId: stream.streamId,
+        epgChannelId: epgChannelId,
+      );
+    }
+
     ref.read(playbackControllerProvider.notifier).playLive(
       title: cleanName,
       url: url,
@@ -685,7 +694,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           }
                           return ListView.builder(
                             controller: _categoryScrollController,
-                            cacheExtent: GoatPlatform.isTv ? 3000.0 : 500.0,
+                            cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
                             itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                             itemCount: categories.length,
                             itemBuilder: (context, index) {
@@ -890,7 +899,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
                         final channelListView = ListView.builder(
                           controller: _channelScrollController,
-                          cacheExtent: GoatPlatform.isTv ? 1500.0 : 500.0,
+                          cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
                           itemExtent: GoatPlatform.isTv ? 48.0 : 64.0,
                           itemCount: streams.length,
                           itemBuilder: (context, index) {
@@ -955,6 +964,17 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 onFocusChange: (hasF) {
                                   if (hasF) {
                                     _lastFocusedChannelNode = itemFocusNode;
+                                    if (GoatPlatform.isTv && currentProg == null) {
+                                      _shortEpgFocusDebounce?.cancel();
+                                      _shortEpgFocusDebounce = Timer(const Duration(milliseconds: 350), () {
+                                        if (mounted) {
+                                          ref.read(epgControllerProvider).ensureShortEpg(
+                                            streamId: stream.streamId,
+                                            epgChannelId: epgId,
+                                          );
+                                        }
+                                      });
+                                    }
                                   }
                                 },
                                 onKeyEvent: (node, event) {

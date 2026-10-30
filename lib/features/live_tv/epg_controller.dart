@@ -1,94 +1,205 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:isolate';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
-import 'package:drift/drift.dart';
+import 'package:dio/dio.dart';
 import '../../main.dart';
 import '../../core/database/app_database.dart';
-import '../../core/utils/epg_isolate_parser.dart';
-import '../../core/utils/platform_utils.dart';
-import 'package:dio/dio.dart';
-
 import '../../core/settings/locale_controller.dart';
+import '../../core/utils/epg_isolate_parser.dart';
+
+final currentProgramsMapProvider = StreamProvider.autoDispose<Map<String, EpgProgram>>((ref) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return const Stream.empty();
+  return ref.watch(epgDaoProvider).watchCurrentPrograms(account.id);
+});
 
 final epgControllerProvider = Provider<EpgController>((ref) {
   return EpgController(ref);
 });
 
-final currentProgramsMapProvider = FutureProvider.autoDispose<Map<String, EpgProgram>>((ref) async {
-  final account = ref.watch(activeAccountProvider);
-  if (account == null) return {};
-  final dao = ref.watch(epgDaoProvider);
-  return dao.getCurrentProgramsMap(account.id);
-});
-
 class EpgController {
   final Ref _ref;
-  
+  bool _isSyncing = false;
+  final Map<String, DateTime> _shortEpgFetchedAt = {};
+  final Set<String> _shortEpgInFlight = {};
+
   EpgController(this._ref);
 
-  bool _isSyncing = false;
+  void clearShortEpgCache() {
+    _shortEpgFetchedAt.clear();
+  }
 
-  Future<void> syncEpgData({bool force = false}) async {
-    if (_isSyncing) {
-      debugPrint('EPG sync already in progress. Skipping.');
-      return;
-    }
-    
-    final account = _ref.read(activeAccountProvider);
-    if (account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
-
-    // Smart TVs / Fire TV sticks have constrained memory and bandwidth; full XMLTV parsing triggers ANRs.
-    if (GoatPlatform.isTv) {
-      debugPrint('Skipping full XMLTV EPG sync on TV platform');
-      return;
-    }
-
-    final prefs = _ref.read(sharedPreferencesProvider);
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    final lastSync = prefs.getInt('last_epg_sync_${account.id}') ?? 0;
-    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
-      debugPrint('EPG was synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping EPG sync.');
-      return;
-    }
-    
-    _isSyncing = true;
+  /// Punkt 7: Entfernt abgelaufene EPG-Sendungen (älter als 24 Stunden) beim App-Start.
+  Future<void> pruneOldEpg() async {
     try {
-      debugPrint('Fetching EPG data from XMLTV API...');
-      final xmltvUrl = '${account.serverUrl}/xmltv.php?username=${account.username}&password=${account.password}';
-      
-      final dio = Dio();
-      final response = await dio.get<String>(xmltvUrl);
-      
-      if (response.data != null) {
-        debugPrint('EPG data downloaded. Length: ${response.data!.length}');
-        debugPrint('Starting background XMLTV parse...');
-        final programs = await EpgIsolateParser.parse(response.data!);
-        debugPrint('EPG parsed items: ${programs.length}');
-        
-        final dao = _ref.read(epgDaoProvider);
-        final companions = programs.map((p) {
-          final startDt = EpgIsolateParser.parseXmltvDate(p.start) ?? DateTime.now();
-          final stopDt = EpgIsolateParser.parseXmltvDate(p.stop) ?? DateTime.now().add(const Duration(hours: 1));
-          
-          return EpgProgramsCompanion.insert(
-            accountId: account.id,
-            channelId: p.channelId,
-            title: p.title,
-            description: p.description != null ? Value(p.description!) : const Value.absent(),
-            startTime: startDt,
-            stopTime: stopDt,
-          );
-        }).toList();
-        
-        await dao.replacePrograms(account.id, companions);
-        await prefs.setInt('last_epg_sync_${account.id}', nowMs);
-        debugPrint('EPG Successfully inserted ${companions.length} programs into DB');
-      } else {
-        debugPrint('EPG response data was null');
+      final dao = _ref.read(epgDaoProvider);
+      final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+      final deleted = await dao.pruneExpiredEpg(cutoff);
+      if (deleted > 0) {
+        debugPrint('Pruned $deleted expired EPG programs older than 24h.');
       }
     } catch (e) {
-      debugPrint('Failed to sync EPG: $e');
+      debugPrint('Failed to prune old EPG: $e');
+    }
+  }
+
+  /// Punkt 1: Lädt für Flutter TV (Fire TV / Android TV) on-demand die nächsten ~10 Sendungen
+  /// eines Kanals über get_short_epg (TTL: 15 Minuten pro Kanal).
+  Future<void> ensureShortEpg({
+    required String streamId,
+    String? epgChannelId,
+    bool force = false,
+  }) async {
+    final account = _ref.read(activeAccountProvider);
+    final client = _ref.read(xtreamClientProvider);
+    if (account == null || client == null) return;
+    if (account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+
+    final cacheKey = '${account.id}_$streamId';
+    if (_shortEpgInFlight.contains(cacheKey)) return;
+
+    final now = DateTime.now();
+    final lastFetched = _shortEpgFetchedAt[cacheKey];
+    if (!force && lastFetched != null && now.difference(lastFetched) < const Duration(minutes: 15)) {
+      return;
+    }
+
+    _shortEpgInFlight.add(cacheKey);
+    try {
+      final listings = await client.getShortEpg(streamId, limit: 10);
+      _shortEpgFetchedAt[cacheKey] = DateTime.now();
+      if (listings.isEmpty) return;
+
+      final targetChannelId = (epgChannelId != null && epgChannelId.trim().isNotEmpty)
+          ? epgChannelId.trim()
+          : streamId;
+
+      final companions = <EpgProgramsCompanion>[];
+      for (final item in listings) {
+        if (item is! Map) continue;
+        final start = _parseShortEpgTime(item['start_timestamp'], item['start']);
+        final stop = _parseShortEpgTime(item['stop_timestamp'], item['end'] ?? item['stop']);
+        if (start == null || stop == null) continue;
+
+        final title = _decodeBase64OrPlain(item['title']?.toString());
+        if (title.isEmpty) continue;
+        final desc = _decodeBase64OrPlain(item['description']?.toString());
+
+        companions.add(
+          EpgProgramsCompanion.insert(
+            accountId: account.id,
+            channelId: targetChannelId,
+            title: title,
+            description: desc.isNotEmpty ? Value(desc) : const Value.absent(),
+            startTime: start,
+            stopTime: stop,
+          ),
+        );
+      }
+
+      if (companions.isNotEmpty) {
+        final dao = _ref.read(epgDaoProvider);
+        await dao.replaceProgramsForChannel(account.id, targetChannelId, companions);
+      }
+    } catch (e) {
+      debugPrint('Short EPG error for stream $streamId: $e');
+    } finally {
+      _shortEpgInFlight.remove(cacheKey);
+    }
+  }
+
+  static String _decodeBase64OrPlain(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    final isBase64 = trimmed.length % 4 == 0 && RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(trimmed);
+    if (!isBase64) return trimmed;
+    try {
+      final bytes = base64.decode(trimmed);
+      return utf8.decode(bytes, allowMalformed: true).trim();
+    } catch (_) {
+      return trimmed;
+    }
+  }
+
+  static DateTime? _parseShortEpgTime(dynamic timestampVal, dynamic strVal) {
+    if (timestampVal != null) {
+      final sec = int.tryParse(timestampVal.toString().trim());
+      if (sec != null && sec > 0) {
+        return DateTime.fromMillisecondsSinceEpoch(sec * 1000);
+      }
+    }
+    if (strVal != null) {
+      final s = strVal.toString().trim();
+      final parsed = DateTime.tryParse(s) ?? DateTime.tryParse(s.replaceFirst(' ', 'T'));
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  /// Punkt 4: Streamt große XMLTV-Dateien direkt in eine temporäre Datei und parst sie
+  /// Chunk-für-Chunk im Hintergrund-Isolate (verhindert 150+ MB String-Spikes im Haupt-Heap).
+  Future<void> syncEpgData({bool force = false, bool rethrowOnError = false}) async {
+    if (_isSyncing) return;
+
+    final account = _ref.read(activeAccountProvider);
+    final client = _ref.read(xtreamClientProvider);
+    if (account == null || client == null) return;
+    if (account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final dao = _ref.read(epgDaoProvider);
+
+    final lastSyncKey = 'last_sync_epg_${account.id}';
+    final lastSyncMs = prefs.getInt(lastSyncKey) ?? 0;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final hasFreshCache = (nowMs - lastSyncMs) < const Duration(hours: 6).inMilliseconds;
+
+    if (!force && hasFreshCache) {
+      final existingCount = await dao.countProgramsForAccount(account.id);
+      if (existingCount > 0) {
+        debugPrint('EPG cache is fresh ($existingCount programs). Skipping XMLTV download.');
+        return;
+      }
+    }
+
+    _isSyncing = true;
+    final tempFile = File('${Directory.systemTemp.path}/goat_epg_${account.id}.xml');
+    try {
+      final xmltvUrl = client.getXmltvUrl();
+      debugPrint('Streaming XMLTV EPG to temp file from: $xmltvUrl');
+
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 5),
+      ));
+
+      await dio.download(xmltvUrl, tempFile.path);
+
+      if (await tempFile.exists()) {
+        final filePath = tempFile.path;
+        final accId = account.id;
+        final programs = await Isolate.run(() => EpgIsolateParser.parseXmlTvFile(filePath, accId));
+        debugPrint('Parsed ${programs.length} active/upcoming EPG programs. Saving to DB...');
+
+        await dao.clearOldEpg(account.id);
+        await dao.insertEpgPrograms(programs);
+        await prefs.setInt(lastSyncKey, DateTime.now().millisecondsSinceEpoch);
+        debugPrint('EPG Sync Complete!');
+      }
+    } catch (e) {
+      debugPrint('Failed to sync EPG data: $e');
+      if (rethrowOnError) rethrow;
     } finally {
       _isSyncing = false;
+      try {
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
     }
   }
 }

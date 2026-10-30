@@ -318,6 +318,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
 
   @override
   Widget build(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     final info = xtreamInfo?['info'] is Map ? (xtreamInfo!['info'] as Map).cast<String, dynamic>() : null;
     
     final plot = info?['plot'] ?? info?['description'] ?? 'No synopsis available.';
@@ -376,8 +377,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                             Image.network(
                               widget.coverUrl!,
                               fit: BoxFit.cover,
-                              cacheWidth: 200,
-                              cacheHeight: 300,
+                              cacheWidth: (135 * dpr).round().clamp(220, 360),
                               errorBuilder: (_, __, ___) => Container(
                                 color: const Color(0xFF23183C),
                                 child: const Center(child: Icon(Icons.tv, size: 48, color: Colors.white24)),
@@ -700,6 +700,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                         child: Image.network(
                           widget.coverUrl!,
                           fit: BoxFit.cover,
+                          cacheWidth: (240 * dpr).round().clamp(320, 600),
                           errorBuilder: (context, error, stackTrace) => Container(
                             color: Theme.of(context).colorScheme.surfaceContainerHighest,
                             child: const Icon(Icons.tv, size: 64, color: Colors.white24),
@@ -719,6 +720,7 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
                         child: Image.network(
                           backdropUrl, 
                           fit: BoxFit.cover,
+                          cacheWidth: (540 * dpr).round().clamp(640, 1280),
                         ),
                       ),
                     

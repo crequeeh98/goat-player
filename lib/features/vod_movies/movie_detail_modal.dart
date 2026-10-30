@@ -190,6 +190,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
     }
 
     final screenWidth = MediaQuery.sizeOf(context).width;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     final isMobile = screenWidth < 600 && !GoatPlatform.isTv;
 
     if (GoatPlatform.isTv) {
@@ -231,8 +232,7 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                         child: Image.network(
                           widget.posterUrl!,
                           fit: BoxFit.cover,
-                          cacheWidth: 260,
-                          cacheHeight: 390,
+                          cacheWidth: (170 * dpr).round().clamp(260, 420),
                           errorBuilder: (_, __, ___) => Container(
                             color: const Color(0xFF23183C),
                             child: const Center(child: Icon(Icons.movie, size: 64, color: Colors.white24)),
@@ -460,7 +460,12 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                     if (widget.posterUrl != null)
                       Hero(
                         tag: 'movie_${widget.streamId}',
-                        child: Image.network(widget.posterUrl!, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 64, color: Colors.white))),
+                        child: Image.network(
+                          widget.posterUrl!,
+                          fit: BoxFit.cover,
+                          cacheWidth: (240 * dpr).round().clamp(320, 600),
+                          errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 64, color: Colors.white)),
+                        ),
                       )
                     else
                       const Center(child: Icon(Icons.movie, size: 64, color: Colors.white)),
@@ -469,7 +474,11 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
                       AnimatedOpacity(
                         opacity: isLoading ? 0.0 : 1.0,
                         duration: const Duration(milliseconds: 500),
-                        child: Image.network(backdropUrl, fit: BoxFit.cover),
+                        child: Image.network(
+                          backdropUrl,
+                          fit: BoxFit.cover,
+                          cacheWidth: (540 * dpr).round().clamp(640, 1280),
+                        ),
                       ),
                     
                     // Gradient overlay to make text readable if we overlay anything

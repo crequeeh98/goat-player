@@ -135,6 +135,7 @@ class ContinueWatchingRail extends ConsumerWidget {
         if (displayItems.isEmpty) return const SizedBox.shrink();
         
         final isDe = Localizations.localeOf(context).languageCode == 'de';
+        final railCacheWidth = (104 * MediaQuery.devicePixelRatioOf(context)).round().clamp(200, 360);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -276,8 +277,7 @@ class ContinueWatchingRail extends ConsumerWidget {
                                         ? Image.network(
                                             item.coverUrl!,
                                             fit: BoxFit.cover,
-                                            cacheWidth: 220,
-                                            cacheHeight: 330,
+                                            cacheWidth: railCacheWidth,
                                             errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.movie, size: 28)),
                                           )
                                         : Container(color: Colors.grey[800], child: const Icon(Icons.movie, size: 28)),

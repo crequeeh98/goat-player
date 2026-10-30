@@ -14,6 +14,11 @@ class XtreamClient {
     };
   }
 
+  String getXmltvUrl() {
+    final normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    return '$normalizedBaseUrl/xmltv.php?username=$username&password=$password';
+  }
+
   Future<Map<String, dynamic>> authenticate() async {
     try {
       final normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
@@ -74,6 +79,28 @@ class XtreamClient {
 
   Future<List<dynamic>> getSeries({String? categoryId}) async {
     return _fetchData('get_series', categoryId: categoryId);
+  }
+
+  Future<List<dynamic>> getShortEpg(String streamId, {int limit = 10}) async {
+    try {
+      final normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+      final response = await _dio.get(
+        '$normalizedBaseUrl/player_api.php',
+        queryParameters: {
+          'username': username,
+          'password': password,
+          'action': 'get_short_epg',
+          'stream_id': streamId,
+          'limit': limit.toString(),
+        },
+      );
+      if (response.data is Map && response.data['epg_listings'] is List) {
+        return response.data['epg_listings'] as List<dynamic>;
+      }
+      return const [];
+    } catch (e) {
+      return const [];
+    }
   }
 
   Future<dynamic> getSeriesInfo(String seriesId) async {

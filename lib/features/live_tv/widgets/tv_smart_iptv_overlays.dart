@@ -556,6 +556,20 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
   bool _longPressTriggered = false;
   bool _keyDownHandled = false;
 
+  void _prefetchCurrentPageShortEpg() {
+    final total = widget.streams.length;
+    if (total == 0) return;
+    final currentPage = _focusedIndex ~/ _pageSize;
+    final startIdx = currentPage * _pageSize;
+    final endIdx = (startIdx + _pageSize).clamp(0, total);
+    final epgCtrl = ref.read(epgControllerProvider);
+    for (int i = startIdx; i < endIdx; i++) {
+      final s = widget.streams[i];
+      final epgId = (s.epgChannelId != null && s.epgChannelId!.isNotEmpty) ? s.epgChannelId! : s.streamId;
+      epgCtrl.ensureShortEpg(streamId: s.streamId, epgChannelId: epgId);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -564,7 +578,10 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
         : -1;
     _focusedIndex = activeIdx >= 0 ? activeIdx : 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _menuFocusNode.requestFocus();
+      if (mounted) {
+        _menuFocusNode.requestFocus();
+        _prefetchCurrentPageShortEpg();
+      }
     });
   }
 
@@ -576,6 +593,7 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
           ? widget.streams.indexWhere((s) => s.streamId == widget.activeStreamId)
           : -1;
       _focusedIndex = activeIdx >= 0 ? activeIdx : 0;
+      _prefetchCurrentPageShortEpg();
     }
   }
 
@@ -704,6 +722,7 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
           final nextPageStart = ((_focusedIndex ~/ _pageSize) + 1) * _pageSize;
           _focusedIndex = nextPageStart < total ? nextPageStart : 0;
         });
+        _prefetchCurrentPageShortEpg();
         return KeyEventResult.handled;
       }
       if (event.logicalKey == LogicalKeyboardKey.arrowLeft || event.logicalKey == LogicalKeyboardKey.pageUp) {
@@ -713,6 +732,7 @@ class _TvLiveChannelMenuState extends ConsumerState<TvLiveChannelMenu> {
           final prevPage = currentPage > 0 ? currentPage - 1 : totalPages - 1;
           _focusedIndex = (prevPage * _pageSize).clamp(0, total - 1);
         });
+        _prefetchCurrentPageShortEpg();
         return KeyEventResult.handled;
       }
     }
@@ -1371,7 +1391,17 @@ class _TvLiveEpgOverlayState extends ConsumerState<TvLiveEpgOverlay> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureFocusInsideOverlay());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _ensureFocusInsideOverlay();
+      final epgId = (widget.stream.epgChannelId != null && widget.stream.epgChannelId!.isNotEmpty)
+          ? widget.stream.epgChannelId!
+          : widget.stream.streamId;
+      ref.read(epgControllerProvider).ensureShortEpg(
+        streamId: widget.stream.streamId,
+        epgChannelId: epgId,
+      );
+    });
     _focusGuardTimer = Timer(const Duration(milliseconds: 220), _ensureFocusInsideOverlay);
   }
 

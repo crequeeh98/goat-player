@@ -1,6 +1,29 @@
 // Xtream Codes API Client with In-Memory Caching, A-Z Sorting & Base64 EPG Decoding
 (function() {
   var _cache = {};
+  var MAX_STREAM_CACHE = 5;
+  var _streamCacheKeys = [];
+  var _streamCache = {};
+
+  function putStreamCache(key, data) {
+    var idx = _streamCacheKeys.indexOf(key);
+    if (idx !== -1) {
+      _streamCacheKeys.splice(idx, 1);
+    } else if (_streamCacheKeys.length >= MAX_STREAM_CACHE) {
+      var oldest = _streamCacheKeys.shift();
+      delete _streamCache[oldest];
+    }
+    _streamCacheKeys.push(key);
+    _streamCache[key] = data;
+  }
+
+  function getStreamCache(key) {
+    var idx = _streamCacheKeys.indexOf(key);
+    if (idx === -1) return null;
+    _streamCacheKeys.splice(idx, 1);
+    _streamCacheKeys.push(key);
+    return _streamCache[key];
+  }
 
   function normalizeUrl(url) {
     if (!url) return '';
@@ -215,7 +238,8 @@
 
     getLiveStreams: function(account, categoryId) {
       var cacheKey = account.id + '_live_streams_' + (categoryId || 'all');
-      if (_cache[cacheKey]) return Promise.resolve(_cache[cacheKey]);
+      var cached = getStreamCache(cacheKey);
+      if (cached) return Promise.resolve(cached);
 
       if (account && account.type === 'm3u') {
         return window.TVApi.loadM3uData(account).then(function(data) {
@@ -223,7 +247,7 @@
           var filtered = (!categoryId || categoryId === 'all')
             ? streams
             : streams.filter(function(s) { return s.category_id === categoryId; });
-          _cache[cacheKey] = filtered;
+          putStreamCache(cacheKey, filtered);
           return filtered;
         });
       }
@@ -240,7 +264,7 @@
         })
         .then(function(data) {
           var list = Array.isArray(data) ? sortAlpha(data, 'name') : [];
-          _cache[cacheKey] = list;
+          putStreamCache(cacheKey, list);
           return list;
         });
     },
@@ -301,6 +325,12 @@
 
     getVodStreams: function(account, categoryId, sortMode) {
       if (account && account.type === 'm3u') return Promise.resolve([]);
+      var cacheKey = account.id + '_vod_streams_' + (categoryId || 'all');
+      var cached = getStreamCache(cacheKey);
+      if (cached) {
+        return Promise.resolve(sortVod(cached, sortMode || 'default'));
+      }
+
       var base = normalizeUrl(account.serverUrl);
       var catParam = (categoryId && categoryId !== 'all' && categoryId !== 'favorites') ? '&category_id=' + encodeURIComponent(categoryId) : '';
       var url = base + '/player_api.php?username=' + encodeURIComponent(account.username) +
@@ -313,6 +343,7 @@
         })
         .then(function(data) {
           var list = Array.isArray(data) ? data : [];
+          putStreamCache(cacheKey, list);
           return sortVod(list, sortMode || 'default');
         });
     },
@@ -354,6 +385,12 @@
 
     getSeries: function(account, categoryId, sortMode) {
       if (account && account.type === 'm3u') return Promise.resolve([]);
+      var cacheKey = account.id + '_series_streams_' + (categoryId || 'all');
+      var cached = getStreamCache(cacheKey);
+      if (cached) {
+        return Promise.resolve(sortVod(cached, sortMode || 'default'));
+      }
+
       var base = normalizeUrl(account.serverUrl);
       var catParam = (categoryId && categoryId !== 'all' && categoryId !== 'favorites') ? '&category_id=' + encodeURIComponent(categoryId) : '';
       var url = base + '/player_api.php?username=' + encodeURIComponent(account.username) +
@@ -366,6 +403,7 @@
         })
         .then(function(data) {
           var list = Array.isArray(data) ? data : [];
+          putStreamCache(cacheKey, list);
           return sortVod(list, sortMode || 'default');
         });
     },
@@ -419,8 +457,17 @@
             delete _cache[k];
           }
         });
+        _streamCacheKeys = _streamCacheKeys.filter(function(k) {
+          if (k.indexOf(accountId) === 0) {
+            delete _streamCache[k];
+            return false;
+          }
+          return true;
+        });
       } else {
         _cache = {};
+        _streamCache = {};
+        _streamCacheKeys = [];
       }
     }
   };

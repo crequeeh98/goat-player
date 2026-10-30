@@ -27,6 +27,8 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'master_search_modal.dart';
 import 'account_connection_provider.dart';
 import 'dashboard_state.dart';
+import 'widgets/playlist_sync_modal.dart';
+import '../live_tv/epg_controller.dart';
 
 class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
@@ -42,11 +44,20 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   int _lastDashboardBackMs = 0;
 
   late final FocusNode _headerSearchFocusNode;
+  late final FocusNode _headerSyncFocusNode;
   late final FocusNode _headerPrefFocusNode;
   late final FocusNode _headerLangFocusNode;
   late final FocusNode _headerVpnFocusNode;
   late final FocusNode _headerSwitchFocusNode;
   final List<FocusNode> _sidebarFocusNodes = [];
+
+  void _openSyncModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const PlaylistSyncModal(),
+    );
+  }
 
   void _openSearch() async {
     ref.read(dashboardTabResetProvider.notifier).reset();
@@ -163,6 +174,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   void initState() {
     super.initState();
     _headerSearchFocusNode = FocusNode(debugLabel: 'header_search');
+    _headerSyncFocusNode = FocusNode(debugLabel: 'header_sync');
     _headerPrefFocusNode = FocusNode(debugLabel: 'header_pref');
     _headerLangFocusNode = FocusNode(debugLabel: 'header_lang');
     _headerVpnFocusNode = FocusNode(debugLabel: 'header_vpn');
@@ -188,6 +200,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     Future.microtask(() async {
       await Future.delayed(const Duration(milliseconds: 1500));
       if (!mounted) return;
+      ref.read(epgControllerProvider).pruneOldEpg();
       await ref.read(liveTvControllerProvider).syncLiveCategories();
       if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 600));
@@ -212,6 +225,12 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         await Future.delayed(const Duration(seconds: 3));
         if (!mounted) return;
         await ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      } else {
+        // TV: M3U accounts need channels populated once on startup (with 24h cache check)
+        final account = ref.read(activeAccountProvider);
+        if (account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'))) {
+          await ref.read(liveTvControllerProvider).syncAllLiveStreams();
+        }
       }
     });
   }
@@ -219,6 +238,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
   @override
   void dispose() {
     _headerSearchFocusNode.dispose();
+    _headerSyncFocusNode.dispose();
     _headerPrefFocusNode.dispose();
     _headerLangFocusNode.dispose();
     _headerVpnFocusNode.dispose();
@@ -365,7 +385,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       onSelected: (action) {
-                        if (action == 'vpn') {
+                        if (action == 'sync') {
+                          _openSyncModal();
+                        } else if (action == 'vpn') {
                           showDialog(
                             context: context,
                             builder: (context) => const VpnImportDialog(),
@@ -380,6 +402,19 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         }
                       },
                       itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'sync',
+                          child: Row(
+                            children: [
+                              Icon(Icons.sync_rounded, size: 20),
+                              SizedBox(width: 12),
+                              Text(
+                                'Playlist aktualisieren',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
                         if (!GoatPlatform.isWeb)
                           PopupMenuItem(
                             value: 'vpn',
@@ -441,6 +476,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                     ),
                     const SizedBox(width: 8),
                     _buildTvHeaderButton(
+                      focusNode: _headerSyncFocusNode,
+                      icon: Icons.sync_rounded,
+                      label: AppLocalizations.of(context)?.localeName == 'de' ? 'Aktualisieren' : 'Refresh',
+                      onPressed: _openSyncModal,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildTvHeaderButton(
                       focusNode: _headerPrefFocusNode,
                       icon: Icons.tune,
                       label: AppLocalizations.of(context)?.localeName == 'de' ? 'Einstellungen' : 'Preferences',
@@ -483,6 +525,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       icon: const Icon(Icons.search),
                       tooltip: AppLocalizations.of(context)!.search,
                       onPressed: _openSearch,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.sync_rounded),
+                      tooltip: AppLocalizations.of(context)?.localeName == 'de' ? 'Playlist aktualisieren' : 'Refresh Playlist',
+                      onPressed: _openSyncModal,
                     ),
                     if (!GoatPlatform.isWeb)
                       Consumer(

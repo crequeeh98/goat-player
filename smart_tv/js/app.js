@@ -1481,7 +1481,23 @@
   }
 
   function switchTab(tabName) {
+    var previousTab = _currentTab;
     _currentTab = tabName;
+
+    // Release large full-account stream arrays for inactive tabs to free RAM
+    var masterSearchModal = document.getElementById('master-search-modal');
+    var isSearchOpen = masterSearchModal && masterSearchModal.classList.contains('active');
+    if (!isSearchOpen) {
+      if (tabName !== 'movies' && previousTab === 'movies') {
+        _allAccountVodStreams = null;
+      }
+      if (tabName !== 'series' && previousTab === 'series') {
+        _allAccountSeriesStreams = null;
+      }
+      if (tabName !== 'live' && previousTab === 'live') {
+        _allAccountLiveStreams = null;
+      }
+    }
 
     closeMovieSortDropdown();
     closeSeriesSortDropdown();
