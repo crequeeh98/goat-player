@@ -50,6 +50,7 @@
         if (!data || !data.tag_name) return;
 
         var latestTag = data.tag_name.trim();
+        if (!/^v?\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9._-]+)?$/.test(latestTag)) return;
         var latestVer = latestTag.replace(/^v/, '');
 
         var activeVer = getActiveVersion();

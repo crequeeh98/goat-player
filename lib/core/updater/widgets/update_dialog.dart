@@ -46,6 +46,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       final downloadedPath = await widget.updaterService.downloadUpdate(
         downloadUrl: widget.updateInfo.downloadUrl,
         fileName: widget.updateInfo.fileName,
+        expectedSha256: widget.updateInfo.expectedSha256,
         onProgress: (p) {
           if (mounted) {
             setState(() => _progress = p);
@@ -61,7 +62,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
         final isGerman = Localizations.localeOf(context).languageCode == 'de';
         final errStr = e.toString().toLowerCase();
         final String friendlyMsg;
-        if (errStr.contains('socket') ||
+        if (errStr.contains('integrity') || errStr.contains('sha-256') || errStr.contains('untrusted')) {
+          friendlyMsg = isGerman
+              ? 'Sicherheitsprüfung fehlgeschlagen (Prüfsumme ungültig).'
+              : 'Security verification failed (checksum mismatch).';
+        } else if (errStr.contains('socket') ||
             errStr.contains('connection') ||
             errStr.contains('timeout') ||
             errStr.contains('network') ||
