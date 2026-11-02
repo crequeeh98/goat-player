@@ -12,6 +12,33 @@ class XtreamClient {
     _dio.options.headers = {
       'User-Agent': 'GOATPlayer/1.0.0 (Windows/Android)',
     };
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (DioException err, handler) {
+          final qp = Map<String, dynamic>.from(err.requestOptions.queryParameters);
+          if (qp.containsKey('password')) {
+            qp['password'] = '***';
+          }
+          final sanitizedOptions = err.requestOptions.copyWith(
+            queryParameters: qp,
+          );
+          final sanitizedError = err.copyWith(
+            requestOptions: sanitizedOptions,
+            message: sanitizeErrorMessage(err.message ?? ''),
+          );
+          handler.next(sanitizedError);
+        },
+      ),
+    );
+  }
+
+  /// Sanitizes sensitive parameters (e.g. password=...) from error strings or URLs
+  static String sanitizeErrorMessage(Object error) {
+    final str = error.toString();
+    return str.replaceAllMapped(
+      RegExp(r'(password=)([^&\s\)]+)', caseSensitive: false),
+      (match) => '${match.group(1)}***',
+    );
   }
 
   String getXmltvUrl() {
@@ -28,7 +55,8 @@ class XtreamClient {
       });
       return response.data;
     } catch (e) {
-      throw Exception('Failed to authenticate: $e');
+      final safe = sanitizeErrorMessage(e);
+      throw Exception('Failed to authenticate: $safe');
     }
   }
 
@@ -68,8 +96,9 @@ class XtreamClient {
       }
       return responseData;
     } catch (e) {
-      debugPrint('Failed to fetch vod info: $e');
-      throw Exception('Failed to fetch vod info: $e');
+      final safe = sanitizeErrorMessage(e);
+      debugPrint('Failed to fetch vod info: $safe');
+      throw Exception('Failed to fetch vod info: $safe');
     }
   }
 
@@ -114,8 +143,9 @@ class XtreamClient {
       });
       return response.data;
     } catch (e) {
-      debugPrint('Failed to fetch series info: $e');
-      throw Exception('Failed to fetch series info: $e');
+      final safe = sanitizeErrorMessage(e);
+      debugPrint('Failed to fetch series info: $safe');
+      throw Exception('Failed to fetch series info: $safe');
     }
   }
 
@@ -160,8 +190,9 @@ class XtreamClient {
         return [];
       }
     } catch (e) {
-      debugPrint('API Error ($action): $e');
-      throw Exception('Failed to fetch $action: $e');
+      final safe = sanitizeErrorMessage(e);
+      debugPrint('API Error ($action): $safe');
+      throw Exception('Failed to fetch $action: $safe');
     }
   }
 }

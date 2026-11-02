@@ -1,0 +1,20 @@
+{
+  "version": "2.0.3",
+  "generatedAt": "2026-11-02T15:38:21.721Z",
+  "files": {
+    "style.css": "efe000fee757bcfcc86561f52ff957e85e4456fe93e7877c0efd6ae946ce144a",
+    "icons.js": "003f0b3d06e67ea9874ad83822c6730cf0cd1b000ae86f898fb77851c9ac1afe",
+    "i18n.js": "76ff45422e324f78a326dd0db84642c9371078329f93dfbd6af1323c8ceb0831",
+    "m3u.js": "a5fa8f01c112c2093f6563ce8074f7e60e1fa8cffa855a30b6641de087c06ff3",
+    "storage.js": "e053cd6d2e2774d9ce665bdf7afb08e0217c49789dbdf68fcaa76c73cde89c7e",
+    "api.js": "5c10a38363b3fbf8d349d3818eb178b36a7ea803e884438b0d672a46b0f1fe9b",
+    "sync.js": "d2eef17aa3510e918dc1e1dc5d8910801cc6e09aae66389a180919c7736ef4c9",
+    "spatial_nav.js": "1ff42ac150645a2fed585f827106b4d80d8ae2000ed9138aaeedaf74cfc512e1",
+    "virtual_list.js": "621bb27844685018682cb13dab81f14eedbf1e154a3f894e365a5e418f1439b9",
+    "diagnostics.js": "196ce420664d6c9ba5bf89527b0590cd2a1606356797d672442ce580753889a8",
+    "subtitles.js": "c4c2d0933ab91211d1920afebc68bb86208c7ff0386b734b11c191eb275f774d",
+    "player.js": "f361942ad86b4b95795aa7d0bc4a581bd38f9547f3b978c572913384b029c19e",
+    "updater.js": "f8fa418a9da89cc76939c2f2218740c7b90d332a4d57cd619bf6234c92363b1b",
+    "app.js": "d21d8d3de7c8afc015f5b81d64fa637700e35fdf1a78f77e7692bc16aee2f485"
+  }
+}
