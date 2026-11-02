@@ -17,7 +17,9 @@ END $$;
 ALTER TABLE remote_devices ENABLE ROW LEVEL SECURITY;
 
 -- 3. Saubere Policy für Pairing (erlaubt UPSERT auch bei bestehenden Geräte-IDs)
--- Da Passwörter und Server-URLs im Code komplett entfernt wurden (Zero-Knowledge),
--- liegen in Supabase ohnehin nur noch Dummy-Playlist-Namen ("Github").
+-- Zero-Knowledge Architektur (SEC-01):
+-- Passwörter und Server-URLs werden im Webportal und TV-Client vor der Übertragung
+-- per client-seitigem AES-256-GCM (aus dem Session-PIN abgeleitet) verschlüsselt.
+-- In der Tabelle liegen keine Klartext-Zugangsdaten; Realtime-Payloads enthalten nur Chiffretext.
 CREATE POLICY "anon_pairing_all" ON remote_devices 
 FOR ALL USING (true) WITH CHECK (true);

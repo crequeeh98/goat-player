@@ -9,6 +9,7 @@ import '../database/daos/account_dao.dart';
 import '../database/daos/category_dao.dart';
 import '../database/daos/stream_dao.dart';
 import '../database/daos/epg_dao.dart';
+import 'zero_knowledge_crypto.dart';
 
 enum RemoteSyncEventType { accountAdded, accountUpdated, accountDeleted }
 
@@ -55,6 +56,7 @@ class RemoteSyncService {
   final StreamDao _streamDao;
   final EpgDao _epgDao;
   final SharedPreferences _prefs;
+  String? _activeSessionPin;
 
   RemoteSyncService(
     this._accountDao,
@@ -147,6 +149,7 @@ class RemoteSyncService {
 
   /// Closes the pairing session in Supabase so the web portal immediately detects disconnection
   Future<void> closePairingSession(String deviceId) async {
+    _activeSessionPin = null;
     try {
       await _client.from('remote_devices').update({
         'status': 'disconnected',
@@ -169,6 +172,7 @@ class RemoteSyncService {
     final deviceId = getDeviceId();
     final random = Random();
     final pin = (100000 + random.nextInt(900000)).toString();
+    _activeSessionPin = pin;
     final expiresAt = DateTime.now().toUtc().add(const Duration(minutes: 20));
 
     final qrUrl = '$defaultPortalUrl?device=$deviceId&pin=$pin';
@@ -223,8 +227,19 @@ class RemoteSyncService {
       isProcessing = true;
 
       try {
-        final syncAction = record['sync_action'];
-        if (syncAction != null && syncAction is Map) {
+        final rawSyncAction = record['sync_action'];
+        if (rawSyncAction != null && rawSyncAction is Map) {
+          final Map<String, dynamic> syncAction;
+          if (rawSyncAction['encrypted'] == true && _activeSessionPin != null) {
+            syncAction = ZeroKnowledgePairingCrypto.decryptSyncAction(
+              Map<String, dynamic>.from(rawSyncAction),
+              _activeSessionPin!,
+              deviceId,
+            );
+          } else {
+            syncAction = Map<String, dynamic>.from(rawSyncAction);
+          }
+
           final action = syncAction['action']?.toString();
           final actionTimestamp = syncAction['timestamp']?.toString() ?? '';
           final actionId = syncAction['action_id']?.toString() ?? '${action}_$actionTimestamp';

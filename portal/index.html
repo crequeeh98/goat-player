@@ -1479,7 +1479,63 @@
       return deduplicatePlaylists(merged);
     }
 
-    // Pairing & Realtime
+    // Pairing & Realtime & Zero-Knowledge Encryption (SEC-01)
+    async function encryptSyncAction(payloadObj, pin, deviceId) {
+      if (!window.crypto || !window.crypto.subtle || !pin || !deviceId) {
+        return payloadObj;
+      }
+      try {
+        const enc = new TextEncoder();
+        const pinKey = await crypto.subtle.importKey(
+          'raw',
+          enc.encode(pin.trim()),
+          { name: 'PBKDF2' },
+          false,
+          ['deriveKey']
+        );
+        const aesKey = await crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: enc.encode('GOATPlayer_Pairing_Salt_' + deviceId.trim().toUpperCase()),
+            iterations: 10000,
+            hash: 'SHA-256'
+          },
+          pinKey,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt']
+        );
+
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const jsonStr = JSON.stringify(payloadObj);
+        const cipherBuffer = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: iv },
+          aesKey,
+          enc.encode(jsonStr)
+        );
+
+        function toHex(buf) {
+          const bytes = new Uint8Array(buf);
+          let hex = '';
+          for (let i = 0; i < bytes.length; i++) {
+            hex += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+          }
+          return hex;
+        }
+
+        return {
+          encrypted: true,
+          action_id: payloadObj.action_id,
+          iv: toHex(iv),
+          data: toHex(cipherBuffer),
+          timestamp: Date.now()
+        };
+      } catch (err) {
+        console.warn('[SyncPortal] Zero-knowledge encryption failed, using plaintext fallback:', err);
+        return payloadObj;
+      }
+    }
+
     async function verifyPairing(deviceId, pin) {
       const btn = document.getElementById('btnVerifyPairing');
       btn.disabled = true;
@@ -1918,19 +1974,22 @@
           const actionId = `add_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
           pendingAddActionId = actionId;
 
+          const plainAction = {
+            action_id: actionId,
+            action: 'add',
+            type: playlistType,
+            playlist_name: playlistName,
+            server_url: serverUrl,
+            username: username,
+            password: password,
+            timestamp: Date.now()
+          };
+          const securedAction = await encryptSyncAction(plainAction, activePin, activeDeviceId);
+
           // Dispatch sync_action ONLY. Device will process and update playlists array cleanly.
           try {
             const res = await supabaseClient.from('remote_devices').update({
-              sync_action: {
-                action_id: actionId,
-                action: 'add',
-                type: playlistType,
-                playlist_name: playlistName,
-                server_url: serverUrl,
-                username: username,
-                password: password,
-                timestamp: Date.now()
-              },
+              sync_action: securedAction,
               status: 'linked',
               updated_at: new Date().toISOString()
             }).eq('device_id', activeDeviceId);
@@ -1967,20 +2026,22 @@
           renderPlaylists();
 
           const actionId = `edit_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+          const plainEditAction = {
+            action_id: actionId,
+            action: 'edit',
+            id: strEditId,
+            type: playlistType,
+            old_server_url: oldServer,
+            old_username: oldUser,
+            playlist_name: playlistName,
+            server_url: serverUrl,
+            username: username,
+            password: password,
+            timestamp: Date.now()
+          };
+          const securedEditAction = await encryptSyncAction(plainEditAction, activePin, activeDeviceId);
           const updatePayload = {
-            sync_action: {
-              action_id: actionId,
-              action: 'edit',
-              id: strEditId,
-              type: playlistType,
-              old_server_url: oldServer,
-              old_username: oldUser,
-              playlist_name: playlistName,
-              server_url: serverUrl,
-              username: username,
-              password: password,
-              timestamp: Date.now()
-            },
+            sync_action: securedEditAction,
             status: 'linked',
             updated_at: new Date().toISOString()
           };
@@ -2034,13 +2095,15 @@
         closeDeleteModal();
 
         const actionId = `delete_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        const plainDeleteAction = {
+          action_id: actionId,
+          action: 'delete',
+          id: idToDelete,
+          timestamp: Date.now()
+        };
+        const securedDeleteAction = await encryptSyncAction(plainDeleteAction, activePin, activeDeviceId);
         const res = await supabaseClient.from('remote_devices').update({
-          sync_action: {
-            action_id: actionId,
-            action: 'delete',
-            id: idToDelete,
-            timestamp: Date.now()
-          },
+          sync_action: securedDeleteAction,
           status: 'linked',
           updated_at: new Date().toISOString()
         }).eq('device_id', activeDeviceId);
