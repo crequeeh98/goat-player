@@ -1,6 +1,7 @@
 {
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/repo.json", "destination": "/repo.json" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
