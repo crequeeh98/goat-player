@@ -238,7 +238,7 @@ class TvLiveInfobar extends ConsumerWidget {
     EpgProgram? nextProg;
     for (int i = 0; i < programs.length; i++) {
       final p = programs[i];
-      if (now.isAfter(p.startTime) && now.isBefore(p.stopTime)) {
+      if ((now.isAfter(p.startTime) || now.isAtSameMomentAs(p.startTime)) && now.isBefore(p.stopTime)) {
         currentProg = p;
         if (i + 1 < programs.length) {
           nextProg = programs[i + 1];

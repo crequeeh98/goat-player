@@ -126,16 +126,18 @@ class EpgController {
   }
 
   static DateTime? _parseShortEpgTime(dynamic timestampVal, dynamic strVal) {
+    if (strVal != null) {
+      final s = strVal.toString().trim();
+      if (s.isNotEmpty) {
+        final parsed = DateTime.tryParse(s) ?? DateTime.tryParse(s.replaceFirst(' ', 'T'));
+        if (parsed != null) return parsed;
+      }
+    }
     if (timestampVal != null) {
       final sec = int.tryParse(timestampVal.toString().trim());
       if (sec != null && sec > 0) {
         return DateTime.fromMillisecondsSinceEpoch(sec * 1000);
       }
-    }
-    if (strVal != null) {
-      final s = strVal.toString().trim();
-      final parsed = DateTime.tryParse(s) ?? DateTime.tryParse(s.replaceFirst(' ', 'T'));
-      if (parsed != null) return parsed;
     }
     return null;
   }

@@ -16,6 +16,7 @@ import '../../../main.dart';
 import '../../dashboard/favorites_provider.dart';
 import '../epg_controller.dart';
 import '../live_tv_controller.dart';
+import 'epg_timeline.dart';
 import 'in_player_epg_drawer.dart';
 import 'tv_smart_iptv_overlays.dart';
 
@@ -160,15 +161,19 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     super.didUpdateWidget(oldWidget);
     final curId = widget.currentStreamId ?? widget.streamId;
     if (curId != _lastActiveStreamId && curId != null) {
+      final wasActive = _lastActiveStreamId != null;
       _lastActiveStreamId = curId;
       if (mounted) setState(() => _hasFirstFrame = false);
+      if (wasActive && (widget.isFullWidth || isFullscreen(context))) {
+        _triggerOsdBanner();
+      }
     }
     if (widget.isFullWidth && !oldWidget.isFullWidth) {
       if (GoatPlatform.isTv) {
         _tvBackInterceptorNotifier ??= ref.read(liveFullscreenBackInterceptorProvider.notifier);
         _tvBackInterceptorNotifier?.set(_handleTvFullscreenBack);
-        _triggerOsdBanner();
       }
+      _triggerOsdBanner();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focusNode.requestFocus();
       });
@@ -423,7 +428,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isFull = isFullscreen(context) || (GoatPlatform.isPhone && widget.isFullWidth);
+    final isFull = isFullscreen(context) || widget.isFullWidth;
 
     // Dynamically watch active playback state so fullscreen mode immediately updates
     // on channel zap without relying on frozen constructor parameters
@@ -464,7 +469,26 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
     final epgId = currentStreamItem?.epgChannelId != null && currentStreamItem!.epgChannelId!.isNotEmpty
         ? currentStreamItem.epgChannelId
         : currentStreamItem?.streamId;
-    final currentProgram = epgId != null ? currentPrograms[epgId] : null;
+    var currentProgram = epgId != null ? currentPrograms[epgId] : null;
+
+    EpgProgram? nextProgram;
+    if (epgId != null) {
+      final channelProgs = ref.watch(channelProgramsProvider(epgId)).asData?.value ?? const <EpgProgram>[];
+      final now = DateTime.now();
+      for (int i = 0; i < channelProgs.length; i++) {
+        final p = channelProgs[i];
+        if ((now.isAfter(p.startTime) || now.isAtSameMomentAs(p.startTime)) && now.isBefore(p.stopTime)) {
+          currentProgram ??= p;
+          if (i + 1 < channelProgs.length) {
+            nextProgram = channelProgs[i + 1];
+          }
+          break;
+        } else if (p.startTime.isAfter(now)) {
+          nextProgram ??= p;
+          break;
+        }
+      }
+    }
 
     final displayTitle = (currentProgram != null && currentProgram.title.isNotEmpty)
         ? '$activeTitle - ${currentProgram.title}'
@@ -667,16 +691,20 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                               icon: const Icon(Icons.arrow_back, color: Colors.white, size: 30),
                               tooltip: l10n?.close ?? 'Back',
                               onPressed: () {
-                                if (GoatPlatform.isPhone && widget.isFullWidth) {
+                                if (_isDrawerOpen) {
+                                  setState(() => _isDrawerOpen = false);
+                                  _startHideTimer();
+                                  return;
+                                }
+                                if (isFullscreen(context)) {
+                                  toggleFullscreen(context);
+                                  return;
+                                }
+                                if (widget.isFullWidth) {
                                   widget.onBack?.call();
                                   return;
                                 }
-                                if (isFull) {
-                                  _toggleFullscreen(context);
-                                }
-                                if (widget.onBack != null) {
-                                  widget.onBack!();
-                                }
+                                widget.onBack?.call();
                               },
                             ),
                           ),
@@ -913,22 +941,29 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
                     ),
                   ),
 
-                // 3. In-Player OSD Channel Info Banner (Appears on zap at bottom-center in fullscreen)
+                // 3. Info HUD on zap in fullscreen (Long purple bar matching TV on Desktop)
                 if (_showOsdBanner && currentStreamItem != null && isFull)
                   Positioned(
-                    bottom: 18,
-                    left: 72,
-                    right: 72,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     child: IgnorePointer(
-                      child: Center(
-                        child: InPlayerOsdBanner(
-                          stream: currentStreamItem,
-                          currentProgram: currentProgram,
-                          channelNumber: channelIndex,
-                          isCompact: GoatPlatform.isMobile || !isFull,
-                          player: widget.state.widget.controller.player,
-                        ),
-                      ),
+                      child: GoatPlatform.isMobile
+                          ? Center(
+                              child: InPlayerOsdBanner(
+                                stream: currentStreamItem,
+                                currentProgram: currentProgram,
+                                nextProgram: nextProgram,
+                                channelNumber: channelIndex,
+                                isCompact: !isFull,
+                                player: widget.state.widget.controller.player,
+                              ),
+                            )
+                          : TvLiveInfobar(
+                              stream: currentStreamItem,
+                              channelNumber: channelIndex,
+                              player: widget.state.widget.controller.player,
+                            ),
                     ),
                   ),
 
