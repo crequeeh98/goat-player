@@ -15,9 +15,9 @@
         "rootRequired": false,
         "ipkUrl": "https://github.com/crequeeh98/goat-player/releases/download/v2.0.2/com.goatplayer.tv_2.0.2_all.ipk",
         "ipkHash": {
-          "sha256": "7ed1c9b4bfe478c82493dab096f82a5b72c71cdb07d435d48d3bba15a89ef233"
+          "sha256": "93e23f2d323aad1aa7ead2d73da3a88b7f2dd56b7aafeba4909cd410ba7cdbf3"
         },
-        "ipkSize": 734198
+        "ipkSize": 717746
       },
       "pool": "main",
       "requirements": {
