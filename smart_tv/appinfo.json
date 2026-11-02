@@ -17,5 +17,5 @@
   "handlesRelaunch": false,
   "disableBackHistoryAPI": true,
   "supportSpatialNavigation": false,
-  "inspectable": true
+  "inspectable": false
 }
