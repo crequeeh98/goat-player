@@ -48,6 +48,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   bool _focusFirstChannelOnNextBuild = false;
   String? _streamIdToFocus;
   Timer? _channelPlayDebounce;
+  Timer? _shortEpgFocusDebounce;
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
@@ -56,6 +57,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   void dispose() {
     _channelPlayDebounce?.cancel();
+    _shortEpgFocusDebounce?.cancel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (ref.read(activeDashboardTabProvider) == 0) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
@@ -100,19 +102,26 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
             .clamp(0.0, _categoryScrollController.position.maxScrollExtent);
         _categoryScrollController.jumpTo(targetOffset);
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final node = _categoryFocusNodes[_selectedCategory];
-        if (node != null && node.context != null && node.canRequestFocus) {
-          node.requestFocus();
-        } else if (_topVisibleCategoryNode != null &&
-            _topVisibleCategoryNode!.context != null &&
-            _topVisibleCategoryNode!.canRequestFocus) {
-          _topVisibleCategoryNode!.requestFocus();
-        } else if (_searchFocusNode.context != null && _searchFocusNode.canRequestFocus) {
-          _searchFocusNode.requestFocus();
-        }
-      });
+      void attemptFocusCategory(int retries) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final node = _categoryFocusNodes[_selectedCategory];
+          if (node != null && node.context != null && node.canRequestFocus) {
+            node.requestFocus();
+            return;
+          }
+          if (retries > 0) {
+            attemptFocusCategory(retries - 1);
+          } else if (_topVisibleCategoryNode != null &&
+              _topVisibleCategoryNode!.context != null &&
+              _topVisibleCategoryNode!.canRequestFocus) {
+            _topVisibleCategoryNode!.requestFocus();
+          } else if (_searchFocusNode.context != null && _searchFocusNode.canRequestFocus) {
+            _searchFocusNode.requestFocus();
+          }
+        });
+      }
+      attemptFocusCategory(3);
       return;
     }
     if (_topVisibleCategoryNode != null &&
@@ -337,11 +346,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
         final maxScroll = _categoryScrollController.position.maxScrollExtent;
         final clampedOffset = targetOffset.clamp(0.0, maxScroll);
-        _categoryScrollController.animateTo(
-          clampedOffset,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeOutCubic,
-        );
+        if (GoatPlatform.isTv) {
+          _categoryScrollController.jumpTo(clampedOffset);
+        } else {
+          _categoryScrollController.animateTo(
+            clampedOffset,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
+          );
+        }
       });
     }
   }
@@ -375,6 +388,11 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         ? stream.url!
         : '$baseUrl/live/${account.username}/${account.password}/${stream.streamId}.$ext';
     final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+
+    ref.read(epgControllerProvider).ensureShortEpg(
+      streamId: stream.streamId,
+      epgChannelId: epgChannelId,
+    );
 
     ref.read(playbackControllerProvider.notifier).playLive(
       title: cleanName,
@@ -680,12 +698,12 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           if (categories.isEmpty) {
                             _topVisibleCategoryNode = null;
                           }
-                          if (!GoatPlatform.isTv && _selectedCategory != null && _selectedCategory != _lastCategoryRailScrolledId) {
+                          if (_selectedCategory != null && _selectedCategory != _lastCategoryRailScrolledId) {
                             _scrollToActiveCategory(categories, _selectedCategory);
                           }
                           return ListView.builder(
                             controller: _categoryScrollController,
-                            cacheExtent: GoatPlatform.isTv ? 3000.0 : 500.0,
+                            cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
                             itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                             itemCount: categories.length,
                             itemBuilder: (context, index) {
@@ -882,16 +900,14 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         }
 
                         final favoriteIds = ref.watch(favoriteStreamIdsProvider('live')).value ?? const <String>{};
-                        final currentPrograms = GoatPlatform.isTv
-                            ? (ref.watch(currentProgramsMapProvider).asData?.value ?? const <String, EpgProgram>{})
-                            : const <String, EpgProgram>{};
+                        final currentPrograms = ref.watch(currentProgramsMapProvider).asData?.value ?? const <String, EpgProgram>{};
                         final account = ref.read(activeAccountProvider);
                         final baseUrl = account?.serverUrl.endsWith('/') == true ? account!.serverUrl.substring(0, account.serverUrl.length - 1) : account?.serverUrl;
 
                         final channelListView = ListView.builder(
                           controller: _channelScrollController,
-                          cacheExtent: GoatPlatform.isTv ? 1500.0 : 500.0,
-                          itemExtent: GoatPlatform.isTv ? 48.0 : 64.0,
+                          cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
+                          itemExtent: GoatPlatform.isTv ? 48.0 : 66.0,
                           itemCount: streams.length,
                           itemBuilder: (context, index) {
                             final stream = streams[index];
@@ -909,6 +925,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 ? stream.epgChannelId!
                                 : stream.streamId;
                             final currentProg = currentPrograms[epgId];
+                            double? showProgress;
+                            if (currentProg != null) {
+                              final now = DateTime.now();
+                              final totalSecs = currentProg.stopTime.difference(currentProg.startTime).inSeconds;
+                              final elapsedSecs = now.difference(currentProg.startTime).inSeconds;
+                              if (totalSecs > 0) {
+                                showProgress = (elapsedSecs / totalSecs).clamp(0.0, 1.0);
+                              }
+                            }
 
                             final itemFocusNode = index == 0
                                 ? _firstChannelNode
@@ -955,6 +980,17 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 onFocusChange: (hasF) {
                                   if (hasF) {
                                     _lastFocusedChannelNode = itemFocusNode;
+                                    if (GoatPlatform.isTv && currentProg == null) {
+                                      _shortEpgFocusDebounce?.cancel();
+                                      _shortEpgFocusDebounce = Timer(const Duration(milliseconds: 350), () {
+                                        if (mounted) {
+                                          ref.read(epgControllerProvider).ensureShortEpg(
+                                            streamId: stream.streamId,
+                                            epgChannelId: epgId,
+                                          );
+                                        }
+                                      });
+                                    }
                                   }
                                 },
                                 onKeyEvent: (node, event) {
@@ -1029,17 +1065,31 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                                 fontSize: GoatPlatform.isTv ? 11.5 : 14,
                                               ),
                                             ),
-                                            if (GoatPlatform.isTv && currentProg != null && currentProg.title.isNotEmpty) ...[
-                                              const SizedBox(height: 1),
+                                            if (currentProg != null && currentProg.title.isNotEmpty) ...[
+                                              SizedBox(height: GoatPlatform.isTv ? 1 : 2),
                                               Text(
                                                 currentProg.title,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: TextStyle(
-                                                  color: isCurrentPlaying ? const Color(0xFFD8B4FE) : Colors.white54,
-                                                  fontSize: 9.5,
+                                                  color: isCurrentPlaying ? const Color(0xFFD8B4FE) : Colors.white60,
+                                                  fontSize: GoatPlatform.isTv ? 9.5 : 11.5,
                                                 ),
                                               ),
+                                              if (showProgress != null) ...[
+                                                SizedBox(height: GoatPlatform.isTv ? 2 : 3),
+                                                ClipRRect(
+                                                  borderRadius: BorderRadius.circular(1.5),
+                                                  child: LinearProgressIndicator(
+                                                    value: showProgress,
+                                                    minHeight: GoatPlatform.isTv ? 2.0 : 2.5,
+                                                    backgroundColor: Colors.white12,
+                                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                                      isCurrentPlaying ? const Color(0xFFB388FF) : const Color(0xFFB388FF).withValues(alpha: 0.7),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ],
                                         ),
@@ -1227,7 +1277,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         Text(
                           AppLocalizations.of(context)!.epgSchedule,
                           style: TextStyle(
-                            fontSize: GoatPlatform.isTv ? 14 : 18,
+                            fontSize: GoatPlatform.isTv ? 12 : 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),

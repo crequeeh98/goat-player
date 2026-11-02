@@ -15,6 +15,8 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
     });
   }
 
+  Future<void> insertEpgPrograms(List<EpgProgramsCompanion> programs) => insertPrograms(programs);
+
   Stream<List<EpgProgram>> watchProgramsForChannel(int accountId, String channelId) {
     final now = DateTime.now();
     return (select(epgPrograms)
@@ -22,6 +24,34 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
           ..orderBy([(p) => OrderingTerm(expression: p.startTime)])
           ..limit(60))
         .watch();
+  }
+
+  Stream<Map<String, EpgProgram>> watchCurrentPrograms(int accountId) {
+    final now = DateTime.now();
+    return (select(epgPrograms)
+          ..where((p) =>
+              p.accountId.equals(accountId) &
+              p.startTime.isSmallerOrEqualValue(now) &
+              p.stopTime.isBiggerOrEqualValue(now)))
+        .watch()
+        .map((list) {
+      final map = <String, EpgProgram>{};
+      for (final rawProg in list) {
+        final cleanTitle = TitleSanitizer.unescapeHtml(rawProg.title);
+        final prog = rawProg.title != cleanTitle ? rawProg.copyWith(title: cleanTitle) : rawProg;
+        final existing = map[prog.channelId];
+        if (existing == null) {
+          map[prog.channelId] = prog;
+        } else {
+          if (prog.startTime.isAfter(existing.startTime) ||
+              (prog.startTime.isAtSameMomentAs(existing.startTime) &&
+                  prog.stopTime.difference(prog.startTime) < existing.stopTime.difference(existing.startTime))) {
+            map[prog.channelId] = prog;
+          }
+        }
+      }
+      return map;
+    });
   }
 
   Future<Map<String, EpgProgram>> getCurrentProgramsMap(int accountId) async {
@@ -48,9 +78,20 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
     return map;
   }
 
+  Future<int> countProgramsForAccount(int accountId) async {
+    final countExp = epgPrograms.id.count();
+    final query = selectOnly(epgPrograms)
+      ..addColumns([countExp])
+      ..where(epgPrograms.accountId.equals(accountId));
+    final result = await query.map((row) => row.read(countExp)).getSingle();
+    return result ?? 0;
+  }
+
   Future<void> clearPrograms(int accountId) {
     return (delete(epgPrograms)..where((p) => p.accountId.equals(accountId))).go();
   }
+
+  Future<void> clearOldEpg(int accountId) => clearPrograms(accountId);
 
   Future<void> replacePrograms(int accountId, List<EpgProgramsCompanion> programs) async {
     await transaction(() async {
@@ -64,5 +105,26 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
         });
       }
     });
+  }
+
+  Future<void> replaceProgramsForChannel(
+    int accountId,
+    String channelId,
+    List<EpgProgramsCompanion> programs,
+  ) async {
+    await transaction(() async {
+      await (delete(epgPrograms)
+            ..where((p) => p.accountId.equals(accountId) & p.channelId.equals(channelId)))
+          .go();
+      if (programs.isNotEmpty) {
+        await batch((b) {
+          b.insertAll(epgPrograms, programs, mode: InsertMode.insertOrReplace);
+        });
+      }
+    });
+  }
+
+  Future<int> pruneExpiredEpg(DateTime cutoff) {
+    return (delete(epgPrograms)..where((p) => p.stopTime.isSmallerThanValue(cutoff))).go();
   }
 }

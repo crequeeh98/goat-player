@@ -1,3 +1,4 @@
+import '../../../core/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
@@ -161,12 +162,21 @@ class EpgTimelineWidget extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ListTile(
+                  dense: GoatPlatform.isTv,
+                  visualDensity: GoatPlatform.isTv
+                      ? const VisualDensity(horizontal: -2, vertical: -3)
+                      : VisualDensity.standard,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: GoatPlatform.isTv ? 8 : 16,
+                    vertical: GoatPlatform.isTv ? 0 : 4,
+                  ),
                   leading: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         timeFormat.format(program.startTime),
                         style: TextStyle(
+                          fontSize: GoatPlatform.isTv ? 11 : null,
                           fontWeight: FontWeight.bold,
                           color: isPlaying ? Theme.of(context).colorScheme.onPrimaryContainer : null,
                         ),
@@ -174,8 +184,8 @@ class EpgTimelineWidget extends ConsumerWidget {
                       Text(
                         timeFormat.format(program.stopTime),
                         style: TextStyle(
-                          fontSize: 10, 
-                          color: isPlaying ? Theme.of(context).colorScheme.onPrimaryContainer.withAlpha(180) : Colors.grey
+                          fontSize: GoatPlatform.isTv ? 9 : 10,
+                          color: isPlaying ? Theme.of(context).colorScheme.onPrimaryContainer.withAlpha(180) : Colors.grey,
                         ),
                       ),
                     ],
@@ -186,6 +196,7 @@ class EpgTimelineWidget extends ConsumerWidget {
                         child: Text(
                           program.title,
                           style: TextStyle(
+                            fontSize: GoatPlatform.isTv ? 11.5 : null,
                             fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
                             color: isPlaying ? Theme.of(context).colorScheme.onPrimaryContainer : null,
                           ),
@@ -193,27 +204,35 @@ class EpgTimelineWidget extends ConsumerWidget {
                       ),
                       if (isPlaying)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: GoatPlatform.isTv ? 4 : 6,
+                            vertical: GoatPlatform.isTv ? 1 : 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.redAccent,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(GoatPlatform.isTv ? 3 : 4),
                           ),
-                          child: const Text(
+                          child: Text(
                             'LIVE',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: GoatPlatform.isTv ? 8.5 : 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                     ],
                   ),
-                  subtitle: program.description != null && program.description!.isNotEmpty 
+                  subtitle: program.description != null && program.description!.isNotEmpty
                       ? Text(
-                          program.description!, 
-                          maxLines: 2, 
+                          program.description!,
+                          maxLines: GoatPlatform.isTv ? 1 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
+                            fontSize: GoatPlatform.isTv ? 9.5 : null,
                             color: isPlaying ? Theme.of(context).colorScheme.onPrimaryContainer.withAlpha(200) : null,
                           ),
-                        ) 
+                        )
                       : null,
                 ),
               ),

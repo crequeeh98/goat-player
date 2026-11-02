@@ -4,7 +4,7 @@ This document outlines the development history, architectural milestones, and pr
 
 ---
 
-## 🏆 Current Release: v2.0.0 (Unified Cross-Platform IPTV & Smart TV)
+## 🏆 Current Release: v2.0.2 (Unified Cross-Platform IPTV & Smart TV)
 
 All core goals of Milestone v1 and Milestone v2 are **100% completed, tested, and verified** across Windows Desktop, Android Phone, Android TV, Amazon Fire TV, LG webOS, and Samsung Tizen.
 

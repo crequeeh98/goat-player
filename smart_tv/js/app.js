@@ -105,6 +105,29 @@
     };
   }
 
+  function escapeHtml(val) {
+    if (val === null || val === undefined) return '';
+    return String(val)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function sanitizeRawUrl(url) {
+    if (!url) return '';
+    var s = String(url).trim();
+    if (!s) return '';
+    if (/^(javascript|vbscript|file):/i.test(s)) return '';
+    if (/^data:/i.test(s) && !/^data:image\//i.test(s)) return '';
+    return s;
+  }
+
+  function sanitizeImgUrl(url) {
+    return escapeHtml(sanitizeRawUrl(url));
+  }
+
   var _activeAccount = null;
   var _currentTab = 'live'; // 'live' | 'movies' | 'series'
   var _lastMediaSourceCard = null; // Track opened movie or series for focus restoration on back
@@ -511,7 +534,7 @@
       batchSize: 40,
       renderRow: function(rowEl, stream, index, isSelected) {
         var cleanName = stream.name ? stream.name.replace(/^\[.*?\]\s*/, '') : 'Channel';
-        var iconUrl = stream.stream_icon || '';
+        var iconUrl = sanitizeImgUrl(stream.stream_icon || '');
         var isFav = _activeAccount ? window.TVStorage.isFavorite(_activeAccount.id, stream.stream_id, 'live') : false;
         var isPlaying = _selectedLiveStream && String(_selectedLiveStream.stream_id) === String(stream.stream_id);
         var starIcon = window.TVIcons ? window.TVIcons.star : '★';
@@ -523,7 +546,7 @@
             '<div class="channel-info">' +
               (iconUrl ? '<img class="channel-logo" loading="lazy" decoding="async" src="' + iconUrl + '" onerror="this.style.display=\'none\'" />' : '<div class="channel-logo">' + tvIcon + '</div>') +
               '<div class="channel-text-col">' +
-                '<span class="channel-name">' + cleanName + '</span>' +
+                '<span class="channel-name">' + escapeHtml(cleanName) + '</span>' +
                 '<span class="channel-epg-now">LIVE TV</span>' +
               '</div>' +
             '</div>' +
@@ -849,10 +872,10 @@
           expText = formatExpiryDate(acc.expDate, curLang);
           isExpired = isAccountExpired(acc.expDate);
         }
-        badgeHtml = '<div class="account-expiry-badge' + (isExpired ? ' expired' : '') + '" id="acc-exp-' + acc.id + '">' +
+        badgeHtml = '<div class="account-expiry-badge' + (isExpired ? ' expired' : '') + '" id="acc-exp-' + escapeHtml(acc.id) + '">' +
           clockIcon +
-          '<span class="expiry-label">' + expiresPrefix + '</span> ' +
-          '<span class="expiry-value">' + expText + '</span>' +
+          '<span class="expiry-label">' + escapeHtml(expiresPrefix) + '</span> ' +
+          '<span class="expiry-value">' + escapeHtml(expText) + '</span>' +
         '</div>';
       }
 
@@ -860,14 +883,14 @@
         '<div class="account-card-left">' +
           '<div class="account-avatar">' + (acc.type === 'm3u' ? '📺' : userIcon) + '</div>' +
           '<div class="account-details">' +
-            '<span class="account-name">' + (acc.name || acc.username || 'M3U Playlist') + '</span>' +
-            '<span class="account-url">' + acc.serverUrl + '</span>' +
+            '<span class="account-name">' + escapeHtml(acc.name || acc.username || 'M3U Playlist') + '</span>' +
+            '<span class="account-url">' + escapeHtml(acc.serverUrl) + '</span>' +
             badgeHtml +
           '</div>' +
         '</div>' +
         '<div class="account-card-actions">' +
-          '<button class="account-icon-btn edit focusable" title="' + editTitle + '" data-i18n-title="edit">' + editIcon + '</button>' +
-          '<button class="account-icon-btn delete focusable" title="' + delTitle + '" data-i18n-title="delete">' + trashIcon + '</button>' +
+          '<button class="account-icon-btn edit focusable" title="' + escapeHtml(editTitle) + '" data-i18n-title="edit">' + editIcon + '</button>' +
+          '<button class="account-icon-btn delete focusable" title="' + escapeHtml(delTitle) + '" data-i18n-title="delete">' + trashIcon + '</button>' +
         '</div>';
 
       // Asynchronous background fallback if expDate not yet cached in storage
@@ -1481,7 +1504,23 @@
   }
 
   function switchTab(tabName) {
+    var previousTab = _currentTab;
     _currentTab = tabName;
+
+    // Release large full-account stream arrays for inactive tabs to free RAM
+    var masterSearchModal = document.getElementById('master-search-modal');
+    var isSearchOpen = masterSearchModal && masterSearchModal.classList.contains('active');
+    if (!isSearchOpen) {
+      if (tabName !== 'movies' && previousTab === 'movies') {
+        _allAccountVodStreams = null;
+      }
+      if (tabName !== 'series' && previousTab === 'series') {
+        _allAccountSeriesStreams = null;
+      }
+      if (tabName !== 'live' && previousTab === 'live') {
+        _allAccountLiveStreams = null;
+      }
+    }
 
     closeMovieSortDropdown();
     closeSeriesSortDropdown();
@@ -1691,7 +1730,7 @@
       el.innerHTML = 
         '<div class="category-left">' +
           '<span class="category-icon">' + tvIcon + '</span>' +
-          '<span class="category-name-text">' + cat.category_name + '</span>' +
+          '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
         '</div>';
       el.onclick = function() { selectLiveCategory(cat, el); };
       listEl.appendChild(el);
@@ -1931,18 +1970,18 @@
         }
       }
 
-      var descHtml = item.description ? ('<div class="epg-item-desc">' + item.description + '</div>') : '';
+      var descHtml = item.description ? ('<div class="epg-item-desc">' + escapeHtml(item.description) + '</div>') : '';
       var liveBadgeHtml = isPlaying ? '<span class="epg-live-badge">LIVE</span>' : '';
       var progressHtml = isPlaying ? ('<div class="epg-progress-line"><div class="epg-progress-active" style="width:' + progressPercent + '%;"></div></div>') : '';
 
       el.innerHTML = 
         '<div class="epg-item-time-col">' +
-          '<span class="epg-time-start">' + startStr + '</span>' +
-          '<span class="epg-time-end">' + endStr + '</span>' +
+          '<span class="epg-time-start">' + escapeHtml(startStr) + '</span>' +
+          '<span class="epg-time-end">' + escapeHtml(endStr) + '</span>' +
         '</div>' +
         '<div class="epg-item-info-col">' +
           '<div class="epg-item-title-row">' +
-            '<span class="epg-item-title">' + (item.title || 'Program') + '</span>' +
+            '<span class="epg-item-title">' + escapeHtml(item.title || 'Program') + '</span>' +
             liveBadgeHtml +
           '</div>' +
           descHtml +
@@ -2118,18 +2157,20 @@
 
         var isFav = activeAccount ? window.TVStorage.isFavorite(activeAccount.id, ch.stream_id, 'live') : false;
         var cleanName = ch.name ? ch.name.replace(/^\[.*?\]\s*/, '') : 'Channel';
+        var safeStreamId = escapeHtml(ch.stream_id);
+        var safeChIcon = sanitizeImgUrl(ch.stream_icon) || 'assets/logo.png';
 
         item.innerHTML = 
           '<div class="channel-menu-left">' +
             '<span class="channel-menu-num">' + (idx + 1) + '</span>' +
-            '<img class="channel-menu-logo" src="' + (ch.stream_icon || 'assets/logo.png') + '" onerror="this.src=\'assets/logo.png\'" />' +
-            '<span class="channel-menu-name">' + cleanName + '</span>' +
-            '<span class="channel-menu-epg" id="cm-epg-' + ch.stream_id + '">--</span>' +
+            '<img class="channel-menu-logo" src="' + safeChIcon + '" onerror="this.src=\'assets/logo.png\'" />' +
+            '<span class="channel-menu-name">' + escapeHtml(cleanName) + '</span>' +
+            '<span class="channel-menu-epg" id="cm-epg-' + safeStreamId + '">--</span>' +
           '</div>' +
           '<div class="channel-menu-right">' +
-            '<span class="channel-menu-duration" id="cm-dur-' + ch.stream_id + '"></span>' +
-            '<div class="channel-menu-prog-bar"><div class="channel-menu-prog-fill" id="cm-fill-' + ch.stream_id + '" style="width:0%;"></div></div>' +
-            '<span class="channel-menu-fav" id="cm-fav-' + ch.stream_id + '">' + (isFav ? '★' : '') + '</span>' +
+            '<span class="channel-menu-duration" id="cm-dur-' + safeStreamId + '"></span>' +
+            '<div class="channel-menu-prog-bar"><div class="channel-menu-prog-fill" id="cm-fill-' + safeStreamId + '" style="width:0%;"></div></div>' +
+            '<span class="channel-menu-fav" id="cm-fav-' + safeStreamId + '">' + (isFav ? '★' : '') + '</span>' +
           '</div>';
 
         item.onclick = function() {
@@ -2361,7 +2402,7 @@
         item.innerHTML = 
           '<div class="category-menu-left">' +
             '<span class="category-menu-num">' + (idx + 1) + '</span>' +
-            '<span class="category-menu-name">' + cat.category_name + '</span>' +
+            '<span class="category-menu-name">' + escapeHtml(cat.category_name) + '</span>' +
           '</div>';
 
         item.onclick = function() {
@@ -2461,17 +2502,17 @@
             el.className = 'epg-overlay-item focusable ' + (isPlaying ? 'now-playing' : '');
             var startStr = item.start ? item.start.substring(11, 16) : '--:--';
             var endStr = item.end ? item.end.substring(11, 16) : '--:--';
-            var descHtml = item.description ? ('<div class="epg-item-desc">' + item.description + '</div>') : '';
+            var descHtml = item.description ? ('<div class="epg-item-desc">' + escapeHtml(item.description) + '</div>') : '';
             var liveBadgeHtml = isPlaying ? '<span class="epg-live-badge">LIVE</span>' : '';
 
             el.innerHTML = 
               '<div class="epg-item-time-col">' +
-                '<span class="epg-time-start">' + startStr + '</span>' +
-                '<span class="epg-time-end">' + endStr + '</span>' +
+                '<span class="epg-time-start">' + escapeHtml(startStr) + '</span>' +
+                '<span class="epg-time-end">' + escapeHtml(endStr) + '</span>' +
               '</div>' +
               '<div class="epg-item-info-col">' +
                 '<div class="epg-item-title-row">' +
-                  '<span class="epg-item-title">' + (item.title || 'Program') + '</span>' +
+                  '<span class="epg-item-title">' + escapeHtml(item.title || 'Program') + '</span>' +
                   liveBadgeHtml +
                 '</div>' +
                 descHtml +
@@ -2597,7 +2638,7 @@
       el.innerHTML = 
         '<div class="category-left">' +
           '<span class="category-icon">' + filmIcon + '</span>' +
-          '<span class="category-name-text">' + cat.category_name + '</span>' +
+          '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
         '</div>';
       el.onclick = function() { selectMovieCategory(cat, el); };
       listEl.appendChild(el);
@@ -3220,7 +3261,7 @@
           }
         }
         var pct = (dur > 100) ? Math.min(99, Math.max(0, Math.round((item.position / dur) * 100))) : 0;
-        var poster = item.posterUrl || 'assets/logo.png';
+        var poster = sanitizeImgUrl(item.posterUrl) || 'assets/logo.png';
 
         card.innerHTML = 
           '<div class="cw-poster-wrapper">' +
@@ -3229,7 +3270,7 @@
             '<span class="cw-play-badge">▶</span>' +
           '</div>' +
           '<div class="cw-card-info">' +
-            '<div class="cw-card-title">' + (item.title || 'Movie') + '</div>' +
+            '<div class="cw-card-title">' + escapeHtml(item.title || 'Movie') + '</div>' +
             '<div class="cw-progress-track">' +
               '<div class="cw-progress-fill" style="width:' + pct + '%;"></div>' +
             '</div>' +
@@ -3360,18 +3401,18 @@
         var sPill = 'S' + String(sNum).padStart(2, '0') + ' E' + String(eNum).padStart(2, '0');
         var dur = parseDurationSecs(item.duration);
         var pct = (item.isAdvanced || dur <= 100) ? 0 : Math.min(99, Math.max(0, Math.round((item.position / dur) * 100)));
-        var poster = item.posterUrl || 'assets/logo.png';
+        var poster = sanitizeImgUrl(item.posterUrl) || 'assets/logo.png';
 
         card.innerHTML = 
           '<div class="cw-poster-wrapper">' +
             '<img class="cw-poster-img" src="' + poster + '" alt="" />' +
-            '<span class="cw-badge">[' + sPill + ']</span>' +
+            '<span class="cw-badge">[' + escapeHtml(sPill) + ']</span>' +
             '<button class="cw-remove-btn focusable" title="Remove" aria-label="Remove">✕</button>' +
             '<span class="cw-play-badge">▶</span>' +
           '</div>' +
           '<div class="cw-card-info">' +
-            (item.seriesName ? '<div class="cw-series-name">' + item.seriesName + '</div>' : '') +
-            '<div class="cw-card-title">' + (item.title || ('Episode ' + eNum)) + '</div>' +
+            (item.seriesName ? '<div class="cw-series-name">' + escapeHtml(item.seriesName) + '</div>' : '') +
+            '<div class="cw-card-title">' + escapeHtml(item.title || ('Episode ' + eNum)) + '</div>' +
             '<div class="cw-progress-track">' +
               '<div class="cw-progress-fill" style="width:' + pct + '%;"></div>' +
             '</div>' +
@@ -3556,8 +3597,9 @@
       card.className = 'poster-card focusable';
       card.setAttribute('data-movie-idx', i);
       if (movie.stream_id) card.setAttribute('data-stream-id', movie.stream_id);
-      var posterUrl = movie.stream_icon || '';
-      var rating = movie.rating ? parseFloat(movie.rating).toFixed(1) : null;
+      var posterUrl = sanitizeImgUrl(movie.stream_icon || '');
+      var parsedRating = movie.rating ? parseFloat(movie.rating) : NaN;
+      var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
       var movieName = (movie.name || 'Movie').replace(/^[0-9]+\.\s*/, '');
 
       card.innerHTML = 
@@ -3565,7 +3607,7 @@
         (posterUrl ? '<img class="poster-card-img" loading="lazy" decoding="async" src="' + posterUrl + '" onerror="this.style.display=\'none\'" />' : '') +
         '<div class="poster-card-gradient"></div>' +
         (rating ? '<span class="poster-rating-badge">★ ' + rating + '</span>' : '') +
-        '<div class="poster-card-title">' + movieName + '</div>';
+        '<div class="poster-card-title">' + escapeHtml(movieName) + '</div>';
 
       (function(m, idx) {
         card.onclick = function() {
@@ -3599,7 +3641,7 @@
 
     var durEl = document.getElementById('movie-detail-duration');
     if (durEl) durEl.textContent = '';
-    if (posterEl) posterEl.src = movie.stream_icon || 'assets/logo.png';
+    if (posterEl) posterEl.src = sanitizeRawUrl(movie.stream_icon) || 'assets/logo.png';
     if (titleEl) titleEl.textContent = movie.name || 'Movie';
     if (yearEl) yearEl.textContent = movie.year || 'VOD';
     if (ratingEl) ratingEl.textContent = movie.rating ? '★ ' + parseFloat(movie.rating).toFixed(1) : '★ N/A';
@@ -3843,7 +3885,7 @@
       el.innerHTML = 
         '<div class="category-left">' +
           '<span class="category-icon">' + seriesIcon + '</span>' +
-          '<span class="category-name-text">' + cat.category_name + '</span>' +
+          '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
         '</div>';
       el.onclick = function() { selectSeriesCategory(cat, el); };
       listEl.appendChild(el);
@@ -4014,8 +4056,9 @@
       card.className = 'poster-card focusable';
       card.setAttribute('data-series-idx', i);
       if (series.series_id) card.setAttribute('data-series-id', series.series_id);
-      var posterUrl = series.cover || '';
-      var rating = series.rating ? parseFloat(series.rating).toFixed(1) : null;
+      var posterUrl = sanitizeImgUrl(series.cover || '');
+      var parsedRating = series.rating ? parseFloat(series.rating) : NaN;
+      var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
       var seriesName = (series.name || 'Series').replace(/^[0-9]+\.\s*/, '');
 
       card.innerHTML = 
@@ -4023,7 +4066,7 @@
         (posterUrl ? '<img class="poster-card-img" loading="lazy" decoding="async" src="' + posterUrl + '" onerror="this.style.display=\'none\'" />' : '') +
         '<div class="poster-card-gradient"></div>' +
         (rating ? '<span class="poster-rating-badge">★ ' + rating + '</span>' : '') +
-        '<div class="poster-card-title">' + seriesName + '</div>';
+        '<div class="poster-card-title">' + escapeHtml(seriesName) + '</div>';
 
       (function(s, idx) {
         card.onclick = function() {
@@ -4069,7 +4112,7 @@
       }
     }
 
-    if (posterEl) posterEl.src = series.cover || 'assets/logo.png';
+    if (posterEl) posterEl.src = sanitizeRawUrl(series.cover) || 'assets/logo.png';
     if (titleEl) titleEl.textContent = series.name || 'Series';
     if (ratingEl) ratingEl.textContent = series.rating ? '★ ' + parseFloat(series.rating).toFixed(1) : '★ N/A';
     if (plotEl) plotEl.textContent = window.TVI18n ? window.TVI18n.t('loading_series_details') : 'Loading series details...';
@@ -4242,11 +4285,11 @@
       var completedBadgeHtml = isComp ? '<span class="episode-completed-badge" title="Completed">✓</span>' : '';
       var progressBarHtml = (!isComp && progPct > 0) ? '<div class="episode-progress-track"><div class="episode-progress-fill" style="width:' + progPct + '%;"></div></div>' : '';
 
-      var epImg = (ep.info && (ep.info.movie_image || ep.info.cover)) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '';
+      var epImg = sanitizeImgUrl((ep.info && (ep.info.movie_image || ep.info.cover)) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '');
       var thumbHtml = 
         '<div class="episode-thumb-wrap">' +
           (epImg ? '<img class="episode-thumb-img" src="' + epImg + '" alt="" onerror="this.style.display=\'none\';" />' : '') +
-          '<span class="episode-thumb-fallback">E' + String(epNum).padStart(2, '0') + '</span>' +
+          '<span class="episode-thumb-fallback">E' + escapeHtml(String(epNum).padStart(2, '0')) + '</span>' +
           '<span class="episode-thumb-play">▶</span>' +
         '</div>';
 
@@ -4255,13 +4298,13 @@
           '<div class="episode-info">' +
             thumbHtml +
             '<div class="episode-text-col">' +
-              '<span class="episode-title">' + epTitle + '</span>' +
-              '<span class="episode-duration">' + formatRuntime(ep.info && ep.info.duration) + '</span>' +
+              '<span class="episode-title">' + escapeHtml(epTitle) + '</span>' +
+              '<span class="episode-duration">' + escapeHtml(formatRuntime(ep.info && ep.info.duration)) + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="episode-right-actions">' +
             completedBadgeHtml +
-            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none;">▶ ' + playLabel + '</button>' +
+            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none;">▶ ' + escapeHtml(playLabel) + '</button>' +
           '</div>' +
         '</div>' +
         progressBarHtml;
@@ -4726,17 +4769,18 @@
       liveMatches.slice(0, 30).forEach(function(ch) {
         var item = document.createElement('div');
         item.className = 'search-result-row focusable';
+        var safeChIcon = sanitizeImgUrl(ch.stream_icon);
         item.innerHTML = 
           '<div class="search-row-left">' +
-            (ch.stream_icon ? '<img class="search-row-thumb" src="' + ch.stream_icon + '" loading="lazy" onerror="this.style.display=\'none\'" />' : '<div class="search-row-thumb" style="display:flex;align-items:center;justify-content:center;">' + tvIcon + '</div>') +
+            (safeChIcon ? '<img class="search-row-thumb" src="' + safeChIcon + '" loading="lazy" onerror="this.style.display=\'none\'" />' : '<div class="search-row-thumb" style="display:flex;align-items:center;justify-content:center;">' + tvIcon + '</div>') +
             '<div class="search-row-info">' +
-              '<span class="search-row-title">' + (ch.name ? ch.name.replace(/^\[.*?\]\s*/, '') : 'Channel') + '</span>' +
+              '<span class="search-row-title">' + escapeHtml(ch.name ? ch.name.replace(/^\[.*?\]\s*/, '') : 'Channel') + '</span>' +
               '<div class="search-row-meta">' +
                 '<span class="search-meta-badge">LIVE TV</span>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + playText + '</span></button>';
+          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + escapeHtml(playText) + '</span></button>';
         item.onclick = function() {
           closeModal(document.getElementById('modal-master-search'));
           switchTab('live');
@@ -4809,22 +4853,23 @@
       movieMatches.slice(0, 30).forEach(function(m) {
         var row = document.createElement('div');
         row.className = 'search-result-row focusable';
-        var rating = m.rating ? parseFloat(m.rating).toFixed(1) : null;
+        var parsedRating = m.rating ? parseFloat(m.rating) : NaN;
+        var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
         var year = m.year || (m.release_date ? m.release_date.substring(0, 4) : null);
-        var iconUrl = m.stream_icon || 'assets/logo.png';
+        var iconUrl = sanitizeImgUrl(m.stream_icon) || 'assets/logo.png';
         row.innerHTML = 
           '<div class="search-row-left">' +
             '<img class="search-row-thumb" src="' + iconUrl + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />' +
             '<div class="search-row-info">' +
-              '<span class="search-row-title">' + (m.name || 'Movie') + '</span>' +
+              '<span class="search-row-title">' + escapeHtml(m.name || 'Movie') + '</span>' +
               '<div class="search-row-meta">' +
-                '<span class="search-meta-badge">' + (window.TVI18n ? window.TVI18n.t('movies') : 'Movie') + '</span>' +
-                (year ? '<span>' + year + '</span>' : '') +
+                '<span class="search-meta-badge">' + escapeHtml(window.TVI18n ? window.TVI18n.t('movies') : 'Movie') + '</span>' +
+                (year ? '<span>' + escapeHtml(year) + '</span>' : '') +
                 (rating ? '<span class="search-meta-rating">★ ' + rating + '</span>' : '') +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + playMovieText + '</span></button>';
+          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + escapeHtml(playMovieText) + '</span></button>';
         row.onclick = function() {
           closeModal(document.getElementById('modal-master-search'));
           openMovieDetail(m);
@@ -4863,20 +4908,21 @@
       seriesMatches.slice(0, 30).forEach(function(s) {
         var row = document.createElement('div');
         row.className = 'search-result-row focusable';
-        var rating = s.rating ? parseFloat(s.rating).toFixed(1) : null;
-        var iconUrl = s.cover || s.stream_icon || 'assets/logo.png';
+        var parsedRating = s.rating ? parseFloat(s.rating) : NaN;
+        var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
+        var iconUrl = sanitizeImgUrl(s.cover || s.stream_icon) || 'assets/logo.png';
         row.innerHTML = 
           '<div class="search-row-left">' +
             '<img class="search-row-thumb" src="' + iconUrl + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />' +
             '<div class="search-row-info">' +
-              '<span class="search-row-title">' + (s.name || 'Series') + '</span>' +
+              '<span class="search-row-title">' + escapeHtml(s.name || 'Series') + '</span>' +
               '<div class="search-row-meta">' +
-                '<span class="search-meta-badge">' + (window.TVI18n ? window.TVI18n.t('series') : 'Series') + '</span>' +
+                '<span class="search-meta-badge">' + escapeHtml(window.TVI18n ? window.TVI18n.t('series') : 'Series') + '</span>' +
                 (rating ? '<span class="search-meta-rating">★ ' + rating + '</span>' : '') +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + episodesText + '</span></button>';
+          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + escapeHtml(episodesText) + '</span></button>';
         row.onclick = function() {
           closeModal(document.getElementById('modal-master-search'));
           openSeriesDetail(s);
@@ -4938,7 +4984,7 @@
           btn.className = 'track-opt-btn focusable ' + (isAct ? 'active' : '');
           var checkHtml = isAct ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
           var trackLabel = at.title || at.name || at.language || at.id || ('Audio ' + (at.index + 1));
-          btn.innerHTML = '<span>' + trackLabel + '</span>' + checkHtml;
+          btn.innerHTML = '<span>' + escapeHtml(trackLabel) + '</span>' + checkHtml;
           btn.onclick = function() {
             if (_player) {
               _player.setAudioTrack(at.index);
@@ -5057,7 +5103,7 @@
           sBtn.className = 'track-opt-btn focusable ' + (isAct ? 'active' : '');
           var checkHtml = isAct ? '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>' : '';
           var sLabel = st.title || st.name || st.language || st.id || ('Subtitle ' + (st.index + 1));
-          sBtn.innerHTML = '<span>' + sLabel + '</span>' + checkHtml;
+          sBtn.innerHTML = '<span>' + escapeHtml(sLabel) + '</span>' + checkHtml;
           sBtn.onclick = function() {
             if (_player) _player.setSubtitleTrack(st.index);
             var choice = st.title || st.name || st.language || st.id;
@@ -5321,11 +5367,11 @@
       var completedBadgeHtml = isComp ? '<span class="episode-completed-badge" title="Completed">✓</span>' : '';
       var progressBarHtml = (!isComp && progPct > 0) ? '<div class="episode-progress-track"><div class="episode-progress-fill" style="width:' + progPct + '%;"></div></div>' : '';
 
-      var epImg = (ep.info && (ep.info.movie_image || ep.info.cover)) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '';
+      var epImg = sanitizeImgUrl((ep.info && (ep.info.movie_image || ep.info.cover)) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '');
       var thumbHtml = 
         '<div class="episode-thumb-wrap">' +
           (epImg ? '<img class="episode-thumb-img" src="' + epImg + '" alt="" onerror="this.style.display=\'none\';" />' : '') +
-          '<span class="episode-thumb-fallback">E' + String(epNum).padStart(2, '0') + '</span>' +
+          '<span class="episode-thumb-fallback">E' + escapeHtml(String(epNum).padStart(2, '0')) + '</span>' +
           '<span class="episode-thumb-play">▶</span>' +
         '</div>';
 
@@ -5334,13 +5380,13 @@
           '<div class="episode-info">' +
             thumbHtml +
             '<div class="episode-text-col">' +
-              '<span class="episode-title">' + epTitle + '</span>' +
-              '<span class="episode-duration">' + formatRuntime(ep.info && ep.info.duration) + '</span>' +
+              '<span class="episode-title">' + escapeHtml(epTitle) + '</span>' +
+              '<span class="episode-duration">' + escapeHtml(formatRuntime(ep.info && ep.info.duration)) + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="episode-right-actions">' +
             completedBadgeHtml +
-            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none;">▶ ' + playLabel + '</button>' +
+            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none;">▶ ' + escapeHtml(playLabel) + '</button>' +
           '</div>' +
         '</div>' +
         progressBarHtml;

@@ -24,17 +24,17 @@ class VodController {
 
   VodController(this._ref);
 
-  Future<void> syncVodCategories({bool force = false}) =>
-      VodSyncHelper.syncCategories(_ref, type: 'movie', force: force);
+  Future<void> syncVodCategories({bool force = false, bool rethrowOnError = false}) =>
+      VodSyncHelper.syncCategories(_ref, type: 'movie', force: force, rethrowOnError: rethrowOnError);
 
   Future<void> syncVodStreams(String categoryId) =>
       VodSyncHelper.syncCategoryStreams(_ref, type: 'movie', categoryId: categoryId);
 
-  Future<void> syncAllVodStreams({bool force = false}) async {
+  Future<void> syncAllVodStreams({bool force = false, bool rethrowOnError = false}) async {
     if (_isSyncingAll) return;
     _isSyncingAll = true;
     try {
-      await VodSyncHelper.syncAllStreams(_ref, type: 'movie', force: force);
+      await VodSyncHelper.syncAllStreams(_ref, type: 'movie', force: force, rethrowOnError: rethrowOnError);
     } finally {
       _isSyncingAll = false;
     }

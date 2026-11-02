@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var CURRENT_VERSION = '2.0.1';
+  var CURRENT_VERSION = '2.0.2';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
@@ -50,6 +50,7 @@
         if (!data || !data.tag_name) return;
 
         var latestTag = data.tag_name.trim();
+        if (!/^v?\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9._-]+)?$/.test(latestTag)) return;
         var latestVer = latestTag.replace(/^v/, '');
 
         var activeVer = getActiveVersion();

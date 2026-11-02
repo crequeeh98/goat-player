@@ -145,6 +145,11 @@ void main(List<String> args) {
 
     await GoatPlatform.init();
 
+    if (GoatPlatform.isTv) {
+      PaintingBinding.instance.imageCache.maximumSize = 120;
+      PaintingBinding.instance.imageCache.maximumSizeBytes = 35 << 20; // 35 MB Cap on TV
+    }
+
     if (!GoatPlatform.isWeb) {
       MediaKit.ensureInitialized();
     }

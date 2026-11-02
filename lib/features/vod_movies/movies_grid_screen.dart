@@ -277,6 +277,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
           final maxExtent = GoatPlatform.isTv ? 130.0 : (isDesktop ? 200.0 : 150.0);
           final spacing = GoatPlatform.isTv ? 10.0 : 16.0;
           final crossAxisCount = ((gridAreaWidth + spacing) / (maxExtent + spacing)).ceil().clamp(1, 20);
+          final dpr = MediaQuery.devicePixelRatioOf(context);
+          final posterCacheWidth = (maxExtent * dpr).round().clamp(240, 480);
 
           if (provider == null) {
             _currentStreamIds = const [];
@@ -387,6 +389,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         
                     return CustomScrollView(
                       controller: _movieScrollController,
+                      cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
                       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                       slivers: [
                         if (_searchQuery.isEmpty)
@@ -492,8 +495,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                             child: Image.network(
                                               stream.streamIcon!, 
                                               fit: BoxFit.cover,
-                                              cacheWidth: 200,
-                                              cacheHeight: 300,
+                                              cacheWidth: posterCacheWidth,
                                               errorBuilder: (_,__,___) => const Center(child: Icon(Icons.movie, size: 40, color: Colors.grey)),
                                             ),
                                           ),
@@ -875,7 +877,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 }
                                 return ListView.builder(
                                   controller: _categoryScrollController,
-                                  cacheExtent: GoatPlatform.isTv ? 3000.0 : 500.0,
+                                  cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
                                   itemExtent: GoatPlatform.isTv ? 36.0 : 46.0,
                                   itemCount: categories.length,
                                   itemBuilder: (context, index) {

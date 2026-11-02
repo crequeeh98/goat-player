@@ -24,17 +24,17 @@ class SeriesController {
 
   SeriesController(this._ref);
 
-  Future<void> syncSeriesCategories({bool force = false}) =>
-      VodSyncHelper.syncCategories(_ref, type: 'series', force: force);
+  Future<void> syncSeriesCategories({bool force = false, bool rethrowOnError = false}) =>
+      VodSyncHelper.syncCategories(_ref, type: 'series', force: force, rethrowOnError: rethrowOnError);
 
   Future<void> syncSeriesStreams(String categoryId) =>
       VodSyncHelper.syncCategoryStreams(_ref, type: 'series', categoryId: categoryId);
 
-  Future<void> syncAllSeriesStreams({bool force = false}) async {
+  Future<void> syncAllSeriesStreams({bool force = false, bool rethrowOnError = false}) async {
     if (_isSyncingAll) return;
     _isSyncingAll = true;
     try {
-      await VodSyncHelper.syncAllStreams(_ref, type: 'series', force: force);
+      await VodSyncHelper.syncAllStreams(_ref, type: 'series', force: force, rethrowOnError: rethrowOnError);
     } finally {
       _isSyncingAll = false;
     }

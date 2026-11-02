@@ -112,7 +112,7 @@ class LiveTvController {
   
   LiveTvController(this._ref);
 
-  Future<void> syncLiveCategories({bool force = false}) async {
+  Future<void> syncLiveCategories({bool force = false, bool rethrowOnError = false}) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
@@ -147,6 +147,7 @@ class LiveTvController {
       await prefs.setInt('last_sync_categories_live_${account.id}', nowMs);
     } catch (e) {
       debugPrint('Failed to sync live categories: $e');
+      if (rethrowOnError) rethrow;
     }
   }
 
@@ -182,7 +183,7 @@ class LiveTvController {
 
   bool _isSyncingAll = false;
 
-  Future<void> syncAllLiveStreams({bool force = false}) async {
+  Future<void> syncAllLiveStreams({bool force = false, bool rethrowOnError = false}) async {
     if (_isSyncingAll) return;
     final account = _ref.read(activeAccountProvider);
     if (account == null) return;
@@ -192,7 +193,7 @@ class LiveTvController {
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final lastSync = prefs.getInt('last_sync_all_live_${account.id}') ?? 0;
-    if (!force && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+    if (!force && (nowMs - lastSync < 24 * 60 * 60 * 1000)) {
       debugPrint('Live streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
       return;
     }
@@ -216,9 +217,7 @@ class LiveTvController {
         final streamCompanions = <StreamsCompanion>[];
         final seenCats = <String>{};
 
-        int index = 0;
         for (final item in m3uItems) {
-          index++;
           final groupName = item.groupTitle.isNotEmpty ? item.groupTitle : 'General';
           final catId = 'cat_${groupName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_-]'), '_')}';
 
@@ -232,10 +231,11 @@ class LiveTvController {
             ));
           }
 
+          final stableStreamId = item.tvgId.isNotEmpty ? 'm3u_${item.tvgId}' : 'm3u_${item.url.hashCode.abs()}';
           streamCompanions.add(StreamsCompanion.insert(
             accountId: account.id,
             categoryId: catId,
-            streamId: 'm3u_$index',
+            streamId: stableStreamId,
             epgChannelId: item.tvgId.isNotEmpty ? Value(item.tvgId) : const Value.absent(),
             name: TitleSanitizer.sanitizeLiveTvChannel(item.title),
             streamType: 'live',
@@ -267,6 +267,7 @@ class LiveTvController {
       debugPrint('Finished syncing ALL Live streams.');
     } catch (e) {
       debugPrint('Failed to sync all live streams: $e');
+      if (rethrowOnError) rethrow;
     } finally {
       _isSyncingAll = false;
     }

@@ -67,6 +67,7 @@ class VodSyncHelper {
     Ref ref, {
     required String type,
     bool force = false,
+    bool rethrowOnError = false,
   }) async {
     final client = ref.read(xtreamClientProvider);
     final account = ref.read(activeAccountProvider);
@@ -107,6 +108,7 @@ class VodSyncHelper {
       await prefs.setInt(lastSyncKey, nowMs);
     } catch (e) {
       debugPrint('Failed to sync $type categories: $e');
+      if (rethrowOnError) rethrow;
     }
   }
 
@@ -144,6 +146,7 @@ class VodSyncHelper {
     Ref ref, {
     required String type,
     bool force = false,
+    bool rethrowOnError = false,
   }) async {
     final client = ref.read(xtreamClientProvider);
     final account = ref.read(activeAccountProvider);
@@ -155,7 +158,7 @@ class VodSyncHelper {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final lastSyncKey = 'last_sync_all_${type == 'movie' ? 'vod' : 'series'}_${account.id}';
     final lastSync = prefs.getInt(lastSyncKey) ?? 0;
-    if (!force && existingCount > 0 && (nowMs - lastSync < 12 * 60 * 60 * 1000)) {
+    if (!force && existingCount > 0 && (nowMs - lastSync < 24 * 60 * 60 * 1000)) {
       debugPrint('$type streams were synced recently ($existingCount streams cached). Skipping full sync.');
       return;
     }
@@ -179,6 +182,7 @@ class VodSyncHelper {
       debugPrint('Finished syncing ALL $type streams.');
     } catch (e) {
       debugPrint('Failed to sync all $type streams: $e');
+      if (rethrowOnError) rethrow;
     }
   }
 
