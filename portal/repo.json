@@ -6,18 +6,18 @@
       "iconUri": "https://raw.githubusercontent.com/crequeeh98/goat-player/main/smart_tv/icon.png",
       "manifest": {
         "id": "com.goatplayer.tv",
-        "version": "2.0.2",
+        "version": "2.0.3",
         "type": "web",
         "title": "GOATPlayer TV",
         "appDescription": "Ultra-fast, premium IPTV player for Smart TV.",
         "iconUri": "https://raw.githubusercontent.com/crequeeh98/goat-player/main/smart_tv/icon.png",
         "sourceUrl": "https://github.com/crequeeh98/goat-player",
         "rootRequired": false,
-        "ipkUrl": "https://github.com/crequeeh98/goat-player/releases/download/v2.0.2/com.goatplayer.tv_2.0.2_all.ipk",
+        "ipkUrl": "https://github.com/crequeeh98/goat-player/releases/download/v2.0.3/com.goatplayer.tv_2.0.3_all.ipk",
         "ipkHash": {
-          "sha256": "93e23f2d323aad1aa7ead2d73da3a88b7f2dd56b7aafeba4909cd410ba7cdbf3"
+          "sha256": "bf4d2ab5954a4feb64d2d7c2a1016a748f99a02e7320fd847ca7ffe9329e3063"
         },
-        "ipkSize": 717746
+        "ipkSize": 718884
       },
       "pool": "main",
       "requirements": {
