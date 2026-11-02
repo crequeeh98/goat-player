@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release Tag (e.g. v2.0.2)'
+        description: 'Release Tag (e.g. v2.0.3)'
         required: true
-        default: 'v2.0.2'
+        default: 'v2.0.3'
 
 permissions:
   contents: write
@@ -307,37 +307,17 @@ jobs:
           prerelease: false
           files: release_assets/*
           body: |
-            ## 🐐 GOATPlayer v2.0.2
+            ## 🐐 GOATPlayer v2.0.3
 
-            ### 🇩🇪 Änderungen & Optimierungen (v2.0.2)
-            - **7 TV RAM- & Performance-Optimierungen**:
-              - *On-Demand Short-EPG*: Kein RAM-Vollabgleich beim Start; lädt on-demand ~10 Sendungen via `get_short_epg` (15 Min TTL).
-              - *Virtual DOM Recycling*: Smart TV DOM-Knoten auf max. 30 Elemente begrenzt; Flutter Viewport-Caching optimiert.
-              - *Lazy VOD Sync*: Serien- und Filmdetails laden erst beim Öffnen des Modals.
-              - *XMLTV Isolate-Streaming*: Streaming großer EPG-Dateien in Chunks verhindert 150+ MB Heap-Spikes.
-              - *Poster Image Memory Caching*: Thumbnail-Downscaling (`memCacheWidth`), Disk-Caching und Max 60 Heap-Decoder.
-              - *Continue Watching Capping*: Verlauf und Abspielfortschritte auf 50 VOD-Einträge gecappt.
-              - *Automatischer EPG-Prune*: Löscht abgelaufene EPG-Sendungen (>24h alt) beim App-Start aus SQLite.
-            - **2 Sicherheits- & Updater-Härtungen**:
-              - *Smart TV DOM XSS Härtung*: Alle dynamischen EPG-/Metadaten-Renderings nutzen strikt `textContent` oder HTML-Sanitization.
-              - *Auto-Updater Integritätsprüfung*: HTTPS-GitHub-Restriktion, Path-Traversal-Schutz und SHA-256 Checksummenabgleich gegen `SHA256SUMS`.
-            - **EPG & Info HUD Angleichung (Flutter)**:
-              - *EPG Timezone-Fix*: Korrektes lokales Broadcast-String-Parsing verhindert 1h-UTC-Fehlversatz des Xtream-PHP-Servers ("JETZT" bleibt erhalten).
-              - *Windows Kanalliste*: Sendungstitel und lila Fortschrittsbalken unter Sendernamen auf Desktop aktiviert.
-              - *Info HUD Parität*: Windows nutzt nun im Vollbild das lange, lila Smart-IPTV Info HUD (wie Fire TV); Preview-Modus bleibt sauber ohne HUD.
-              - *Player Schließen-Button*: Folgt nun exakt der erprobten `ESC`-Logik (beendet Vollbild sauber zurück zur Vorschau, kein Dashboard-Sprung).
-              - *Fire TV Navigation & EPG-Schrift*: Reibungslose D-Pad-Navigation zurück zu Kategorien; EPG-Programmplan-Schriftgröße dezent verkleinert.
-            - **Smart TV Brand Icons**: Textlose 1:1 Markenkachel und LG webOS Dock-Banner ohne Textabdrücke.
+            ### 🇩🇪 Änderungen & Optimierungen (v2.0.3)
+            - **Dynamischer Smart-TV OTA Bootloader (Samsung Tizen & LG webOS)**:
+              - *Vollwertige In-App-Updates ohne Neuinstallation*: Neuer Code wird beim Start direkt aus dem Speicher dynamisch gebootet.
+              - *Fail-Safe & Auto-Rollback*: Fängt Startfehler automatisch ab und stellt bei Problemen die stabilen Originaldateien ohne Abstürze wieder her.
 
-            ### 🇬🇧 Changes & Optimizations (v2.0.2)
-            - **7 TV RAM & Performance Optimizations**:
-              - *On-Demand Short EPG*: TV no longer downloads full EPG upfront; fetches ~10 shows via `get_short_epg` (15m TTL).
-              - *Virtual DOM Recycling*: Smart TV DOM capped at 30 recycled elements; Flutter viewport caching fine-tuned.
-              - *Lazy VOD Sync*: Series/movie details load on-demand when opening detail modal.
-              - *XMLTV Isolate Streaming*: Chunked streaming parser prevents 150+ MB heap spikes.
-              - *Poster Memory Caching*: Strict thumbnail downscaling (`memCacheWidth`), disk caching, and max 60 heap decoders.
-              - *Continue Watching Capping*: History & playback progress capped at 50 VOD items.
-              - *Auto EPG Pruning*: Prunes expired EPG listings (>24h old) from SQLite on launch.
+            ### 🇬🇧 Changes & Optimizations (v2.0.3)
+            - **Dynamic Smart TV OTA Bootloader (Samsung Tizen & LG webOS)**:
+              - *Full in-app updates without reinstallation*: Updated code is booted dynamically from cache on startup.
+              - *Fail-safe & auto-rollback*: Automatically intercepts boot errors and restores factory files without crash loops.
             - **2 Security & Updater Hardening Fixes**:
               - *Smart TV DOM XSS Hardening*: All dynamic EPG and metadata rendering uses `textContent` or HTML sanitization.
               - *Auto-Updater Integrity Check*: Enforces HTTPS GitHub domains, blocks path traversal, and validates SHA-256 against `SHA256SUMS`.

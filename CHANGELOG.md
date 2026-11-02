@@ -4,6 +4,20 @@ All notable changes to the **GOATPlayer** project will be documented in this fil
 
 ---
 
+## [2.0.3] - 2026-11-02
+
+### 🇩🇪 Änderungen & Optimierungen
+- **Dynamischer Smart-TV OTA Bootloader (Samsung Tizen & LG webOS)**:
+  - *Vollwertige In-App-Updates ohne Neuinstallation*: Neuer Code wird beim Start direkt aus dem Speicher dynamisch gebootet.
+  - *Fail-Safe & Auto-Rollback*: Fängt Startfehler automatisch ab und stellt bei Problemen die stabilen Originaldateien ohne Abstürze wieder her.
+
+### 🇬🇧 Changes & Optimizations
+- **Dynamic Smart TV OTA Bootloader (Samsung Tizen & LG webOS)**:
+  - *Full in-app updates without reinstallation*: Updated code is booted dynamically from cache on startup.
+  - *Fail-safe & auto-rollback*: Automatically intercepts boot errors and restores factory files without crash loops.
+
+---
+
 ## [2.0.2] - 2026-11-02
 
 ### 🇩🇪 Änderungen & Optimierungen
