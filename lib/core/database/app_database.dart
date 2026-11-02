@@ -19,7 +19,7 @@ part 'app_database.g.dart';
   daos: [AccountDao, CategoryDao, StreamDao, EpgDao, PlaybackProgressDao, FavoriteDao],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(connection.openConnection());
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? connection.openConnection());
 
   @override
   int get schemaVersion => 8;
