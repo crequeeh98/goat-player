@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 
@@ -12,12 +12,12 @@ class ZeroKnowledgePairingCrypto {
     final salt = '$saltPrefix${deviceId.trim().toUpperCase()}';
     final derivator = KeyDerivator('SHA-256/HMAC/PBKDF2');
     final params = Pbkdf2Parameters(
-      utf8.encode(salt) as Uint8List,
+      Uint8List.fromList(utf8.encode(salt)),
       iterations,
       32,
     );
     derivator.init(params);
-    return derivator.process(utf8.encode(pin.trim()) as Uint8List);
+    return derivator.process(Uint8List.fromList(utf8.encode(pin.trim())));
   }
 
   /// Decrypts an incoming sync_action payload using AES-256-GCM.
@@ -69,10 +69,13 @@ class ZeroKnowledgePairingCrypto {
   ) {
     try {
       final key = deriveKey(pin, deviceId);
-      final random = SecureRandom('Fortuna')..seed(KeyParameter(Uint8List(32)));
-      final iv = random.nextBytes(12);
+      final random = Random.secure();
+      final iv = Uint8List(12);
+      for (int i = 0; i < 12; i++) {
+        iv[i] = random.nextInt(256);
+      }
 
-      final jsonBytes = utf8.encode(jsonEncode(plainAction)) as Uint8List;
+      final jsonBytes = Uint8List.fromList(utf8.encode(jsonEncode(plainAction)));
 
       final cipher = GCMBlockCipher(AESEngine());
       final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
