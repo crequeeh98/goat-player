@@ -203,7 +203,7 @@
           return res.text();
         })
         .then(function(content) {
-          if (!content || content.indexOf('404: Not Found') !== -1 || content.length < 50) {
+          if (!content || content.length < 50 || (content.length < 100 && content.indexOf('404') !== -1)) {
             throw new Error('Invalid content for ' + fileInfo.name);
           }
           downloadedBundle.files[fileInfo.name] = content;
