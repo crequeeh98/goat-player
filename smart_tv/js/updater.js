@@ -2,7 +2,9 @@
 (function() {
   'use strict';
 
-  var CURRENT_VERSION = '2.0.2';
+  var CURRENT_VERSION = (window.TVBootloader && window.TVBootloader.getBaseVersion)
+    ? window.TVBootloader.getBaseVersion()
+    : '2.0.2';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
@@ -11,6 +13,12 @@
 
   function getActiveVersion() {
     try {
+      if (window.__GOAT_TV_VERSION__) {
+        return window.__GOAT_TV_VERSION__;
+      }
+      if (window.TVBootloader && typeof window.TVBootloader.getActiveVersion === 'function') {
+        return window.TVBootloader.getActiveVersion();
+      }
       var saved = localStorage.getItem(OTA_STORAGE_KEY);
       if (saved) {
         var otaBundle = JSON.parse(saved);
@@ -154,11 +162,20 @@
     if (confirmText) confirmText.textContent = lang;
 
     var filesToUpdate = [
-      { name: 'app.js', path: 'smart_tv/js/app.js' },
-      { name: 'player.js', path: 'smart_tv/js/player.js' },
+      { name: 'style.css', path: 'smart_tv/css/style.css' },
+      { name: 'icons.js', path: 'smart_tv/js/icons.js' },
+      { name: 'i18n.js', path: 'smart_tv/js/i18n.js' },
+      { name: 'm3u.js', path: 'smart_tv/js/m3u.js' },
+      { name: 'storage.js', path: 'smart_tv/js/storage.js' },
+      { name: 'api.js', path: 'smart_tv/js/api.js' },
+      { name: 'sync.js', path: 'smart_tv/js/sync.js' },
       { name: 'spatial_nav.js', path: 'smart_tv/js/spatial_nav.js' },
+      { name: 'virtual_list.js', path: 'smart_tv/js/virtual_list.js' },
+      { name: 'diagnostics.js', path: 'smart_tv/js/diagnostics.js' },
       { name: 'subtitles.js', path: 'smart_tv/js/subtitles.js' },
-      { name: 'style.css', path: 'smart_tv/css/style.css' }
+      { name: 'player.js', path: 'smart_tv/js/player.js' },
+      { name: 'updater.js', path: 'smart_tv/js/updater.js' },
+      { name: 'app.js', path: 'smart_tv/js/app.js' }
     ];
 
     var total = filesToUpdate.length;
@@ -234,6 +251,9 @@
   }
 
   function applyCachedOtaBundle() {
+    // If the dynamic bootloader is active, the OTA bundle was already booted before updater.js
+    if (window.TVBootloader) return;
+
     try {
       var saved = localStorage.getItem(OTA_STORAGE_KEY);
       if (!saved) return;
@@ -246,13 +266,6 @@
 
       if (!bundle.files) return;
 
-      // Clean up any previously injected dynamic OTA script tags to prevent duplicate execution
-      var oldScripts = document.querySelectorAll('script[id^="goat-ota-"]');
-      for (var s = 0; s < oldScripts.length; s++) {
-        try { oldScripts[s].parentNode.removeChild(oldScripts[s]); } catch (_) {}
-      }
-
-      // Dynamically inject updated CSS if present
       if (bundle.files['style.css']) {
         var styleEl = document.getElementById('goat-ota-style') || document.createElement('style');
         styleEl.id = 'goat-ota-style';

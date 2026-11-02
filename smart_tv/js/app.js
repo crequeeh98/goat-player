@@ -6382,5 +6382,9 @@
     hasMoreSeries: function() { return _seriesLoadedCount < _seriesFilteredList.length; }
   };
 
-  window.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
