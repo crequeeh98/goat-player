@@ -195,6 +195,65 @@ jobs:
           ares-package build/webos_staging -o dist/smart_tv
           rm -rf build/webos_staging
 
+      - name: Auto-update webOS Homebrew Manifest
+        shell: bash
+        run: |
+          IPK_FILE=$(ls dist/smart_tv/*.ipk | head -n 1)
+          if [ -f "$IPK_FILE" ]; then
+            IPK_NAME=$(basename "$IPK_FILE")
+            IPK_SHA256=$(sha256sum "$IPK_FILE" | awk '{print $1}')
+            IPK_SIZE=$(stat -c%s "$IPK_FILE")
+            TAG="${{ github.ref_name }}"
+            if [[ ! "$TAG" =~ ^v[0-9] ]]; then
+              TAG="${{ github.event.inputs.release_tag || 'v2.0.2' }}"
+            fi
+            RAW_VER="${TAG#v}"
+
+            echo "Updating webOS manifest for $TAG ($IPK_NAME): SHA256=$IPK_SHA256, Size=$IPK_SIZE"
+
+            node -e "
+              const fs = require('fs');
+              const path = 'webos-repo/apps.json';
+              const manifest = {
+                packages: [{
+                  id: 'com.goatplayer.tv',
+                  title: 'GOATPlayer TV',
+                  iconUri: 'https://raw.githubusercontent.com/crequeeh98/goat-player/main/smart_tv/icon.png',
+                  manifest: {
+                    id: 'com.goatplayer.tv',
+                    version: '$RAW_VER',
+                    type: 'web',
+                    title: 'GOATPlayer TV',
+                    appDescription: 'Ultra-fast, premium IPTV player for Smart TV.',
+                    iconUri: 'https://raw.githubusercontent.com/crequeeh98/goat-player/main/smart_tv/icon.png',
+                    sourceUrl: 'https://github.com/crequeeh98/goat-player',
+                    rootRequired: false,
+                    ipkUrl: 'https://github.com/crequeeh98/goat-player/releases/download/$TAG/' + '$IPK_NAME',
+                    ipkHash: {
+                      sha256: '$IPK_SHA256'
+                    },
+                    ipkSize: Number('$IPK_SIZE')
+                  },
+                  pool: 'main',
+                  requirements: {
+                    webosRelease: '>=4.0'
+                  },
+                  shortDescription: 'Ultra-fast, premium IPTV player for Smart TV.'
+                }]
+              };
+              fs.writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n');
+              if (fs.existsSync('portal/repo.json')) {
+                fs.writeFileSync('portal/repo.json', JSON.stringify(manifest, null, 2) + '\n');
+              }
+            "
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add webos-repo/apps.json portal/repo.json || true
+            git commit -m "chore(release): auto-update webos homebrew repo manifest for $TAG [skip ci]" || true
+            git push origin HEAD:main || true
+          fi
+
       - name: Upload Smart TV Artifacts
         uses: actions/upload-artifact@v4
         with:
