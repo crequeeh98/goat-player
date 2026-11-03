@@ -1137,7 +1137,6 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Row(
                     children: [
-                      const SizedBox(width: 48),
                       Expanded(
                         child: ref.watch(seriesCategoriesProvider).when(
                           data: (categories) {
@@ -1149,12 +1148,14 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                                 ),
-                                child: Text(l10n.noCategoriesAvailable, style: const TextStyle(color: Colors.white54)),
+                                alignment: Alignment.center,
+                                child: Text(l10n.noCategoriesAvailable, style: const TextStyle(color: Colors.white54), textAlign: TextAlign.center),
                               );
                             }
 
                             final selectedValid = categories.any((c) => c.categoryId == _selectedCategory) ? _selectedCategory : null;
                             return DropdownButtonFormField<String>(
+                              alignment: AlignmentDirectional.center,
                               decoration: InputDecoration(
                                 labelText: l10n.category,
                                 filled: true,
@@ -1180,17 +1181,21 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                 final displayName = isFavorites ? 'Watchlist' : cat.name;
                                 return DropdownMenuItem(
                                   value: cat.categoryId,
+                                  alignment: AlignmentDirectional.center,
                                   child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (isFavorites) ...[
                                         const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
                                         const SizedBox(width: 8),
                                       ],
-                                      Expanded(
+                                      Flexible(
                                         child: Text(
                                           displayName,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
                                           style: TextStyle(
                                             color: isFavorites ? Colors.amber : null,
                                             fontWeight: isFavorites ? FontWeight.bold : null,
