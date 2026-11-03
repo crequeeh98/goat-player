@@ -7,7 +7,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20FireTV%20%7C%20Tizen%20%7C%20webOS-blue)](#-device-installation-guides)
 [![Repository](https://img.shields.io/badge/Repo-GitHub-blue)](https://github.com/crequeeh98/goat-player)
-[![Release](https://img.shields.io/badge/Release-v2.0.0-purple)](https://github.com/crequeeh98/goat-player/releases)
+[![Release](https://img.shields.io/badge/Release-v2.0.4-purple)](https://github.com/crequeeh98/goat-player/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
@@ -123,7 +123,7 @@ Pick whichever installation path is most convenient for you:
 ---
 
 ### 5. 📺 LG Smart TV (webOS 4.0+)
-1. Download `com.goatplayer.tv_2.0.0_all.ipk` from [Releases](https://github.com/crequeeh98/goat-player/releases) to your computer.
+1. Download `com.goatplayer.tv_2.0.4_all.ipk` from [Releases](https://github.com/crequeeh98/goat-player/releases) to your computer.
 2. Install the **Developer Mode** app from the LG Content Store on your TV, launch it, log in with your free LG Developer account, and turn **Dev Mode Status** to **ON** (note the TV IP and Passphrase).
 3. **Easiest Installation (1-Click GUI via PC/Mac)**:
    - Download and open the free open-source [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your computer.

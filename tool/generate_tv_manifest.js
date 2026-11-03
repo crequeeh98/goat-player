@@ -34,7 +34,7 @@ function getVersion() {
     const data = JSON.parse(fs.readFileSync(appinfoPath, 'utf8'));
     if (data.version) return data.version;
   }
-  return '2.0.3';
+  return '2.0.4';
 }
 
 function generateManifest() {

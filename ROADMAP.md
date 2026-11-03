@@ -4,7 +4,7 @@ This document outlines the development history, architectural milestones, and pr
 
 ---
 
-## 🏆 Current Release: v2.0.2 (Unified Cross-Platform IPTV & Smart TV)
+## 🏆 Current Release: v2.0.4 (Security Hardening Suite & Full Localization)
 
 All core goals of Milestone v1 and Milestone v2 are **100% completed, tested, and verified** across Windows Desktop, Android Phone, Android TV, Amazon Fire TV, LG webOS, and Samsung Tizen.
 
@@ -12,7 +12,24 @@ All core goals of Milestone v1 and Milestone v2 are **100% completed, tested, an
 
 ## ✅ Completed Milestones
 
-### 1. Dual-Stack Core & Live TV Engine (v1.0 - v1.2)
+### 1. Security & Hardening Suite (v2.0.4)
+- [x] **Zero-Knowledge Remote Pairing**: AES-256-GCM encryption with PBKDF2 key derivation for cloud pairing between TVs and Web Portal.
+- [x] **At-Rest Database & Storage Encryption**: Secret credentials encrypted via AES-GCM (`enc:v1:`) in Drift SQLite and LocalStorage with automated zero-breakage migration.
+- [x] **Smart TV OTA Code Integrity**: SHA-256 cryptographic verification before running cached OTA update scripts.
+- [x] **Network Credential Masking**: Automated masking of passwords and server tokens in Dio error logs.
+- [x] **Android Backup Hardening**: OS-level backup disabled (`allowBackup="false"`) protecting against ADB dump vectors.
+- [x] **Manifest & Privilege Minimization**: Unused permissions removed from Tizen (`config.xml`) and webOS (`appinfo.json`).
+- [x] **Automated Session Cleanup**: Database trigger auto-purging expired pairing sessions older than 10 minutes.
+- [x] **1:1 Modal Localization**: Complete English and German localization for playlist refresh workflows.
+- [x] **Playback Dialog Modernization**: Sleek rounded Material icons for audio, subtitles, and done buttons.
+- [x] **Active Version Badge**: Real running version displayed across all platforms on the Account screen.
+
+### 2. Smart TV OTA Bootloader & RAM Optimizations (v2.0.3)
+- [x] **Dynamic Smart TV OTA Bootloader**: Instant in-app JavaScript engine updates without reinstallation or store approvals on Samsung Tizen & LG webOS.
+- [x] **Fail-Safe & Auto-Rollback**: Automatic crash recovery restoring factory files on boot failure.
+- [x] **TV RAM & Virtual DOM Recycling**: DOM node recycling capped at 30 items for smooth 60 FPS scrolling.
+
+### 3. Dual-Stack Core & Live TV Engine (v1.0 - v1.2)
 - [x] **Sub-Second Channel Zapping**: Instant stream switching on native Flutter (`media_kit` / `libmpv`) and Smart TV (`HTML5 Video` / `Hls.js`).
 - [x] **In-Stream Live EPG Drawer**: Translucent slide-out channel guide with active channel highlighting and schedule timeline.
 - [x] **Channel & Category Auto-Scroll**: Switching categories or tabs keeps active channel focused and in view.

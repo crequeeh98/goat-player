@@ -4,7 +4,7 @@
 
   var CURRENT_VERSION = (window.TVBootloader && window.TVBootloader.getBaseVersion)
     ? window.TVBootloader.getBaseVersion()
-    : '2.0.3';
+    : '2.0.4';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 

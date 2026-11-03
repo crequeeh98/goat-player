@@ -4,6 +4,38 @@ All notable changes to the **GOATPlayer** project will be documented in this fil
 
 ---
 
+## [2.0.4] - 2026-11-03
+
+### 🇩🇪 Änderungen & Optimierungen
+- **Sicherheits- & Hardening-Suite**:
+  - *Zero-Knowledge Remote Pairing*: Ende-zu-Ende AES-256-GCM Verschlüsselung bei QR-/PIN-Kopplung (PBKDF2 Schlüsselableitung). Playlisten und Zugangsdaten liegen auf Cloud-Brokern zu keinem Zeitpunkt im Klartext vor.
+  - *Passwort-Verschlüsselung at Rest*: Zugangsdaten in lokaler SQLite (Flutter) und LocalStorage (Smart TV) per AES-GCM geschützt. Nahtlose automatische Migration aller bestehenden Accounts.
+  - *Smart TV OTA Code-Integrität*: Dynamischer Bootloader validiert Code vor Ausführung strikt per kryptografischem SHA-256 Hash.
+  - *Schutz vor Credential-Leaks in Logs*: Automatische Maskierung von Passwörtern und Parametern bei Netzwerk- und Verbindungsfehlern.
+  - *Android Backup-Schutz*: Deaktiviertes OS-Backup (`allowBackup="false"`) verhindert Extraktion von Nutzerdaten über ADB.
+  - *Berechtigungs-Minimalismus*: Unnötige System-Privilegien und Berechtigungen auf Tizen (`config.xml`) und webOS (`appinfo.json`) bereinigt.
+  - *Automatischer Session-Cleanup*: Abgelaufene Kopplungssitzungen werden nach 10 Minuten serverseitig automatisch gelöscht.
+- **UI, Lokalisierung & Modernisierung**:
+  - *Playlist-Aktualisieren Dialog*: Vollständig 1:1 auf Deutsch und Englisch übersetzt (relative Zeitstempel, Statusanzeigen, Buttons).
+  - *Moderne Dialog-Icons*: Wiedergabe-Einstellungen modernisiert mit abgerundeten Material-Icons für Audiospur, Untertitel und Fertig-Aktion.
+  - *Aktive Versionsanzeige*: Laufende App-Version wird nun direkt auf der Account-Übersicht auf allen Plattformen angezeigt.
+
+### 🇬🇧 Changes & Optimizations
+- **Security & Hardening Suite**:
+  - *Zero-Knowledge Remote Pairing*: End-to-end AES-256-GCM encryption for QR/PIN TV pairing. Credentials and playlist URLs are never stored in plaintext on third-party cloud brokers.
+  - *Password Encryption at Rest*: Secret credentials encrypted with AES-GCM across SQLite (Flutter) and LocalStorage (Smart TV) with zero-breakage migration.
+  - *Smart TV OTA Code Integrity*: Dynamic bootloader validates cached script integrity via SHA-256 before script injection.
+  - *Credential Masking in Error Logs*: Passwords and sensitive parameters are stripped and masked in network error messages.
+  - *Android Backup Hardening*: Explicitly disabled OS backup (`allowBackup="false"`) prevents extracting credentials via ADB backup.
+  - *Privilege Minimization*: Stripped unused system permissions from Samsung Tizen (`config.xml`) and LG webOS (`appinfo.json`).
+  - *Automated Session Cleanup*: Database trigger purges expired pairing sessions (>10 min) automatically.
+- **UI, Localization & Modernization**:
+  - *Playlist Sync Modal*: Complete 1:1 localization in English and German (relative timestamps, status states, action buttons).
+  - *Modernized Dialog Icons*: Playback settings dialog updated with sleek rounded Material icons for audio, subtitles, and done buttons.
+  - *Active Version Badge*: Displays active running version on the Account management screen across all platforms.
+
+---
+
 ## [2.0.3] - 2026-11-02
 
 ### 🇩🇪 Änderungen & Optimierungen

@@ -20,7 +20,7 @@ Stores IPTV provider credentials and playlist configurations.
 | `playlistName` | Text | Nullable | User-friendly display label |
 | `serverUrl` | Text | Not Null | IPTV server base URL or direct M3U URL |
 | `username` | Text | Not Null | Xtream username or empty for direct M3U |
-| `password` | Text | Not Null | Xtream password or empty for direct M3U |
+| `password` | Text | Not Null | Encrypted via AES-GCM (`enc:v1:`) using PBKDF2 device-derived key |
 | `isTrial` | Bool | Default `false` | Trial account indicator |
 | `maxConnections` | Int | Nullable | Maximum allowed concurrent streams |
 | `expDate` | Int | Nullable | Subscription expiration Unix timestamp |
@@ -106,7 +106,7 @@ On low-powered Smart TVs (Samsung Tizen & LG webOS), the application uses an abs
 
 | Key | Storage Target | Description |
 |---|---|---|
-| `goat_accounts` | JSON Array | Array of configured IPTV accounts |
+| `goat_accounts` | JSON Array | Array of configured IPTV accounts (passwords encrypted via Web Crypto AES-GCM `enc:v1:`) |
 | `goat_active_account` | String | ID of currently selected active account |
 | `goat_favs_<accountId>` | JSON Array | Array of pinned favorite stream IDs |
 | `goat_progress_<accountId>` | JSON Object | Map of `streamId` to progress objects `{ position, duration, completed, lastWatched }` |
