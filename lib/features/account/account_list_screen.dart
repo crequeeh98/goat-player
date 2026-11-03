@@ -13,6 +13,7 @@ import '../../core/widgets/tv_remote_scope.dart';
 import '../../core/database/app_database.dart';
 import '../../core/utils/platform_utils.dart';
 import 'dart:io';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/updater/app_updater_service.dart';
 import '../../core/updater/widgets/update_dialog.dart';
 
@@ -28,10 +29,12 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   bool _isNavigating = false;
   bool _hasNoAccounts = true;
   bool _didAutoLogin = false;
+  String _appVersion = '';
 
   @override
   void initState() {
     super.initState();
+    _loadAppVersion();
     if (GoatPlatform.isPhone) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
@@ -53,6 +56,26 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
       final updateInfo = await updater.checkForUpdate();
       if (updateInfo != null && updateInfo.hasUpdate && mounted) {
         UpdateDialog.show(context, updateInfo: updateInfo, updaterService: updater);
+      }
+    } catch (_) {}
+  }
+
+  void _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      String ver = info.version;
+      if (Platform.isWindows) {
+        try {
+          final exeDir = File(Platform.resolvedExecutable).parent;
+          final versionFile = File('${exeDir.path}${Platform.pathSeparator}version.txt');
+          if (versionFile.existsSync()) {
+            final fileVer = versionFile.readAsStringSync().trim();
+            if (fileVer.isNotEmpty) ver = fileVer;
+          }
+        } catch (_) {}
+      }
+      if (mounted && ver.isNotEmpty) {
+        setState(() => _appVersion = ver);
       }
     } catch (_) {}
   }
@@ -234,7 +257,33 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                   left: GoatPlatform.isTv ? 32.0 : 0,
                   top: GoatPlatform.isTv ? 8.0 : 0,
                 ),
-                child: Text(l10n.accounts),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.accounts),
+                    if (_appVersion.isNotEmpty) ...[
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Text(
+                          'v$_appVersion',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFC4B5FD),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               actions: [
                 if (GoatPlatform.isTv)

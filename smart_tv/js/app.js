@@ -824,6 +824,10 @@
   }
 
   function renderAccountsList() {
+    var verBadge = document.getElementById('accounts-version-badge');
+    if (verBadge && window.TVUpdater && typeof window.TVUpdater.getActiveVersion === 'function') {
+      verBadge.textContent = 'v' + window.TVUpdater.getActiveVersion();
+    }
     var accounts = window.TVStorage.getAccounts();
     var gridEl = document.getElementById('accounts-grid');
     var emptyEl = document.getElementById('accounts-empty');
