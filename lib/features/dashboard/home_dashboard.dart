@@ -271,6 +271,28 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
     final isCompact = MediaQuery.sizeOf(context).width < 600;
 
+    final account = ref.watch(activeAccountProvider);
+    final hasLive = account?.syncLiveTv ?? true;
+    final hasMovies = account?.syncMovies ?? true;
+    final hasSeries = account?.syncSeries ?? true;
+
+    if (_selectedIndex == 0 && !hasLive) {
+      final target = hasMovies ? 1 : (hasSeries ? 2 : 0);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabSelected(target);
+      });
+    } else if (_selectedIndex == 1 && !hasMovies) {
+      final target = hasLive ? 0 : (hasSeries ? 2 : 1);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabSelected(target);
+      });
+    } else if (_selectedIndex == 2 && !hasSeries) {
+      final target = hasLive ? 0 : (hasMovies ? 1 : 2);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabSelected(target);
+      });
+    }
+
     if (GoatPlatform.isTv) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;

@@ -1160,73 +1160,109 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                 const Divider(height: 1, thickness: 0.5, color: Colors.white12),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: ref.watch(vodCategoriesProvider).when(
-                    data: (categories) {
-                      if (categories.isEmpty) return Text(l10n.noCategoriesAvailable);
-                      
-                      return DropdownButtonFormField<String>(
-                        decoration: InputDecoration(
-                          labelText: l10n.category,
-                          filled: true,
-                          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-                          ),
-                        ),
-                        isExpanded: true,
-                        value: _selectedCategory,
-                        items: categories.map((cat) {
-                          final isFavorites = cat.categoryId == 'favorites';
-                          final displayName = isFavorites ? 'Watchlist' : cat.name;
-                          return DropdownMenuItem(
-                            value: cat.categoryId,
-                            child: Row(
-                              children: [
-                                if (isFavorites) ...[
-                                  const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-                                  const SizedBox(width: 8),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    displayName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: isFavorites ? Colors.amber : null,
-                                      fontWeight: isFavorites ? FontWeight.bold : null,
-                                    ),
-                                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ref.watch(vodCategoriesProvider).when(
+                          data: (categories) {
+                            if (categories.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                                 ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedCategory = val;
-                              _searchController.clear();
-                              _searchQuery = '';
-                            });
-                            if (val != 'favorites') {
-                              ref.read(vodControllerProvider).syncVodStreams(val);
+                                child: Text(l10n.noCategoriesAvailable, style: const TextStyle(color: Colors.white54)),
+                              );
                             }
-                          }
+
+                            final selectedValid = categories.any((c) => c.categoryId == _selectedCategory) ? _selectedCategory : null;
+                            return DropdownButtonFormField<String>(
+                              decoration: InputDecoration(
+                                labelText: l10n.category,
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                                ),
+                              ),
+                              isExpanded: true,
+                              value: selectedValid,
+                              items: categories.map((cat) {
+                                final isFavorites = cat.categoryId == 'favorites';
+                                final displayName = isFavorites ? 'Watchlist' : cat.name;
+                                return DropdownMenuItem(
+                                  value: cat.categoryId,
+                                  child: Row(
+                                    children: [
+                                      if (isFavorites) ...[
+                                        const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      Expanded(
+                                        child: Text(
+                                          displayName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: isFavorites ? Colors.amber : null,
+                                            fontWeight: isFavorites ? FontWeight.bold : null,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _selectedCategory = val;
+                                    _searchController.clear();
+                                    _searchQuery = '';
+                                  });
+                                  if (val != 'favorites') {
+                                    ref.read(vodControllerProvider).syncVodStreams(val);
+                                  }
+                                }
+                              },
+                            );
+                          },
+                          loading: () => const LinearProgressIndicator(),
+                          error: (err, stack) => Text('Error: $err'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                        ),
+                        icon: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFFB388FF)),
+                        tooltip: 'Kategorien verwalten',
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => const CategoryManagerModal(type: 'movie'),
+                          );
                         },
-                      );
-                    },
-                    loading: () => const LinearProgressIndicator(),
-                    error: (err, stack) => Text('Error: $err'),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(child: content),
