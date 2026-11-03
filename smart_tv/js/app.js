@@ -825,8 +825,12 @@
 
   function renderAccountsList() {
     var verBadge = document.getElementById('accounts-version-badge');
-    if (verBadge && window.TVUpdater && typeof window.TVUpdater.getActiveVersion === 'function') {
-      verBadge.textContent = 'v' + window.TVUpdater.getActiveVersion();
+    if (verBadge) {
+      var activeVer = window.__GOAT_TV_VERSION__ ||
+        (window.TVBootloader && typeof window.TVBootloader.getActiveVersion === 'function' ? window.TVBootloader.getActiveVersion() : null) ||
+        (window.TVUpdater && typeof window.TVUpdater.getActiveVersion === 'function' ? window.TVUpdater.getActiveVersion() : null) ||
+        (window.TVUpdater && typeof window.TVUpdater.getVersion === 'function' ? window.TVUpdater.getVersion() : null);
+      if (activeVer) verBadge.textContent = 'v' + activeVer;
     }
     var accounts = window.TVStorage.getAccounts();
     var gridEl = document.getElementById('accounts-grid');

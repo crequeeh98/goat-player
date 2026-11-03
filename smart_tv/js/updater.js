@@ -354,7 +354,8 @@
   window.TVUpdater = {
     init: init,
     checkForUpdates: checkForUpdates,
-    getVersion: getActiveVersion
+    getVersion: getActiveVersion,
+    getActiveVersion: getActiveVersion
   };
 
   if (document.readyState === 'loading') {

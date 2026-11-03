@@ -1,6 +1,6 @@
 {
   "version": "2.0.4",
-  "generatedAt": "2026-11-03T07:50:48.843Z",
+  "generatedAt": "2026-11-03T08:16:03.790Z",
   "files": {
     "style.css": "70ff67fed3553178739806d5f3c16c84b633323f16bf53eec91de79288e0eb88",
     "icons.js": "5bd56b06df207b083b90a3ca01431dc8b35c04f9c0dd01a6c97fcc08a266ff84",
@@ -14,7 +14,7 @@
     "diagnostics.js": "196ce420664d6c9ba5bf89527b0590cd2a1606356797d672442ce580753889a8",
     "subtitles.js": "c4c2d0933ab91211d1920afebc68bb86208c7ff0386b734b11c191eb275f774d",
     "player.js": "f361942ad86b4b95795aa7d0bc4a581bd38f9547f3b978c572913384b029c19e",
-    "updater.js": "f8192436b13ba8e06cf768377ff6817e16e1e7efb31d23b17ffd91c68ce6b59a",
-    "app.js": "6cc6046c55f47e847bab6818af70b681d9358f97d335c7498011afa3a86a85af"
+    "updater.js": "70bc6cdea4aeb2be4cb5f1e0cc037af438c06ccacd4feeaaca577ab3dde6d17a",
+    "app.js": "a8727761c681833270548b3e614e7fe996cb4d69dce02e084c6a067be16b177f"
   }
 }
