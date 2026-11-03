@@ -1026,7 +1026,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                               SizedBox(width: GoatPlatform.isTv ? 8 : 10),
                                               Expanded(
                                                 child: Text(
-                                                  isFavorites ? l10n.favorites : cat.name,
+                                                  isFavorites ? 'Watchlist' : cat.name,
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
@@ -1162,7 +1162,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                         value: _selectedCategory,
                         items: categories.map((cat) {
                           final isFavorites = cat.categoryId == 'favorites';
-                          final displayName = isFavorites ? l10n.favorites : cat.name;
+                          final displayName = isFavorites ? 'Watchlist' : cat.name;
                           return DropdownMenuItem(
                             value: cat.categoryId,
                             child: Row(

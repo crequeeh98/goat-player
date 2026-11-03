@@ -82,7 +82,34 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
           item.category.categoryId,
           widget.type,
           newHidden,
+          sortOrder: item.sortOrder,
         );
+  }
+
+  void _hideAll() async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null || _localCategories == null) return;
+
+    final toHide = _localCategories!.where((c) => !c.isHidden).toList();
+    setState(() {
+      _localCategories = _localCategories!.map((c) => CategoryWithPref(
+        category: c.category,
+        isHidden: true,
+        sortOrder: c.sortOrder,
+        isNew: c.isNew,
+      )).toList();
+    });
+
+    final prefDao = ref.read(categoryPreferenceDaoProvider);
+    for (final item in toHide) {
+      await prefDao.setVisibility(
+        account.id,
+        item.category.categoryId,
+        widget.type,
+        true,
+        sortOrder: item.sortOrder,
+      );
+    }
   }
 
   void _unhideAll() async {
@@ -101,7 +128,13 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
 
     final prefDao = ref.read(categoryPreferenceDaoProvider);
     for (final item in toUnhide) {
-      await prefDao.setVisibility(account.id, item.category.categoryId, widget.type, false);
+      await prefDao.setVisibility(
+        account.id,
+        item.category.categoryId,
+        widget.type,
+        false,
+        sortOrder: item.sortOrder,
+      );
     }
   }
 
@@ -131,6 +164,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (account == null) return const SizedBox.shrink();
 
     final categoriesAsync = ref.watch(managedCategoriesProvider(widget.type));
+    final allVisible = _localCategories != null &&
+        _localCategories!.isNotEmpty &&
+        _localCategories!.every((c) => !c.isHidden);
 
     final title = widget.type == 'live'
         ? 'Live TV Kategorien verwalten'
@@ -200,19 +236,26 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                 children: [
                   TvFocusable(
                     borderRadius: BorderRadius.circular(8),
-                    onPressed: _unhideAll,
+                    onPressed: allVisible ? _hideAll : _unhideAll,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.visibility_rounded, size: 14, color: Color(0xFFB388FF)),
-                          SizedBox(width: 6),
-                          Text('Alle einblenden', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                          Icon(
+                            allVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 14,
+                            color: const Color(0xFFB388FF),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            allVisible ? 'Alle ausblenden' : 'Alle einblenden',
+                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          ),
                         ],
                       ),
                     ),
@@ -274,8 +317,6 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                 ),
                 data: (data) {
                   if (_localCategories == null || _localCategories!.length != data.length) {
-                    _localCategories = List.from(data);
-                  } else if (_movingIndex == null) {
                     _localCategories = List.from(data);
                   }
 

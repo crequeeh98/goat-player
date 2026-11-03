@@ -22,7 +22,7 @@ class CategoryPreferenceDao extends DatabaseAccessor<AppDatabase> with _$Categor
         .get();
   }
 
-  Future<void> setVisibility(int accountId, String categoryId, String type, bool isHidden) async {
+  Future<void> setVisibility(int accountId, String categoryId, String type, bool isHidden, {int? sortOrder}) async {
     final existing = await (select(categoryPreferences)
           ..where((cp) => cp.accountId.equals(accountId) & cp.categoryId.equals(categoryId) & cp.type.equals(type)))
         .getSingleOrNull();
@@ -32,11 +32,13 @@ class CategoryPreferenceDao extends DatabaseAccessor<AppDatabase> with _$Categor
             ..where((cp) => cp.id.equals(existing.id)))
           .write(CategoryPreferencesCompanion(isHidden: Value(isHidden)));
     } else {
+      final defaultSort = sortOrder ?? (categoryId == 'favorites' ? -100 : (categoryId.startsWith('custom_list:') ? -50 : 0));
       await into(categoryPreferences).insert(CategoryPreferencesCompanion.insert(
         accountId: accountId,
         categoryId: categoryId,
         type: type,
         isHidden: Value(isHidden),
+        sortOrder: Value(defaultSort),
       ));
     }
   }

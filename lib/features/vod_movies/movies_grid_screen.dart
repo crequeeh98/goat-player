@@ -1051,7 +1051,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                               SizedBox(width: GoatPlatform.isTv ? 8 : 10),
                                               Expanded(
                                                 child: Text(
-                                                  isFavorites ? l10n.favorites : cat.name,
+                                                  isFavorites ? 'Watchlist' : cat.name,
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
                                                   style: TextStyle(
@@ -1187,7 +1187,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                         value: _selectedCategory,
                         items: categories.map((cat) {
                           final isFavorites = cat.categoryId == 'favorites';
-                          final displayName = isFavorites ? l10n.favorites : cat.name;
+                          final displayName = isFavorites ? 'Watchlist' : cat.name;
                           return DropdownMenuItem(
                             value: cat.categoryId,
                             child: Row(

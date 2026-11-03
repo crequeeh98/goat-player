@@ -6244,9 +6244,28 @@
     if (unhideAllBtn) {
       unhideAllBtn.onclick = function() {
         if (_activeAccount && window.TVStorage) {
-          window.TVStorage.unhideAllCategories(_activeAccount.id, _activeCategoryManagerType);
-          renderCategoryManagerList();
-          showToast('Alle Kategorien eingeblendet', '✓');
+          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+          var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType);
+          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+          var customCats = customLists.map(function(cl) {
+            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
+          });
+          var allCats = [favCat].concat(customCats).concat(rawCats);
+          var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
+          var allVisible = allCats.length > 0 && allCats.every(function(c) {
+            var id = String(c.category_id || c.categoryId);
+            return prefs.hidden.indexOf(id) === -1;
+          });
+          if (allVisible) {
+            prefs.hidden = allCats.map(function(c) { return String(c.category_id || c.categoryId); });
+            window.TVStorage.saveCategoryPrefs(_activeAccount.id, _activeCategoryManagerType, prefs);
+            renderCategoryManagerList();
+            showToast('Alle Kategorien ausgeblendet', '✓');
+          } else {
+            window.TVStorage.unhideAllCategories(_activeAccount.id, _activeCategoryManagerType);
+            renderCategoryManagerList();
+            showToast('Alle Kategorien eingeblendet', '✓');
+          }
         }
       };
     }
@@ -6907,6 +6926,15 @@
     });
     var allCats = [favCat].concat(customCats).concat(rawCats);
     var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType) : { order: [], hidden: [], newIds: [] };
+
+    var unhideBtn = document.getElementById('cat-mgr-unhide-all');
+    if (unhideBtn) {
+      var allVis = allCats.length > 0 && allCats.every(function(c) {
+        var id = String(c.category_id || c.categoryId);
+        return prefs.hidden.indexOf(id) === -1;
+      });
+      unhideBtn.textContent = allVis ? 'Alle ausblenden' : 'Alle einblenden';
+    }
 
     // Order categories according to prefs.order
     var catMap = {};

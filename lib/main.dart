@@ -143,6 +143,10 @@ final managedCategoriesProvider = StreamProvider.family.autoDispose<List<Categor
     allList.sort((a, b) {
       final cmp = a.sortOrder.compareTo(b.sortOrder);
       if (cmp != 0) return cmp;
+      final aPriority = a.category.categoryId == 'favorites' ? -2 : (a.category.categoryId.startsWith('custom_list:') ? -1 : 0);
+      final bPriority = b.category.categoryId == 'favorites' ? -2 : (b.category.categoryId.startsWith('custom_list:') ? -1 : 0);
+      final pCmp = aPriority.compareTo(bPriority);
+      if (pCmp != 0) return pCmp;
       return a.category.name.toLowerCase().compareTo(b.category.name.toLowerCase());
     });
 
