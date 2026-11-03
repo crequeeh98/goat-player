@@ -31,9 +31,7 @@ WITH CHECK (true);
 
 CREATE POLICY "anon_pairing_update" ON remote_devices 
 FOR UPDATE 
-USING (
-  pin_expires_at > (now() - interval '2 minutes')
-)
+USING (true)
 WITH CHECK (true);
 
 -- 4. Automatisches Aufräumen abgelaufener Sessions (verhindert Datenanhäufung)
