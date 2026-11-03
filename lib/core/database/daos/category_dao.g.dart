@@ -6,6 +6,8 @@ part of 'category_dao.dart';
 mixin _$CategoryDaoMixin on DatabaseAccessor<AppDatabase> {
   $AccountsTable get accounts => attachedDatabase.accounts;
   $CategoriesTable get categories => attachedDatabase.categories;
+  $CategoryPreferencesTable get categoryPreferences =>
+      attachedDatabase.categoryPreferences;
   CategoryDaoManager get managers => CategoryDaoManager(this);
 }
 
@@ -16,4 +18,9 @@ class CategoryDaoManager {
       $$AccountsTableTableManager(_db.attachedDatabase, _db.accounts);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
+  $$CategoryPreferencesTableTableManager get categoryPreferences =>
+      $$CategoryPreferencesTableTableManager(
+        _db.attachedDatabase,
+        _db.categoryPreferences,
+      );
 }

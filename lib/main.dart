@@ -13,6 +13,9 @@ import 'core/database/daos/account_dao.dart';
 import 'core/database/daos/category_dao.dart';
 import 'core/database/daos/stream_dao.dart';
 import 'core/database/daos/epg_dao.dart';
+import 'core/database/daos/favorite_dao.dart';
+import 'core/database/daos/category_preference_dao.dart';
+import 'core/database/daos/custom_list_dao.dart';
 import 'core/network/xtream_client.dart';
 import 'core/settings/locale_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,6 +55,37 @@ final streamDaoProvider = Provider<StreamDao>((ref) {
 final epgDaoProvider = Provider<EpgDao>((ref) {
   final db = ref.watch(databaseProvider);
   return EpgDao(db);
+});
+
+final favoriteDaoProvider = Provider<FavoriteDao>((ref) {
+  final db = ref.watch(databaseProvider);
+  return FavoriteDao(db);
+});
+
+final categoryPreferenceDaoProvider = Provider<CategoryPreferenceDao>((ref) {
+  final db = ref.watch(databaseProvider);
+  return CategoryPreferenceDao(db);
+});
+
+final customListDaoProvider = Provider<CustomListDao>((ref) {
+  final db = ref.watch(databaseProvider);
+  return CustomListDao(db);
+});
+
+final customListsProvider = StreamProvider.family.autoDispose<List<CustomList>, String>((ref, type) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return const Stream.empty();
+  final dao = ref.watch(customListDaoProvider);
+  return dao.watchCustomLists(account.id, type);
+});
+
+final newCategoryIdsProvider = StreamProvider.family.autoDispose<Set<String>, String>((ref, type) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return Stream.value(const <String>{});
+  final dao = ref.watch(categoryPreferenceDaoProvider);
+  return dao.watchPreferences(account.id, type).map((prefs) {
+    return prefs.where((p) => p.isNew).map((p) => p.categoryId).toSet();
+  });
 });
 
 class ActiveAccount extends Notifier<Account?> {

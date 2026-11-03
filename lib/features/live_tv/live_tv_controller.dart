@@ -61,7 +61,8 @@ final syncingCategoriesProvider = NotifierProvider<SyncingCategories, Set<String
 final liveCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
   final account = ref.watch(activeAccountProvider);
   if (account == null) return const Stream.empty();
-  
+
+  final customLists = ref.watch(customListsProvider('live')).asData?.value ?? const <CustomList>[];
   final dao = ref.watch(categoryDaoProvider);
   return dao.watchCategories(account.id, 'live').map((list) {
     final favoritesCat = Category(
@@ -71,9 +72,17 @@ final liveCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) 
       name: 'Favorites', 
       type: 'live'
     );
-    final seen = <String>{'favorites'};
+    final customListCategories = customLists.map((cl) => Category(
+      id: -cl.id - 100,
+      accountId: account.id,
+      categoryId: 'custom_list:${cl.id}',
+      name: cl.name,
+      type: 'live',
+    )).toList();
+
+    final seen = <String>{'favorites', ...customListCategories.map((c) => c.categoryId)};
     final uniqueList = list.where((c) => seen.add(c.categoryId)).toList();
-    return [favoritesCat, ...uniqueList];
+    return [favoritesCat, ...customListCategories, ...uniqueList];
   });
 });
 
@@ -81,10 +90,16 @@ final liveStreamsProvider = StreamProvider.family.autoDispose<List<StreamItem>, 
   final account = ref.watch(activeAccountProvider);
   if (account == null) return const Stream.empty();
   
-  final dao = ref.watch(streamDaoProvider);
   if (categoryId == 'favorites') {
+    final dao = ref.watch(streamDaoProvider);
     return dao.watchFavoriteStreams(account.id, 'live');
   }
+  if (categoryId.startsWith('custom_list:')) {
+    final listId = int.tryParse(categoryId.substring('custom_list:'.length)) ?? -1;
+    final customDao = ref.watch(customListDaoProvider);
+    return customDao.watchStreamsForCustomList(listId, account.id);
+  }
+  final dao = ref.watch(streamDaoProvider);
   return dao.watchStreamsByCategory(account.id, categoryId);
 });
 
@@ -115,7 +130,7 @@ class LiveTvController {
   Future<void> syncLiveCategories({bool force = false, bool rethrowOnError = false}) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
-    if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+    if (client == null || account == null || !account.syncLiveTv || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
     
     final prefs = _ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -186,7 +201,7 @@ class LiveTvController {
   Future<void> syncAllLiveStreams({bool force = false, bool rethrowOnError = false}) async {
     if (_isSyncingAll) return;
     final account = _ref.read(activeAccountProvider);
-    if (account == null) return;
+    if (account == null || !account.syncLiveTv) return;
     
     final isM3u = account.username.isEmpty || account.serverUrl.contains('.m3u');
 

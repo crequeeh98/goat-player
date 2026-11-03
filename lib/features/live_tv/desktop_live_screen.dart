@@ -20,6 +20,8 @@ import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_text_field.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../main.dart';
+import '../common/category_manager_modal.dart';
+import '../common/stream_context_menu_modal.dart';
 
 class DesktopLiveScreen extends ConsumerStatefulWidget {
   const DesktopLiveScreen({super.key});
@@ -183,41 +185,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   }
 
   Future<void> _handleChannelLongPress(StreamItem stream) async {
-    if (!GoatPlatform.isTv) {
-      await _toggleFavorite(stream);
-      return;
-    }
-    final favIds = ref.read(favoriteStreamIdsProvider('live')).value ?? const <String>{};
-    final isFav = favIds.contains(stream.streamId);
-    final isDe = Localizations.localeOf(context).languageCode == 'de';
-    final cleanName = ChannelNameCleaner.clean(stream.name);
-
-    final action = await TvColorActionPicker.showLiveActions(
-      context: context,
-      channelName: cleanName,
-      isFavorite: isFav,
-      isDe: isDe,
-    );
-    if (!mounted || action == null) return;
-
-    if (action == TvLiveColorAction.toggleFavorite) {
-      await _toggleFavorite(stream);
-    } else if (action == TvLiveColorAction.openEpg) {
-      await showDialog(
-        context: context,
-        barrierColor: Colors.black54,
-        builder: (ctx) => Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(24),
-          child: TvLiveEpgOverlay(
-            stream: stream,
-            onClose: () => Navigator.of(ctx).pop(),
-          ),
-        ),
-      );
-    } else if (action == TvLiveColorAction.openCategories) {
-      _focusCategoryColumn();
-    }
+    await StreamContextMenuModal.show(context, stream);
   }
 
   Future<void> _toggleFavorite(StreamItem stream) async {
@@ -578,7 +546,10 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                   children: [
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 4.0 : 8.0),
-                      child: TvTextField(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TvTextField(
                         focusNode: _searchFocusNode,
                         controller: _searchController,
                         style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
@@ -688,6 +659,29 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         },
                       ),
                     ),
+                    const SizedBox(width: 4),
+                    TvFocusable(
+                      borderRadius: BorderRadius.circular(10),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => const CategoryManagerModal(type: 'live'),
+                        );
+                      },
+                      child: Container(
+                        width: GoatPlatform.isTv ? 32 : 38,
+                        height: GoatPlatform.isTv ? 32 : 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white12, width: 1),
+                        ),
+                        child: Icon(Icons.tune_rounded, size: GoatPlatform.isTv ? 16 : 18, color: const Color(0xFFB388FF)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
                     Expanded(
                       child: ref.watch(liveCategoriesProvider).when(
                         data: (rawCategories) {
@@ -710,6 +704,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               final cat = categories[index];
                               final isSelected = _selectedCategory == cat.categoryId;
                               final isFavorites = cat.categoryId == 'favorites';
+                              final isCustomList = cat.categoryId.startsWith('custom_list:');
+                              final isNewCat = ref.watch(newCategoryIdsProvider('live')).asData?.value.contains(cat.categoryId) ?? false;
 
                               final itemNode = _categoryFocusNodes.putIfAbsent(
                                 cat.categoryId,
@@ -786,7 +782,21 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                     }
                                     return KeyEventResult.ignored;
                                   },
-                                  onPressed: () => _selectCategory(cat.categoryId),
+                                  onPressed: () {
+                                    if (isNewCat) {
+                                      final account = ref.read(activeAccountProvider);
+                                      if (account != null) {
+                                        ref.read(categoryPreferenceDaoProvider).markViewed(account.id, cat.categoryId, 'live');
+                                      }
+                                    }
+                                    _selectCategory(cat.categoryId);
+                                  },
+                                  onLongPress: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => const CategoryManagerModal(type: 'live'),
+                                    );
+                                  },
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: isSelected
@@ -811,11 +821,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                         Icon(
                                           isFavorites
                                               ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
-                                              : (isSelected ? Icons.tv : Icons.folder_outlined),
+                                              : isCustomList
+                                                  ? Icons.playlist_play_rounded
+                                                  : (isSelected ? Icons.tv : Icons.folder_outlined),
                                           size: GoatPlatform.isTv ? 15 : 18,
                                           color: isFavorites
                                               ? Colors.amber
-                                              : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
+                                              : isCustomList
+                                                  ? const Color(0xFFB388FF)
+                                                  : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
                                         ),
                                         SizedBox(width: GoatPlatform.isTv ? 8 : 10),
                                         Expanded(
@@ -830,6 +844,25 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                             ),
                                           ),
                                         ),
+                                        if (isNewCat) ...[
+                                          const SizedBox(width: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.withValues(alpha: 0.25),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.amber, width: 0.8),
+                                            ),
+                                            child: const Text(
+                                              'NEU',
+                                              style: TextStyle(
+                                                fontSize: 8.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.amber,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -1028,7 +1061,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   }
                                   return KeyEventResult.ignored;
                                 },
-                                child: Container(
+                                child: GestureDetector(
+                                  onSecondaryTap: () => StreamContextMenuModal.show(context, stream),
+                                  child: Container(
                                   decoration: BoxDecoration(
                                     color: isCurrentPlaying
                                         ? const Color(0xFF2E1C59)
@@ -1116,6 +1151,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                   ),
                                 ),
                               ),
+                            ),
                             );
                           },
                         );

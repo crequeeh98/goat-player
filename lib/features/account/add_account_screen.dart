@@ -33,6 +33,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _syncLiveTv = true;
+  bool _syncMovies = true;
+  bool _syncSeries = true;
 
   AddAccountMode _selectedMode = AddAccountMode.manual;
   PlaylistType _playlistType = PlaylistType.xtream;
@@ -117,6 +120,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _serverUrlController.text = widget.accountToEdit!.serverUrl;
       _usernameController.text = widget.accountToEdit!.username;
       _passwordController.text = widget.accountToEdit!.password;
+      _syncLiveTv = widget.accountToEdit!.syncLiveTv;
+      _syncMovies = widget.accountToEdit!.syncMovies;
+      _syncSeries = widget.accountToEdit!.syncSeries;
       if (widget.accountToEdit!.username.isEmpty || widget.accountToEdit!.serverUrl.contains('.m3u')) {
         _playlistType = PlaylistType.m3u;
       }
@@ -347,14 +353,31 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         }
       } else {
         if (widget.accountToEdit != null) {
+          final oldAcc = widget.accountToEdit!;
           await dao.updateAccount(
-            widget.accountToEdit!.copyWith(
+            oldAcc.copyWith(
               playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
               serverUrl: _serverUrlController.text.trim(),
               username: _usernameController.text.trim(),
               password: _passwordController.text.trim(),
+              syncLiveTv: _syncLiveTv,
+              syncMovies: _syncMovies,
+              syncSeries: _syncSeries,
             ),
           );
+          // Purge if disabled
+          if (oldAcc.syncLiveTv && !_syncLiveTv) {
+            await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'live');
+            await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'live');
+          }
+          if (oldAcc.syncMovies && !_syncMovies) {
+            await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'movie');
+            await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'movie');
+          }
+          if (oldAcc.syncSeries && !_syncSeries) {
+            await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'series');
+            await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'series');
+          }
         } else {
           await dao.insertAccount(
             AccountsCompanion.insert(
@@ -362,6 +385,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               serverUrl: _serverUrlController.text.trim(),
               username: _usernameController.text.trim(),
               password: _passwordController.text.trim(),
+              syncLiveTv: drift.Value(_syncLiveTv),
+              syncMovies: drift.Value(_syncMovies),
+              syncSeries: drift.Value(_syncSeries),
             ),
           );
         }
@@ -848,6 +874,45 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.lock_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
+            const SizedBox(height: 16),
+            const Text(
+              'Inhalte synchronisieren (RAM & Speicher sparen)',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildScopeToggleChip(
+                  label: 'Live TV',
+                  icon: Icons.tv_rounded,
+                  isSelected: _syncLiveTv,
+                  onTap: () {
+                    if (_syncLiveTv && !_syncMovies && !_syncSeries) return;
+                    setState(() => _syncLiveTv = !_syncLiveTv);
+                  },
+                ),
+                _buildScopeToggleChip(
+                  label: 'Filme',
+                  icon: Icons.movie_rounded,
+                  isSelected: _syncMovies,
+                  onTap: () {
+                    if (_syncMovies && !_syncLiveTv && !_syncSeries) return;
+                    setState(() => _syncMovies = !_syncMovies);
+                  },
+                ),
+                _buildScopeToggleChip(
+                  label: 'Serien',
+                  icon: Icons.video_library_rounded,
+                  isSelected: _syncSeries,
+                  onTap: () {
+                    if (_syncSeries && !_syncLiveTv && !_syncMovies) return;
+                    setState(() => _syncSeries = !_syncSeries);
+                  },
+                ),
+              ],
+            ),
           ],
           const SizedBox(height: 20),
           TvFocusable(
@@ -879,6 +944,50 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScopeToggleChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return TvFocusable(
+      borderRadius: BorderRadius.circular(10),
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFB388FF) : Colors.white12,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+              size: 16,
+              color: isSelected ? const Color(0xFFB388FF) : Colors.white30,
+            ),
+            const SizedBox(width: 8),
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : Colors.white60,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

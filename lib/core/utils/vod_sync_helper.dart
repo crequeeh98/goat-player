@@ -72,6 +72,8 @@ class VodSyncHelper {
     final client = ref.read(xtreamClientProvider);
     final account = ref.read(activeAccountProvider);
     if (client == null || account == null) return;
+    final isEnabled = type == 'movie' ? account.syncMovies : account.syncSeries;
+    if (!isEnabled) return;
 
     final prefs = ref.read(sharedPreferencesProvider);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -120,6 +122,8 @@ class VodSyncHelper {
     final client = ref.read(xtreamClientProvider);
     final account = ref.read(activeAccountProvider);
     if (client == null || account == null) return;
+    final isEnabled = type == 'movie' ? account.syncMovies : account.syncSeries;
+    if (!isEnabled) return;
 
     try {
       debugPrint('Syncing $type streams for category: $categoryId...');
@@ -151,6 +155,8 @@ class VodSyncHelper {
     final client = ref.read(xtreamClientProvider);
     final account = ref.read(activeAccountProvider);
     if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+    final isEnabled = type == 'movie' ? account.syncMovies : account.syncSeries;
+    if (!isEnabled) return;
 
     final prefs = ref.read(sharedPreferencesProvider);
     final dao = ref.read(streamDaoProvider);
@@ -190,6 +196,7 @@ class VodSyncHelper {
     final account = ref.watch(activeAccountProvider);
     if (account == null) return const Stream.empty();
 
+    final customLists = ref.watch(customListsProvider(type)).asData?.value ?? const <CustomList>[];
     final dao = ref.watch(categoryDaoProvider);
     return dao.watchCategories(account.id, type).map((list) {
       final favoritesCat = Category(
@@ -199,9 +206,17 @@ class VodSyncHelper {
         name: 'Watchlist',
         type: type,
       );
-      final seen = <String>{'favorites'};
+      final customListCategories = customLists.map((cl) => Category(
+        id: -cl.id - 100,
+        accountId: account.id,
+        categoryId: 'custom_list:${cl.id}',
+        name: cl.name,
+        type: type,
+      )).toList();
+
+      final seen = <String>{'favorites', ...customListCategories.map((c) => c.categoryId)};
       final uniqueList = list.where((c) => seen.add(c.categoryId)).toList();
-      return [favoritesCat, ...uniqueList];
+      return [favoritesCat, ...customListCategories, ...uniqueList];
     });
   }
 
@@ -209,10 +224,16 @@ class VodSyncHelper {
     final account = ref.watch(activeAccountProvider);
     if (account == null) return const Stream.empty();
 
-    final dao = ref.watch(streamDaoProvider);
     if (categoryId == 'favorites') {
+      final dao = ref.watch(streamDaoProvider);
       return dao.watchFavoriteStreams(account.id, type);
     }
+    if (categoryId.startsWith('custom_list:')) {
+      final listId = int.tryParse(categoryId.substring('custom_list:'.length)) ?? -1;
+      final customDao = ref.watch(customListDaoProvider);
+      return customDao.watchStreamsForCustomList(listId, account.id);
+    }
+    final dao = ref.watch(streamDaoProvider);
     return dao.watchStreamsByCategory(account.id, categoryId);
   }
 

@@ -11,6 +11,9 @@ import '../dashboard/dashboard_state.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_text_field.dart';
 import '../../core/utils/platform_utils.dart';
+import '../../main.dart';
+import '../common/category_manager_modal.dart';
+import '../common/stream_context_menu_modal.dart';
 
 class MoviesGridScreen extends ConsumerStatefulWidget {
   const MoviesGridScreen({super.key});
@@ -480,7 +483,10 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       ),
                                     );
                                   },
-                                  child: ClipRRect(
+                                  onLongPress: () => StreamContextMenuModal.show(context, stream),
+                                  child: GestureDetector(
+                                    onSecondaryTap: () => StreamContextMenuModal.show(context, stream),
+                                    child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
                                     child: Stack(
                                       fit: StackFit.expand,
@@ -540,7 +546,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                       ],
                                     ),
                                   ),
-                                );
+                                ),
+                              );
                             },
                               childCount: streams.length,
                             ),
@@ -884,6 +891,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                     final cat = categories[index];
                                     final isSelected = _selectedCategory == cat.categoryId;
                                     final isFavorites = cat.categoryId == 'favorites';
+                                    final isCustomList = cat.categoryId.startsWith('custom_list:');
+                                    final isNewCat = ref.watch(newCategoryIdsProvider('movie')).asData?.value.contains(cat.categoryId) ?? false;
                                     final itemNode = GoatPlatform.isTv
                                         ? _categoryFocusNodes.putIfAbsent(
                                             cat.categoryId,
@@ -959,14 +968,26 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                               }
                                             : null,
                                         onPressed: () {
+                                          if (isNewCat) {
+                                            final account = ref.read(activeAccountProvider);
+                                            if (account != null) {
+                                              ref.read(categoryPreferenceDaoProvider).markViewed(account.id, cat.categoryId, 'movie');
+                                            }
+                                          }
                                           setState(() {
                                             _selectedCategory = cat.categoryId;
                                             _searchController.clear();
                                             _searchQuery = '';
                                           });
-                                          if (!isFavorites) {
+                                          if (!isFavorites && !isCustomList) {
                                             ref.read(vodControllerProvider).syncVodStreams(cat.categoryId);
                                           }
+                                        },
+                                        onLongPress: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (ctx) => const CategoryManagerModal(type: 'movie'),
+                                          );
                                         },
                                         child: Container(
                                           decoration: BoxDecoration(
@@ -992,11 +1013,15 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                               Icon(
                                                 isFavorites
                                                     ? (isSelected ? Icons.star_rounded : Icons.star_outline_rounded)
-                                                    : (isSelected ? Icons.movie : Icons.folder_outlined),
+                                                    : isCustomList
+                                                        ? Icons.playlist_play_rounded
+                                                        : (isSelected ? Icons.movie : Icons.folder_outlined),
                                                 size: GoatPlatform.isTv ? 15 : 18,
                                                 color: isFavorites
                                                     ? Colors.amber
-                                                    : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
+                                                    : isCustomList
+                                                        ? const Color(0xFFB388FF)
+                                                        : (isSelected ? const Color(0xFFB388FF) : Colors.white54),
                                               ),
                                               SizedBox(width: GoatPlatform.isTv ? 8 : 10),
                                               Expanded(
@@ -1011,6 +1036,25 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                                   ),
                                                 ),
                                               ),
+                                              if (isNewCat) ...[
+                                                const SizedBox(width: 4),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.amber.withValues(alpha: 0.25),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: Colors.amber, width: 0.8),
+                                                  ),
+                                                  child: const Text(
+                                                    'NEU',
+                                                    style: TextStyle(
+                                                      fontSize: 8.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.amber,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),

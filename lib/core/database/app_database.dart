@@ -9,20 +9,40 @@ import 'daos/category_dao.dart';
 import 'daos/stream_dao.dart';
 import 'daos/epg_dao.dart';
 import 'daos/playback_progress_dao.dart';
-
 import 'daos/favorite_dao.dart';
+import 'daos/category_preference_dao.dart';
+import 'daos/custom_list_dao.dart';
 
 part 'app_database.g.dart';
 
 @DriftDatabase(
-  tables: [Accounts, Categories, Streams, EpgPrograms, Favorites, PlaybackProgress],
-  daos: [AccountDao, CategoryDao, StreamDao, EpgDao, PlaybackProgressDao, FavoriteDao],
+  tables: [
+    Accounts,
+    Categories,
+    Streams,
+    EpgPrograms,
+    Favorites,
+    PlaybackProgress,
+    CategoryPreferences,
+    CustomLists,
+    CustomListItems,
+  ],
+  daos: [
+    AccountDao,
+    CategoryDao,
+    StreamDao,
+    EpgDao,
+    PlaybackProgressDao,
+    FavoriteDao,
+    CategoryPreferenceDao,
+    CustomListDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? connection.openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -57,6 +77,17 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(playbackProgress, playbackProgress.accountId);
             await customStatement('CREATE INDEX IF NOT EXISTS idx_playback_progress_account ON playback_progress(account_id, stream_type);');
           }
+          if (from < 9) {
+            await m.addColumn(accounts, accounts.syncLiveTv);
+            await m.addColumn(accounts, accounts.syncMovies);
+            await m.addColumn(accounts, accounts.syncSeries);
+            await m.createTable(categoryPreferences);
+            await m.createTable(customLists);
+            await m.createTable(customListItems);
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_cat_pref_lookup ON category_preferences(account_id, type, is_hidden);');
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_lists ON custom_lists(account_id, type);');
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_list_items ON custom_list_items(list_id);');
+          }
         },
         beforeOpen: (details) async {
           try {
@@ -75,6 +106,9 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_account_added ON streams(account_id, category_id, added);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_epg_channel_time ON epg_programs(account_id, channel_id, start_time, stop_time);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_favorites_lookup ON favorites(account_id, stream_id, stream_type);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_cat_pref_lookup ON category_preferences(account_id, type, is_hidden);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_lists ON custom_lists(account_id, type);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_list_items ON custom_list_items(list_id);');
         },
       );
 }

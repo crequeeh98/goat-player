@@ -102,6 +102,51 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncLiveTvMeta = const VerificationMeta(
+    'syncLiveTv',
+  );
+  @override
+  late final GeneratedColumn<bool> syncLiveTv = GeneratedColumn<bool>(
+    'sync_live_tv',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sync_live_tv" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _syncMoviesMeta = const VerificationMeta(
+    'syncMovies',
+  );
+  @override
+  late final GeneratedColumn<bool> syncMovies = GeneratedColumn<bool>(
+    'sync_movies',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sync_movies" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _syncSeriesMeta = const VerificationMeta(
+    'syncSeries',
+  );
+  @override
+  late final GeneratedColumn<bool> syncSeries = GeneratedColumn<bool>(
+    'sync_series',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sync_series" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -124,6 +169,9 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     isTrial,
     maxConnections,
     expDate,
+    syncLiveTv,
+    syncMovies,
+    syncSeries,
     createdAt,
   ];
   @override
@@ -195,6 +243,27 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         expDate.isAcceptableOrUnknown(data['exp_date']!, _expDateMeta),
       );
     }
+    if (data.containsKey('sync_live_tv')) {
+      context.handle(
+        _syncLiveTvMeta,
+        syncLiveTv.isAcceptableOrUnknown(
+          data['sync_live_tv']!,
+          _syncLiveTvMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sync_movies')) {
+      context.handle(
+        _syncMoviesMeta,
+        syncMovies.isAcceptableOrUnknown(data['sync_movies']!, _syncMoviesMeta),
+      );
+    }
+    if (data.containsKey('sync_series')) {
+      context.handle(
+        _syncSeriesMeta,
+        syncSeries.isAcceptableOrUnknown(data['sync_series']!, _syncSeriesMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -242,6 +311,18 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.int,
         data['${effectivePrefix}exp_date'],
       ),
+      syncLiveTv: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_live_tv'],
+      )!,
+      syncMovies: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_movies'],
+      )!,
+      syncSeries: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_series'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -264,6 +345,9 @@ class Account extends DataClass implements Insertable<Account> {
   final bool isTrial;
   final int? maxConnections;
   final int? expDate;
+  final bool syncLiveTv;
+  final bool syncMovies;
+  final bool syncSeries;
   final DateTime createdAt;
   const Account({
     required this.id,
@@ -274,6 +358,9 @@ class Account extends DataClass implements Insertable<Account> {
     required this.isTrial,
     this.maxConnections,
     this.expDate,
+    required this.syncLiveTv,
+    required this.syncMovies,
+    required this.syncSeries,
     required this.createdAt,
   });
   @override
@@ -293,6 +380,9 @@ class Account extends DataClass implements Insertable<Account> {
     if (!nullToAbsent || expDate != null) {
       map['exp_date'] = Variable<int>(expDate);
     }
+    map['sync_live_tv'] = Variable<bool>(syncLiveTv);
+    map['sync_movies'] = Variable<bool>(syncMovies);
+    map['sync_series'] = Variable<bool>(syncSeries);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -313,6 +403,9 @@ class Account extends DataClass implements Insertable<Account> {
       expDate: expDate == null && nullToAbsent
           ? const Value.absent()
           : Value(expDate),
+      syncLiveTv: Value(syncLiveTv),
+      syncMovies: Value(syncMovies),
+      syncSeries: Value(syncSeries),
       createdAt: Value(createdAt),
     );
   }
@@ -331,6 +424,9 @@ class Account extends DataClass implements Insertable<Account> {
       isTrial: serializer.fromJson<bool>(json['isTrial']),
       maxConnections: serializer.fromJson<int?>(json['maxConnections']),
       expDate: serializer.fromJson<int?>(json['expDate']),
+      syncLiveTv: serializer.fromJson<bool>(json['syncLiveTv']),
+      syncMovies: serializer.fromJson<bool>(json['syncMovies']),
+      syncSeries: serializer.fromJson<bool>(json['syncSeries']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -346,6 +442,9 @@ class Account extends DataClass implements Insertable<Account> {
       'isTrial': serializer.toJson<bool>(isTrial),
       'maxConnections': serializer.toJson<int?>(maxConnections),
       'expDate': serializer.toJson<int?>(expDate),
+      'syncLiveTv': serializer.toJson<bool>(syncLiveTv),
+      'syncMovies': serializer.toJson<bool>(syncMovies),
+      'syncSeries': serializer.toJson<bool>(syncSeries),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -359,6 +458,9 @@ class Account extends DataClass implements Insertable<Account> {
     bool? isTrial,
     Value<int?> maxConnections = const Value.absent(),
     Value<int?> expDate = const Value.absent(),
+    bool? syncLiveTv,
+    bool? syncMovies,
+    bool? syncSeries,
     DateTime? createdAt,
   }) => Account(
     id: id ?? this.id,
@@ -371,6 +473,9 @@ class Account extends DataClass implements Insertable<Account> {
         ? maxConnections.value
         : this.maxConnections,
     expDate: expDate.present ? expDate.value : this.expDate,
+    syncLiveTv: syncLiveTv ?? this.syncLiveTv,
+    syncMovies: syncMovies ?? this.syncMovies,
+    syncSeries: syncSeries ?? this.syncSeries,
     createdAt: createdAt ?? this.createdAt,
   );
   Account copyWithCompanion(AccountsCompanion data) {
@@ -387,6 +492,15 @@ class Account extends DataClass implements Insertable<Account> {
           ? data.maxConnections.value
           : this.maxConnections,
       expDate: data.expDate.present ? data.expDate.value : this.expDate,
+      syncLiveTv: data.syncLiveTv.present
+          ? data.syncLiveTv.value
+          : this.syncLiveTv,
+      syncMovies: data.syncMovies.present
+          ? data.syncMovies.value
+          : this.syncMovies,
+      syncSeries: data.syncSeries.present
+          ? data.syncSeries.value
+          : this.syncSeries,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -402,6 +516,9 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('isTrial: $isTrial, ')
           ..write('maxConnections: $maxConnections, ')
           ..write('expDate: $expDate, ')
+          ..write('syncLiveTv: $syncLiveTv, ')
+          ..write('syncMovies: $syncMovies, ')
+          ..write('syncSeries: $syncSeries, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -417,6 +534,9 @@ class Account extends DataClass implements Insertable<Account> {
     isTrial,
     maxConnections,
     expDate,
+    syncLiveTv,
+    syncMovies,
+    syncSeries,
     createdAt,
   );
   @override
@@ -431,6 +551,9 @@ class Account extends DataClass implements Insertable<Account> {
           other.isTrial == this.isTrial &&
           other.maxConnections == this.maxConnections &&
           other.expDate == this.expDate &&
+          other.syncLiveTv == this.syncLiveTv &&
+          other.syncMovies == this.syncMovies &&
+          other.syncSeries == this.syncSeries &&
           other.createdAt == this.createdAt);
 }
 
@@ -443,6 +566,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<bool> isTrial;
   final Value<int?> maxConnections;
   final Value<int?> expDate;
+  final Value<bool> syncLiveTv;
+  final Value<bool> syncMovies;
+  final Value<bool> syncSeries;
   final Value<DateTime> createdAt;
   const AccountsCompanion({
     this.id = const Value.absent(),
@@ -453,6 +579,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.isTrial = const Value.absent(),
     this.maxConnections = const Value.absent(),
     this.expDate = const Value.absent(),
+    this.syncLiveTv = const Value.absent(),
+    this.syncMovies = const Value.absent(),
+    this.syncSeries = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   AccountsCompanion.insert({
@@ -464,6 +593,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.isTrial = const Value.absent(),
     this.maxConnections = const Value.absent(),
     this.expDate = const Value.absent(),
+    this.syncLiveTv = const Value.absent(),
+    this.syncMovies = const Value.absent(),
+    this.syncSeries = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : serverUrl = Value(serverUrl),
        username = Value(username),
@@ -477,6 +609,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<bool>? isTrial,
     Expression<int>? maxConnections,
     Expression<int>? expDate,
+    Expression<bool>? syncLiveTv,
+    Expression<bool>? syncMovies,
+    Expression<bool>? syncSeries,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -488,6 +623,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (isTrial != null) 'is_trial': isTrial,
       if (maxConnections != null) 'max_connections': maxConnections,
       if (expDate != null) 'exp_date': expDate,
+      if (syncLiveTv != null) 'sync_live_tv': syncLiveTv,
+      if (syncMovies != null) 'sync_movies': syncMovies,
+      if (syncSeries != null) 'sync_series': syncSeries,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -501,6 +639,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<bool>? isTrial,
     Value<int?>? maxConnections,
     Value<int?>? expDate,
+    Value<bool>? syncLiveTv,
+    Value<bool>? syncMovies,
+    Value<bool>? syncSeries,
     Value<DateTime>? createdAt,
   }) {
     return AccountsCompanion(
@@ -512,6 +653,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       isTrial: isTrial ?? this.isTrial,
       maxConnections: maxConnections ?? this.maxConnections,
       expDate: expDate ?? this.expDate,
+      syncLiveTv: syncLiveTv ?? this.syncLiveTv,
+      syncMovies: syncMovies ?? this.syncMovies,
+      syncSeries: syncSeries ?? this.syncSeries,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -543,6 +687,15 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     if (expDate.present) {
       map['exp_date'] = Variable<int>(expDate.value);
     }
+    if (syncLiveTv.present) {
+      map['sync_live_tv'] = Variable<bool>(syncLiveTv.value);
+    }
+    if (syncMovies.present) {
+      map['sync_movies'] = Variable<bool>(syncMovies.value);
+    }
+    if (syncSeries.present) {
+      map['sync_series'] = Variable<bool>(syncSeries.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -560,6 +713,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('isTrial: $isTrial, ')
           ..write('maxConnections: $maxConnections, ')
           ..write('expDate: $expDate, ')
+          ..write('syncLiveTv: $syncLiveTv, ')
+          ..write('syncMovies: $syncMovies, ')
+          ..write('syncSeries: $syncSeries, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -3114,6 +3270,1365 @@ class PlaybackProgressCompanion extends UpdateCompanion<PlaybackProgressItem> {
   }
 }
 
+class $CategoryPreferencesTable extends CategoryPreferences
+    with TableInfo<$CategoryPreferencesTable, CategoryPreference> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CategoryPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<int> accountId = GeneratedColumn<int>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES accounts (id)',
+    ),
+  );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isHiddenMeta = const VerificationMeta(
+    'isHidden',
+  );
+  @override
+  late final GeneratedColumn<bool> isHidden = GeneratedColumn<bool>(
+    'is_hidden',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_hidden" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isNewMeta = const VerificationMeta('isNew');
+  @override
+  late final GeneratedColumn<bool> isNew = GeneratedColumn<bool>(
+    'is_new',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_new" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    accountId,
+    categoryId,
+    type,
+    isHidden,
+    sortOrder,
+    isNew,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'category_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CategoryPreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryIdMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('is_hidden')) {
+      context.handle(
+        _isHiddenMeta,
+        isHidden.isAcceptableOrUnknown(data['is_hidden']!, _isHiddenMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('is_new')) {
+      context.handle(
+        _isNewMeta,
+        isNew.isAcceptableOrUnknown(data['is_new']!, _isNewMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {accountId, categoryId, type},
+  ];
+  @override
+  CategoryPreference map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CategoryPreference(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}account_id'],
+      )!,
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      isHidden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_hidden'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      isNew: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_new'],
+      )!,
+    );
+  }
+
+  @override
+  $CategoryPreferencesTable createAlias(String alias) {
+    return $CategoryPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class CategoryPreference extends DataClass
+    implements Insertable<CategoryPreference> {
+  final int id;
+  final int accountId;
+  final String categoryId;
+  final String type;
+  final bool isHidden;
+  final int sortOrder;
+  final bool isNew;
+  const CategoryPreference({
+    required this.id,
+    required this.accountId,
+    required this.categoryId,
+    required this.type,
+    required this.isHidden,
+    required this.sortOrder,
+    required this.isNew,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['account_id'] = Variable<int>(accountId);
+    map['category_id'] = Variable<String>(categoryId);
+    map['type'] = Variable<String>(type);
+    map['is_hidden'] = Variable<bool>(isHidden);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['is_new'] = Variable<bool>(isNew);
+    return map;
+  }
+
+  CategoryPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return CategoryPreferencesCompanion(
+      id: Value(id),
+      accountId: Value(accountId),
+      categoryId: Value(categoryId),
+      type: Value(type),
+      isHidden: Value(isHidden),
+      sortOrder: Value(sortOrder),
+      isNew: Value(isNew),
+    );
+  }
+
+  factory CategoryPreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CategoryPreference(
+      id: serializer.fromJson<int>(json['id']),
+      accountId: serializer.fromJson<int>(json['accountId']),
+      categoryId: serializer.fromJson<String>(json['categoryId']),
+      type: serializer.fromJson<String>(json['type']),
+      isHidden: serializer.fromJson<bool>(json['isHidden']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      isNew: serializer.fromJson<bool>(json['isNew']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'accountId': serializer.toJson<int>(accountId),
+      'categoryId': serializer.toJson<String>(categoryId),
+      'type': serializer.toJson<String>(type),
+      'isHidden': serializer.toJson<bool>(isHidden),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'isNew': serializer.toJson<bool>(isNew),
+    };
+  }
+
+  CategoryPreference copyWith({
+    int? id,
+    int? accountId,
+    String? categoryId,
+    String? type,
+    bool? isHidden,
+    int? sortOrder,
+    bool? isNew,
+  }) => CategoryPreference(
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    categoryId: categoryId ?? this.categoryId,
+    type: type ?? this.type,
+    isHidden: isHidden ?? this.isHidden,
+    sortOrder: sortOrder ?? this.sortOrder,
+    isNew: isNew ?? this.isNew,
+  );
+  CategoryPreference copyWithCompanion(CategoryPreferencesCompanion data) {
+    return CategoryPreference(
+      id: data.id.present ? data.id.value : this.id,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
+      type: data.type.present ? data.type.value : this.type,
+      isHidden: data.isHidden.present ? data.isHidden.value : this.isHidden,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      isNew: data.isNew.present ? data.isNew.value : this.isNew,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategoryPreference(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('type: $type, ')
+          ..write('isHidden: $isHidden, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isNew: $isNew')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, accountId, categoryId, type, isHidden, sortOrder, isNew);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CategoryPreference &&
+          other.id == this.id &&
+          other.accountId == this.accountId &&
+          other.categoryId == this.categoryId &&
+          other.type == this.type &&
+          other.isHidden == this.isHidden &&
+          other.sortOrder == this.sortOrder &&
+          other.isNew == this.isNew);
+}
+
+class CategoryPreferencesCompanion extends UpdateCompanion<CategoryPreference> {
+  final Value<int> id;
+  final Value<int> accountId;
+  final Value<String> categoryId;
+  final Value<String> type;
+  final Value<bool> isHidden;
+  final Value<int> sortOrder;
+  final Value<bool> isNew;
+  const CategoryPreferencesCompanion({
+    this.id = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.isHidden = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.isNew = const Value.absent(),
+  });
+  CategoryPreferencesCompanion.insert({
+    this.id = const Value.absent(),
+    required int accountId,
+    required String categoryId,
+    required String type,
+    this.isHidden = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.isNew = const Value.absent(),
+  }) : accountId = Value(accountId),
+       categoryId = Value(categoryId),
+       type = Value(type);
+  static Insertable<CategoryPreference> custom({
+    Expression<int>? id,
+    Expression<int>? accountId,
+    Expression<String>? categoryId,
+    Expression<String>? type,
+    Expression<bool>? isHidden,
+    Expression<int>? sortOrder,
+    Expression<bool>? isNew,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (accountId != null) 'account_id': accountId,
+      if (categoryId != null) 'category_id': categoryId,
+      if (type != null) 'type': type,
+      if (isHidden != null) 'is_hidden': isHidden,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (isNew != null) 'is_new': isNew,
+    });
+  }
+
+  CategoryPreferencesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? accountId,
+    Value<String>? categoryId,
+    Value<String>? type,
+    Value<bool>? isHidden,
+    Value<int>? sortOrder,
+    Value<bool>? isNew,
+  }) {
+    return CategoryPreferencesCompanion(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      categoryId: categoryId ?? this.categoryId,
+      type: type ?? this.type,
+      isHidden: isHidden ?? this.isHidden,
+      sortOrder: sortOrder ?? this.sortOrder,
+      isNew: isNew ?? this.isNew,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<int>(accountId.value);
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (isHidden.present) {
+      map['is_hidden'] = Variable<bool>(isHidden.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (isNew.present) {
+      map['is_new'] = Variable<bool>(isNew.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CategoryPreferencesCompanion(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('type: $type, ')
+          ..write('isHidden: $isHidden, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isNew: $isNew')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CustomListsTable extends CustomLists
+    with TableInfo<$CustomListsTable, CustomList> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomListsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<int> accountId = GeneratedColumn<int>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES accounts (id)',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    accountId,
+    name,
+    type,
+    sortOrder,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_lists';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomList> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomList map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomList(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}account_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomListsTable createAlias(String alias) {
+    return $CustomListsTable(attachedDatabase, alias);
+  }
+}
+
+class CustomList extends DataClass implements Insertable<CustomList> {
+  final int id;
+  final int accountId;
+  final String name;
+  final String type;
+  final int sortOrder;
+  final DateTime createdAt;
+  const CustomList({
+    required this.id,
+    required this.accountId,
+    required this.name,
+    required this.type,
+    required this.sortOrder,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['account_id'] = Variable<int>(accountId);
+    map['name'] = Variable<String>(name);
+    map['type'] = Variable<String>(type);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  CustomListsCompanion toCompanion(bool nullToAbsent) {
+    return CustomListsCompanion(
+      id: Value(id),
+      accountId: Value(accountId),
+      name: Value(name),
+      type: Value(type),
+      sortOrder: Value(sortOrder),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CustomList.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomList(
+      id: serializer.fromJson<int>(json['id']),
+      accountId: serializer.fromJson<int>(json['accountId']),
+      name: serializer.fromJson<String>(json['name']),
+      type: serializer.fromJson<String>(json['type']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'accountId': serializer.toJson<int>(accountId),
+      'name': serializer.toJson<String>(name),
+      'type': serializer.toJson<String>(type),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  CustomList copyWith({
+    int? id,
+    int? accountId,
+    String? name,
+    String? type,
+    int? sortOrder,
+    DateTime? createdAt,
+  }) => CustomList(
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    sortOrder: sortOrder ?? this.sortOrder,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  CustomList copyWithCompanion(CustomListsCompanion data) {
+    return CustomList(
+      id: data.id.present ? data.id.value : this.id,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      name: data.name.present ? data.name.value : this.name,
+      type: data.type.present ? data.type.value : this.type,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomList(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('name: $name, ')
+          ..write('type: $type, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, accountId, name, type, sortOrder, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomList &&
+          other.id == this.id &&
+          other.accountId == this.accountId &&
+          other.name == this.name &&
+          other.type == this.type &&
+          other.sortOrder == this.sortOrder &&
+          other.createdAt == this.createdAt);
+}
+
+class CustomListsCompanion extends UpdateCompanion<CustomList> {
+  final Value<int> id;
+  final Value<int> accountId;
+  final Value<String> name;
+  final Value<String> type;
+  final Value<int> sortOrder;
+  final Value<DateTime> createdAt;
+  const CustomListsCompanion({
+    this.id = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.type = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  CustomListsCompanion.insert({
+    this.id = const Value.absent(),
+    required int accountId,
+    required String name,
+    required String type,
+    this.sortOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : accountId = Value(accountId),
+       name = Value(name),
+       type = Value(type);
+  static Insertable<CustomList> custom({
+    Expression<int>? id,
+    Expression<int>? accountId,
+    Expression<String>? name,
+    Expression<String>? type,
+    Expression<int>? sortOrder,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (accountId != null) 'account_id': accountId,
+      if (name != null) 'name': name,
+      if (type != null) 'type': type,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  CustomListsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? accountId,
+    Value<String>? name,
+    Value<String>? type,
+    Value<int>? sortOrder,
+    Value<DateTime>? createdAt,
+  }) {
+    return CustomListsCompanion(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      sortOrder: sortOrder ?? this.sortOrder,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<int>(accountId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomListsCompanion(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('name: $name, ')
+          ..write('type: $type, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CustomListItemsTable extends CustomListItems
+    with TableInfo<$CustomListItemsTable, CustomListItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomListItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<int> listId = GeneratedColumn<int>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES custom_lists (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<int> accountId = GeneratedColumn<int>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES accounts (id)',
+    ),
+  );
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<String> streamId = GeneratedColumn<String>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamTypeMeta = const VerificationMeta(
+    'streamType',
+  );
+  @override
+  late final GeneratedColumn<String> streamType = GeneratedColumn<String>(
+    'stream_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamNameMeta = const VerificationMeta(
+    'streamName',
+  );
+  @override
+  late final GeneratedColumn<String> streamName = GeneratedColumn<String>(
+    'stream_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    listId,
+    accountId,
+    streamId,
+    streamType,
+    streamName,
+    sortOrder,
+    addedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_list_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomListItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('stream_type')) {
+      context.handle(
+        _streamTypeMeta,
+        streamType.isAcceptableOrUnknown(data['stream_type']!, _streamTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamTypeMeta);
+    }
+    if (data.containsKey('stream_name')) {
+      context.handle(
+        _streamNameMeta,
+        streamName.isAcceptableOrUnknown(data['stream_name']!, _streamNameMeta),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {listId, streamId},
+  ];
+  @override
+  CustomListItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomListItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}list_id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}account_id'],
+      )!,
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      streamType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_type'],
+      )!,
+      streamName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_name'],
+      ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomListItemsTable createAlias(String alias) {
+    return $CustomListItemsTable(attachedDatabase, alias);
+  }
+}
+
+class CustomListItem extends DataClass implements Insertable<CustomListItem> {
+  final int id;
+  final int listId;
+  final int accountId;
+  final String streamId;
+  final String streamType;
+  final String? streamName;
+  final int sortOrder;
+  final DateTime addedAt;
+  const CustomListItem({
+    required this.id,
+    required this.listId,
+    required this.accountId,
+    required this.streamId,
+    required this.streamType,
+    this.streamName,
+    required this.sortOrder,
+    required this.addedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['list_id'] = Variable<int>(listId);
+    map['account_id'] = Variable<int>(accountId);
+    map['stream_id'] = Variable<String>(streamId);
+    map['stream_type'] = Variable<String>(streamType);
+    if (!nullToAbsent || streamName != null) {
+      map['stream_name'] = Variable<String>(streamName);
+    }
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['added_at'] = Variable<DateTime>(addedAt);
+    return map;
+  }
+
+  CustomListItemsCompanion toCompanion(bool nullToAbsent) {
+    return CustomListItemsCompanion(
+      id: Value(id),
+      listId: Value(listId),
+      accountId: Value(accountId),
+      streamId: Value(streamId),
+      streamType: Value(streamType),
+      streamName: streamName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(streamName),
+      sortOrder: Value(sortOrder),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory CustomListItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomListItem(
+      id: serializer.fromJson<int>(json['id']),
+      listId: serializer.fromJson<int>(json['listId']),
+      accountId: serializer.fromJson<int>(json['accountId']),
+      streamId: serializer.fromJson<String>(json['streamId']),
+      streamType: serializer.fromJson<String>(json['streamType']),
+      streamName: serializer.fromJson<String?>(json['streamName']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'listId': serializer.toJson<int>(listId),
+      'accountId': serializer.toJson<int>(accountId),
+      'streamId': serializer.toJson<String>(streamId),
+      'streamType': serializer.toJson<String>(streamType),
+      'streamName': serializer.toJson<String?>(streamName),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+    };
+  }
+
+  CustomListItem copyWith({
+    int? id,
+    int? listId,
+    int? accountId,
+    String? streamId,
+    String? streamType,
+    Value<String?> streamName = const Value.absent(),
+    int? sortOrder,
+    DateTime? addedAt,
+  }) => CustomListItem(
+    id: id ?? this.id,
+    listId: listId ?? this.listId,
+    accountId: accountId ?? this.accountId,
+    streamId: streamId ?? this.streamId,
+    streamType: streamType ?? this.streamType,
+    streamName: streamName.present ? streamName.value : this.streamName,
+    sortOrder: sortOrder ?? this.sortOrder,
+    addedAt: addedAt ?? this.addedAt,
+  );
+  CustomListItem copyWithCompanion(CustomListItemsCompanion data) {
+    return CustomListItem(
+      id: data.id.present ? data.id.value : this.id,
+      listId: data.listId.present ? data.listId.value : this.listId,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      streamType: data.streamType.present
+          ? data.streamType.value
+          : this.streamType,
+      streamName: data.streamName.present
+          ? data.streamName.value
+          : this.streamName,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomListItem(')
+          ..write('id: $id, ')
+          ..write('listId: $listId, ')
+          ..write('accountId: $accountId, ')
+          ..write('streamId: $streamId, ')
+          ..write('streamType: $streamType, ')
+          ..write('streamName: $streamName, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    listId,
+    accountId,
+    streamId,
+    streamType,
+    streamName,
+    sortOrder,
+    addedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomListItem &&
+          other.id == this.id &&
+          other.listId == this.listId &&
+          other.accountId == this.accountId &&
+          other.streamId == this.streamId &&
+          other.streamType == this.streamType &&
+          other.streamName == this.streamName &&
+          other.sortOrder == this.sortOrder &&
+          other.addedAt == this.addedAt);
+}
+
+class CustomListItemsCompanion extends UpdateCompanion<CustomListItem> {
+  final Value<int> id;
+  final Value<int> listId;
+  final Value<int> accountId;
+  final Value<String> streamId;
+  final Value<String> streamType;
+  final Value<String?> streamName;
+  final Value<int> sortOrder;
+  final Value<DateTime> addedAt;
+  const CustomListItemsCompanion({
+    this.id = const Value.absent(),
+    this.listId = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.streamId = const Value.absent(),
+    this.streamType = const Value.absent(),
+    this.streamName = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.addedAt = const Value.absent(),
+  });
+  CustomListItemsCompanion.insert({
+    this.id = const Value.absent(),
+    required int listId,
+    required int accountId,
+    required String streamId,
+    required String streamType,
+    this.streamName = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.addedAt = const Value.absent(),
+  }) : listId = Value(listId),
+       accountId = Value(accountId),
+       streamId = Value(streamId),
+       streamType = Value(streamType);
+  static Insertable<CustomListItem> custom({
+    Expression<int>? id,
+    Expression<int>? listId,
+    Expression<int>? accountId,
+    Expression<String>? streamId,
+    Expression<String>? streamType,
+    Expression<String>? streamName,
+    Expression<int>? sortOrder,
+    Expression<DateTime>? addedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (listId != null) 'list_id': listId,
+      if (accountId != null) 'account_id': accountId,
+      if (streamId != null) 'stream_id': streamId,
+      if (streamType != null) 'stream_type': streamType,
+      if (streamName != null) 'stream_name': streamName,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (addedAt != null) 'added_at': addedAt,
+    });
+  }
+
+  CustomListItemsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? listId,
+    Value<int>? accountId,
+    Value<String>? streamId,
+    Value<String>? streamType,
+    Value<String?>? streamName,
+    Value<int>? sortOrder,
+    Value<DateTime>? addedAt,
+  }) {
+    return CustomListItemsCompanion(
+      id: id ?? this.id,
+      listId: listId ?? this.listId,
+      accountId: accountId ?? this.accountId,
+      streamId: streamId ?? this.streamId,
+      streamType: streamType ?? this.streamType,
+      streamName: streamName ?? this.streamName,
+      sortOrder: sortOrder ?? this.sortOrder,
+      addedAt: addedAt ?? this.addedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (listId.present) {
+      map['list_id'] = Variable<int>(listId.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<int>(accountId.value);
+    }
+    if (streamId.present) {
+      map['stream_id'] = Variable<String>(streamId.value);
+    }
+    if (streamType.present) {
+      map['stream_type'] = Variable<String>(streamType.value);
+    }
+    if (streamName.present) {
+      map['stream_name'] = Variable<String>(streamName.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomListItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('listId: $listId, ')
+          ..write('accountId: $accountId, ')
+          ..write('streamId: $streamId, ')
+          ..write('streamType: $streamType, ')
+          ..write('streamName: $streamName, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3125,6 +4640,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlaybackProgressTable playbackProgress = $PlaybackProgressTable(
     this,
   );
+  late final $CategoryPreferencesTable categoryPreferences =
+      $CategoryPreferencesTable(this);
+  late final $CustomListsTable customLists = $CustomListsTable(this);
+  late final $CustomListItemsTable customListItems = $CustomListItemsTable(
+    this,
+  );
   late final AccountDao accountDao = AccountDao(this as AppDatabase);
   late final CategoryDao categoryDao = CategoryDao(this as AppDatabase);
   late final StreamDao streamDao = StreamDao(this as AppDatabase);
@@ -3133,6 +4654,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final FavoriteDao favoriteDao = FavoriteDao(this as AppDatabase);
+  late final CategoryPreferenceDao categoryPreferenceDao =
+      CategoryPreferenceDao(this as AppDatabase);
+  late final CustomListDao customListDao = CustomListDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3144,7 +4668,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     epgPrograms,
     favorites,
     playbackProgress,
+    categoryPreferences,
+    customLists,
+    customListItems,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'custom_lists',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('custom_list_items', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
@@ -3156,6 +4693,9 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   Value<bool> isTrial,
   Value<int?> maxConnections,
   Value<int?> expDate,
+  Value<bool> syncLiveTv,
+  Value<bool> syncMovies,
+  Value<bool> syncSeries,
   Value<DateTime> createdAt,
 });
 typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
@@ -3167,6 +4707,9 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<bool> isTrial,
   Value<int?> maxConnections,
   Value<int?> expDate,
+  Value<bool> syncLiveTv,
+  Value<bool> syncMovies,
+  Value<bool> syncSeries,
   Value<DateTime> createdAt,
 });
 
@@ -3266,6 +4809,68 @@ final class $$AccountsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $CategoryPreferencesTable,
+    List<CategoryPreference>
+  >
+  _categoryPreferencesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.categoryPreferences,
+        aliasName: 'accounts__id__category_preferences__account_id',
+      );
+
+  $$CategoryPreferencesTableProcessedTableManager get categoryPreferencesRefs {
+    final manager = $$CategoryPreferencesTableTableManager(
+      $_db,
+      $_db.categoryPreferences,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _categoryPreferencesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$CustomListsTable, List<CustomList>>
+  _customListsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.customLists,
+    aliasName: 'accounts__id__custom_lists__account_id',
+  );
+
+  $$CustomListsTableProcessedTableManager get customListsRefs {
+    final manager = $$CustomListsTableTableManager(
+      $_db,
+      $_db.customLists,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_customListsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$CustomListItemsTable, List<CustomListItem>>
+  _customListItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.customListItems,
+    aliasName: 'accounts__id__custom_list_items__account_id',
+  );
+
+  $$CustomListItemsTableProcessedTableManager get customListItemsRefs {
+    final manager = $$CustomListItemsTableTableManager(
+      $_db,
+      $_db.customListItems,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _customListItemsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$AccountsTableFilterComposer
@@ -3314,6 +4919,21 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<int> get expDate => $composableBuilder(
     column: $table.expDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncLiveTv => $composableBuilder(
+    column: $table.syncLiveTv,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncMovies => $composableBuilder(
+    column: $table.syncMovies,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncSeries => $composableBuilder(
+    column: $table.syncSeries,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3446,6 +5066,81 @@ class $$AccountsTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> categoryPreferencesRefs(
+    Expression<bool> Function($$CategoryPreferencesTableFilterComposer f) f,
+  ) {
+    final $$CategoryPreferencesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.categoryPreferences,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoryPreferencesTableFilterComposer(
+            $db: $db,
+            $table: $db.categoryPreferences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> customListsRefs(
+    Expression<bool> Function($$CustomListsTableFilterComposer f) f,
+  ) {
+    final $$CustomListsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customLists,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListsTableFilterComposer(
+            $db: $db,
+            $table: $db.customLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> customListItemsRefs(
+    Expression<bool> Function($$CustomListItemsTableFilterComposer f) f,
+  ) {
+    final $$CustomListItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customListItems,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.customListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AccountsTableOrderingComposer
@@ -3497,6 +5192,21 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get syncLiveTv => $composableBuilder(
+    column: $table.syncLiveTv,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get syncMovies => $composableBuilder(
+    column: $table.syncMovies,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get syncSeries => $composableBuilder(
+    column: $table.syncSeries,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -3539,6 +5249,21 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<int> get expDate =>
       $composableBuilder(column: $table.expDate, builder: (column) => column);
+
+  GeneratedColumn<bool> get syncLiveTv => $composableBuilder(
+    column: $table.syncLiveTv,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get syncMovies => $composableBuilder(
+    column: $table.syncMovies,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get syncSeries => $composableBuilder(
+    column: $table.syncSeries,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -3667,6 +5392,82 @@ class $$AccountsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> categoryPreferencesRefs<T extends Object>(
+    Expression<T> Function($$CategoryPreferencesTableAnnotationComposer a) f,
+  ) {
+    final $$CategoryPreferencesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.categoryPreferences,
+          getReferencedColumn: (t) => t.accountId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CategoryPreferencesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.categoryPreferences,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> customListsRefs<T extends Object>(
+    Expression<T> Function($$CustomListsTableAnnotationComposer a) f,
+  ) {
+    final $$CustomListsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customLists,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.customLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> customListItemsRefs<T extends Object>(
+    Expression<T> Function($$CustomListItemsTableAnnotationComposer a) f,
+  ) {
+    final $$CustomListItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customListItems,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.customListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$AccountsTableTableManager
@@ -3688,6 +5489,9 @@ class $$AccountsTableTableManager
             bool epgProgramsRefs,
             bool favoritesRefs,
             bool playbackProgressRefs,
+            bool categoryPreferencesRefs,
+            bool customListsRefs,
+            bool customListItemsRefs,
           })
         > {
   $$AccountsTableTableManager(_$AppDatabase db, $AccountsTable table)
@@ -3711,6 +5515,9 @@ class $$AccountsTableTableManager
                 Value<bool> isTrial = const Value.absent(),
                 Value<int?> maxConnections = const Value.absent(),
                 Value<int?> expDate = const Value.absent(),
+                Value<bool> syncLiveTv = const Value.absent(),
+                Value<bool> syncMovies = const Value.absent(),
+                Value<bool> syncSeries = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => AccountsCompanion(
                 id: id,
@@ -3721,6 +5528,9 @@ class $$AccountsTableTableManager
                 isTrial: isTrial,
                 maxConnections: maxConnections,
                 expDate: expDate,
+                syncLiveTv: syncLiveTv,
+                syncMovies: syncMovies,
+                syncSeries: syncSeries,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -3733,6 +5543,9 @@ class $$AccountsTableTableManager
                 Value<bool> isTrial = const Value.absent(),
                 Value<int?> maxConnections = const Value.absent(),
                 Value<int?> expDate = const Value.absent(),
+                Value<bool> syncLiveTv = const Value.absent(),
+                Value<bool> syncMovies = const Value.absent(),
+                Value<bool> syncSeries = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => AccountsCompanion.insert(
                 id: id,
@@ -3743,6 +5556,9 @@ class $$AccountsTableTableManager
                 isTrial: isTrial,
                 maxConnections: maxConnections,
                 expDate: expDate,
+                syncLiveTv: syncLiveTv,
+                syncMovies: syncMovies,
+                syncSeries: syncSeries,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
@@ -3760,6 +5576,9 @@ class $$AccountsTableTableManager
                 epgProgramsRefs = false,
                 favoritesRefs = false,
                 playbackProgressRefs = false,
+                categoryPreferencesRefs = false,
+                customListsRefs = false,
+                customListItemsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -3769,6 +5588,9 @@ class $$AccountsTableTableManager
                     if (epgProgramsRefs) db.epgPrograms,
                     if (favoritesRefs) db.favorites,
                     if (playbackProgressRefs) db.playbackProgress,
+                    if (categoryPreferencesRefs) db.categoryPreferences,
+                    if (customListsRefs) db.customLists,
+                    if (customListItemsRefs) db.customListItems,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3878,6 +5700,69 @@ class $$AccountsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (categoryPreferencesRefs)
+                        await $_getPrefetchedData<
+                          Account,
+                          $AccountsTable,
+                          CategoryPreference
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountsTableReferences
+                              ._categoryPreferencesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).categoryPreferencesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (customListsRefs)
+                        await $_getPrefetchedData<
+                          Account,
+                          $AccountsTable,
+                          CustomList
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountsTableReferences
+                              ._customListsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).customListsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (customListItemsRefs)
+                        await $_getPrefetchedData<
+                          Account,
+                          $AccountsTable,
+                          CustomListItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountsTableReferences
+                              ._customListItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).customListItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3904,6 +5789,9 @@ typedef $$AccountsTableProcessedTableManager =
         bool epgProgramsRefs,
         bool favoritesRefs,
         bool playbackProgressRefs,
+        bool categoryPreferencesRefs,
+        bool customListsRefs,
+        bool customListItemsRefs,
       })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
@@ -5767,6 +7655,1256 @@ typedef $$PlaybackProgressTableProcessedTableManager =
       PlaybackProgressItem,
       PrefetchHooks Function({bool accountId})
     >;
+typedef $$CategoryPreferencesTableCreateCompanionBuilder =
+    CategoryPreferencesCompanion Function({
+      Value<int> id,
+      required int accountId,
+      required String categoryId,
+      required String type,
+      Value<bool> isHidden,
+      Value<int> sortOrder,
+      Value<bool> isNew,
+    });
+typedef $$CategoryPreferencesTableUpdateCompanionBuilder =
+    CategoryPreferencesCompanion Function({
+      Value<int> id,
+      Value<int> accountId,
+      Value<String> categoryId,
+      Value<String> type,
+      Value<bool> isHidden,
+      Value<int> sortOrder,
+      Value<bool> isNew,
+    });
+
+final class $$CategoryPreferencesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CategoryPreferencesTable,
+          CategoryPreference
+        > {
+  $$CategoryPreferencesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $AccountsTable _accountIdTable(_$AppDatabase db) =>
+      db.accounts.createAlias('category_preferences__account_id__accounts__id');
+
+  $$AccountsTableProcessedTableManager get accountId {
+    final $_column = $_itemColumn<int>('account_id')!;
+
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CategoryPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $CategoryPreferencesTable> {
+  $$CategoryPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isHidden => $composableBuilder(
+    column: $table.isHidden,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isNew => $composableBuilder(
+    column: $table.isNew,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$AccountsTableFilterComposer get accountId {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CategoryPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CategoryPreferencesTable> {
+  $$CategoryPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isHidden => $composableBuilder(
+    column: $table.isHidden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isNew => $composableBuilder(
+    column: $table.isNew,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$AccountsTableOrderingComposer get accountId {
+    final $$AccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CategoryPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CategoryPreferencesTable> {
+  $$CategoryPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<bool> get isHidden =>
+      $composableBuilder(column: $table.isHidden, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get isNew =>
+      $composableBuilder(column: $table.isNew, builder: (column) => column);
+
+  $$AccountsTableAnnotationComposer get accountId {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CategoryPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CategoryPreferencesTable,
+          CategoryPreference,
+          $$CategoryPreferencesTableFilterComposer,
+          $$CategoryPreferencesTableOrderingComposer,
+          $$CategoryPreferencesTableAnnotationComposer,
+          $$CategoryPreferencesTableCreateCompanionBuilder,
+          $$CategoryPreferencesTableUpdateCompanionBuilder,
+          (CategoryPreference, $$CategoryPreferencesTableReferences),
+          CategoryPreference,
+          PrefetchHooks Function({bool accountId})
+        > {
+  $$CategoryPreferencesTableTableManager(
+    _$AppDatabase db,
+    $CategoryPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CategoryPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CategoryPreferencesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CategoryPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> accountId = const Value.absent(),
+                Value<String> categoryId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<bool> isHidden = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<bool> isNew = const Value.absent(),
+              }) => CategoryPreferencesCompanion(
+                id: id,
+                accountId: accountId,
+                categoryId: categoryId,
+                type: type,
+                isHidden: isHidden,
+                sortOrder: sortOrder,
+                isNew: isNew,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int accountId,
+                required String categoryId,
+                required String type,
+                Value<bool> isHidden = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<bool> isNew = const Value.absent(),
+              }) => CategoryPreferencesCompanion.insert(
+                id: id,
+                accountId: accountId,
+                categoryId: categoryId,
+                type: type,
+                isHidden: isHidden,
+                sortOrder: sortOrder,
+                isNew: isNew,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CategoryPreferencesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({accountId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (accountId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.accountId,
+                        referencedTable: $$CategoryPreferencesTableReferences
+                            ._accountIdTable(db),
+                        referencedColumn: $$CategoryPreferencesTableReferences
+                            ._accountIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CategoryPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CategoryPreferencesTable,
+      CategoryPreference,
+      $$CategoryPreferencesTableFilterComposer,
+      $$CategoryPreferencesTableOrderingComposer,
+      $$CategoryPreferencesTableAnnotationComposer,
+      $$CategoryPreferencesTableCreateCompanionBuilder,
+      $$CategoryPreferencesTableUpdateCompanionBuilder,
+      (CategoryPreference, $$CategoryPreferencesTableReferences),
+      CategoryPreference,
+      PrefetchHooks Function({bool accountId})
+    >;
+typedef $$CustomListsTableCreateCompanionBuilder =
+    CustomListsCompanion Function({
+      Value<int> id,
+      required int accountId,
+      required String name,
+      required String type,
+      Value<int> sortOrder,
+      Value<DateTime> createdAt,
+    });
+typedef $$CustomListsTableUpdateCompanionBuilder =
+    CustomListsCompanion Function({
+      Value<int> id,
+      Value<int> accountId,
+      Value<String> name,
+      Value<String> type,
+      Value<int> sortOrder,
+      Value<DateTime> createdAt,
+    });
+
+final class $$CustomListsTableReferences
+    extends BaseReferences<_$AppDatabase, $CustomListsTable, CustomList> {
+  $$CustomListsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $AccountsTable _accountIdTable(_$AppDatabase db) =>
+      db.accounts.createAlias('custom_lists__account_id__accounts__id');
+
+  $$AccountsTableProcessedTableManager get accountId {
+    final $_column = $_itemColumn<int>('account_id')!;
+
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$CustomListItemsTable, List<CustomListItem>>
+  _customListItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.customListItems,
+    aliasName: 'custom_lists__id__custom_list_items__list_id',
+  );
+
+  $$CustomListItemsTableProcessedTableManager get customListItemsRefs {
+    final manager = $$CustomListItemsTableTableManager(
+      $_db,
+      $_db.customListItems,
+    ).filter((f) => f.listId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _customListItemsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$CustomListsTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomListsTable> {
+  $$CustomListsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$AccountsTableFilterComposer get accountId {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> customListItemsRefs(
+    Expression<bool> Function($$CustomListItemsTableFilterComposer f) f,
+  ) {
+    final $$CustomListItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customListItems,
+      getReferencedColumn: (t) => t.listId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.customListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$CustomListsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomListsTable> {
+  $$CustomListsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$AccountsTableOrderingComposer get accountId {
+    final $$AccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CustomListsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomListsTable> {
+  $$CustomListsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$AccountsTableAnnotationComposer get accountId {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> customListItemsRefs<T extends Object>(
+    Expression<T> Function($$CustomListItemsTableAnnotationComposer a) f,
+  ) {
+    final $$CustomListItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.customListItems,
+      getReferencedColumn: (t) => t.listId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.customListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$CustomListsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomListsTable,
+          CustomList,
+          $$CustomListsTableFilterComposer,
+          $$CustomListsTableOrderingComposer,
+          $$CustomListsTableAnnotationComposer,
+          $$CustomListsTableCreateCompanionBuilder,
+          $$CustomListsTableUpdateCompanionBuilder,
+          (CustomList, $$CustomListsTableReferences),
+          CustomList,
+          PrefetchHooks Function({bool accountId, bool customListItemsRefs})
+        > {
+  $$CustomListsTableTableManager(_$AppDatabase db, $CustomListsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomListsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomListsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomListsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> accountId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => CustomListsCompanion(
+                id: id,
+                accountId: accountId,
+                name: name,
+                type: type,
+                sortOrder: sortOrder,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int accountId,
+                required String name,
+                required String type,
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => CustomListsCompanion.insert(
+                id: id,
+                accountId: accountId,
+                name: name,
+                type: type,
+                sortOrder: sortOrder,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CustomListsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({accountId = false, customListItemsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (customListItemsRefs) db.customListItems,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (accountId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.accountId,
+                            referencedTable: $$CustomListsTableReferences
+                                ._accountIdTable(db),
+                            referencedColumn: $$CustomListsTableReferences
+                                ._accountIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (customListItemsRefs)
+                        await $_getPrefetchedData<
+                          CustomList,
+                          $CustomListsTable,
+                          CustomListItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CustomListsTableReferences
+                              ._customListItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CustomListsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).customListItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.listId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$CustomListsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomListsTable,
+      CustomList,
+      $$CustomListsTableFilterComposer,
+      $$CustomListsTableOrderingComposer,
+      $$CustomListsTableAnnotationComposer,
+      $$CustomListsTableCreateCompanionBuilder,
+      $$CustomListsTableUpdateCompanionBuilder,
+      (CustomList, $$CustomListsTableReferences),
+      CustomList,
+      PrefetchHooks Function({bool accountId, bool customListItemsRefs})
+    >;
+typedef $$CustomListItemsTableCreateCompanionBuilder =
+    CustomListItemsCompanion Function({
+      Value<int> id,
+      required int listId,
+      required int accountId,
+      required String streamId,
+      required String streamType,
+      Value<String?> streamName,
+      Value<int> sortOrder,
+      Value<DateTime> addedAt,
+    });
+typedef $$CustomListItemsTableUpdateCompanionBuilder =
+    CustomListItemsCompanion Function({
+      Value<int> id,
+      Value<int> listId,
+      Value<int> accountId,
+      Value<String> streamId,
+      Value<String> streamType,
+      Value<String?> streamName,
+      Value<int> sortOrder,
+      Value<DateTime> addedAt,
+    });
+
+final class $$CustomListItemsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $CustomListItemsTable, CustomListItem> {
+  $$CustomListItemsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CustomListsTable _listIdTable(_$AppDatabase db) => db.customLists
+      .createAlias('custom_list_items__list_id__custom_lists__id');
+
+  $$CustomListsTableProcessedTableManager get listId {
+    final $_column = $_itemColumn<int>('list_id')!;
+
+    final manager = $$CustomListsTableTableManager(
+      $_db,
+      $_db.customLists,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_listIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AccountsTable _accountIdTable(_$AppDatabase db) =>
+      db.accounts.createAlias('custom_list_items__account_id__accounts__id');
+
+  $$AccountsTableProcessedTableManager get accountId {
+    final $_column = $_itemColumn<int>('account_id')!;
+
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CustomListItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomListItemsTable> {
+  $$CustomListItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamType => $composableBuilder(
+    column: $table.streamType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamName => $composableBuilder(
+    column: $table.streamName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CustomListsTableFilterComposer get listId {
+    final $$CustomListsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.customLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListsTableFilterComposer(
+            $db: $db,
+            $table: $db.customLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableFilterComposer get accountId {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CustomListItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomListItemsTable> {
+  $$CustomListItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamType => $composableBuilder(
+    column: $table.streamType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamName => $composableBuilder(
+    column: $table.streamName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CustomListsTableOrderingComposer get listId {
+    final $$CustomListsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.customLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListsTableOrderingComposer(
+            $db: $db,
+            $table: $db.customLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableOrderingComposer get accountId {
+    final $$AccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CustomListItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomListItemsTable> {
+  $$CustomListItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<String> get streamType => $composableBuilder(
+    column: $table.streamType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get streamName => $composableBuilder(
+    column: $table.streamName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  $$CustomListsTableAnnotationComposer get listId {
+    final $$CustomListsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.customLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomListsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.customLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableAnnotationComposer get accountId {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CustomListItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomListItemsTable,
+          CustomListItem,
+          $$CustomListItemsTableFilterComposer,
+          $$CustomListItemsTableOrderingComposer,
+          $$CustomListItemsTableAnnotationComposer,
+          $$CustomListItemsTableCreateCompanionBuilder,
+          $$CustomListItemsTableUpdateCompanionBuilder,
+          (CustomListItem, $$CustomListItemsTableReferences),
+          CustomListItem,
+          PrefetchHooks Function({bool listId, bool accountId})
+        > {
+  $$CustomListItemsTableTableManager(
+    _$AppDatabase db,
+    $CustomListItemsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomListItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomListItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomListItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> listId = const Value.absent(),
+                Value<int> accountId = const Value.absent(),
+                Value<String> streamId = const Value.absent(),
+                Value<String> streamType = const Value.absent(),
+                Value<String?> streamName = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+              }) => CustomListItemsCompanion(
+                id: id,
+                listId: listId,
+                accountId: accountId,
+                streamId: streamId,
+                streamType: streamType,
+                streamName: streamName,
+                sortOrder: sortOrder,
+                addedAt: addedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int listId,
+                required int accountId,
+                required String streamId,
+                required String streamType,
+                Value<String?> streamName = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+              }) => CustomListItemsCompanion.insert(
+                id: id,
+                listId: listId,
+                accountId: accountId,
+                streamId: streamId,
+                streamType: streamType,
+                streamName: streamName,
+                sortOrder: sortOrder,
+                addedAt: addedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CustomListItemsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({listId = false, accountId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (listId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.listId,
+                        referencedTable: $$CustomListItemsTableReferences
+                            ._listIdTable(db),
+                        referencedColumn: $$CustomListItemsTableReferences
+                            ._listIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+                    if (accountId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.accountId,
+                        referencedTable: $$CustomListItemsTableReferences
+                            ._accountIdTable(db),
+                        referencedColumn: $$CustomListItemsTableReferences
+                            ._accountIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CustomListItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomListItemsTable,
+      CustomListItem,
+      $$CustomListItemsTableFilterComposer,
+      $$CustomListItemsTableOrderingComposer,
+      $$CustomListItemsTableAnnotationComposer,
+      $$CustomListItemsTableCreateCompanionBuilder,
+      $$CustomListItemsTableUpdateCompanionBuilder,
+      (CustomListItem, $$CustomListItemsTableReferences),
+      CustomListItem,
+      PrefetchHooks Function({bool listId, bool accountId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5783,4 +8921,10 @@ class $AppDatabaseManager {
       $$FavoritesTableTableManager(_db, _db.favorites);
   $$PlaybackProgressTableTableManager get playbackProgress =>
       $$PlaybackProgressTableTableManager(_db, _db.playbackProgress);
+  $$CategoryPreferencesTableTableManager get categoryPreferences =>
+      $$CategoryPreferencesTableTableManager(_db, _db.categoryPreferences);
+  $$CustomListsTableTableManager get customLists =>
+      $$CustomListsTableTableManager(_db, _db.customLists);
+  $$CustomListItemsTableTableManager get customListItems =>
+      $$CustomListItemsTableTableManager(_db, _db.customListItems);
 }

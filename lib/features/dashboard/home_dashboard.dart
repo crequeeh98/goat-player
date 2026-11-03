@@ -633,37 +633,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                 return Row(
                   children: [
                     if (!hideChrome) ...[
-                      if (GoatPlatform.isTv)
-                        _buildTvSidebar(context)
-                      else
-                        NavigationRail(
-                          selectedIndex: _selectedIndex,
-                          minWidth: 72,
-                          unselectedIconTheme: const IconThemeData(
-                            size: 24,
-                            color: Colors.white60,
-                          ),
-                          selectedIconTheme: const IconThemeData(
-                            size: 24,
-                            color: Color(0xFFB388FF),
-                          ),
-                          unselectedLabelTextStyle: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white60,
-                          ),
-                          selectedLabelTextStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          onDestinationSelected: _onTabSelected,
-                          labelType: NavigationRailLabelType.all,
-                          destinations: [
-                            NavigationRailDestination(icon: const Icon(Icons.tv), label: Text(AppLocalizations.of(context)!.liveTv)),
-                            NavigationRailDestination(icon: const Icon(Icons.movie), label: Text(AppLocalizations.of(context)!.movies)),
-                            NavigationRailDestination(icon: const Icon(Icons.video_library), label: Text(AppLocalizations.of(context)!.series)),
-                          ],
-                        ),
+                      _buildTvSidebar(context),
                       const VerticalDivider(thickness: 1, width: 1),
                     ],
                     Expanded(
@@ -714,22 +684,38 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         ],
       ),
       bottomNavigationBar: (!hideChrome && (MediaQuery.sizeOf(context).width <= 800 || GoatPlatform.isPhone))
-          ? SafeArea(
-              child: BottomNavigationBar(
-                currentIndex: _selectedIndex,
-                onTap: (idx) {
-                  if (_selectedIndex != idx) {
-                    ref.read(dashboardTabResetProvider.notifier).reset();
-                    ref.read(selectedLiveCategoryProvider.notifier).set(null);
-                  }
-                  setState(() => _selectedIndex = idx);
-                },
-                items: [
-                  BottomNavigationBarItem(icon: const Icon(Icons.tv), label: AppLocalizations.of(context)!.liveTv),
-                  BottomNavigationBarItem(icon: const Icon(Icons.movie), label: AppLocalizations.of(context)!.movies),
-                  BottomNavigationBarItem(icon: const Icon(Icons.video_library), label: AppLocalizations.of(context)!.series),
-                ],
-              ),
+          ? Builder(
+              builder: (ctx) {
+                final account = ref.watch(activeAccountProvider);
+                final hasLive = account?.syncLiveTv ?? true;
+                final hasMovies = account?.syncMovies ?? true;
+                final hasSeries = account?.syncSeries ?? true;
+                final l10n = AppLocalizations.of(ctx)!;
+
+                final activeItems = [
+                  if (hasLive) (icon: Icons.tv, label: l10n.liveTv, index: 0),
+                  if (hasMovies) (icon: Icons.movie, label: l10n.movies, index: 1),
+                  if (hasSeries) (icon: Icons.video_library, label: l10n.series, index: 2),
+                ];
+
+                if (activeItems.length <= 1) return const SizedBox.shrink();
+
+                final currentItemIdx = activeItems.indexWhere((item) => item.index == _selectedIndex);
+
+                return SafeArea(
+                  child: BottomNavigationBar(
+                    currentIndex: currentItemIdx >= 0 ? currentItemIdx : 0,
+                    onTap: (navIdx) {
+                      final targetIdx = activeItems[navIdx].index;
+                      _onTabSelected(targetIdx);
+                    },
+                    items: [
+                      for (final item in activeItems)
+                        BottomNavigationBarItem(icon: Icon(item.icon), label: item.label),
+                    ],
+                  ),
+                );
+              },
             )
             : null,
       ),
@@ -768,11 +754,34 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
   Widget _buildTvSidebar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final items = [
-      (icon: Icons.tv_rounded, label: l10n.liveTv, index: 0),
-      (icon: Icons.movie_rounded, label: l10n.movies, index: 1),
-      (icon: Icons.video_library_rounded, label: l10n.series, index: 2),
+    final account = ref.watch(activeAccountProvider);
+    final hasLive = account?.syncLiveTv ?? true;
+    final hasMovies = account?.syncMovies ?? true;
+    final hasSeries = account?.syncSeries ?? true;
+
+    final allItems = [
+      (icon: Icons.tv_rounded, label: l10n.liveTv, index: 0, enabled: hasLive),
+      (icon: Icons.movie_rounded, label: l10n.movies, index: 1, enabled: hasMovies),
+      (icon: Icons.video_library_rounded, label: l10n.series, index: 2, enabled: hasSeries),
     ];
+    final items = allItems.where((i) => i.enabled).toList();
+
+    if (_selectedIndex == 0 && !hasLive) {
+      final target = hasMovies ? 1 : (hasSeries ? 2 : 0);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabSelected(target);
+      });
+    } else if (_selectedIndex == 1 && !hasMovies) {
+      final target = hasLive ? 0 : (hasSeries ? 2 : 1);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabSelected(target);
+      });
+    } else if (_selectedIndex == 2 && !hasSeries) {
+      final target = hasLive ? 0 : (hasMovies ? 1 : 2);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onTabSelected(target);
+      });
+    }
 
     return Container(
       width: 72,

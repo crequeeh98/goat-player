@@ -47,6 +47,16 @@ class AccountDao extends DatabaseAccessor<AppDatabase> with _$AccountDaoMixin {
     return update(accounts).replace(_encryptAccount(account));
   }
 
+  Future<void> updateSyncScopes(int accountId, {required bool syncLiveTv, required bool syncMovies, required bool syncSeries}) {
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(
+        syncLiveTv: Value(syncLiveTv),
+        syncMovies: Value(syncMovies),
+        syncSeries: Value(syncSeries),
+      ),
+    );
+  }
+
   Future<int> deleteAccount(Account account) => delete(accounts).delete(account);
   
   Future<Account?> getAccountById(int id) async {

@@ -10,6 +10,9 @@ class Accounts extends Table {
   BoolColumn get isTrial => boolean().withDefault(const Constant(false))();
   IntColumn get maxConnections => integer().nullable()();
   IntColumn get expDate => integer().nullable()(); // Unix timestamp
+  BoolColumn get syncLiveTv => boolean().withDefault(const Constant(true))();
+  BoolColumn get syncMovies => boolean().withDefault(const Constant(true))();
+  BoolColumn get syncSeries => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -78,3 +81,43 @@ class PlaybackProgress extends Table {
   @override
   Set<Column> get primaryKey => {streamId};
 }
+
+@DataClassName('CategoryPreference')
+class CategoryPreferences extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get accountId => integer().references(Accounts, #id)();
+  TextColumn get categoryId => text()();
+  TextColumn get type => text()(); // 'live', 'movie', 'series'
+  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isNew => boolean().withDefault(const Constant(false))();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [{accountId, categoryId, type}];
+}
+
+@DataClassName('CustomList')
+class CustomLists extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get accountId => integer().references(Accounts, #id)();
+  TextColumn get name => text()();
+  TextColumn get type => text()(); // 'live', 'movie', 'series'
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+@DataClassName('CustomListItem')
+class CustomListItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get listId => integer().references(CustomLists, #id, onDelete: KeyAction.cascade)();
+  IntColumn get accountId => integer().references(Accounts, #id)();
+  TextColumn get streamId => text()();
+  TextColumn get streamType => text()(); // 'live', 'movie', 'series'
+  TextColumn get streamName => text().nullable()(); // Fuzzy fallback
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [{listId, streamId}];
+}
+

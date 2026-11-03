@@ -139,26 +139,93 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     );
   }
 
+  Future<void> _toggleScope(String type, bool isDe) async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+
+    bool newLive = account.syncLiveTv;
+    bool newMovies = account.syncMovies;
+    bool newSeries = account.syncSeries;
+
+    if (type == 'live') newLive = !newLive;
+    if (type == 'movie') newMovies = !newMovies;
+    if (type == 'series') newSeries = !newSeries;
+
+    if (!newLive && !newMovies && !newSeries) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isDe
+                ? 'Mindestens ein Bereich muss aktiv bleiben.'
+                : 'At least one section must remain active.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    final dao = ref.read(accountDaoProvider);
+    await dao.updateSyncScopes(account.id, syncLiveTv: newLive, syncMovies: newMovies, syncSeries: newSeries);
+    final updatedAccount = account.copyWith(syncLiveTv: newLive, syncMovies: newMovies, syncSeries: newSeries);
+    ref.read(activeAccountProvider.notifier).set(updatedAccount);
+
+    if (type == 'live' && !newLive) {
+      await ref.read(streamDaoProvider).clearStreamsByType(account.id, 'live');
+      await ref.read(categoryDaoProvider).clearCategories(account.id, 'live');
+    } else if (type == 'movie' && !newMovies) {
+      await ref.read(streamDaoProvider).clearStreamsByType(account.id, 'movie');
+      await ref.read(categoryDaoProvider).clearCategories(account.id, 'movie');
+    } else if (type == 'series' && !newSeries) {
+      await ref.read(streamDaoProvider).clearStreamsByType(account.id, 'series');
+      await ref.read(categoryDaoProvider).clearCategories(account.id, 'series');
+    }
+
+    if (type == 'live' && newLive) {
+      _syncLive(isDe);
+    } else if (type == 'movie' && newMovies) {
+      _syncVod(isDe);
+    } else if (type == 'series' && newSeries) {
+      _syncSeries(isDe);
+    } else {
+      if (mounted) setState(() {});
+    }
+  }
+
   void _syncAll(bool isDe) {
+    final account = ref.read(activeAccountProvider);
+    final hasLive = account?.syncLiveTv ?? true;
+    final hasMovies = account?.syncMovies ?? true;
+    final hasSeries = account?.syncSeries ?? true;
+
     _runSync(
-      isDe ? '1/4: Live TV wird aktualisiert...' : '1/4: Updating Live TV...',
+      isDe ? 'Inhalte werden aktualisiert...' : 'Updating content...',
       () async {
-        await ref.read(liveTvControllerProvider).syncLiveCategories(force: true, rethrowOnError: true);
-        await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
-        if (!mounted) return;
+        if (hasLive) {
+          setState(() => _currentStatus = isDe ? 'Live TV wird aktualisiert...' : 'Updating Live TV...');
+          await ref.read(liveTvControllerProvider).syncLiveCategories(force: true, rethrowOnError: true);
+          await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
+          if (!mounted) return;
+        }
 
-        setState(() => _currentStatus = isDe ? '2/4: Filme (VOD) werden aktualisiert...' : '2/4: Updating Movies (VOD)...');
-        await ref.read(vodControllerProvider).syncVodCategories(force: true, rethrowOnError: true);
-        await ref.read(vodControllerProvider).syncAllVodStreams(force: true, rethrowOnError: true);
-        if (!mounted) return;
+        if (hasMovies) {
+          setState(() => _currentStatus = isDe ? 'Filme (VOD) werden aktualisiert...' : 'Updating Movies (VOD)...');
+          await ref.read(vodControllerProvider).syncVodCategories(force: true, rethrowOnError: true);
+          await ref.read(vodControllerProvider).syncAllVodStreams(force: true, rethrowOnError: true);
+          if (!mounted) return;
+        }
 
-        setState(() => _currentStatus = isDe ? '3/4: Serien werden aktualisiert...' : '3/4: Updating Series...');
-        await ref.read(seriesControllerProvider).syncSeriesCategories(force: true, rethrowOnError: true);
-        await ref.read(seriesControllerProvider).syncAllSeriesStreams(force: true, rethrowOnError: true);
-        if (!mounted) return;
+        if (hasSeries) {
+          setState(() => _currentStatus = isDe ? 'Serien werden aktualisiert...' : 'Updating Series...');
+          await ref.read(seriesControllerProvider).syncSeriesCategories(force: true, rethrowOnError: true);
+          await ref.read(seriesControllerProvider).syncAllSeriesStreams(force: true, rethrowOnError: true);
+          if (!mounted) return;
+        }
 
-        setState(() => _currentStatus = isDe ? '4/4: EPG TV Guide wird aktualisiert...' : '4/4: Updating EPG TV Guide...');
-        await ref.read(epgControllerProvider).syncEpgData(force: true);
+        if (hasLive) {
+          setState(() => _currentStatus = isDe ? 'EPG TV Guide wird aktualisiert...' : 'Updating EPG TV Guide...');
+          await ref.read(epgControllerProvider).syncEpgData(force: true);
+        }
       },
       isDe,
     );
@@ -368,7 +435,56 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     );
   }
 
+  Widget _buildScopeChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return TvFocusable(
+      borderRadius: BorderRadius.circular(10),
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFB388FF) : Colors.white12,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+              size: 16,
+              color: isSelected ? const Color(0xFFB388FF) : Colors.white30,
+            ),
+            const SizedBox(width: 8),
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : Colors.white60,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIdleView(bool isM3u, bool isDe) {
+    final account = ref.watch(activeAccountProvider);
+    final hasLive = account?.syncLiveTv ?? true;
+    final hasMovies = account?.syncMovies ?? true;
+    final hasSeries = account?.syncSeries ?? true;
+
     final lastUpdatedPrefix = isDe ? 'Zuletzt aktualisiert' : 'Last updated';
     final refreshBtnLabel = isDe ? 'Aktualisieren' : 'Refresh';
 
@@ -423,38 +539,79 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                     autofocus: true,
                   ),
                 ] else ...[
-                  _buildSyncRow(
-                    icon: Icons.tv_rounded,
-                    title: 'Live TV',
-                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastLiveSync, isDe)}',
-                    buttonLabel: refreshBtnLabel,
-                    onPressed: () => _syncLive(isDe),
-                    autofocus: true,
+                  Text(
+                    isDe ? 'INHALTS-UMFANG (RAM & SPEICHER SPAREN)' : 'CONTENT SCOPES (SAVE RAM)',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
                   ),
-                  const SizedBox(height: 10),
-                  _buildSyncRow(
-                    icon: Icons.movie_rounded,
-                    title: isDe ? 'Filme (VOD)' : 'Movies (VOD)',
-                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastVodSync, isDe)}',
-                    buttonLabel: refreshBtnLabel,
-                    onPressed: () => _syncVod(isDe),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildScopeChip(
+                        label: 'Live TV',
+                        icon: Icons.tv_rounded,
+                        isSelected: hasLive,
+                        onTap: () => _toggleScope('live', isDe),
+                      ),
+                      _buildScopeChip(
+                        label: isDe ? 'Filme' : 'Movies',
+                        icon: Icons.movie_rounded,
+                        isSelected: hasMovies,
+                        onTap: () => _toggleScope('movie', isDe),
+                      ),
+                      _buildScopeChip(
+                        label: isDe ? 'Serien' : 'Series',
+                        icon: Icons.video_library_rounded,
+                        isSelected: hasSeries,
+                        onTap: () => _toggleScope('series', isDe),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  _buildSyncRow(
-                    icon: Icons.video_library_rounded,
-                    title: isDe ? 'Serien' : 'Series',
-                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastSeriesSync, isDe)}',
-                    buttonLabel: refreshBtnLabel,
-                    onPressed: () => _syncSeries(isDe),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSyncRow(
-                    icon: Icons.table_chart_rounded,
-                    title: 'EPG TV Guide',
-                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastEpgSync, isDe)}',
-                    buttonLabel: refreshBtnLabel,
-                    onPressed: () => _syncEpg(isDe),
-                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1, color: Colors.white12),
+                  const SizedBox(height: 14),
+
+                  if (hasLive) ...[
+                    _buildSyncRow(
+                      icon: Icons.tv_rounded,
+                      title: 'Live TV',
+                      subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastLiveSync, isDe)}',
+                      buttonLabel: refreshBtnLabel,
+                      onPressed: () => _syncLive(isDe),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (hasMovies) ...[
+                    _buildSyncRow(
+                      icon: Icons.movie_rounded,
+                      title: isDe ? 'Filme (VOD)' : 'Movies (VOD)',
+                      subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastVodSync, isDe)}',
+                      buttonLabel: refreshBtnLabel,
+                      onPressed: () => _syncVod(isDe),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (hasSeries) ...[
+                    _buildSyncRow(
+                      icon: Icons.video_library_rounded,
+                      title: isDe ? 'Serien' : 'Series',
+                      subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastSeriesSync, isDe)}',
+                      buttonLabel: refreshBtnLabel,
+                      onPressed: () => _syncSeries(isDe),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (hasLive) ...[
+                    _buildSyncRow(
+                      icon: Icons.table_chart_rounded,
+                      title: 'EPG TV Guide',
+                      subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastEpgSync, isDe)}',
+                      buttonLabel: refreshBtnLabel,
+                      onPressed: () => _syncEpg(isDe),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   const Divider(height: 1, color: Colors.white12),
                   const SizedBox(height: 16),

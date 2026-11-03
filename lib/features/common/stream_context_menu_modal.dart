@@ -1,0 +1,374 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/database/app_database.dart';
+import '../../core/utils/platform_utils.dart';
+import '../../core/widgets/tv_focusable.dart';
+import '../../main.dart';
+
+class StreamContextMenuModal extends ConsumerStatefulWidget {
+  final StreamItem stream;
+
+  const StreamContextMenuModal({
+    super.key,
+    required this.stream,
+  });
+
+  static Future<void> show(BuildContext context, StreamItem stream) {
+    return showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StreamContextMenuModal(stream: stream),
+    );
+  }
+
+  @override
+  ConsumerState<StreamContextMenuModal> createState() => _StreamContextMenuModalState();
+}
+
+class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal> {
+  final TextEditingController _newListController = TextEditingController();
+  bool _isCreatingList = false;
+
+  @override
+  void dispose() {
+    _newListController.dispose();
+    super.dispose();
+  }
+
+  void _createAndAddList() async {
+    final name = _newListController.text.trim();
+    if (name.isEmpty) return;
+
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+
+    final customDao = ref.read(customListDaoProvider);
+    final listId = await customDao.createList(account.id, name, widget.stream.streamType);
+    await customDao.addItemToList(
+      listId,
+      account.id,
+      widget.stream.streamId,
+      widget.stream.streamType,
+      widget.stream.name,
+    );
+
+    if (mounted) {
+      _newListController.clear();
+      setState(() => _isCreatingList = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final account = ref.watch(activeAccountProvider);
+    if (account == null) return const SizedBox.shrink();
+
+    final customDao = ref.watch(customListDaoProvider);
+    final favDao = ref.watch(favoriteDaoProvider);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: GoatPlatform.isTv ? 50 : 20,
+        vertical: GoatPlatform.isTv ? 30 : 40,
+      ),
+      child: Container(
+        width: 440,
+        constraints: const BoxConstraints(maxHeight: 580),
+        decoration: BoxDecoration(
+          color: const Color(0xFF161026),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.8),
+              blurRadius: 36,
+              spreadRadius: 6,
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header: Stream Title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.playlist_add_rounded, color: Color(0xFFB388FF), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.stream.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  TvFocusable(
+                    borderRadius: BorderRadius.circular(16),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white12),
+
+            // Favorites Toggle Row
+            StreamBuilder<bool>(
+              stream: favDao.isFavorite(account.id, widget.stream.streamId, widget.stream.streamType),
+              builder: (context, snapshot) {
+                final isFav = snapshot.data ?? false;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                  child: TvFocusable(
+                    autofocus: true,
+                    borderRadius: BorderRadius.circular(10),
+                    onPressed: () => favDao.toggleFavorite(account.id, widget.stream.streamId, widget.stream.streamType),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isFav
+                            ? Colors.amber.withValues(alpha: 0.12)
+                            : Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isFav ? Colors.amber.withValues(alpha: 0.5) : Colors.white12,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                            color: isFav ? Colors.amber : Colors.white60,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isFav ? FontWeight.bold : FontWeight.w500,
+                                color: isFav ? Colors.amber : Colors.white,
+                              ),
+                            ),
+                          ),
+                          if (isFav)
+                            const Icon(Icons.check_rounded, color: Colors.amber, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 6),
+              child: Text(
+                'EIGENE LISTEN',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
+              ),
+            ),
+
+            // Custom Lists for this streamType
+            Flexible(
+              child: StreamBuilder<List<CustomList>>(
+                stream: customDao.watchCustomLists(account.id, widget.stream.streamType),
+                builder: (context, snapshot) {
+                  final lists = snapshot.data ?? [];
+
+                  return FutureBuilder<List<int>>(
+                    future: customDao.getListIdsContainingStream(account.id, widget.stream.streamId),
+                    builder: (context, idSnap) {
+                      final containingListIds = (idSnap.data ?? []).toSet();
+
+                      return ListView(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          for (final list in lists) ...[
+                            Builder(
+                              builder: (context) {
+                                final isInThisList = containingListIds.contains(list.id);
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 3),
+                                  child: TvFocusable(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onPressed: () async {
+                                      if (isInThisList) {
+                                        await customDao.removeItemFromList(list.id, widget.stream.streamId);
+                                      } else {
+                                        await customDao.addItemToList(
+                                          list.id,
+                                          account.id,
+                                          widget.stream.streamId,
+                                          widget.stream.streamType,
+                                          widget.stream.name,
+                                        );
+                                      }
+                                      if (mounted) setState(() {});
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: isInThisList
+                                            ? const Color(0xFF7C3AED).withValues(alpha: 0.18)
+                                            : Colors.white.withValues(alpha: 0.04),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isInThisList
+                                              ? const Color(0xFFB388FF).withValues(alpha: 0.4)
+                                              : Colors.white10,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.playlist_play_rounded,
+                                            size: 20,
+                                            color: isInThisList ? const Color(0xFFB388FF) : Colors.white60,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              list.name,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: isInThisList ? FontWeight.bold : FontWeight.normal,
+                                                color: isInThisList ? Colors.white : Colors.white70,
+                                              ),
+                                            ),
+                                          ),
+                                          Icon(
+                                            isInThisList
+                                                ? Icons.check_box_rounded
+                                                : Icons.check_box_outline_blank_rounded,
+                                            size: 18,
+                                            color: isInThisList ? const Color(0xFFB388FF) : Colors.white30,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+
+                          if (lists.isEmpty && !_isCreatingList)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: Text(
+                                  'Noch keine eigenen Listen erstellt',
+                                  style: TextStyle(fontSize: 12.5, color: Colors.white38),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+
+            const Divider(height: 1, color: Colors.white12),
+
+            // Create New List Option
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _isCreatingList
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _newListController,
+                            autofocus: true,
+                            style: const TextStyle(fontSize: 13, color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'Listenname (z. B. Sport, News)...',
+                              hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              filled: true,
+                              fillColor: Colors.white.withValues(alpha: 0.08),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFB388FF), width: 1.5),
+                              ),
+                            ),
+                            onSubmitted: (_) => _createAndAddList(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        TvFocusable(
+                          borderRadius: BorderRadius.circular(10),
+                          onPressed: _createAndAddList,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Speichern',
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : TvFocusable(
+                      borderRadius: BorderRadius.circular(10),
+                      onPressed: () => setState(() => _isCreatingList = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white12, width: 1),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_rounded, size: 18, color: Color(0xFFB388FF)),
+                            SizedBox(width: 8),
+                            Text(
+                              'Neue Liste erstellen...',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFB388FF),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

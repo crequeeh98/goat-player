@@ -18,6 +18,8 @@ import '../../core/utils/live_stream_matcher.dart';
 import '../../main.dart';
 import '../dashboard/dashboard_state.dart';
 import '../dashboard/favorites_provider.dart';
+import '../common/category_manager_modal.dart';
+import '../common/stream_context_menu_modal.dart';
 
 class MobileLiveCategoriesScreen extends ConsumerStatefulWidget {
   const MobileLiveCategoriesScreen({super.key});
@@ -62,7 +64,10 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
         // Dedicated search bar with clear visual container
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: TextField(
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
               hintText: l10n.searchCategories,
@@ -95,6 +100,23 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
             style: const TextStyle(color: Colors.white, fontSize: 14),
             onChanged: (val) => setState(() => _searchQuery = val),
           ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFFB388FF)),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => const CategoryManagerModal(type: 'live'),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
         const Divider(height: 1, thickness: 0.5, color: Colors.white12),
         Expanded(
@@ -116,27 +138,70 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
                 itemBuilder: (context, index) {
                   final cat = categories[index];
                   final isFavorites = cat.categoryId == 'favorites';
+                  final isCustomList = cat.categoryId.startsWith('custom_list:');
+                  final isNewCat = ref.watch(newCategoryIdsProvider('live')).asData?.value.contains(cat.categoryId) ?? false;
                   final displayName = isFavorites ? l10n.favorites : cat.name;
 
                   return ListTile(
                     leading: Icon(
-                      isFavorites ? Icons.star_rounded : Icons.folder_outlined,
-                      color: isFavorites ? Colors.amber : Colors.white54,
+                      isFavorites
+                          ? Icons.star_rounded
+                          : isCustomList
+                              ? Icons.playlist_play_rounded
+                              : Icons.folder_outlined,
+                      color: isFavorites
+                          ? Colors.amber
+                          : isCustomList
+                              ? const Color(0xFF64B5F6)
+                              : Colors.white54,
                       size: isFavorites ? 24 : 20,
                     ),
-                    title: Text(
-                      displayName,
-                      style: TextStyle(
-                        fontWeight: isFavorites ? FontWeight.bold : FontWeight.normal,
-                        color: isFavorites ? Colors.amber : Colors.white,
-                      ),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displayName,
+                            style: TextStyle(
+                              fontWeight: (isFavorites || isCustomList) ? FontWeight.bold : FontWeight.normal,
+                              color: isFavorites
+                                  ? Colors.amber
+                                  : isCustomList
+                                      ? const Color(0xFF90CAF9)
+                                      : Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isNewCat) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.amber, width: 0.8),
+                            ),
+                            child: const Text(
+                              'NEU',
+                              style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.white38),
                     onTap: () {
+                      if (isNewCat) {
+                        final account = ref.read(activeAccountProvider);
+                        if (account != null) {
+                          ref.read(categoryPreferenceDaoProvider).markViewed(account.id, cat.categoryId, 'live');
+                        }
+                      }
                       ref.read(selectedLiveCategoryProvider.notifier).set(cat.categoryId);
                       final account = ref.read(activeAccountProvider);
                       final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
-                      if (!isM3u) {
+                      if (!isM3u && !isFavorites && !isCustomList) {
                         ref.read(liveTvControllerProvider).syncLiveStreams(cat.categoryId);
                       }
                       Navigator.push(
@@ -147,6 +212,12 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
                             categoryName: displayName,
                           ),
                         ),
+                      );
+                    },
+                    onLongPress: () {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => const CategoryManagerModal(type: 'live'),
                       );
                     },
                   );
@@ -329,6 +400,9 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                         const Icon(Icons.play_circle_outline, color: Colors.white60, size: 22),
                       ],
                     ),
+                    onLongPress: () {
+                      StreamContextMenuModal.show(context, stream);
+                    },
                     onTap: () {
                       final baseUrl = account?.serverUrl.endsWith('/') == true
                           ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
