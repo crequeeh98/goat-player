@@ -1162,6 +1162,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Row(
                     children: [
+                      const SizedBox(width: 48),
                       Expanded(
                         child: ref.watch(vodCategoriesProvider).when(
                           data: (categories) {
@@ -1251,7 +1252,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
                           ),
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                         ),
                         icon: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFFB388FF)),
                         tooltip: 'Kategorien verwalten',
