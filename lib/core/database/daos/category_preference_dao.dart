@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import '../tables.dart';
 import '../app_database.dart';
+import 'category_dao.dart';
 
 part 'category_preference_dao.g.dart';
 
@@ -41,6 +42,37 @@ class CategoryPreferenceDao extends DatabaseAccessor<AppDatabase> with _$Categor
         sortOrder: Value(defaultSort),
       ));
     }
+  }
+
+  Future<void> setAllVisibility(int accountId, String type, List<CategoryWithPref> items, bool isHidden) async {
+    await transaction(() async {
+      await (update(categoryPreferences)
+            ..where((cp) => cp.accountId.equals(accountId) & cp.type.equals(type)))
+          .write(CategoryPreferencesCompanion(isHidden: Value(isHidden)));
+
+      final existing = await (select(categoryPreferences)
+            ..where((cp) => cp.accountId.equals(accountId) & cp.type.equals(type)))
+          .get();
+      final existingIds = {for (final p in existing) p.categoryId};
+
+      final missing = items.where((i) => !existingIds.contains(i.category.categoryId)).toList();
+      if (missing.isNotEmpty) {
+        await batch((b) {
+          for (final item in missing) {
+            b.insert(
+              categoryPreferences,
+              CategoryPreferencesCompanion.insert(
+                accountId: accountId,
+                categoryId: item.category.categoryId,
+                type: type,
+                isHidden: Value(isHidden),
+                sortOrder: Value(item.sortOrder),
+              ),
+            );
+          }
+        });
+      }
+    });
   }
 
   Future<void> updateSortOrders(int accountId, String type, List<String> orderedCategoryIds) async {

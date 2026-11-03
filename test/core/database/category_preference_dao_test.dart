@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
 import 'package:goat_player/core/database/app_database.dart';
+import 'package:goat_player/core/database/daos/category_dao.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -156,6 +157,37 @@ void main() {
       expect(prefs[0].categoryId, equals('cat_a'));
       expect(prefs[1].categoryId, equals('cat_m'));
       expect(prefs[2].categoryId, equals('cat_z'));
+    });
+
+    test('setAllVisibility toggles all categories atomically in a single batch', () async {
+      await db.categoryPreferenceDao.syncCategoryIds(accountId, 'live', ['cat_1', 'cat_2', 'cat_3']);
+      final items = [
+        const CategoryWithPref(
+          category: Category(id: 1, accountId: accountId, categoryId: 'cat_1', name: 'Cat 1', type: 'live'),
+          isHidden: false,
+          sortOrder: 0,
+        ),
+        const CategoryWithPref(
+          category: Category(id: 2, accountId: accountId, categoryId: 'cat_2', name: 'Cat 2', type: 'live'),
+          isHidden: false,
+          sortOrder: 1,
+        ),
+        const CategoryWithPref(
+          category: Category(id: 3, accountId: accountId, categoryId: 'cat_3', name: 'Cat 3', type: 'live'),
+          isHidden: false,
+          sortOrder: 2,
+        ),
+      ];
+
+      // Hide all
+      await db.categoryPreferenceDao.setAllVisibility(accountId, 'live', items, true);
+      var prefs = await db.categoryPreferenceDao.getPreferences(accountId, 'live');
+      expect(prefs.every((p) => p.isHidden), isTrue);
+
+      // Unhide all
+      await db.categoryPreferenceDao.setAllVisibility(accountId, 'live', items, false);
+      prefs = await db.categoryPreferenceDao.getPreferences(accountId, 'live');
+      expect(prefs.every((p) => !p.isHidden), isTrue);
     });
   });
 }

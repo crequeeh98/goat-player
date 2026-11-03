@@ -90,59 +90,51 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     final account = ref.read(activeAccountProvider);
     if (account == null || _localCategories == null) return;
 
-    final toHide = _localCategories!.where((c) => !c.isHidden).toList();
+    final updated = _localCategories!.map((c) => CategoryWithPref(
+      category: c.category,
+      isHidden: true,
+      sortOrder: c.sortOrder,
+      isNew: c.isNew,
+    )).toList();
+
     setState(() {
-      _localCategories = _localCategories!.map((c) => CategoryWithPref(
-        category: c.category,
-        isHidden: true,
-        sortOrder: c.sortOrder,
-        isNew: c.isNew,
-      )).toList();
+      _localCategories = updated;
     });
 
-    final prefDao = ref.read(categoryPreferenceDaoProvider);
-    for (final item in toHide) {
-      await prefDao.setVisibility(
-        account.id,
-        item.category.categoryId,
-        widget.type,
-        true,
-        sortOrder: item.sortOrder,
-      );
-    }
+    await ref.read(categoryPreferenceDaoProvider).setAllVisibility(
+      account.id,
+      widget.type,
+      updated,
+      true,
+    );
   }
 
   void _unhideAll() async {
     final account = ref.read(activeAccountProvider);
     if (account == null || _localCategories == null) return;
 
-    final toUnhide = _localCategories!.where((c) => c.isHidden).toList();
+    final updated = _localCategories!.map((c) => CategoryWithPref(
+      category: c.category,
+      isHidden: false,
+      sortOrder: c.sortOrder,
+      isNew: c.isNew,
+    )).toList();
+
     setState(() {
-      _localCategories = _localCategories!.map((c) => CategoryWithPref(
-        category: c.category,
-        isHidden: false,
-        sortOrder: c.sortOrder,
-        isNew: c.isNew,
-      )).toList();
+      _localCategories = updated;
     });
 
-    final prefDao = ref.read(categoryPreferenceDaoProvider);
-    for (final item in toUnhide) {
-      await prefDao.setVisibility(
-        account.id,
-        item.category.categoryId,
-        widget.type,
-        false,
-        sortOrder: item.sortOrder,
-      );
-    }
+    await ref.read(categoryPreferenceDaoProvider).setAllVisibility(
+      account.id,
+      widget.type,
+      updated,
+      false,
+    );
   }
 
   void _resetOrder() async {
     final account = ref.read(activeAccountProvider);
     if (account == null || _localCategories == null) return;
-
-    await ref.read(categoryPreferenceDaoProvider).resetToDefault(account.id, widget.type);
 
     final fav = _localCategories!.where((c) => c.category.categoryId == 'favorites').toList();
     final custom = _localCategories!.where((c) => c.category.categoryId.startsWith('custom_list:')).toList();
@@ -151,11 +143,12 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
 
     final resetList = [...fav, ...custom, ...provider];
     final orderedIds = resetList.map((c) => c.category.categoryId).toList();
-    await ref.read(categoryPreferenceDaoProvider).updateSortOrders(account.id, widget.type, orderedIds);
 
     setState(() {
       _localCategories = resetList;
     });
+
+    await ref.read(categoryPreferenceDaoProvider).updateSortOrders(account.id, widget.type, orderedIds);
   }
 
   @override
@@ -164,9 +157,14 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (account == null) return const SizedBox.shrink();
 
     final categoriesAsync = ref.watch(managedCategoriesProvider(widget.type));
-    final allVisible = _localCategories != null &&
-        _localCategories!.isNotEmpty &&
-        _localCategories!.every((c) => !c.isHidden);
+
+    final initialData = categoriesAsync.asData?.value;
+    if (_localCategories == null && initialData != null) {
+      _localCategories = List.from(initialData);
+    }
+
+    final currentList = _localCategories ?? initialData ?? const <CategoryWithPref>[];
+    final allVisible = currentList.isNotEmpty && currentList.every((c) => !c.isHidden);
 
     final title = widget.type == 'live'
         ? 'Live TV Kategorien verwalten'
