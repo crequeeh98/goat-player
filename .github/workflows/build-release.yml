@@ -283,6 +283,7 @@ jobs:
           name: "GOATPlayer Release ${{ steps.vars.outputs.tag }}"
           draft: false
           prerelease: false
+          overwrite: true
           files: release_assets/*
           body: |
             ## 🐐 GOATPlayer v2.0.4
