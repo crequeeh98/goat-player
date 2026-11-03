@@ -184,9 +184,10 @@
     try {
       // 1. Inject updated CSS if present in bundle (with integrity check)
       if (bundle.files['style.css']) {
+        var cssContent = (bundle.files['style.css'] || '').replace(/\r\n/g, '\n');
         if (bundle.hashes && bundle.hashes['style.css']) {
           var expectedCssHash = bundle.hashes['style.css'].toLowerCase();
-          var actualCssHash = computeSha256(bundle.files['style.css']);
+          var actualCssHash = computeSha256(cssContent);
           if (actualCssHash !== expectedCssHash) {
             console.error('[Bootloader] CSS integrity violation! Expected ' + expectedCssHash + ', got ' + actualCssHash);
             throw new Error('Integrity violation for style.css');
@@ -194,14 +195,14 @@
         }
         var styleEl = document.createElement('style');
         styleEl.id = 'goat-ota-style';
-        styleEl.textContent = bundle.files['style.css'];
+        styleEl.textContent = cssContent;
         document.head.appendChild(styleEl);
       }
 
       // 2. Synchronously execute application scripts in dependency order after verifying cryptographic SHA-256
       for (var i = 0; i < APP_SCRIPTS.length; i++) {
         var scriptName = APP_SCRIPTS[i];
-        var scriptCode = bundle.files[scriptName];
+        var scriptCode = (bundle.files[scriptName] || '').replace(/\r\n/g, '\n');
         var expectedHash = (bundle.hashes[scriptName] || '').toLowerCase();
 
         if (typeof scriptCode !== 'string' || !expectedHash || computeSha256(scriptCode) !== expectedHash) {

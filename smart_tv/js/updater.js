@@ -245,11 +245,14 @@
                 throw new Error('Invalid content for ' + fileInfo.name);
               }
 
-              return getSha256(content).then(function(actualHash) {
+              // Normalize CRLF to LF so OS line ending differences never cause hash mismatches
+              var normalized = content.replace(/\r\n/g, '\n');
+
+              return getSha256(normalized).then(function(actualHash) {
                 if (actualHash !== expectedHash) {
                   throw new Error('Integrity check failed for ' + fileInfo.name + ' (hash mismatch)');
                 }
-                downloadedBundle.files[fileInfo.name] = content;
+                downloadedBundle.files[fileInfo.name] = normalized;
                 completed++;
                 var pct = Math.round((completed / total) * 100);
                 if (progressFill) progressFill.style.width = pct + '%';

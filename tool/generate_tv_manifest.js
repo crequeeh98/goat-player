@@ -50,7 +50,8 @@ function generateManifest() {
       console.error(`[Error] File not found: ${file.path}`);
       process.exit(1);
     }
-    const content = fs.readFileSync(file.path, 'utf8');
+    const raw = fs.readFileSync(file.path, 'utf8');
+    const content = raw.replace(/\r\n/g, '\n');
     const hash = crypto.createHash('sha256').update(content, 'utf8').digest('hex');
     manifest.files[file.name] = hash;
     console.log(`  [SHA256] ${file.name.padEnd(16)} = ${hash}`);
