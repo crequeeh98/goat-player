@@ -182,9 +182,19 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '🔊 ${l10n?.preferredAudioLanguage ?? 'Preferred Audio Language'}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                            Row(
+                              children: [
+                                const Icon(Icons.volume_up_rounded, size: 16, color: Color(0xFFB388FF)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    l10n?.preferredAudioLanguage ?? 'Preferred Audio Language',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 8),
                             _buildTvGrid(
@@ -206,9 +216,19 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '💬 ${l10n?.preferredSubtitleLanguage ?? 'Preferred Subtitles'}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                            Row(
+                              children: [
+                                const Icon(Icons.subtitles_rounded, size: 16, color: Color(0xFFB388FF)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    l10n?.preferredSubtitleLanguage ?? 'Preferred Subtitles',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 8),
                             _buildTvGrid(
@@ -239,14 +259,21 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
                       borderRadius: BorderRadius.circular(10),
                       onPressed: () => Navigator.of(context).pop(),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFF7C3AED),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(
-                          '✓ ${l10n?.done ?? 'OK'}',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text(
+                              l10n?.done ?? 'OK',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -287,9 +314,15 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Audio preference
-            Text(
-              l10n?.preferredAudioLanguage ?? 'Preferred Audio Language',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Icon(Icons.volume_up_rounded, size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  l10n?.preferredAudioLanguage ?? 'Preferred Audio Language',
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             Container(
@@ -320,9 +353,15 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
             const SizedBox(height: 20),
 
             // Subtitle preference
-            Text(
-              l10n?.preferredSubtitleLanguage ?? 'Preferred Subtitles',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Icon(Icons.subtitles_rounded, size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  l10n?.preferredSubtitleLanguage ?? 'Preferred Subtitles',
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             Container(
@@ -360,9 +399,10 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
         ),
       ),
       actions: [
-        ElevatedButton(
+        ElevatedButton.icon(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
+          icon: const Icon(Icons.check_rounded, size: 18),
+          label: Text(l10n?.done ?? 'OK'),
         ),
       ],
     );
