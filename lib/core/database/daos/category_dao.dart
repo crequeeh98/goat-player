@@ -116,7 +116,9 @@ class CategoryDao extends DatabaseAccessor<AppDatabase> with _$CategoryDaoMixin 
       await batch((batch) {
         batch.insertAll(categories, newCategories, mode: InsertMode.insertOrReplace);
       });
-      final incomingIds = newCategories.map((c) => c.categoryId.value).toList();
+      final sortedIncoming = List<CategoriesCompanion>.from(newCategories)
+        ..sort((a, b) => a.name.value.toLowerCase().compareTo(b.name.value.toLowerCase()));
+      final incomingIds = sortedIncoming.map((c) => c.categoryId.value).toList();
       await db.categoryPreferenceDao.syncCategoryIds(accountId, type, incomingIds);
     });
   }

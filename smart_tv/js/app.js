@@ -6255,7 +6255,13 @@
     if (resetAzBtn) {
       resetAzBtn.onclick = function() {
         if (_activeAccount && window.TVStorage) {
-          var allCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+          var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
+          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+          var customCats = customLists.map(function(cl) {
+            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
+          });
+          var allCats = [favCat].concat(customCats).concat(rawCats);
           window.TVStorage.resetCategorySortOrder(_activeAccount.id, _activeCategoryManagerType, allCats);
           renderCategoryManagerList();
           showToast('A-Z Sortierung wiederhergestellt', '✓');
@@ -6893,7 +6899,13 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    var allCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+    var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
+    var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
+    });
+    var allCats = [favCat].concat(customCats).concat(rawCats);
     var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType) : { order: [], hidden: [], newIds: [] };
 
     // Order categories according to prefs.order
@@ -6926,13 +6938,16 @@
 
       var handleIcon = isMoving ? '↕' : '☰';
       var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+      var typeIcon = cat.isFav ? '★ ' : (cat.isCustom ? '📋 ' : '');
+      var customBadge = cat.isCustom ? '<span class="badge-cat-new" style="background:#7c3aed;color:#fff;">LISTE</span>' : '';
       var checkClass = !isHidden ? ' checked' : '';
       var checkIcon = !isHidden ? '✓' : '';
 
       itemEl.innerHTML = 
         '<div class="cat-mgr-item-left">' +
           '<span class="cat-mgr-handle">' + handleIcon + '</span>' +
-          '<span class="cat-mgr-name">' + escapeHtml(cat.category_name || cat.name || '') + '</span>' +
+          '<span class="cat-mgr-name">' + typeIcon + escapeHtml(cat.category_name || cat.name || '') + '</span>' +
+          customBadge +
           badgeHtml +
         '</div>' +
         '<div class="cat-mgr-checkbox' + checkClass + '">' + checkIcon + '</div>';

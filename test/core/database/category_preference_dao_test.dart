@@ -126,5 +126,36 @@ void main() {
       expect(visibleCats.length, equals(1));
       expect(visibleCats.first.categoryId, equals('cat_b'));
     });
+
+    test('CategoryDao replaceCategories sorts unsorted input into default alphabetical A-Z order', () async {
+      final companions = [
+        CategoriesCompanion.insert(
+          accountId: accountId,
+          categoryId: 'cat_z',
+          name: 'Zebra',
+          type: 'live',
+        ),
+        CategoriesCompanion.insert(
+          accountId: accountId,
+          categoryId: 'cat_a',
+          name: 'Apple',
+          type: 'live',
+        ),
+        CategoriesCompanion.insert(
+          accountId: accountId,
+          categoryId: 'cat_m',
+          name: 'Mango',
+          type: 'live',
+        ),
+      ];
+
+      await db.categoryDao.replaceCategories(accountId, 'live', companions);
+
+      final prefs = await db.categoryPreferenceDao.getPreferences(accountId, 'live');
+      expect(prefs.length, equals(3));
+      expect(prefs[0].categoryId, equals('cat_a'));
+      expect(prefs[1].categoryId, equals('cat_m'));
+      expect(prefs[2].categoryId, equals('cat_z'));
+    });
   });
 }

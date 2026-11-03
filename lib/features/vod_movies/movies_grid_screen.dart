@@ -765,31 +765,84 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                       color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
                       child: Column(
                         children: [
-                          if (GoatPlatform.isTv)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                              child: TvTextField(
-                                focusNode: _catSearchFocusNode,
-                                controller: _catSearchController,
-                                style: const TextStyle(fontSize: 12),
-                                hintText: 'Suchen...',
-                                hintStyle: const TextStyle(fontSize: 12, color: Colors.white54),
-                                prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFFB388FF)),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                suffixIcon: _catSearchController.text.isNotEmpty
-                                    ? Focus(
-                                        canRequestFocus: false,
-                                        skipTraversal: true,
-                                        child: IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                                          icon: const Icon(Icons.close, size: 16),
-                                          onPressed: () {
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 4.0 : 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TvTextField(
+                                    focusNode: _catSearchFocusNode,
+                                    controller: _catSearchController,
+                                    style: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14),
+                                    hintText: 'Suchen...',
+                                    hintStyle: TextStyle(fontSize: GoatPlatform.isTv ? 12 : 14, color: Colors.white54),
+                                    prefixIcon: Icon(Icons.search, size: GoatPlatform.isTv ? 16 : 22, color: const Color(0xFFB388FF)),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: const BorderSide(color: Color(0xFFB388FF), width: 2),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: GoatPlatform.isTv ? 4 : 12),
+                                    suffixIcon: _catSearchController.text.isNotEmpty
+                                        ? Focus(
+                                            canRequestFocus: false,
+                                            skipTraversal: true,
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                                              icon: Icon(Icons.close, size: GoatPlatform.isTv ? 16 : 20),
+                                              onPressed: () {
+                                                setState(() {
+                                                  _catSearchController.clear();
+                                                  _catSearchQuery = '';
+                                                });
+                                                if (_categoryScrollController.hasClients) {
+                                                  _categoryScrollController.jumpTo(0.0);
+                                                }
+                                              },
+                                            ),
+                                          )
+                                        : null,
+                                    isDense: true,
+                                    onChanged: (val) {
+                                      setState(() => _catSearchQuery = val);
+                                      if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                                        _categoryScrollController.jumpTo(0.0);
+                                      }
+                                    },
+                                    onKeyEvent: (node, event) {
+                                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                          if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
+                                            _categoryScrollController.jumpTo(0.0);
+                                          }
+                                          if (_topVisibleCategoryNode != null &&
+                                              _topVisibleCategoryNode!.context != null &&
+                                              _topVisibleCategoryNode!.canRequestFocus) {
+                                            _topVisibleCategoryNode!.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                          _focusCategoryColumn();
+                                          return KeyEventResult.handled;
+                                        } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                          if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
+                                            _topSearchFocusNode.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                        } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                          final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
+                                          if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
+                                            sidebarFocus.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                        } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                          if (_catSearchController.text.isEmpty || _catSearchController.selection.extentOffset >= _catSearchController.text.length) {
+                                            _focusFirstGridItem();
+                                            return KeyEventResult.handled;
+                                          }
+                                        } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                                            event.logicalKey == LogicalKeyboardKey.goBack) {
+                                          if (_catSearchController.text.isNotEmpty) {
                                             setState(() {
                                               _catSearchController.clear();
                                               _catSearchQuery = '';
@@ -797,20 +850,15 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                             if (_categoryScrollController.hasClients) {
                                               _categoryScrollController.jumpTo(0.0);
                                             }
-                                          },
-                                        ),
-                                      )
-                                    : null,
-                                isDense: true,
-                                onChanged: (val) {
-                                  setState(() => _catSearchQuery = val);
-                                  if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
-                                    _categoryScrollController.jumpTo(0.0);
-                                  }
-                                },
-                                onKeyEvent: (node, event) {
-                                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                                    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                            return KeyEventResult.handled;
+                                          }
+                                          _focusCategoryColumn();
+                                          return KeyEventResult.handled;
+                                        }
+                                      }
+                                      return KeyEventResult.ignored;
+                                    },
+                                    onSubmitted: (_) {
                                       if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
                                         _categoryScrollController.jumpTo(0.0);
                                       }
@@ -818,63 +866,40 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                           _topVisibleCategoryNode!.context != null &&
                                           _topVisibleCategoryNode!.canRequestFocus) {
                                         _topVisibleCategoryNode!.requestFocus();
-                                        return KeyEventResult.handled;
+                                      } else {
+                                        _focusCategoryColumn();
                                       }
-                                      _focusCategoryColumn();
-                                      return KeyEventResult.handled;
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                                      if (_topSearchFocusNode.context != null && _topSearchFocusNode.canRequestFocus) {
-                                        _topSearchFocusNode.requestFocus();
-                                        return KeyEventResult.handled;
-                                      }
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                      final sidebarFocus = ref.read(activeSidebarFocusNodeProvider);
-                                      if (sidebarFocus != null && sidebarFocus.context != null && sidebarFocus.canRequestFocus) {
-                                        sidebarFocus.requestFocus();
-                                        return KeyEventResult.handled;
-                                      }
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                      if (_catSearchController.text.isEmpty || _catSearchController.selection.extentOffset >= _catSearchController.text.length) {
-                                        _focusFirstGridItem();
-                                        return KeyEventResult.handled;
-                                      }
-                                    } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                        event.logicalKey == LogicalKeyboardKey.goBack) {
-                                      if (_catSearchController.text.isNotEmpty) {
-                                        setState(() {
-                                          _catSearchController.clear();
-                                          _catSearchQuery = '';
-                                        });
-                                        if (_categoryScrollController.hasClients) {
-                                          _categoryScrollController.jumpTo(0.0);
-                                        }
-                                        return KeyEventResult.handled;
-                                      }
-                                      _focusCategoryColumn();
-                                      return KeyEventResult.handled;
-                                    }
-                                  }
-                                  return KeyEventResult.ignored;
-                                },
-                                onSubmitted: (_) {
-                                  if (_categoryScrollController.hasClients && _categoryScrollController.offset > 0) {
-                                    _categoryScrollController.jumpTo(0.0);
-                                  }
-                                  if (_topVisibleCategoryNode != null &&
-                                      _topVisibleCategoryNode!.context != null &&
-                                      _topVisibleCategoryNode!.canRequestFocus) {
-                                    _topVisibleCategoryNode!.requestFocus();
-                                  } else {
-                                    _focusCategoryColumn();
-                                  }
-                                },
-                              ),
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                TvFocusable(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => const CategoryManagerModal(type: 'movie'),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: GoatPlatform.isTv ? 32 : 38,
+                                    height: GoatPlatform.isTv ? 32 : 38,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white12, width: 1),
+                                    ),
+                                    child: Icon(Icons.tune_rounded, size: GoatPlatform.isTv ? 16 : 18, color: const Color(0xFFB388FF)),
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
                           Expanded(
                             child: ref.watch(vodCategoriesProvider).when(
                               data: (rawCategories) {
                                 var categories = rawCategories;
-                                if (GoatPlatform.isTv && _catSearchQuery.isNotEmpty) {
+                                if (_catSearchQuery.isNotEmpty) {
                                   categories = categories
                                       .where((c) => c.name.toLowerCase().contains(_catSearchQuery.toLowerCase()))
                                       .toList();

@@ -744,10 +744,12 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                       color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
                       child: Column(
                         children: [
-                          if (GoatPlatform.isTv)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                              child: TvTextField(
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: GoatPlatform.isTv ? 4.0 : 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TvTextField(
                                 focusNode: _catSearchFocusNode,
                                 controller: _catSearchController,
                                 style: const TextStyle(fontSize: 12),
@@ -847,11 +849,34 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                 },
                               ),
                             ),
+                            const SizedBox(width: 4),
+                              TvFocusable(
+                                borderRadius: BorderRadius.circular(10),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => const CategoryManagerModal(type: 'series'),
+                                  );
+                                },
+                                child: Container(
+                                  width: GoatPlatform.isTv ? 32 : 38,
+                                  height: GoatPlatform.isTv ? 32 : 38,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.white12, width: 1),
+                                  ),
+                                  child: Icon(Icons.tune_rounded, size: GoatPlatform.isTv ? 16 : 18, color: const Color(0xFFB388FF)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                           Expanded(
                             child: ref.watch(seriesCategoriesProvider).when(
                               data: (rawCategories) {
                                 var categories = rawCategories;
-                                if (GoatPlatform.isTv && _catSearchQuery.isNotEmpty) {
+                                if (_catSearchQuery.isNotEmpty) {
                                   categories = categories
                                       .where((c) => c.name.toLowerCase().contains(_catSearchQuery.toLowerCase()))
                                       .toList();

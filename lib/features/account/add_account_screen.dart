@@ -876,7 +876,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Inhalte synchronisieren (RAM & Speicher sparen)',
+              'Inhalte synchronisieren',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
             ),
             const SizedBox(height: 8),

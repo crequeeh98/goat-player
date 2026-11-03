@@ -88,6 +88,68 @@ final newCategoryIdsProvider = StreamProvider.family.autoDispose<Set<String>, St
   });
 });
 
+final managedCategoriesProvider = StreamProvider.family.autoDispose<List<CategoryWithPref>, String>((ref, type) {
+  final account = ref.watch(activeAccountProvider);
+  if (account == null) return const Stream.empty();
+
+  final prefDao = ref.watch(categoryPreferenceDaoProvider);
+  final catDao = ref.watch(categoryDaoProvider);
+  final customLists = ref.watch(customListsProvider(type)).asData?.value ?? const <CustomList>[];
+
+  return prefDao.watchPreferences(account.id, type).asyncMap((prefs) async {
+    final prefsMap = {for (final p in prefs) p.categoryId: p};
+    final rawCats = await catDao.watchAllCategoriesWithPrefs(account.id, type).first;
+
+    final allList = <CategoryWithPref>[];
+
+    // Favorites / Watchlist
+    final favPref = prefsMap['favorites'];
+    allList.add(CategoryWithPref(
+      category: Category(
+        id: -1,
+        accountId: account.id,
+        categoryId: 'favorites',
+        name: type == 'live' ? 'Favoriten' : 'Watchlist',
+        type: type,
+      ),
+      isHidden: favPref?.isHidden ?? false,
+      sortOrder: favPref?.sortOrder ?? -100,
+      isNew: false,
+    ));
+
+    // Custom Lists
+    for (final cl in customLists) {
+      final clCatId = 'custom_list:${cl.id}';
+      final clPref = prefsMap[clCatId];
+      allList.add(CategoryWithPref(
+        category: Category(
+          id: -cl.id - 100,
+          accountId: account.id,
+          categoryId: clCatId,
+          name: cl.name,
+          type: type,
+        ),
+        isHidden: clPref?.isHidden ?? false,
+        sortOrder: clPref?.sortOrder ?? -50,
+        isNew: false,
+      ));
+    }
+
+    // Provider categories
+    for (final item in rawCats) {
+      allList.add(item);
+    }
+
+    allList.sort((a, b) {
+      final cmp = a.sortOrder.compareTo(b.sortOrder);
+      if (cmp != 0) return cmp;
+      return a.category.name.toLowerCase().compareTo(b.category.name.toLowerCase());
+    });
+
+    return allList;
+  });
+});
+
 class ActiveAccount extends Notifier<Account?> {
   @override
   Account? build() => null;

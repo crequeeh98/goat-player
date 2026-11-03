@@ -59,31 +59,13 @@ class SyncingCategories extends Notifier<Set<String>> {
 final syncingCategoriesProvider = NotifierProvider<SyncingCategories, Set<String>>(SyncingCategories.new);
 
 final liveCategoriesProvider = StreamProvider.autoDispose<List<Category>>((ref) {
-  final account = ref.watch(activeAccountProvider);
-  if (account == null) return const Stream.empty();
-
-  final customLists = ref.watch(customListsProvider('live')).asData?.value ?? const <CustomList>[];
-  final dao = ref.watch(categoryDaoProvider);
-  return dao.watchCategories(account.id, 'live').map((list) {
-    final favoritesCat = Category(
-      id: -1, 
-      accountId: account.id, 
-      categoryId: 'favorites', 
-      name: 'Favorites', 
-      type: 'live'
-    );
-    final customListCategories = customLists.map((cl) => Category(
-      id: -cl.id - 100,
-      accountId: account.id,
-      categoryId: 'custom_list:${cl.id}',
-      name: cl.name,
-      type: 'live',
-    )).toList();
-
-    final seen = <String>{'favorites', ...customListCategories.map((c) => c.categoryId)};
-    final uniqueList = list.where((c) => seen.add(c.categoryId)).toList();
-    return [favoritesCat, ...customListCategories, ...uniqueList];
-  });
+  return ref.watch(managedCategoriesProvider('live')).when(
+    data: (items) => Stream.value(
+      items.where((item) => !item.isHidden).map((item) => item.category).toList(),
+    ),
+    loading: () => const Stream.empty(),
+    error: (_, __) => const Stream.empty(),
+  );
 });
 
 final liveStreamsProvider = StreamProvider.family.autoDispose<List<StreamItem>, String>((ref, categoryId) {

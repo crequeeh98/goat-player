@@ -193,31 +193,13 @@ class VodSyncHelper {
   }
 
   static Stream<List<Category>> watchCategories(Ref ref, String type) {
-    final account = ref.watch(activeAccountProvider);
-    if (account == null) return const Stream.empty();
-
-    final customLists = ref.watch(customListsProvider(type)).asData?.value ?? const <CustomList>[];
-    final dao = ref.watch(categoryDaoProvider);
-    return dao.watchCategories(account.id, type).map((list) {
-      final favoritesCat = Category(
-        id: -1,
-        accountId: account.id,
-        categoryId: 'favorites',
-        name: 'Watchlist',
-        type: type,
-      );
-      final customListCategories = customLists.map((cl) => Category(
-        id: -cl.id - 100,
-        accountId: account.id,
-        categoryId: 'custom_list:${cl.id}',
-        name: cl.name,
-        type: type,
-      )).toList();
-
-      final seen = <String>{'favorites', ...customListCategories.map((c) => c.categoryId)};
-      final uniqueList = list.where((c) => seen.add(c.categoryId)).toList();
-      return [favoritesCat, ...customListCategories, ...uniqueList];
-    });
+    return ref.watch(managedCategoriesProvider(type)).when(
+      data: (items) => Stream.value(
+        items.where((item) => !item.isHidden).map((item) => item.category).toList(),
+      ),
+      loading: () => const Stream.empty(),
+      error: (_, __) => const Stream.empty(),
+    );
   }
 
   static Stream<List<StreamItem>> watchStreamsByCategory(Ref ref, String type, String categoryId) {

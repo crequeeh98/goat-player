@@ -540,7 +540,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                   ),
                 ] else ...[
                   Text(
-                    isDe ? 'INHALTS-UMFANG (RAM & SPEICHER SPAREN)' : 'CONTENT SCOPES (SAVE RAM)',
+                    isDe ? 'INHALTS-UMFANG' : 'CONTENT SCOPES',
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
                   ),
                   const SizedBox(height: 8),

@@ -63,6 +63,20 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (account == null) return;
 
     final newHidden = !item.isHidden;
+    setState(() {
+      if (_localCategories != null) {
+        final idx = _localCategories!.indexWhere((c) => c.category.categoryId == item.category.categoryId);
+        if (idx != -1) {
+          _localCategories![idx] = CategoryWithPref(
+            category: item.category,
+            isHidden: newHidden,
+            sortOrder: item.sortOrder,
+            isNew: item.isNew,
+          );
+        }
+      }
+    });
+
     await ref.read(categoryPreferenceDaoProvider).setVisibility(
           account.id,
           item.category.categoryId,
@@ -75,24 +89,40 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     final account = ref.read(activeAccountProvider);
     if (account == null || _localCategories == null) return;
 
+    final toUnhide = _localCategories!.where((c) => c.isHidden).toList();
+    setState(() {
+      _localCategories = _localCategories!.map((c) => CategoryWithPref(
+        category: c.category,
+        isHidden: false,
+        sortOrder: c.sortOrder,
+        isNew: c.isNew,
+      )).toList();
+    });
+
     final prefDao = ref.read(categoryPreferenceDaoProvider);
-    for (final item in _localCategories!) {
-      if (item.isHidden) {
-        await prefDao.setVisibility(account.id, item.category.categoryId, widget.type, false);
-      }
+    for (final item in toUnhide) {
+      await prefDao.setVisibility(account.id, item.category.categoryId, widget.type, false);
     }
   }
 
   void _resetOrder() async {
     final account = ref.read(activeAccountProvider);
-    if (account == null) return;
+    if (account == null || _localCategories == null) return;
 
     await ref.read(categoryPreferenceDaoProvider).resetToDefault(account.id, widget.type);
-    final dao = ref.read(categoryDaoProvider);
-    final all = await dao.watchAllCategoriesWithPrefs(account.id, widget.type).first;
-    final sortedAlphabetical = [...all]..sort((a, b) => a.category.name.compareTo(b.category.name));
-    final orderedIds = sortedAlphabetical.map((c) => c.category.categoryId).toList();
+
+    final fav = _localCategories!.where((c) => c.category.categoryId == 'favorites').toList();
+    final custom = _localCategories!.where((c) => c.category.categoryId.startsWith('custom_list:')).toList();
+    final provider = _localCategories!.where((c) => c.category.categoryId != 'favorites' && !c.category.categoryId.startsWith('custom_list:')).toList()
+      ..sort((a, b) => a.category.name.toLowerCase().compareTo(b.category.name.toLowerCase()));
+
+    final resetList = [...fav, ...custom, ...provider];
+    final orderedIds = resetList.map((c) => c.category.categoryId).toList();
     await ref.read(categoryPreferenceDaoProvider).updateSortOrders(account.id, widget.type, orderedIds);
+
+    setState(() {
+      _localCategories = resetList;
+    });
   }
 
   @override
@@ -100,7 +130,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     final account = ref.watch(activeAccountProvider);
     if (account == null) return const SizedBox.shrink();
 
-    final catStream = ref.watch(categoryDaoProvider).watchAllCategoriesWithPrefs(account.id, widget.type);
+    final categoriesAsync = ref.watch(managedCategoriesProvider(widget.type));
 
     final title = widget.type == 'live'
         ? 'Live TV Kategorien verwalten'
@@ -235,15 +265,17 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
 
             // List of Categories
             Expanded(
-              child: StreamBuilder<List<CategoryWithPref>>(
-                stream: catStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && _localCategories == null) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final data = snapshot.data ?? [];
+              child: categoriesAsync.when(
+                loading: () => _localCategories != null && _localCategories!.isNotEmpty
+                    ? _buildListView()
+                    : const Center(child: CircularProgressIndicator()),
+                error: (e, st) => Center(
+                  child: Text('Fehler: $e', style: const TextStyle(color: Colors.white54)),
+                ),
+                data: (data) {
                   if (_localCategories == null || _localCategories!.length != data.length) {
+                    _localCategories = List.from(data);
+                  } else if (_movingIndex == null) {
                     _localCategories = List.from(data);
                   }
 
@@ -253,177 +285,213 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                     );
                   }
 
-                  return ReorderableListView.builder(
-                    scrollController: _scrollController,
-                    itemCount: _localCategories!.length,
-                    onReorder: _onReorder,
-                    itemBuilder: (context, index) {
-                      final item = _localCategories![index];
-                      final isMoving = _movingIndex == index;
-                      final node = _itemFocusNodes.putIfAbsent(
-                        item.category.categoryId,
-                        () => FocusNode(debugLabel: 'cat_mgr_${item.category.categoryId}'),
-                      );
-
-                      return Material(
-                        key: ValueKey('item_${item.category.categoryId}'),
-                        color: Colors.transparent,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                          child: TvFocusable(
-                            focusNode: node,
-                            borderRadius: BorderRadius.circular(10),
-                            onPressed: () {
-                              if (_movingIndex != null) {
-                                setState(() => _movingIndex = null);
-                              } else {
-                                _toggleVisibility(item);
-                              }
-                            },
-                            onKeyEvent: (fNode, event) {
-                              if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                                // TV D-Pad Long-Press or Yellow key enters Move Mode
-                                if (event.logicalKey == LogicalKeyboardKey.select ||
-                                    event.logicalKey == LogicalKeyboardKey.enter) {
-                                  // Normal click handled by onPressed
-                                } else if (_movingIndex != null) {
-                                  if (event.logicalKey == LogicalKeyboardKey.arrowUp && index > 0) {
-                                    _onReorder(index, index - 1);
-                                    return KeyEventResult.handled;
-                                  } else if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
-                                      index < _localCategories!.length - 1) {
-                                    _onReorder(index, index + 2);
-                                    return KeyEventResult.handled;
-                                  } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                      event.logicalKey == LogicalKeyboardKey.goBack) {
-                                    setState(() => _movingIndex = null);
-                                    return KeyEventResult.handled;
-                                  }
-                                }
-                              }
-                              return KeyEventResult.ignored;
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isMoving
-                                    ? Colors.amber.withValues(alpha: 0.15)
-                                    : item.isHidden
-                                        ? Colors.white.withValues(alpha: 0.02)
-                                        : Colors.white.withValues(alpha: 0.06),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isMoving
-                                      ? Colors.amber
-                                      : item.isHidden
-                                          ? Colors.transparent
-                                          : const Color(0xFF7C3AED).withValues(alpha: 0.25),
-                                  width: isMoving ? 1.5 : 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  // Toggle Eye / Checkbox
-                                  GestureDetector(
-                                    onTap: () => _toggleVisibility(item),
-                                    child: Icon(
-                                      item.isHidden
-                                          ? Icons.visibility_off_rounded
-                                          : Icons.visibility_rounded,
-                                      size: 20,
-                                      color: item.isHidden ? Colors.white38 : const Color(0xFFB388FF),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // Category Name
-                                  Expanded(
-                                    child: Text(
-                                      item.category.name,
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: item.isHidden ? FontWeight.normal : FontWeight.w600,
-                                        color: item.isHidden ? Colors.white38 : Colors.white,
-                                        decoration: item.isHidden ? TextDecoration.lineThrough : null,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // NEU Badge
-                                  if (item.isNew) ...[
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.amber.withValues(alpha: 0.25),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.amber, width: 0.8),
-                                      ),
-                                      child: const Text(
-                                        'NEU',
-                                        style: TextStyle(
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.amber,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                  ],
-
-                                  // Move mode button for TV
-                                  if (GoatPlatform.isTv) ...[
-                                    GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _movingIndex = (_movingIndex == index) ? null : index;
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isMoving
-                                              ? Colors.amber
-                                              : Colors.white.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          isMoving ? 'Fertig' : 'Verschieben',
-                                          style: TextStyle(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: isMoving ? Colors.black : Colors.white70,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                  ],
-
-                                  // Drag handle for mouse/touch
-                                  ReorderableDragStartListener(
-                                    index: index,
-                                    child: const MouseRegion(
-                                      cursor: SystemMouseCursors.grab,
-                                      child: Padding(
-                                        padding: EdgeInsets.all(4.0),
-                                        child: Icon(Icons.drag_handle_rounded, size: 20, color: Colors.white38),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
+                  return _buildListView();
                 },
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildListView() {
+    return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
+      scrollController: _scrollController,
+      itemCount: _localCategories!.length,
+      onReorder: _onReorder,
+      itemBuilder: (context, index) {
+        final item = _localCategories![index];
+        final isMoving = _movingIndex == index;
+        final isFavorites = item.category.categoryId == 'favorites';
+        final isCustomList = item.category.categoryId.startsWith('custom_list:');
+        final node = _itemFocusNodes.putIfAbsent(
+          item.category.categoryId,
+          () => FocusNode(debugLabel: 'cat_mgr_${item.category.categoryId}'),
+        );
+
+        return Material(
+          key: ValueKey('item_${item.category.categoryId}'),
+          color: Colors.transparent,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            child: TvFocusable(
+              focusNode: node,
+              borderRadius: BorderRadius.circular(10),
+              onPressed: () {
+                if (_movingIndex != null) {
+                  setState(() => _movingIndex = null);
+                } else {
+                  _toggleVisibility(item);
+                }
+              },
+              onKeyEvent: (fNode, event) {
+                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                  if (event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.enter) {
+                    // Normal click handled by onPressed
+                  } else if (_movingIndex != null) {
+                    if (event.logicalKey == LogicalKeyboardKey.arrowUp && index > 0) {
+                      _onReorder(index, index - 1);
+                      return KeyEventResult.handled;
+                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+                        index < _localCategories!.length - 1) {
+                      _onReorder(index, index + 2);
+                      return KeyEventResult.handled;
+                    } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                        event.logicalKey == LogicalKeyboardKey.goBack) {
+                      setState(() => _movingIndex = null);
+                      return KeyEventResult.handled;
+                    }
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isMoving
+                      ? Colors.amber.withValues(alpha: 0.15)
+                      : item.isHidden
+                          ? Colors.white.withValues(alpha: 0.02)
+                          : Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isMoving
+                        ? Colors.amber
+                        : item.isHidden
+                            ? Colors.transparent
+                            : const Color(0xFF7C3AED).withValues(alpha: 0.25),
+                    width: isMoving ? 1.5 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Dynamic Checkbox Icon
+                    GestureDetector(
+                      onTap: () => _toggleVisibility(item),
+                      child: Icon(
+                        item.isHidden
+                            ? Icons.check_box_outline_blank_rounded
+                            : Icons.check_box_rounded,
+                        size: 22,
+                        color: item.isHidden ? Colors.white30 : const Color(0xFFB388FF),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Distinct Icon for Favorites / Custom Lists
+                    if (isFavorites)
+                      const Icon(Icons.star_rounded, size: 20, color: Colors.amber)
+                    else if (isCustomList)
+                      const Icon(Icons.playlist_play_rounded, size: 20, color: Color(0xFFB388FF)),
+                    if (isFavorites || isCustomList)
+                      const SizedBox(width: 8),
+
+                    // Category Name
+                    Expanded(
+                      child: Text(
+                        item.category.name,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: item.isHidden ? FontWeight.normal : FontWeight.w600,
+                          color: item.isHidden ? Colors.white38 : Colors.white,
+                          decoration: item.isHidden ? TextDecoration.lineThrough : null,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+
+                    // Badge for Custom List
+                    if (isCustomList) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFB388FF), width: 0.8),
+                        ),
+                        child: const Text(
+                          'LISTE',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFB388FF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+
+                    // NEU Badge
+                    if (item.isNew) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.amber, width: 0.8),
+                        ),
+                        child: const Text(
+                          'NEU',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+
+                    // Move mode button for TV
+                    if (GoatPlatform.isTv) ...[
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _movingIndex = (_movingIndex == index) ? null : index;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isMoving
+                                ? Colors.amber
+                                : Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isMoving ? 'Fertig' : 'Verschieben',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: isMoving ? Colors.black : Colors.white70,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+
+                    // Single subtle Drag handle for mouse/touch
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const MouseRegion(
+                        cursor: SystemMouseCursors.grab,
+                        child: Padding(
+                          padding: EdgeInsets.all(4.0),
+                          child: Icon(Icons.drag_handle_rounded, size: 20, color: Colors.white38),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
