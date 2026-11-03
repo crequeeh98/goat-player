@@ -282,7 +282,18 @@ input.focusable.focused,
 .accounts-brand {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 20px;
+}
+
+.accounts-version-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: #C4B5FD;
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.5px;
 }
 
 .brand-logo-large {

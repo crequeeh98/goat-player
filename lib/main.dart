@@ -22,6 +22,7 @@ import 'core/player/playback_controller.dart';
 import 'features/live_tv/live_tv_controller.dart';
 import 'core/remote_sync/remote_sync_service.dart';
 import 'core/utils/platform_utils.dart';
+import 'core/security/security_vault.dart';
 
 // Global providers
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -32,7 +33,10 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 final accountDaoProvider = Provider<AccountDao>((ref) {
   final db = ref.watch(databaseProvider);
-  return AccountDao(db);
+  final dao = AccountDao(db);
+  // Auto-migrate any legacy plaintext passwords to encrypted storage at rest
+  dao.migrateLegacyPlaintextPasswords();
+  return dao;
 });
 
 final categoryDaoProvider = Provider<CategoryDao>((ref) {
@@ -189,6 +193,11 @@ void main(List<String> args) {
       prefs = await SharedPreferences.getInstance();
       print('[GOAT] SharedPreferences in-memory instance ready.');
     }
+
+    // Initialize SecurityVault for encrypted storage at rest (SEC-04)
+    try {
+      await SecurityVault.getMasterKey(prefs);
+    } catch (_) {}
 
     // Initialize RemoteSyncService (Supabase) for Web / QR code pairing
     print('[GOAT] Initializing RemoteSyncService (Supabase)...');

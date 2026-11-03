@@ -59,6 +59,7 @@ The native Flutter stack targets **Windows Desktop**, **Android Mobile / Tablets
   - Native aspect ratio letterboxing (`BoxFit.contain`).
 - **Database Layer (`lib/core/database/`)**:
   - **Drift (SQLite)** compiled in Write-Ahead Logging (`WAL`) mode.
+  - **At-Rest Password Encryption**: All account passwords stored in Drift SQLite are encrypted via AES-GCM (`enc:v1:`) using PBKDF2 device-derived keys (`SecurityVault`), with automatic zero-breakage migration of legacy plaintext rows.
   - Asynchronous isolate-based transactions preventing frame drops during background synchronization of 20,000+ streams.
   - Modular DAOs: `StreamDao`, `AccountDao`, `EpgDao`, and `PlaybackProgressDao`.
 - **Remote Pairing Service (`lib/core/remote_sync/`)**:
@@ -88,6 +89,9 @@ The Smart TV stack targets **Samsung Tizen (2018+)** and **LG webOS (4.0+)**.
   - Active cue renderer synchronized to HTML5 `timeupdate` events, rendering formatted subtitles in `#player-subtitle-overlay`.
 - **Fault-Tolerant Sandboxed Storage (`smart_tv/js/storage.js`)**:
   - Wraps `window.localStorage` with an automatic in-memory fallback (`_memStore`) to guarantee uninterrupted operation in sandboxed widget environments (`file://` protocol) where local storage access throws `SecurityError`.
+  - **At-Rest Storage Encryption**: Account credentials stored in LocalStorage are encrypted via Web Crypto AES-GCM (`enc:v1:`).
+- **OTA Bootloader & Code Integrity (`smart_tv/js/bootloader.js` & `updater.js`)**:
+  - Dynamic in-app updates executing cached scripts with strict SHA-256 integrity verification against manifest digests before execution.
 
 ---
 

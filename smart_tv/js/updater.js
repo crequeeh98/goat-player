@@ -4,7 +4,7 @@
 
   var CURRENT_VERSION = (window.TVBootloader && window.TVBootloader.getBaseVersion)
     ? window.TVBootloader.getBaseVersion()
-    : '2.0.3';
+    : '2.0.4';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
@@ -145,6 +145,24 @@
     }
   }
 
+  function getSha256(str) {
+    if (window.TVBootloader && typeof window.TVBootloader.computeSha256 === 'function') {
+      return Promise.resolve(window.TVBootloader.computeSha256(str));
+    }
+    if (window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
+      return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+        .then(function(buf) {
+          var hex = '';
+          var bytes = new Uint8Array(buf);
+          for (var i = 0; i < bytes.length; i++) {
+            hex += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+          }
+          return hex.toLowerCase();
+        });
+    }
+    return Promise.reject(new Error('No cryptographic SHA-256 engine available'));
+  }
+
   function startOtaUpdate() {
     if (_isUpdating || !_pendingUpdate) return;
     _isUpdating = true;
@@ -183,49 +201,86 @@
     var downloadedBundle = {
       version: _pendingUpdate.version,
       updatedAt: Date.now(),
+      hashes: {},
       files: {}
     };
 
     var rawBaseUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + _pendingUpdate.tag + '/';
+    var manifestUrl = rawBaseUrl + 'smart_tv/manifest.json?t=' + Date.now();
 
-    function fetchNext(index) {
-      if (index >= total) {
-        finishUpdate(downloadedBundle);
-        return;
-      }
+    if (progressText) progressText.textContent = 'Verifying manifest...';
 
-      var fileInfo = filesToUpdate[index];
-      var fileUrl = rawBaseUrl + fileInfo.path + '?t=' + Date.now();
+    fetch(manifestUrl)
+      .then(function(res) {
+        if (!res.ok) throw new Error('Manifest download failed (HTTP ' + res.status + ')');
+        return res.json();
+      })
+      .then(function(manifest) {
+        if (!manifest || !manifest.files) {
+          throw new Error('Invalid manifest format');
+        }
+        downloadedBundle.hashes = manifest.files;
 
-      fetch(fileUrl)
-        .then(function(res) {
-          if (!res.ok) throw new Error('File download failed: ' + fileInfo.name);
-          return res.text();
-        })
-        .then(function(content) {
-          if (!content || content.length < 50 || (content.length < 100 && content.indexOf('404') !== -1)) {
-            throw new Error('Invalid content for ' + fileInfo.name);
+        function fetchNext(index) {
+          if (index >= total) {
+            finishUpdate(downloadedBundle);
+            return;
           }
-          downloadedBundle.files[fileInfo.name] = content;
-          completed++;
-          var pct = Math.round((completed / total) * 100);
-          if (progressFill) progressFill.style.width = pct + '%';
-          if (progressText) progressText.textContent = pct + '%';
-          fetchNext(index + 1);
-        })
-        .catch(function(err) {
-          console.error('[TVUpdater] Update failed on ' + fileInfo.name + ':', err);
-          if (progressText) {
-            progressText.textContent = 'Fehler: ' + err.message;
-            progressText.style.color = '#ef4444';
-          }
-          _isUpdating = false;
-          if (confirmBtn) confirmBtn.disabled = false;
-          if (confirmText) confirmText.textContent = 'Erneut versuchen';
-        });
-    }
 
-    fetchNext(0);
+          var fileInfo = filesToUpdate[index];
+          var fileUrl = rawBaseUrl + fileInfo.path + '?t=' + Date.now();
+          var expectedHash = (manifest.files[fileInfo.name] || '').toLowerCase();
+
+          if (!expectedHash || expectedHash.length !== 64) {
+            throw new Error('Missing expected hash for ' + fileInfo.name);
+          }
+
+          fetch(fileUrl)
+            .then(function(res) {
+              if (!res.ok) throw new Error('Download failed: ' + fileInfo.name);
+              return res.text();
+            })
+            .then(function(content) {
+              if (!content || content.length < 50 || (content.length < 100 && content.indexOf('404') !== -1)) {
+                throw new Error('Invalid content for ' + fileInfo.name);
+              }
+
+              return getSha256(content).then(function(actualHash) {
+                if (actualHash !== expectedHash) {
+                  throw new Error('Integrity check failed for ' + fileInfo.name + ' (hash mismatch)');
+                }
+                downloadedBundle.files[fileInfo.name] = content;
+                completed++;
+                var pct = Math.round((completed / total) * 100);
+                if (progressFill) progressFill.style.width = pct + '%';
+                if (progressText) progressText.textContent = pct + '% (' + fileInfo.name + ')';
+                fetchNext(index + 1);
+              });
+            })
+            .catch(function(err) {
+              console.error('[TVUpdater] Update failed on ' + fileInfo.name + ':', err);
+              if (progressText) {
+                progressText.textContent = 'Fehler: ' + err.message;
+                progressText.style.color = '#ef4444';
+              }
+              _isUpdating = false;
+              if (confirmBtn) confirmBtn.disabled = false;
+              if (confirmText) confirmText.textContent = 'Erneut versuchen';
+            });
+        }
+
+        fetchNext(0);
+      })
+      .catch(function(err) {
+        console.error('[TVUpdater] Manifest verification failed:', err);
+        if (progressText) {
+          progressText.textContent = 'Fehler: ' + err.message;
+          progressText.style.color = '#ef4444';
+        }
+        _isUpdating = false;
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (confirmText) confirmText.textContent = 'Erneut versuchen';
+      });
   }
 
   function finishUpdate(bundle) {

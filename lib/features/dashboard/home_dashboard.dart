@@ -380,6 +380,8 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         ? AppLocalizations.of(context)!.vpnConnected 
                         : AppLocalizations.of(context)!.vpnDisconnected;
 
+                    final isDe = (AppLocalizations.of(context)?.localeName == 'de') || ref.watch(localeControllerProvider).languageCode == 'de';
+
                     return PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
@@ -402,15 +404,15 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         }
                       },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'sync',
                           child: Row(
                             children: [
-                              Icon(Icons.sync_rounded, size: 20),
-                              SizedBox(width: 12),
+                              const Icon(Icons.sync_rounded, size: 20),
+                              const SizedBox(width: 12),
                               Text(
-                                'Playlist aktualisieren',
-                                style: TextStyle(fontSize: 14),
+                                isDe ? 'Playlist aktualisieren' : 'Refresh Playlist',
+                                style: const TextStyle(fontSize: 14),
                               ),
                             ],
                           ),

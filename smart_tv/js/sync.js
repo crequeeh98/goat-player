@@ -7,6 +7,66 @@
 
   var _pollTimer = null;
   var _processedActionIds = {};
+  var _currentSessionPin = null;
+
+  function decryptSyncAction(syncAction, pin, deviceId) {
+    if (!syncAction || !syncAction.encrypted || !syncAction.data || !syncAction.iv || !pin) {
+      return Promise.resolve(syncAction);
+    }
+    if (!window.crypto || !window.crypto.subtle) {
+      console.warn('[TVSync] WebCrypto unavailable for zero-knowledge decryption');
+      return Promise.resolve(syncAction);
+    }
+    try {
+      var enc = new TextEncoder();
+      return window.crypto.subtle.importKey(
+        'raw',
+        enc.encode(pin.trim()),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      ).then(function(pinKey) {
+        return window.crypto.subtle.deriveKey(
+          {
+            name: 'PBKDF2',
+            salt: enc.encode('GOATPlayer_Pairing_Salt_' + deviceId.trim().toUpperCase()),
+            iterations: 10000,
+            hash: 'SHA-256'
+          },
+          pinKey,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+      }).then(function(aesKey) {
+        function fromHex(hex) {
+          var bytes = new Uint8Array(hex.length / 2);
+          for (var i = 0; i < hex.length; i += 2) {
+            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+          }
+          return bytes;
+        }
+
+        var ivBytes = fromHex(syncAction.iv);
+        var cipherBytes = fromHex(syncAction.data);
+
+        return window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: ivBytes },
+          aesKey,
+          cipherBytes
+        );
+      }).then(function(plainBuffer) {
+        var plainStr = new TextDecoder().decode(plainBuffer);
+        return JSON.parse(plainStr);
+      }).catch(function(err) {
+        console.error('[TVSync] Decryption error:', err);
+        return syncAction;
+      });
+    } catch (e) {
+      console.error('[TVSync] Decryption setup error:', e);
+      return Promise.resolve(syncAction);
+    }
+  }
 
   function getDeviceId() {
     var id = localStorage.getItem(DEVICE_ID_KEY);
@@ -42,6 +102,7 @@
   function startPairingSession() {
     var deviceId = getDeviceId();
     var pin = generatePin();
+    _currentSessionPin = pin;
     var expiresAt = new Date(Date.now() + 20 * 60 * 1000);
     var qrUrl = PORTAL_URL + '?device=' + encodeURIComponent(deviceId) + '&pin=' + encodeURIComponent(pin);
 
@@ -77,6 +138,7 @@
   }
 
   function closePairingSession(deviceId) {
+    _currentSessionPin = null;
     if (!deviceId) return Promise.resolve();
     stopPolling();
     return fetch(SUPABASE_URL + '/rest/v1/remote_devices?device_id=eq.' + encodeURIComponent(deviceId), {
@@ -137,14 +199,20 @@
 
         // 1. Check sync_action (structured action from web portal)
         if (record.sync_action && typeof record.sync_action === 'object') {
-          var actionObj = record.sync_action;
-          var actionType = actionObj.action;
-          var actionId = actionObj.action_id || (actionType + '_' + (actionObj.timestamp || Date.now()));
+          var rawAction = record.sync_action;
+          var decryptPromise = (rawAction.encrypted === true && _currentSessionPin)
+            ? decryptSyncAction(rawAction, _currentSessionPin, deviceId)
+            : Promise.resolve(rawAction);
 
-          if (_processedActionIds[actionId]) return;
-          _processedActionIds[actionId] = true;
+          decryptPromise.then(function(actionObj) {
+            if (!actionObj || typeof actionObj !== 'object') return;
+            var actionType = actionObj.action;
+            var actionId = actionObj.action_id || (actionType + '_' + (actionObj.timestamp || Date.now()));
 
-          // Perform local action FIRST so getLocalPlaylists() is updated before acknowledging
+            if (_processedActionIds[actionId]) return;
+            _processedActionIds[actionId] = true;
+
+            // Perform local action FIRST so getLocalPlaylists() is updated before acknowledging
           if (actionType === 'add') {
             if (onEvent) {
               var isM3u = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
@@ -230,6 +298,7 @@
               updated_at: new Date().toISOString()
             })
           }).catch(function() {});
+          }); // end decryptPromise.then
         }
         // 2. Fallback: legacy status === 'linked' with flat credentials
         else if (record.status === 'linked' && record.server_url) {

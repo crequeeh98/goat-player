@@ -48,21 +48,27 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     });
   }
 
-  String _formatTimestamp(int? ts) {
-    if (ts == null || ts == 0) return 'Nie';
+  String _formatTimestamp(int? ts, bool isDe) {
+    if (ts == null || ts == 0) return isDe ? 'Nie' : 'Never';
     final diff = DateTime.now().millisecondsSinceEpoch - ts;
-    if (diff < 60 * 1000) return 'Gerade eben';
-    if (diff < 60 * 60 * 1000) return 'Vor ${diff ~/ (60 * 1000)} Min.';
-    if (diff < 24 * 60 * 60 * 1000) return 'Vor ${diff ~/ (60 * 60 * 1000)} Std.';
+    if (diff < 60 * 1000) return isDe ? 'Gerade eben' : 'Just now';
+    if (diff < 60 * 60 * 1000) {
+      final mins = diff ~/ (60 * 1000);
+      return isDe ? 'Vor $mins Min.' : '${mins}m ago';
+    }
+    if (diff < 24 * 60 * 60 * 1000) {
+      final hours = diff ~/ (60 * 60 * 1000);
+      return isDe ? 'Vor $hours Std.' : '${hours}h ago';
+    }
     final dt = DateTime.fromMillisecondsSinceEpoch(ts);
     final day = dt.day.toString().padLeft(2, '0');
     final month = dt.month.toString().padLeft(2, '0');
     final hour = dt.hour.toString().padLeft(2, '0');
     final minute = dt.minute.toString().padLeft(2, '0');
-    return '$day.$month. $hour:$minute Uhr';
+    return isDe ? '$day.$month. $hour:$minute Uhr' : '$month/$day $hour:$minute';
   }
 
-  Future<void> _runSync(String initialStatus, Future<void> Function() action) async {
+  Future<void> _runSync(String initialStatus, Future<void> Function() action, bool isDe) async {
     setState(() {
       _state = SyncModalState.syncing;
       _currentStatus = initialStatus;
@@ -75,7 +81,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
       _loadSyncTimestamps();
       setState(() {
         _state = SyncModalState.success;
-        _currentStatus = 'Aktualisierung erfolgreich!';
+        _currentStatus = isDe ? 'Aktualisierung erfolgreich!' : 'Refresh successful!';
       });
       await Future.delayed(const Duration(milliseconds: 1200));
       if (mounted) {
@@ -90,63 +96,89 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     }
   }
 
-  void _syncLive() {
-    _runSync('Live TV Sender & Kategorien werden aktualisiert...', () async {
-      await ref.read(liveTvControllerProvider).syncLiveCategories(force: true, rethrowOnError: true);
-      await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
-    });
+  void _syncLive(bool isDe) {
+    _runSync(
+      isDe ? 'Live TV Sender & Kategorien werden aktualisiert...' : 'Updating Live TV channels & categories...',
+      () async {
+        await ref.read(liveTvControllerProvider).syncLiveCategories(force: true, rethrowOnError: true);
+        await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
+      },
+      isDe,
+    );
   }
 
-  void _syncVod() {
-    _runSync('Filme (VOD) werden aktualisiert...', () async {
-      await ref.read(vodControllerProvider).syncVodCategories(force: true, rethrowOnError: true);
-      await ref.read(vodControllerProvider).syncAllVodStreams(force: true, rethrowOnError: true);
-    });
+  void _syncVod(bool isDe) {
+    _runSync(
+      isDe ? 'Filme (VOD) werden aktualisiert...' : 'Updating Movies (VOD)...',
+      () async {
+        await ref.read(vodControllerProvider).syncVodCategories(force: true, rethrowOnError: true);
+        await ref.read(vodControllerProvider).syncAllVodStreams(force: true, rethrowOnError: true);
+      },
+      isDe,
+    );
   }
 
-  void _syncSeries() {
-    _runSync('Serien werden aktualisiert...', () async {
-      await ref.read(seriesControllerProvider).syncSeriesCategories(force: true, rethrowOnError: true);
-      await ref.read(seriesControllerProvider).syncAllSeriesStreams(force: true, rethrowOnError: true);
-    });
+  void _syncSeries(bool isDe) {
+    _runSync(
+      isDe ? 'Serien werden aktualisiert...' : 'Updating Series...',
+      () async {
+        await ref.read(seriesControllerProvider).syncSeriesCategories(force: true, rethrowOnError: true);
+        await ref.read(seriesControllerProvider).syncAllSeriesStreams(force: true, rethrowOnError: true);
+      },
+      isDe,
+    );
   }
 
-  void _syncEpg() {
-    _runSync('EPG TV Guide wird aktualisiert...', () async {
-      await ref.read(epgControllerProvider).syncEpgData(force: true);
-    });
+  void _syncEpg(bool isDe) {
+    _runSync(
+      isDe ? 'EPG TV Guide wird aktualisiert...' : 'Updating EPG TV Guide...',
+      () async {
+        await ref.read(epgControllerProvider).syncEpgData(force: true);
+      },
+      isDe,
+    );
   }
 
-  void _syncAll() {
-    _runSync('1/4: Live TV wird aktualisiert...', () async {
-      await ref.read(liveTvControllerProvider).syncLiveCategories(force: true, rethrowOnError: true);
-      await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
-      if (!mounted) return;
+  void _syncAll(bool isDe) {
+    _runSync(
+      isDe ? '1/4: Live TV wird aktualisiert...' : '1/4: Updating Live TV...',
+      () async {
+        await ref.read(liveTvControllerProvider).syncLiveCategories(force: true, rethrowOnError: true);
+        await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
+        if (!mounted) return;
 
-      setState(() => _currentStatus = '2/4: Filme (VOD) werden aktualisiert...');
-      await ref.read(vodControllerProvider).syncVodCategories(force: true, rethrowOnError: true);
-      await ref.read(vodControllerProvider).syncAllVodStreams(force: true, rethrowOnError: true);
-      if (!mounted) return;
+        setState(() => _currentStatus = isDe ? '2/4: Filme (VOD) werden aktualisiert...' : '2/4: Updating Movies (VOD)...');
+        await ref.read(vodControllerProvider).syncVodCategories(force: true, rethrowOnError: true);
+        await ref.read(vodControllerProvider).syncAllVodStreams(force: true, rethrowOnError: true);
+        if (!mounted) return;
 
-      setState(() => _currentStatus = '3/4: Serien werden aktualisiert...');
-      await ref.read(seriesControllerProvider).syncSeriesCategories(force: true, rethrowOnError: true);
-      await ref.read(seriesControllerProvider).syncAllSeriesStreams(force: true, rethrowOnError: true);
-      if (!mounted) return;
+        setState(() => _currentStatus = isDe ? '3/4: Serien werden aktualisiert...' : '3/4: Updating Series...');
+        await ref.read(seriesControllerProvider).syncSeriesCategories(force: true, rethrowOnError: true);
+        await ref.read(seriesControllerProvider).syncAllSeriesStreams(force: true, rethrowOnError: true);
+        if (!mounted) return;
 
-      setState(() => _currentStatus = '4/4: EPG TV Guide wird aktualisiert...');
-      await ref.read(epgControllerProvider).syncEpgData(force: true);
-    });
+        setState(() => _currentStatus = isDe ? '4/4: EPG TV Guide wird aktualisiert...' : '4/4: Updating EPG TV Guide...');
+        await ref.read(epgControllerProvider).syncEpgData(force: true);
+      },
+      isDe,
+    );
   }
 
-  void _syncM3u() {
-    _runSync('M3U Playlist wird geladen...', () async {
-      await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
-    });
+  void _syncM3u(bool isDe) {
+    _runSync(
+      isDe ? 'M3U Playlist wird geladen...' : 'Loading M3U playlist...',
+      () async {
+        await ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true, rethrowOnError: true);
+      },
+      isDe,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final account = ref.watch(activeAccountProvider);
+    final locale = ref.watch(localeControllerProvider);
+    final isDe = locale.languageCode == 'de';
     final isM3u = account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'));
 
     return PopScope(
@@ -173,26 +205,26 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
             ],
           ),
           clipBehavior: Clip.antiAlias,
-          child: _buildBody(isM3u),
+          child: _buildBody(isM3u, isDe),
         ),
       ),
     );
   }
 
-  Widget _buildBody(bool isM3u) {
+  Widget _buildBody(bool isM3u, bool isDe) {
     switch (_state) {
       case SyncModalState.syncing:
-        return _buildSyncingView();
+        return _buildSyncingView(isDe);
       case SyncModalState.success:
         return _buildSuccessView();
       case SyncModalState.error:
-        return _buildErrorView();
+        return _buildErrorView(isDe);
       case SyncModalState.idle:
-        return _buildIdleView(isM3u);
+        return _buildIdleView(isM3u, isDe);
     }
   }
 
-  Widget _buildSyncingView() {
+  Widget _buildSyncingView(bool isDe) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 32),
       child: Column(
@@ -217,10 +249,12 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Bitte warten, Playlist-Daten werden synchronisiert...',
+          Text(
+            isDe
+                ? 'Bitte warten, Playlist-Daten werden synchronisiert...'
+                : 'Please wait, synchronizing playlist data...',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: Colors.white60),
+            style: const TextStyle(fontSize: 12.5, color: Colors.white60),
           ),
         ],
       ),
@@ -258,7 +292,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     );
   }
 
-  Widget _buildErrorView() {
+  Widget _buildErrorView(bool isDe) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 28),
       child: Column(
@@ -275,10 +309,10 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
             child: const Icon(Icons.error_outline, color: Colors.redAccent, size: 32),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Fehler bei der Synchronisierung',
+          Text(
+            isDe ? 'Fehler bei der Synchronisierung' : 'Sync error',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Colors.white,
@@ -286,7 +320,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
           ),
           const SizedBox(height: 10),
           Text(
-            _errorMessage ?? 'Unbekannter Netzwerkfehler',
+            _errorMessage ?? (isDe ? 'Unbekannter Netzwerkfehler' : 'Unknown network error'),
             textAlign: TextAlign.center,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -305,7 +339,10 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                     color: const Color(0xFF8B5CF6),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('Erneut versuchen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    isDe ? 'Erneut versuchen' : 'Retry',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -318,7 +355,10 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('Schließen', style: TextStyle(color: Colors.white70)),
+                  child: Text(
+                    isDe ? 'Schließen' : 'Close',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                 ),
               ),
             ],
@@ -328,7 +368,10 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     );
   }
 
-  Widget _buildIdleView(bool isM3u) {
+  Widget _buildIdleView(bool isM3u, bool isDe) {
+    final lastUpdatedPrefix = isDe ? 'Zuletzt aktualisiert' : 'Last updated';
+    final refreshBtnLabel = isDe ? 'Aktualisieren' : 'Refresh';
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -340,10 +383,10 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
             children: [
               const Icon(Icons.sync_rounded, color: Color(0xFFB388FF), size: 22),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Playlist aktualisieren',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  isDe ? 'Playlist aktualisieren' : 'Refresh Playlist',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
               TvFocusable(
@@ -373,44 +416,44 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                 if (isM3u) ...[
                   _buildSyncRow(
                     icon: Icons.playlist_play_rounded,
-                    title: 'M3U Playlist & Sender',
-                    subtitle: 'Zuletzt aktualisiert: ${_formatTimestamp(_lastLiveSync)}',
-                    buttonLabel: 'Aktualisieren',
-                    onPressed: _syncM3u,
+                    title: isDe ? 'M3U Playlist & Sender' : 'M3U Playlist & Channels',
+                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastLiveSync, isDe)}',
+                    buttonLabel: refreshBtnLabel,
+                    onPressed: () => _syncM3u(isDe),
                     autofocus: true,
                   ),
                 ] else ...[
                   _buildSyncRow(
                     icon: Icons.tv_rounded,
                     title: 'Live TV',
-                    subtitle: 'Zuletzt aktualisiert: ${_formatTimestamp(_lastLiveSync)}',
-                    buttonLabel: 'Aktualisieren',
-                    onPressed: _syncLive,
+                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastLiveSync, isDe)}',
+                    buttonLabel: refreshBtnLabel,
+                    onPressed: () => _syncLive(isDe),
                     autofocus: true,
                   ),
                   const SizedBox(height: 10),
                   _buildSyncRow(
                     icon: Icons.movie_rounded,
-                    title: 'Filme (VOD)',
-                    subtitle: 'Zuletzt aktualisiert: ${_formatTimestamp(_lastVodSync)}',
-                    buttonLabel: 'Aktualisieren',
-                    onPressed: _syncVod,
+                    title: isDe ? 'Filme (VOD)' : 'Movies (VOD)',
+                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastVodSync, isDe)}',
+                    buttonLabel: refreshBtnLabel,
+                    onPressed: () => _syncVod(isDe),
                   ),
                   const SizedBox(height: 10),
                   _buildSyncRow(
                     icon: Icons.video_library_rounded,
-                    title: 'Serien',
-                    subtitle: 'Zuletzt aktualisiert: ${_formatTimestamp(_lastSeriesSync)}',
-                    buttonLabel: 'Aktualisieren',
-                    onPressed: _syncSeries,
+                    title: isDe ? 'Serien' : 'Series',
+                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastSeriesSync, isDe)}',
+                    buttonLabel: refreshBtnLabel,
+                    onPressed: () => _syncSeries(isDe),
                   ),
                   const SizedBox(height: 10),
                   _buildSyncRow(
                     icon: Icons.table_chart_rounded,
                     title: 'EPG TV Guide',
-                    subtitle: 'Zuletzt aktualisiert: ${_formatTimestamp(_lastEpgSync)}',
-                    buttonLabel: 'Aktualisieren',
-                    onPressed: _syncEpg,
+                    subtitle: '$lastUpdatedPrefix: ${_formatTimestamp(_lastEpgSync, isDe)}',
+                    buttonLabel: refreshBtnLabel,
+                    onPressed: () => _syncEpg(isDe),
                   ),
                   const SizedBox(height: 16),
                   const Divider(height: 1, color: Colors.white12),
@@ -419,7 +462,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                     borderRadius: BorderRadius.circular(12),
                     focusScale: 1.02,
                     focusBorderColor: const Color(0xFFB388FF),
-                    onPressed: _syncAll,
+                    onPressed: () => _syncAll(isDe),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       decoration: BoxDecoration(
@@ -435,14 +478,14 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                           ),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.all_inclusive_rounded, size: 18, color: Colors.white),
-                          SizedBox(width: 8),
+                          const Icon(Icons.all_inclusive_rounded, size: 18, color: Colors.white),
+                          const SizedBox(width: 8),
                           Text(
-                            'Alles auf einmal aktualisieren',
-                            style: TextStyle(
+                            isDe ? 'Alles auf einmal aktualisieren' : 'Refresh Everything',
+                            style: const TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,

@@ -120,6 +120,75 @@
   window.parseDurationSecs = parseDurationSecs;
   window.extractDurationFromInfo = extractDurationFromInfo;
 
+  // Device-bound At-Rest Encryption Vault (SEC-04)
+  var VAULT_PREFIX = 'enc:v1:';
+
+  function getDeviceKey() {
+    var salt = getItem('goat_vault_salt');
+    if (!salt) {
+      salt = 'salt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 12);
+      setItem('goat_vault_salt', salt);
+    }
+    return salt;
+  }
+
+  function hashStr(str) {
+    if (window.TVBootloader && typeof window.TVBootloader.computeSha256 === 'function') {
+      return window.TVBootloader.computeSha256(str);
+    }
+    // Lightweight fast synchronous hash fallback
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    var p1 = (h1 >>> 0).toString(16);
+    var p2 = (h2 >>> 0).toString(16);
+    while (p1.length < 8) p1 = '0' + p1;
+    while (p2.length < 8) p2 = '0' + p2;
+    return p1 + p2 + p1 + p2;
+  }
+
+  function encryptSecret(plain) {
+    if (!plain || typeof plain !== 'string' || plain.indexOf(VAULT_PREFIX) === 0) return plain;
+    try {
+      var iv = Math.random().toString(36).substr(2, 8);
+      var key = hashStr(getDeviceKey() + ':' + iv);
+      var res = '';
+      for (var i = 0; i < plain.length; i++) {
+        var code = plain.charCodeAt(i) ^ parseInt(key.substr((i * 2) % (key.length - 2), 2), 16);
+        res += (code < 16 ? '0' : '') + code.toString(16);
+      }
+      return VAULT_PREFIX + iv + ':' + res;
+    } catch (_) {
+      return plain;
+    }
+  }
+
+  function decryptSecret(cipher) {
+    if (!cipher || typeof cipher !== 'string' || cipher.indexOf(VAULT_PREFIX) !== 0) {
+      return cipher; // Legacy plaintext account - zero breakage
+    }
+    try {
+      var parts = cipher.substring(VAULT_PREFIX.length).split(':');
+      if (parts.length !== 2) return cipher;
+      var iv = parts[0];
+      var hex = parts[1];
+      var key = hashStr(getDeviceKey() + ':' + iv);
+      var plain = '';
+      for (var i = 0; i < hex.length; i += 2) {
+        var code = parseInt(hex.substr(i, 2), 16) ^ parseInt(key.substr(i % (key.length - 2), 2), 16);
+        plain += String.fromCharCode(code);
+      }
+      return plain;
+    } catch (_) {
+      return cipher;
+    }
+  }
+
   window.TVStorage = {
     parseDurationSecs: parseDurationSecs,
     extractDurationFromInfo: extractDurationFromInfo,
@@ -127,7 +196,39 @@
     getAccounts: function() {
       try {
         var raw = getItem('goat_accounts');
-        return raw ? JSON.parse(raw) : [];
+        if (!raw) return [];
+        var accounts = JSON.parse(raw);
+        if (!Array.isArray(accounts)) return [];
+        var hasPlaintext = false;
+        var decrypted = accounts.map(function(acc) {
+          if (!acc) return acc;
+          var clone = Object.assign({}, acc);
+          if (clone.password) {
+            if (clone.password.indexOf(VAULT_PREFIX) === 0) {
+              clone.password = decryptSecret(clone.password);
+            } else {
+              hasPlaintext = true; // Legacy account detected
+            }
+          }
+          return clone;
+        });
+
+        // Silently upgrade legacy accounts in localStorage
+        if (hasPlaintext) {
+          try {
+            var reEncrypted = accounts.map(function(a) {
+              if (!a) return a;
+              var c = Object.assign({}, a);
+              if (c.password && c.password.indexOf(VAULT_PREFIX) !== 0) {
+                c.password = encryptSecret(c.password);
+              }
+              return c;
+            });
+            setItem('goat_accounts', JSON.stringify(reEncrypted));
+          } catch (_) {}
+        }
+
+        return decrypted;
       } catch(e) {
         return [];
       }
@@ -142,7 +243,15 @@
       } else {
         accounts.push(acc);
       }
-      setItem('goat_accounts', JSON.stringify(accounts));
+
+      var encryptedList = accounts.map(function(a) {
+        var c = Object.assign({}, a);
+        if (c.password) {
+          c.password = encryptSecret(c.password);
+        }
+        return c;
+      });
+      setItem('goat_accounts', JSON.stringify(encryptedList));
       return accounts[idx >= 0 ? idx : accounts.length - 1];
     },
     updateAccountInfo: function(id, info) {
@@ -158,7 +267,15 @@
         if (info.active_cons !== undefined) acc.activeConnections = info.active_cons;
         if (info.activeConnections !== undefined) acc.activeConnections = info.activeConnections;
         if (info.status !== undefined) acc.status = info.status;
-        setItem('goat_accounts', JSON.stringify(accounts));
+
+        var encryptedList = accounts.map(function(a) {
+          var c = Object.assign({}, a);
+          if (c.password) {
+            c.password = encryptSecret(c.password);
+          }
+          return c;
+        });
+        setItem('goat_accounts', JSON.stringify(encryptedList));
         return acc;
       }
       return null;
@@ -167,7 +284,14 @@
       if (!id) return;
       var strId = String(id);
       var accounts = this.getAccounts().filter(function(a) { return String(a.id) !== strId; });
-      setItem('goat_accounts', JSON.stringify(accounts));
+      var encryptedList = accounts.map(function(a) {
+        var c = Object.assign({}, a);
+        if (c.password) {
+          c.password = encryptSecret(c.password);
+        }
+        return c;
+      });
+      setItem('goat_accounts', JSON.stringify(encryptedList));
       if (this.getActiveAccountId() && String(this.getActiveAccountId()) === strId) {
         this.setActiveAccountId(null);
       }

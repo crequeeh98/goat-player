@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var BASE_VERSION = '2.0.3';
+  var BASE_VERSION = '2.0.4';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
   var CRASH_CANARY_KEY = 'goat_ota_boot_in_progress';
 
@@ -21,6 +21,65 @@
     'updater.js',
     'app.js'
   ];
+
+  // Fast pure-JS SHA-256 implementation (works synchronously in all TV runtimes without external dependencies)
+  function computeSha256(ascii) {
+    if (!ascii || typeof ascii !== 'string') return '';
+    function r(v, a) { return (v >>> a) | (v << (32 - a)); }
+    var m = Math.pow, maxW = m(2, 32), i, j, res = '', words = [];
+    var hash = [], k = [], pc = 0, isC = {};
+    for (var c = 2; pc < 64; c++) {
+      if (!isC[c]) {
+        for (i = 0; i < 313; i += c) isC[i] = c;
+        hash[pc] = (m(c, 0.5) * maxW) | 0;
+        k[pc++] = (m(c, 1 / 3) * maxW) | 0;
+      }
+    }
+    hash = hash.slice(0, 8);
+    var utf8 = [];
+    for (i = 0; i < ascii.length; i++) {
+      var code = ascii.charCodeAt(i);
+      if (code < 0x80) utf8.push(code);
+      else if (code < 0x800) utf8.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+      else if (code < 0xd800 || code >= 0xe000) utf8.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+      else {
+        i++;
+        code = 0x10000 + (((code & 0x3ff) << 10) | (ascii.charCodeAt(i) & 0x3ff));
+        utf8.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+      }
+    }
+    var bitLen = utf8.length * 8;
+    utf8.push(0x80);
+    while ((utf8.length % 64) !== 56) utf8.push(0);
+    for (i = 0; i < 4; i++) utf8.push(0);
+    utf8.push((bitLen >>> 24) & 0xff, (bitLen >>> 16) & 0xff, (bitLen >>> 8) & 0xff, bitLen & 0xff);
+    for (i = 0; i < utf8.length; i += 4) {
+      words.push((utf8[i] << 24) | (utf8[i + 1] << 16) | (utf8[i + 2] << 8) | utf8[i + 3]);
+    }
+    for (j = 0; j < words.length;) {
+      var w = words.slice(j, j += 16), o = hash.slice(0);
+      for (i = 0; i < 64; i++) {
+        if (i >= 16) {
+          var s0 = r(w[i - 15], 7) ^ r(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+          var s1 = r(w[i - 2], 17) ^ r(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+          w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+        }
+        var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+        var maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+        var t1 = (hash[7] + (r(hash[4], 6) ^ r(hash[4], 11) ^ r(hash[4], 25)) + ch + k[i] + w[i]) | 0;
+        var t2 = ((r(hash[0], 2) ^ r(hash[0], 13) ^ r(hash[0], 22)) + maj) | 0;
+        hash = [(t1 + t2) | 0, hash[0], hash[1], hash[2], (hash[3] + t1) | 0, hash[4], hash[5], hash[6]];
+      }
+      for (i = 0; i < 8; i++) hash[i] = (hash[i] + o[i]) | 0;
+    }
+    for (i = 0; i < 8; i++) {
+      for (j = 3; j >= 0; j--) {
+        var b = (hash[i] >> (j * 8)) & 255;
+        res += ((b < 16) ? '0' : '') + b.toString(16);
+      }
+    }
+    return res.toLowerCase();
+  }
 
   function isNewer(current, latest) {
     try {
@@ -41,7 +100,7 @@
       var raw = localStorage.getItem(OTA_STORAGE_KEY);
       if (!raw) return null;
       var bundle = JSON.parse(raw);
-      if (!bundle || !bundle.version || !bundle.files) return null;
+      if (!bundle || !bundle.version || !bundle.files || !bundle.hashes) return null;
 
       // Discard OTA bundle if factory/package version is newer or equal
       if (!isNewer(BASE_VERSION, bundle.version)) {
@@ -50,11 +109,14 @@
         return null;
       }
 
-      // Check critical files
-      if (!bundle.files['app.js'] || !bundle.files['player.js'] || !bundle.files['spatial_nav.js']) {
-        console.warn('[Bootloader] Incomplete OTA bundle detected, discarding');
-        localStorage.removeItem(OTA_STORAGE_KEY);
-        return null;
+      // Check critical files and integrity hashes
+      for (var i = 0; i < APP_SCRIPTS.length; i++) {
+        var sName = APP_SCRIPTS[i];
+        if (!bundle.files[sName] || typeof bundle.hashes[sName] !== 'string' || bundle.hashes[sName].length !== 64) {
+          console.warn('[Bootloader] Incomplete or unsigned OTA bundle detected, discarding');
+          localStorage.removeItem(OTA_STORAGE_KEY);
+          return null;
+        }
       }
 
       return bundle;
@@ -120,25 +182,35 @@
     };
 
     try {
-      // 1. Inject updated CSS if present in bundle
+      // 1. Inject updated CSS if present in bundle (with integrity check)
       if (bundle.files['style.css']) {
+        if (bundle.hashes && bundle.hashes['style.css']) {
+          var expectedCssHash = bundle.hashes['style.css'].toLowerCase();
+          var actualCssHash = computeSha256(bundle.files['style.css']);
+          if (actualCssHash !== expectedCssHash) {
+            console.error('[Bootloader] CSS integrity violation! Expected ' + expectedCssHash + ', got ' + actualCssHash);
+            throw new Error('Integrity violation for style.css');
+          }
+        }
         var styleEl = document.createElement('style');
         styleEl.id = 'goat-ota-style';
         styleEl.textContent = bundle.files['style.css'];
         document.head.appendChild(styleEl);
       }
 
-      // 2. Synchronously execute application scripts in dependency order in global scope
+      // 2. Synchronously execute application scripts in dependency order after verifying cryptographic SHA-256
       for (var i = 0; i < APP_SCRIPTS.length; i++) {
         var scriptName = APP_SCRIPTS[i];
         var scriptCode = bundle.files[scriptName];
-        if (scriptCode) {
-          // Indirect eval evaluates in global window scope and throws synchronously on syntax/runtime errors
-          (0, window.eval)(scriptCode + '\n//# sourceURL=ota/' + scriptName);
-        } else {
-          // Fallback for missing individual file
-          document.write('<script src="js/' + scriptName + '?v=' + BASE_VERSION + '"><\/script>');
+        var expectedHash = (bundle.hashes[scriptName] || '').toLowerCase();
+
+        if (typeof scriptCode !== 'string' || !expectedHash || computeSha256(scriptCode) !== expectedHash) {
+          console.error('[Bootloader] Hash mismatch for ' + scriptName + '! Aborting OTA boot.');
+          throw new Error('Integrity violation for ' + scriptName);
         }
+
+        // Indirect eval evaluates in global window scope and throws synchronously on syntax/runtime errors
+        (0, window.eval)(scriptCode + '\n//# sourceURL=ota/' + scriptName);
       }
 
       // Clear crash canary after boot stabilizes
@@ -152,13 +224,16 @@
         localStorage.removeItem(OTA_STORAGE_KEY);
         sessionStorage.removeItem(CRASH_CANARY_KEY);
       } catch (_) {}
-      window.location.reload();
+      if (window.location && typeof window.location.reload === 'function') {
+        window.location.reload();
+      }
     }
   }
 
   window.TVBootloader = {
     getBaseVersion: function() { return BASE_VERSION; },
     getActiveVersion: function() { return window.__GOAT_TV_VERSION__ || BASE_VERSION; },
+    computeSha256: computeSha256,
     clearOtaBundle: function() {
       try { localStorage.removeItem(OTA_STORAGE_KEY); } catch (_) {}
     }
