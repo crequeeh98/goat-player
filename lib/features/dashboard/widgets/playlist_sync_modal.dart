@@ -458,23 +458,18 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-              size: 15,
-              color: isSelected ? const Color(0xFFB388FF) : Colors.white30,
+              icon,
+              size: 16,
+              color: isSelected ? const Color(0xFFB388FF) : Colors.white54,
             ),
-            const SizedBox(width: 5),
-            Icon(icon, size: 15, color: isSelected ? Colors.white : Colors.white54),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected ? Colors.white : Colors.white60,
-                ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : Colors.white60,
               ),
             ),
           ],
