@@ -389,6 +389,17 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                   tooltip: AppLocalizations.of(context)!.search,
                   onPressed: _openSearch,
                 ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final isDe = (AppLocalizations.of(context)?.localeName == 'de') ||
+                        ref.watch(localeControllerProvider).languageCode == 'de';
+                    return IconButton(
+                      icon: const Icon(Icons.sync_rounded),
+                      tooltip: isDe ? 'Playlist aktualisieren' : 'Refresh Playlist',
+                      onPressed: _openSyncModal,
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.language),
                   tooltip: AppLocalizations.of(context)!.changeLanguage,
@@ -486,6 +497,11 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                       ],
                     );
                   },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout_rounded),
+                  tooltip: AppLocalizations.of(context)!.switchAccount,
+                  onPressed: _handleSwitchAccount,
                 ),
                 const SizedBox(width: 4),
               ]

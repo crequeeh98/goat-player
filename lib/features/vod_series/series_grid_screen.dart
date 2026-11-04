@@ -1173,7 +1173,7 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFFB388FF)),
-                                tooltip: 'Kategorien verwalten',
+                                tooltip: l10n.localeName == 'de' ? 'Kategorien verwalten' : 'Manage categories',
                                 onPressed: () {
                                   showDialog(
                                     context: context,

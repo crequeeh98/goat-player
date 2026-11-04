@@ -108,6 +108,7 @@ class _MobileLiveCategoriesScreenState extends ConsumerState<MobileLiveCategorie
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFFB388FF)),
+                tooltip: l10n.localeName == 'de' ? 'Kategorien verwalten' : 'Manage categories',
                 onPressed: () {
                   showDialog(
                     context: context,

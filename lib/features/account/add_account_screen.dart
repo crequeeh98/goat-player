@@ -679,6 +679,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 }
 
   Widget _buildManualForm(AppLocalizations l10n) {
+    final isDe = l10n.localeName == 'de';
     return Form(
       key: _formKey,
       child: Column(
@@ -875,41 +876,47 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Inhalte synchronisieren',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+            Text(
+              isDe ? 'Inhalte synchronisieren' : 'Synchronize Content',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                _buildScopeToggleChip(
-                  label: 'Live TV',
-                  icon: Icons.tv_rounded,
-                  isSelected: _syncLiveTv,
-                  onTap: () {
-                    if (_syncLiveTv && !_syncMovies && !_syncSeries) return;
-                    setState(() => _syncLiveTv = !_syncLiveTv);
-                  },
+                Expanded(
+                  child: _buildScopeToggleChip(
+                    label: l10n.liveTv,
+                    icon: Icons.tv_rounded,
+                    isSelected: _syncLiveTv,
+                    onTap: () {
+                      if (_syncLiveTv && !_syncMovies && !_syncSeries) return;
+                      setState(() => _syncLiveTv = !_syncLiveTv);
+                    },
+                  ),
                 ),
-                _buildScopeToggleChip(
-                  label: 'Filme',
-                  icon: Icons.movie_rounded,
-                  isSelected: _syncMovies,
-                  onTap: () {
-                    if (_syncMovies && !_syncLiveTv && !_syncSeries) return;
-                    setState(() => _syncMovies = !_syncMovies);
-                  },
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildScopeToggleChip(
+                    label: l10n.movies,
+                    icon: Icons.movie_rounded,
+                    isSelected: _syncMovies,
+                    onTap: () {
+                      if (_syncMovies && !_syncLiveTv && !_syncSeries) return;
+                      setState(() => _syncMovies = !_syncMovies);
+                    },
+                  ),
                 ),
-                _buildScopeToggleChip(
-                  label: 'Serien',
-                  icon: Icons.video_library_rounded,
-                  isSelected: _syncSeries,
-                  onTap: () {
-                    if (_syncSeries && !_syncLiveTv && !_syncMovies) return;
-                    setState(() => _syncSeries = !_syncSeries);
-                  },
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildScopeToggleChip(
+                    label: l10n.series,
+                    icon: Icons.video_library_rounded,
+                    isSelected: _syncSeries,
+                    onTap: () {
+                      if (_syncSeries && !_syncLiveTv && !_syncMovies) return;
+                      setState(() => _syncSeries = !_syncSeries);
+                    },
+                  ),
                 ),
               ],
             ),
@@ -958,7 +965,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       borderRadius: BorderRadius.circular(10),
       onPressed: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
@@ -968,22 +975,26 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-              size: 16,
+              size: 15,
               color: isSelected ? const Color(0xFFB388FF) : Colors.white30,
             ),
-            const SizedBox(width: 8),
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.white60,
+            const SizedBox(width: 5),
+            Icon(icon, size: 15, color: isSelected ? Colors.white : Colors.white54),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? Colors.white : Colors.white60,
+                ),
               ),
             ),
           ],

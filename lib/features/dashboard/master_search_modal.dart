@@ -203,6 +203,7 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
 
   Widget _buildResultsList(dynamic provider, String type, int tabIndex) {
     final asyncValue = ref.watch(provider) as AsyncValue<List<StreamItem>>;
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
     return asyncValue.when(
       data: (streams) {
         if (streams.isEmpty) {
@@ -238,8 +239,8 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
                     const SizedBox(height: 12),
                     Text(
                       _tabController.index == 0
-                          ? 'Pfeil Rechts drücken für Filme & Serien'
-                          : 'Pfeiltasten Links / Rechts wechseln Tabs',
+                          ? (isDe ? 'Pfeil Rechts drücken für Filme & Serien' : 'Press Right Arrow for Movies & Series')
+                          : (isDe ? 'Pfeiltasten Links / Rechts wechseln Tabs' : 'Use Left / Right Arrows to switch tabs'),
                       style: const TextStyle(color: Color(0xFFB388FF), fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ],

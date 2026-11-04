@@ -258,7 +258,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
         ),
         child: Container(
           width: GoatPlatform.isTv ? 580 : 480,
-          constraints: const BoxConstraints(maxHeight: 560),
+          constraints: BoxConstraints(maxHeight: GoatPlatform.isTv ? 560 : 640),
           decoration: BoxDecoration(
             color: const Color(0xFF160F26),
             borderRadius: BorderRadius.circular(16),
@@ -445,7 +445,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
       borderRadius: BorderRadius.circular(10),
       onPressed: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
@@ -455,22 +455,26 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-              size: 16,
+              size: 15,
               color: isSelected ? const Color(0xFFB388FF) : Colors.white30,
             ),
-            const SizedBox(width: 8),
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.white60,
+            const SizedBox(width: 5),
+            Icon(icon, size: 15, color: isSelected ? Colors.white : Colors.white54),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? Colors.white : Colors.white60,
+                ),
               ),
             ),
           ],
@@ -525,7 +529,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
 
         Flexible(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -544,33 +548,39 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      _buildScopeChip(
-                        label: 'Live TV',
-                        icon: Icons.tv_rounded,
-                        isSelected: hasLive,
-                        onTap: () => _toggleScope('live', isDe),
+                      Expanded(
+                        child: _buildScopeChip(
+                          label: 'Live TV',
+                          icon: Icons.tv_rounded,
+                          isSelected: hasLive,
+                          onTap: () => _toggleScope('live', isDe),
+                        ),
                       ),
-                      _buildScopeChip(
-                        label: isDe ? 'Filme' : 'Movies',
-                        icon: Icons.movie_rounded,
-                        isSelected: hasMovies,
-                        onTap: () => _toggleScope('movie', isDe),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildScopeChip(
+                          label: isDe ? 'Filme' : 'Movies',
+                          icon: Icons.movie_rounded,
+                          isSelected: hasMovies,
+                          onTap: () => _toggleScope('movie', isDe),
+                        ),
                       ),
-                      _buildScopeChip(
-                        label: isDe ? 'Serien' : 'Series',
-                        icon: Icons.video_library_rounded,
-                        isSelected: hasSeries,
-                        onTap: () => _toggleScope('series', isDe),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildScopeChip(
+                          label: isDe ? 'Serien' : 'Series',
+                          icon: Icons.video_library_rounded,
+                          isSelected: hasSeries,
+                          onTap: () => _toggleScope('series', isDe),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   const Divider(height: 1, color: Colors.white12),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
 
                   if (hasLive) ...[
                     _buildSyncRow(
@@ -581,7 +591,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       onPressed: () => _syncLive(isDe),
                       autofocus: true,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                   ],
                   if (hasMovies) ...[
                     _buildSyncRow(
@@ -591,7 +601,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       buttonLabel: refreshBtnLabel,
                       onPressed: () => _syncVod(isDe),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                   ],
                   if (hasSeries) ...[
                     _buildSyncRow(
@@ -601,7 +611,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       buttonLabel: refreshBtnLabel,
                       onPressed: () => _syncSeries(isDe),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                   ],
                   if (hasLive) ...[
                     _buildSyncRow(
@@ -612,9 +622,9 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       onPressed: () => _syncEpg(isDe),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   const Divider(height: 1, color: Colors.white12),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   TvFocusable(
                     borderRadius: BorderRadius.circular(12),
                     focusScale: 1.02,

@@ -66,6 +66,7 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
 
     final customDao = ref.watch(customListDaoProvider);
     final favDao = ref.watch(favoriteDaoProvider);
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -159,7 +160,9 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen',
+                              isFav
+                                  ? (isDe ? 'Aus Favoriten entfernen' : 'Remove from Favorites')
+                                  : (isDe ? 'Zu Favoriten hinzufügen' : 'Add to Favorites'),
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: isFav ? FontWeight.bold : FontWeight.w500,
@@ -177,11 +180,11 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
               },
             ),
 
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 10, 20, 6),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
               child: Text(
-                'EIGENE LISTEN',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
+                isDe ? 'EIGENE LISTEN' : 'CUSTOM LISTS',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
               ),
             ),
 
@@ -272,12 +275,12 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                           ],
 
                           if (lists.isEmpty && !_isCreatingList)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               child: Center(
                                 child: Text(
-                                  'Noch keine eigenen Listen erstellt',
-                                  style: TextStyle(fontSize: 12.5, color: Colors.white38),
+                                  isDe ? 'Noch keine eigenen Listen erstellt' : 'No custom lists created yet',
+                                  style: const TextStyle(fontSize: 12.5, color: Colors.white38),
                                 ),
                               ),
                             ),
@@ -303,7 +306,7 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                             autofocus: true,
                             style: const TextStyle(fontSize: 13, color: Colors.white),
                             decoration: InputDecoration(
-                              hintText: 'Listenname (z. B. Sport, News)...',
+                              hintText: isDe ? 'Listenname (z. B. Sport, News)...' : 'List name (e.g. Sports, News)...',
                               hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               filled: true,
@@ -330,9 +333,9 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                               color: const Color(0xFF7C3AED),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Text(
-                              'Speichern',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            child: Text(
+                              isDe ? 'Speichern' : 'Save',
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
                             ),
                           ),
                         ),
@@ -348,14 +351,14 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.white12, width: 1),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_rounded, size: 18, color: Color(0xFFB388FF)),
-                            SizedBox(width: 8),
+                            const Icon(Icons.add_rounded, size: 18, color: Color(0xFFB388FF)),
+                            const SizedBox(width: 8),
                             Text(
-                              'Neue Liste erstellen...',
-                              style: TextStyle(
+                              isDe ? 'Neue Liste erstellen...' : 'Create new list...',
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFFB388FF),

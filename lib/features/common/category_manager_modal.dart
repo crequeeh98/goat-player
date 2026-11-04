@@ -166,11 +166,13 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     final currentList = _localCategories ?? initialData ?? const <CategoryWithPref>[];
     final allVisible = currentList.isNotEmpty && currentList.every((c) => !c.isHidden);
 
+    final isDe = Localizations.localeOf(context).languageCode == 'de';
+
     final title = widget.type == 'live'
-        ? 'Live TV Kategorien verwalten'
+        ? (isDe ? 'Live TV Kategorien verwalten' : 'Manage Live TV Categories')
         : widget.type == 'movie'
-            ? 'Film-Kategorien verwalten'
-            : 'Serien-Kategorien verwalten';
+            ? (isDe ? 'Film-Kategorien verwalten' : 'Manage Movie Categories')
+            : (isDe ? 'Serien-Kategorien verwalten' : 'Manage Series Categories');
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -251,7 +253,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            allVisible ? 'Alle ausblenden' : 'Alle einblenden',
+                            allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
                             style: const TextStyle(fontSize: 12, color: Colors.white70),
                           ),
                         ],
@@ -268,12 +270,12 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.sort_by_alpha_rounded, size: 14, color: Colors.white54),
-                          SizedBox(width: 6),
-                          Text('A-Z Zurücksetzen', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                          const Icon(Icons.sort_by_alpha_rounded, size: 14, color: Colors.white54),
+                          const SizedBox(width: 6),
+                          Text(isDe ? 'A-Z Zurücksetzen' : 'Reset A-Z', style: const TextStyle(fontSize: 12, color: Colors.white70)),
                         ],
                       ),
                     ),
@@ -287,14 +289,14 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: Colors.amber, width: 1),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.swap_vert_rounded, size: 14, color: Colors.amber),
-                          SizedBox(width: 4),
+                          const Icon(Icons.swap_vert_rounded, size: 14, color: Colors.amber),
+                          const SizedBox(width: 4),
                           Text(
-                            'Verschiebemodus aktiv (▲/▼)',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                            isDe ? 'Verschiebemodus aktiv (▲/▼)' : 'Move mode active (▲/▼)',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
                           ),
                         ],
                       ),
@@ -308,10 +310,10 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
             Expanded(
               child: categoriesAsync.when(
                 loading: () => _localCategories != null && _localCategories!.isNotEmpty
-                    ? _buildListView()
+                    ? _buildListView(isDe)
                     : const Center(child: CircularProgressIndicator()),
                 error: (e, st) => Center(
-                  child: Text('Fehler: $e', style: const TextStyle(color: Colors.white54)),
+                  child: Text(isDe ? 'Fehler: $e' : 'Error: $e', style: const TextStyle(color: Colors.white54)),
                 ),
                 data: (data) {
                   if (_localCategories == null || _localCategories!.length != data.length) {
@@ -319,12 +321,15 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                   }
 
                   if (_localCategories!.isEmpty) {
-                    return const Center(
-                      child: Text('Keine Kategorien vorhanden', style: TextStyle(color: Colors.white54)),
+                    return Center(
+                      child: Text(
+                        isDe ? 'Keine Kategorien vorhanden' : 'No categories available',
+                        style: const TextStyle(color: Colors.white54),
+                      ),
                     );
                   }
 
-                  return _buildListView();
+                  return _buildListView(isDe);
                 },
               ),
             ),
@@ -334,7 +339,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     );
   }
 
-  Widget _buildListView() {
+  Widget _buildListView(bool isDe) {
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
       scrollController: _scrollController,
@@ -451,9 +456,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: const Color(0xFFB388FF), width: 0.8),
                         ),
-                        child: const Text(
-                          'LISTE',
-                          style: TextStyle(
+                        child: Text(
+                          isDe ? 'LISTE' : 'LIST',
+                          style: const TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFFB388FF),
@@ -472,9 +477,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: Colors.amber, width: 0.8),
                         ),
-                        child: const Text(
-                          'NEU',
-                          style: TextStyle(
+                        child: Text(
+                          isDe ? 'NEU' : 'NEW',
+                          style: const TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                             color: Colors.amber,
@@ -501,7 +506,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            isMoving ? 'Fertig' : 'Verschieben',
+                            isMoving ? (isDe ? 'Fertig' : 'Done') : (isDe ? 'Verschieben' : 'Move'),
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
