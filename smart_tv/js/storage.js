@@ -351,6 +351,12 @@
         return null;
       }
     },
+    deleteM3uData: function(accId) {
+      if (!accId) return;
+      var strId = String(accId);
+      removeItem('goat_m3u_' + strId);
+      delete _memStore['goat_m3u_' + strId];
+    },
     getActiveAccountId: function() {
       return getItem('goat_active_account_id');
     },

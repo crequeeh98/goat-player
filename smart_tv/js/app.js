@@ -6811,13 +6811,28 @@
             }
           } else if (event && event.type === 'accountUpdated' && event.account) {
             renderAccountsList();
+            if (window.TVApi && window.TVApi.clearCache) {
+              window.TVApi.clearCache(event.account.id);
+            }
+            if (window.TVStorage && window.TVStorage.deleteM3uData) {
+              window.TVStorage.deleteM3uData(event.account.id);
+            }
             if (_activeAccount && String(_activeAccount.id) === String(event.account.id)) {
+              var credsChanged = (_activeAccount.serverUrl !== event.account.serverUrl ||
+                                  _activeAccount.username !== event.account.username ||
+                                  _activeAccount.password !== event.account.password);
               _activeAccount.name = event.account.name;
               _activeAccount.serverUrl = event.account.serverUrl;
               _activeAccount.username = event.account.username;
               _activeAccount.password = event.account.password;
               var nameEl = document.getElementById('header-account-name');
               if (nameEl) nameEl.textContent = _activeAccount.name || _activeAccount.username;
+
+              if (credsChanged && document.getElementById('view-dashboard').classList.contains('active')) {
+                resetAllAccountState();
+                var currentTab = _currentTab || 'live';
+                switchTab(currentTab);
+              }
             }
             var updatedToast = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert: ' : 'Playlist updated: ';
             showToast(updatedToast + (event.account.name || event.account.username), '✏️');
