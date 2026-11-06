@@ -529,7 +529,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                     ),
                   ),
                   const Spacer(),
-                  if (_movingIndex != null)
+                  if (GoatPlatform.isTv && _movingIndex != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -616,7 +616,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
       onReorder: _onReorder,
       itemBuilder: (context, index) {
         final item = _localCategories![index];
-        final isMoving = _movingIndex == index;
+        final isMoving = GoatPlatform.isTv && _movingIndex == index;
         final isFavorites = item.category.categoryId == 'favorites';
         final isCustomList = item.category.categoryId.startsWith('custom_list:');
         final node = _itemFocusNodes.putIfAbsent(
@@ -633,21 +633,23 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
               focusNode: node,
               borderRadius: BorderRadius.circular(10),
               onPressed: () {
-                if (_movingIndex != null) {
+                if (GoatPlatform.isTv && _movingIndex != null) {
                   setState(() => _movingIndex = null);
                 } else {
                   _toggleVisibility(item);
                 }
               },
-              onLongPress: () {
-                if (isCustomList) {
-                  _showTvCustomListMenu(item, index, isDe);
-                } else {
-                  setState(() => _movingIndex = (_movingIndex == index) ? null : index);
-                }
-              },
+              onLongPress: GoatPlatform.isTv
+                  ? () {
+                      if (isCustomList) {
+                        _showTvCustomListMenu(item, index, isDe);
+                      } else {
+                        setState(() => _movingIndex = (_movingIndex == index) ? null : index);
+                      }
+                    }
+                  : null,
               onKeyEvent: (fNode, event) {
-                if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                if (GoatPlatform.isTv && (event is KeyDownEvent || event is KeyRepeatEvent)) {
                   if (event.logicalKey == LogicalKeyboardKey.select ||
                       event.logicalKey == LogicalKeyboardKey.enter) {
                     // Normal click handled by onPressed
