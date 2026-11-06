@@ -144,7 +144,7 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
         backgroundColor: const Color(0xFF161026),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
@@ -291,7 +291,7 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+        side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
       ),
       title: Row(
         children: [

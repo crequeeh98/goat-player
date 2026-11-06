@@ -129,7 +129,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
         ),
         title: Row(
           children: [
@@ -222,22 +222,28 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     // Smooth, non-blocking background sync pipeline:
     // Allow the UI to render and settle smoothly on startup before checking background updates
     Future.microtask(() async {
-      await Future.delayed(const Duration(milliseconds: 1500));
+      await Future.delayed(const Duration(milliseconds: 1000));
       if (!mounted) return;
       ref.read(epgControllerProvider).pruneOldEpg();
-      await ref.read(liveTvControllerProvider).syncLiveCategories();
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (!mounted) return;
-      await ref.read(vodControllerProvider).syncVodCategories();
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (!mounted) return;
-      await ref.read(seriesControllerProvider).syncSeriesCategories();
+      final currentAcc = ref.read(activeAccountProvider);
+      final isCurrentM3u = currentAcc != null && (currentAcc.username.isEmpty || currentAcc.serverUrl.contains('.m3u'));
+      if (isCurrentM3u) {
+        await ref.read(liveTvControllerProvider).syncAllLiveStreams();
+      } else {
+        await ref.read(liveTvControllerProvider).syncLiveCategories();
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        await ref.read(vodControllerProvider).syncVodCategories();
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+        await ref.read(seriesControllerProvider).syncSeriesCategories();
+      }
 
       // On TV, do not dump tens of thousands of streams into memory concurrently.
       // Category streams are loaded on-demand when a category is selected.
-      if (!GoatPlatform.isTv) {
+      if (!GoatPlatform.isTv && !isCurrentM3u) {
         await Future.delayed(const Duration(seconds: 5));
         if (!mounted) return;
         await ref.read(liveTvControllerProvider).syncAllLiveStreams();
@@ -249,12 +255,6 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         await Future.delayed(const Duration(seconds: 3));
         if (!mounted) return;
         await ref.read(seriesControllerProvider).syncAllSeriesStreams();
-      } else {
-        // TV: M3U accounts need channels populated once on startup (with 24h cache check)
-        final account = ref.read(activeAccountProvider);
-        if (account != null && (account.username.isEmpty || account.serverUrl.contains('.m3u'))) {
-          await ref.read(liveTvControllerProvider).syncAllLiveStreams();
-        }
       }
     });
   }
@@ -612,6 +612,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                         return PopupMenuButton<String>(
                           icon: const Icon(Icons.language),
                           tooltip: AppLocalizations.of(context)!.changeLanguage,
+                          color: const Color(0xFF161026),
+                          surfaceTintColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
+                          ),
+                          elevation: 12,
                           onSelected: (lang) {
                             ref.read(localeControllerProvider.notifier).setLocale(lang);
                           },
@@ -625,7 +632,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                   Text(AppLocalizations.of(context)!.english),
                                   if (currentLocale.languageCode == 'en') ...[
                                     const Spacer(),
-                                    const Icon(Icons.check, size: 16, color: Colors.green),
+                                    const Icon(Icons.check, size: 16, color: Color(0xFFB388FF)),
                                   ],
                                 ],
                               ),
@@ -639,7 +646,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
                                   Text(AppLocalizations.of(context)!.german),
                                   if (currentLocale.languageCode == 'de') ...[
                                     const Spacer(),
-                                    const Icon(Icons.check, size: 16, color: Colors.green),
+                                    const Icon(Icons.check, size: 16, color: Color(0xFFB388FF)),
                                   ],
                                 ],
                               ),

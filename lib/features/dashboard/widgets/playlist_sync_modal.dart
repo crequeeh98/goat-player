@@ -260,10 +260,15 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
           width: GoatPlatform.isTv ? 520 : 480,
           constraints: BoxConstraints(maxHeight: GoatPlatform.isTv ? 500 : 640),
           decoration: BoxDecoration(
-            color: const Color(0xFF160F26),
+            color: const Color(0xFF161026),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            border: Border.all(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
             boxShadow: [
+              BoxShadow(
+                color: const Color(0x33B388FF),
+                blurRadius: 20,
+                spreadRadius: 1,
+              ),
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.7),
                 blurRadius: 32,

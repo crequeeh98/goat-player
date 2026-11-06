@@ -433,10 +433,15 @@ class _MovieDetailModalState extends ConsumerState<MovieDetailModal> {
           color: const Color(0xFF161026),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+            color: const Color(0xFFB388FF).withValues(alpha: 0.5),
             width: 1.5,
           ),
           boxShadow: [
+            BoxShadow(
+              color: const Color(0x33B388FF),
+              blurRadius: 20,
+              spreadRadius: 1,
+            ),
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.65),
               blurRadius: 28,

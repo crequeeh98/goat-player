@@ -167,7 +167,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
         backgroundColor: const Color(0xFF161026),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
         ),
         title: Row(
           children: [
@@ -339,7 +339,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
         backgroundColor: const Color(0xFF161026),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
         ),
         title: Text(
           item.category.name,
@@ -406,8 +406,10 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     final categoriesAsync = ref.watch(managedCategoriesProvider(widget.type));
 
     final initialData = categoriesAsync.asData?.value;
-    if (_localCategories == null && initialData != null) {
-      _localCategories = List.from(initialData);
+    if (initialData != null) {
+      if (_localCategories == null || _localCategories!.length != initialData.length) {
+        _localCategories = List.from(initialData);
+      }
     }
 
     final currentList = _localCategories ?? initialData ?? const <CategoryWithPref>[];
@@ -433,8 +435,13 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
         decoration: BoxDecoration(
           color: const Color(0xFF161026),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+          border: Border.all(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
           boxShadow: [
+            BoxShadow(
+              color: const Color(0x33B388FF),
+              blurRadius: 20,
+              spreadRadius: 1,
+            ),
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.8),
               blurRadius: 36,

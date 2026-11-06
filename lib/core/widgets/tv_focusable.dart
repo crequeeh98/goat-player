@@ -103,6 +103,7 @@ class _TvFocusableState extends State<TvFocusable> {
   @override
   void initState() {
     super.initState();
+    _isFocused = _effectiveNode.hasFocus;
     _effectiveNode.addListener(_handleFocusChange);
     TvInputModeManager.instance.isKeyboardMode.addListener(_handleInputModeChange);
     if (widget.autofocus) {
@@ -120,6 +121,8 @@ class _TvFocusableState extends State<TvFocusable> {
     if (widget.focusNode != oldWidget.focusNode) {
       oldWidget.focusNode?.removeListener(_handleFocusChange);
       _effectiveNode.addListener(_handleFocusChange);
+    }
+    if (_isFocused != _effectiveNode.hasFocus) {
       _isFocused = _effectiveNode.hasFocus;
     }
   }

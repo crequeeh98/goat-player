@@ -107,7 +107,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+        side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
       ),
       title: Row(
         children: [

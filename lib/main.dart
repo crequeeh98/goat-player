@@ -359,6 +359,8 @@ class MyApp extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF7C3AED),
           brightness: Brightness.dark,
+          primary: const Color(0xFF7C3AED),
+          onPrimary: Colors.white,
           surface: const Color(0xFF161026),
           surfaceContainerHighest: const Color(0xFF1E1730),
         ),
@@ -378,8 +380,44 @@ class MyApp extends ConsumerWidget {
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+            side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
           ),
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: const Color(0xFF161026),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
+          ),
+          elevation: 12,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF7C3AED),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.05),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFB388FF), width: 1.5),
+          ),
+          labelStyle: const TextStyle(color: Colors.white70),
+          hintStyle: const TextStyle(color: Colors.white38),
+          prefixIconColor: const Color(0xFFB388FF),
+          suffixIconColor: const Color(0xFFB388FF),
         ),
       ),
       builder: (context, child) {

@@ -247,6 +247,7 @@ class MobileLiveChannelsScreen extends ConsumerStatefulWidget {
 class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScreen> {
   String _channelSearchQuery = '';
   bool _isSearching = false;
+  List<StreamItem>? _localStreams;
 
   @override
   Widget build(BuildContext context) {
@@ -306,6 +307,16 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
               final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
               final isReorderable = (widget.categoryId == 'favorites' || widget.categoryId.startsWith('custom_list:')) && _channelSearchQuery.trim().isEmpty;
+
+              final streamIdsMatch = _localStreams != null &&
+                  _localStreams!.length == streams.length &&
+                  _localStreams!.every((s) => streams.any((orig) => orig.streamId == s.streamId));
+
+              if (!streamIdsMatch) {
+                _localStreams = List<StreamItem>.from(streams);
+              }
+
+              final displayStreams = isReorderable ? _localStreams! : streams;
 
               Widget buildTile(StreamItem stream, int index) {
                 final account = ref.read(activeAccountProvider);
@@ -442,18 +453,19 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                   padding: EdgeInsets.only(
                     bottom: (isMiniPlayerVisible ? 80 : 16) + bottomPadding,
                   ),
-                  itemCount: streams.length,
-                  itemBuilder: (context, index) => buildTile(streams[index], index),
+                  itemCount: displayStreams.length,
+                  itemBuilder: (context, index) => buildTile(displayStreams[index], index),
                   onReorder: (oldIndex, newIndex) async {
                     if (oldIndex < newIndex) {
                       newIndex -= 1;
                     }
                     final account = ref.read(activeAccountProvider);
-                    if (account == null) return;
-                    final updatedList = List<StreamItem>.from(streams);
-                    final item = updatedList.removeAt(oldIndex);
-                    updatedList.insert(newIndex, item);
-                    final orderedIds = updatedList.map((s) => s.streamId).toList();
+                    if (account == null || _localStreams == null) return;
+                    setState(() {
+                      final item = _localStreams!.removeAt(oldIndex);
+                      _localStreams!.insert(newIndex, item);
+                    });
+                    final orderedIds = _localStreams!.map((s) => s.streamId).toList();
 
                     if (widget.categoryId == 'favorites') {
                       await ref.read(databaseProvider).favoriteDao.reorderFavorites(
@@ -479,8 +491,8 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                 padding: EdgeInsets.only(
                   bottom: (isMiniPlayerVisible ? 80 : 16) + bottomPadding,
                 ),
-                itemCount: streams.length,
-                itemBuilder: (context, index) => buildTile(streams[index], index),
+                itemCount: displayStreams.length,
+                itemBuilder: (context, index) => buildTile(displayStreams[index], index),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),

@@ -272,6 +272,9 @@ class RemoteSyncService {
               if (existing != null) {
                 // Update existing account instead of duplicating
                 accountId = existing.id;
+                final credentialsChanged = serverUrl != existing.serverUrl ||
+                    username != existing.username ||
+                    password != existing.password;
                 final updated = existing.copyWith(
                   playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : existing.playlistName),
                   serverUrl: serverUrl,
@@ -279,6 +282,20 @@ class RemoteSyncService {
                   password: password,
                 );
                 await _accountDao.updateAccount(updated);
+                if (credentialsChanged) {
+                  await _categoryDao.clearCategories(accountId, 'live');
+                  await _categoryDao.clearCategories(accountId, 'movie');
+                  await _categoryDao.clearCategories(accountId, 'series');
+                  await _streamDao.clearAllStreams(accountId);
+                  await _epgDao.clearPrograms(accountId);
+                  await _prefs.remove('last_sync_categories_live_$accountId');
+                  await _prefs.remove('last_sync_all_live_$accountId');
+                  await _prefs.remove('last_sync_categories_vod_$accountId');
+                  await _prefs.remove('last_sync_all_vod_$accountId');
+                  await _prefs.remove('last_sync_categories_series_$accountId');
+                  await _prefs.remove('last_sync_all_series_$accountId');
+                  await _prefs.remove('last_sync_epg_$accountId');
+                }
                 accountResult = updated;
               } else {
                 accountId = await _accountDao.insertAccount(
@@ -359,6 +376,13 @@ class RemoteSyncService {
                   await _categoryDao.clearCategories(accountId, 'series');
                   await _streamDao.clearAllStreams(accountId);
                   await _epgDao.clearPrograms(accountId);
+                  await _prefs.remove('last_sync_categories_live_$accountId');
+                  await _prefs.remove('last_sync_all_live_$accountId');
+                  await _prefs.remove('last_sync_categories_vod_$accountId');
+                  await _prefs.remove('last_sync_all_vod_$accountId');
+                  await _prefs.remove('last_sync_categories_series_$accountId');
+                  await _prefs.remove('last_sync_all_series_$accountId');
+                  await _prefs.remove('last_sync_epg_$accountId');
                 }
 
                 final playlistsJson = await getLocalPlaylistsJson();

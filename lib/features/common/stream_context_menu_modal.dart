@@ -72,7 +72,7 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
         backgroundColor: const Color(0xFF161026),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
         ),
         title: Row(
           children: [
@@ -219,7 +219,7 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
         backgroundColor: const Color(0xFF161026),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+          side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
         ),
         title: Text(
           list.name,
@@ -284,8 +284,13 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
         decoration: BoxDecoration(
           color: const Color(0xFF161026),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+          border: Border.all(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
           boxShadow: [
+            BoxShadow(
+              color: const Color(0x33B388FF),
+              blurRadius: 20,
+              spreadRadius: 1,
+            ),
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.8),
               blurRadius: 36,

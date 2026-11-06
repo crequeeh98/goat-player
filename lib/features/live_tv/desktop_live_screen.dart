@@ -52,7 +52,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   String? _streamIdToFocus;
   Timer? _channelPlayDebounce;
   Timer? _shortEpgFocusDebounce;
-  int? _movingChannelIndex;
+  String? _movingStreamId;
+  List<StreamItem>? _localStreams;
+  String? _localStreamsCategoryId;
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
@@ -187,21 +189,81 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     });
   }
 
-  Future<void> _reorderChannel(List<StreamItem> streams, int oldIndex, int newIndex) async {
+  Future<void> _reorderChannel(int oldIndex, int newIndex) async {
     final account = ref.read(activeAccountProvider);
-    if (account == null || _selectedCategory == null) return;
+    if (account == null || _selectedCategory == null || _localStreams == null) return;
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
     setState(() {
-      _movingChannelIndex = newIndex;
+      final item = _localStreams!.removeAt(oldIndex);
+      _localStreams!.insert(newIndex, item);
     });
 
-    final updated = List<StreamItem>.from(streams);
-    final item = updated.removeAt(oldIndex);
-    updated.insert(newIndex, item);
-    final orderedIds = updated.map((s) => s.streamId).toList();
+    final orderedIds = _localStreams!.map((s) => s.streamId).toList();
 
+    if (_selectedCategory == 'favorites') {
+      await ref.read(databaseProvider).favoriteDao.reorderFavorites(
+        account.id,
+        'live',
+        orderedIds,
+      );
+    } else if (_selectedCategory!.startsWith('custom_list:')) {
+      final listId = int.tryParse(_selectedCategory!.split(':')[1]);
+      if (listId != null) {
+        await ref.read(databaseProvider).customListDao.reorderListItems(
+          listId,
+          orderedIds,
+        );
+      }
+    }
+  }
+
+  void _ensureStreamFocused(String streamId) {
+    _streamIdToFocus = streamId;
+    void tryFocus(int retries) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final node = _channelFocusNodes[streamId];
+        if (node != null && node.context != null && node.canRequestFocus) {
+          FocusScope.of(context).requestFocus(node);
+          Scrollable.ensureVisible(
+            node.context!,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 150),
+          );
+        } else if (retries > 0) {
+          tryFocus(retries - 1);
+        }
+      });
+    }
+    tryFocus(3);
+  }
+
+  void _exitMoveMode([String? streamId]) {
+    final targetId = streamId ?? _movingStreamId;
+    setState(() => _movingStreamId = null);
+    if (targetId != null) {
+      _ensureStreamFocused(targetId);
+    }
+  }
+
+  Future<void> _moveChannelByOffset(String streamId, int offset) async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null || _selectedCategory == null || _localStreams == null) return;
+    final oldIndex = _localStreams!.indexWhere((s) => s.streamId == streamId);
+    if (oldIndex == -1) return;
+    final newIndex = oldIndex + offset;
+    if (newIndex < 0 || newIndex >= _localStreams!.length) return;
+
+    setState(() {
+      final item = _localStreams!.removeAt(oldIndex);
+      _localStreams!.insert(newIndex, item);
+    });
+
+    _ensureStreamFocused(streamId);
+
+    final orderedIds = _localStreams!.map((s) => s.streamId).toList();
     if (_selectedCategory == 'favorites') {
       await ref.read(databaseProvider).favoriteDao.reorderFavorites(
         account.id,
@@ -229,7 +291,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
           backgroundColor: const Color(0xFF161026),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+            side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
           ),
           title: Text(
             ChannelNameCleaner.clean(stream.name),
@@ -266,7 +328,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
         ),
       );
       if (action == 'move') {
-        setState(() => _movingChannelIndex = index);
+        setState(() => _movingStreamId = stream.streamId);
+        _ensureStreamFocused(stream.streamId);
       } else if (action == 'menu') {
         if (mounted) await StreamContextMenuModal.show(context, stream);
       }
@@ -347,7 +410,9 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void _selectCategory(String catId) {
     setState(() {
       _selectedCategory = catId;
-      _movingChannelIndex = null;
+      _movingStreamId = null;
+      _localStreams = null;
+      _localStreamsCategoryId = null;
       _lastScrolledStreamId = null;
       _lastFocusedChannelNode = null;
       _channelFocusNodes.clear();
@@ -500,6 +565,21 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     // If _selectedCategory is not set locally (e.g. after minimizing and expanding),
     // restore it from the active playing stream, global provider, or first category
     _selectedCategory ??= activePlayback?.categoryId ?? globalSelectedCat ?? categories.firstOrNull?.categoryId;
+
+    final liveAccount = ref.read(activeAccountProvider);
+    final isLiveM3u = liveAccount != null && (liveAccount.username.isEmpty || liveAccount.serverUrl.contains('.m3u'));
+    if (_selectedCategory != null &&
+        _selectedCategory != 'favorites' &&
+        !(_selectedCategory?.startsWith('custom_list:') ?? false) &&
+        !isLiveM3u &&
+        !_syncedCategories.contains(_selectedCategory)) {
+      _syncedCategories.add(_selectedCategory!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedCategory != null) {
+          ref.read(liveTvControllerProvider).syncLiveStreams(_selectedCategory!);
+        }
+      });
+    }
 
     final currentCategoryStreams = _selectedCategory != null
         ? (ref.watch(liveStreamsProvider(_selectedCategory!)).asData?.value ?? const <StreamItem>[])
@@ -1051,8 +1131,19 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
                         final isReorderable = _selectedCategory == 'favorites' || (_selectedCategory?.startsWith('custom_list:') ?? false);
 
+                        final streamIdsMatch = _localStreams != null &&
+                            _localStreams!.length == streams.length &&
+                            _localStreams!.every((s) => streams.any((orig) => orig.streamId == s.streamId));
+
+                        if (_localStreamsCategoryId != _selectedCategory || !streamIdsMatch) {
+                          _localStreams = List<StreamItem>.from(streams);
+                          _localStreamsCategoryId = _selectedCategory;
+                        }
+
+                        final displayStreams = isReorderable ? _localStreams! : streams;
+
                         Widget buildChannelItem(int index) {
-                          final stream = streams[index];
+                          final stream = displayStreams[index];
                           final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
                           final url = (stream.url != null && stream.url!.startsWith('http'))
                               ? stream.url!
@@ -1077,25 +1168,20 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             }
                           }
 
-                          final isMoving = GoatPlatform.isTv && _movingChannelIndex == index;
+                          final isMoving = GoatPlatform.isTv && _movingStreamId == stream.streamId;
 
-                          final itemFocusNode = index == 0
-                              ? _firstChannelNode
-                              : (GoatPlatform.isTv
-                                  ? _channelFocusNodes.putIfAbsent(
-                                      stream.streamId,
-                                      () => FocusNode(debugLabel: 'ch_${stream.streamId}'),
-                                    )
-                                  : null);
-                          if (index == 0 && GoatPlatform.isTv) {
-                             _channelFocusNodes[stream.streamId] = _firstChannelNode;
-                          }
+                          final itemFocusNode = GoatPlatform.isTv
+                              ? _channelFocusNodes.putIfAbsent(
+                                  stream.streamId,
+                                  () => FocusNode(debugLabel: 'ch_${stream.streamId}'),
+                                )
+                              : null;
 
                           if (index == 0 && _focusFirstChannelOnNextBuild) {
                             _focusFirstChannelOnNextBuild = false;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted) {
-                                _firstChannelNode.requestFocus();
+                              if (mounted && itemFocusNode != null && itemFocusNode.canRequestFocus) {
+                                itemFocusNode.requestFocus();
                               }
                             });
                           }
@@ -1120,8 +1206,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               focusScale: 1.02,
                               borderRadius: BorderRadius.circular(10),
                               onPressed: () {
-                                if (GoatPlatform.isTv && _movingChannelIndex != null) {
-                                  setState(() => _movingChannelIndex = null);
+                                if (GoatPlatform.isTv && _movingStreamId != null) {
+                                  _exitMoveMode(stream.streamId);
                                 } else {
                                   _playStream(stream);
                                 }
@@ -1145,22 +1231,24 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               },
                               onKeyEvent: (node, event) {
                                 if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                                  if (GoatPlatform.isTv && _movingChannelIndex != null) {
-                                    if (event.logicalKey == LogicalKeyboardKey.arrowUp && index > 0) {
-                                      _reorderChannel(streams, index, index - 1);
+                                  if (GoatPlatform.isTv && _movingStreamId != null) {
+                                    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                      _moveChannelByOffset(_movingStreamId!, -1);
                                       return KeyEventResult.handled;
-                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown && index < streams.length - 1) {
-                                      _reorderChannel(streams, index, index + 2);
+                                    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                      _moveChannelByOffset(_movingStreamId!, 1);
                                       return KeyEventResult.handled;
                                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                                        event.logicalKey == LogicalKeyboardKey.goBack) {
-                                      setState(() => _movingChannelIndex = null);
+                                        event.logicalKey == LogicalKeyboardKey.goBack ||
+                                        event.logicalKey == LogicalKeyboardKey.select ||
+                                        event.logicalKey == LogicalKeyboardKey.enter) {
+                                      _exitMoveMode(_movingStreamId);
                                       return KeyEventResult.handled;
                                     }
                                   }
                                   if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                    if (GoatPlatform.isTv && _movingChannelIndex != null) {
-                                      setState(() => _movingChannelIndex = null);
+                                    if (GoatPlatform.isTv && _movingStreamId != null) {
+                                      _exitMoveMode(_movingStreamId);
                                     }
                                     final activeCatId = _selectedCategory;
                                     if (activeCatId != null && _categoryFocusNodes.containsKey(activeCatId)) {
@@ -1173,8 +1261,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                     _focusCategoryColumn();
                                     return KeyEventResult.handled;
                                   } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                    if (GoatPlatform.isTv && _movingChannelIndex != null) {
-                                      setState(() => _movingChannelIndex = null);
+                                    if (GoatPlatform.isTv && _movingStreamId != null) {
+                                      _exitMoveMode(_movingStreamId);
                                     }
                                     if (_isFullWidth) return KeyEventResult.handled;
                                     final activePlayback = ref.read(playbackControllerProvider);
@@ -1321,16 +1409,16 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           channelWidget = ReorderableListView.builder(
                             buildDefaultDragHandles: false,
                             scrollController: _channelScrollController,
-                            itemCount: streams.length,
+                            itemCount: displayStreams.length,
                             itemBuilder: (context, index) => buildChannelItem(index),
-                            onReorder: (oldIndex, newIndex) => _reorderChannel(streams, oldIndex, newIndex),
+                            onReorder: (oldIndex, newIndex) => _reorderChannel(oldIndex, newIndex),
                           );
                         } else {
                           channelWidget = ListView.builder(
                             controller: _channelScrollController,
                             cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
                             itemExtent: GoatPlatform.isTv ? 48.0 : 66.0,
-                            itemCount: streams.length,
+                            itemCount: displayStreams.length,
                             itemBuilder: (context, index) => buildChannelItem(index),
                           );
                         }
@@ -1339,7 +1427,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           final isDe = Localizations.localeOf(context).languageCode == 'de';
                           return Column(
                             children: [
-                              if (_movingChannelIndex != null)
+                              if (_movingStreamId != null)
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -11,6 +11,7 @@ import '../../core/utils/m3u_isolate_parser.dart';
 import '../../core/utils/title_sanitizer.dart';
 import '../../core/database/app_database.dart';
 import '../../core/remote_sync/remote_sync_service.dart';
+import '../../core/settings/locale_controller.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_text_field.dart';
@@ -192,6 +193,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             toastMsg = l10n.playlistReceived;
           } else if (event.type == RemoteSyncEventType.accountUpdated) {
             toastMsg = isDe ? 'Playlist aktualisiert' : 'Playlist updated';
+            if (event.account != null) {
+              final active = ref.read(activeAccountProvider);
+              if (active != null && active.id == event.account!.id) {
+                ref.read(activeAccountProvider.notifier).set(event.account);
+              }
+            }
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -357,6 +364,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       } else {
         if (widget.accountToEdit != null) {
           final oldAcc = widget.accountToEdit!;
+          final credentialsChanged = oldAcc.serverUrl != _serverUrlController.text.trim() ||
+              oldAcc.username != _usernameController.text.trim() ||
+              oldAcc.password != _passwordController.text.trim();
           await dao.updateAccount(
             oldAcc.copyWith(
               playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
@@ -368,18 +378,34 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               syncSeries: _syncSeries,
             ),
           );
-          // Purge if disabled
-          if (oldAcc.syncLiveTv && !_syncLiveTv) {
-            await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'live');
+          if (credentialsChanged) {
+            await ref.read(streamDaoProvider).clearAllStreams(oldAcc.id);
             await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'live');
-          }
-          if (oldAcc.syncMovies && !_syncMovies) {
-            await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'movie');
             await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'movie');
-          }
-          if (oldAcc.syncSeries && !_syncSeries) {
-            await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'series');
             await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'series');
+            await ref.read(epgDaoProvider).clearPrograms(oldAcc.id);
+            final prefs = ref.read(sharedPreferencesProvider);
+            await prefs.remove('last_sync_categories_live_${oldAcc.id}');
+            await prefs.remove('last_sync_all_live_${oldAcc.id}');
+            await prefs.remove('last_sync_categories_vod_${oldAcc.id}');
+            await prefs.remove('last_sync_all_vod_${oldAcc.id}');
+            await prefs.remove('last_sync_categories_series_${oldAcc.id}');
+            await prefs.remove('last_sync_all_series_${oldAcc.id}');
+            await prefs.remove('last_sync_epg_${oldAcc.id}');
+          } else {
+            // Purge if disabled
+            if (oldAcc.syncLiveTv && !_syncLiveTv) {
+              await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'live');
+              await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'live');
+            }
+            if (oldAcc.syncMovies && !_syncMovies) {
+              await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'movie');
+              await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'movie');
+            }
+            if (oldAcc.syncSeries && !_syncSeries) {
+              await ref.read(streamDaoProvider).clearStreamsByType(oldAcc.id, 'series');
+              await ref.read(categoryDaoProvider).clearCategories(oldAcc.id, 'series');
+            }
           }
         } else {
           await dao.insertAccount(
@@ -494,11 +520,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: GoatPlatform.isTv ? 480 : 460),
+            constraints: BoxConstraints(maxWidth: GoatPlatform.isTv ? 500 : (GoatPlatform.isDesktop ? 480 : 420)),
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: GoatPlatform.isTv ? 16.0 : 20.0,
-                vertical: GoatPlatform.isTv ? 2.0 : 16.0,
+                vertical: GoatPlatform.isTv ? 8.0 : (GoatPlatform.isDesktop ? 16.0 : 10.0),
               ),
               child: SingleChildScrollView(
                 clipBehavior: Clip.hardEdge,
@@ -664,11 +690,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                               onSelectionChanged: (set) => _onModeChanged(set.first),
                               style: SegmentedButton.styleFrom(
                                 visualDensity: VisualDensity.compact,
-                                selectedBackgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                                selectedForegroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor: const Color(0xFF161026),
+                                foregroundColor: Colors.white70,
+                                selectedBackgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                                selectedForegroundColor: const Color(0xFFB388FF),
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
                               ),
                             ),
-                          SizedBox(height: GoatPlatform.isTv ? 4 : 20),
+                          SizedBox(height: GoatPlatform.isTv ? 4 : 12),
                           _selectedMode == AddAccountMode.manual
                               ? _buildManualForm(l10n)
                               : _buildRemotePairingView(l10n),
@@ -685,6 +714,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 
   Widget _buildManualForm(AppLocalizations l10n) {
     final isDe = l10n.localeName == 'de';
+    final fieldGap = GoatPlatform.isTv ? 8.0 : (GoatPlatform.isDesktop ? 14.0 : 10.0);
+    final sectionGap = GoatPlatform.isTv ? 10.0 : (GoatPlatform.isDesktop ? 16.0 : 12.0);
+    final buttonGap = GoatPlatform.isTv ? 10.0 : (GoatPlatform.isDesktop ? 22.0 : 16.0);
     return Form(
       key: _formKey,
       child: Column(
@@ -814,11 +846,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               onSelectionChanged: (set) => setState(() => _playlistType = set.first),
               style: SegmentedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                selectedBackgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                selectedForegroundColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: const Color(0xFF161026),
+                foregroundColor: Colors.white70,
+                selectedBackgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                selectedForegroundColor: const Color(0xFFB388FF),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
               ),
             ),
-          SizedBox(height: GoatPlatform.isTv ? 5 : 14),
+          SizedBox(height: fieldGap),
           TvTextField(
             controller: _playlistNameController,
             focusNode: _nameFocusNode,
@@ -834,7 +869,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             ),
             prefixIcon: const Icon(Icons.badge_outlined),
           ),
-          SizedBox(height: GoatPlatform.isTv ? 5 : 14),
+          SizedBox(height: fieldGap),
           TvTextField(
             controller: _serverUrlController,
             focusNode: _urlFocusNode,
@@ -855,7 +890,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             validator: (v) => v!.trim().isEmpty ? l10n.fieldRequired : null,
           ),
           if (_playlistType == PlaylistType.xtream) ...[
-            SizedBox(height: GoatPlatform.isTv ? 5 : 14),
+            SizedBox(height: fieldGap),
             TvTextField(
               controller: _usernameController,
               focusNode: _userFocusNode,
@@ -871,7 +906,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.person_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
-            SizedBox(height: GoatPlatform.isTv ? 5 : 14),
+            SizedBox(height: fieldGap),
             TvTextField(
               controller: _passwordController,
               focusNode: _passFocusNode,
@@ -888,7 +923,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.lock_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
-            SizedBox(height: GoatPlatform.isTv ? 5 : 16),
+            SizedBox(height: sectionGap),
             Text(
               isDe ? 'Inhalte synchronisieren' : 'Synchronize Content',
               style: TextStyle(
@@ -897,7 +932,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 color: Colors.white70,
               ),
             ),
-            SizedBox(height: GoatPlatform.isTv ? 3 : 8),
+            SizedBox(height: GoatPlatform.isTv ? 4 : 8),
             Row(
               children: [
                 Expanded(
@@ -938,7 +973,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ],
             ),
           ],
-          SizedBox(height: GoatPlatform.isTv ? 6 : 20),
+          SizedBox(height: buttonGap),
           TvFocusable(
             focusNode: _submitFocusNode,
             borderRadius: BorderRadius.circular(12),
@@ -1278,10 +1313,10 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.purple.withValues(alpha: 0.15),
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.purple.withValues(alpha: 0.35),
+                  color: const Color(0xFFB388FF).withValues(alpha: 0.4),
                 ),
               ),
               child: Row(
@@ -1290,7 +1325,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                   const SizedBox(
                     width: 11,
                     height: 11,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purpleAccent),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFB388FF)),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -1298,7 +1333,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Colors.purpleAccent,
+                      color: Color(0xFFB388FF),
                     ),
                   ),
                 ],
@@ -1408,10 +1443,10 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.purple.withValues(alpha: 0.15),
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.purple.withValues(alpha: 0.35),
+                  color: const Color(0xFFB388FF).withValues(alpha: 0.4),
                 ),
               ),
               child: Row(
@@ -1420,7 +1455,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                   const SizedBox(
                     width: 12,
                     height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purpleAccent),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFB388FF)),
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -1428,7 +1463,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.purpleAccent,
+                      color: Color(0xFFB388FF),
                     ),
                   ),
                 ],
