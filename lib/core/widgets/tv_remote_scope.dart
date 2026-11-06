@@ -236,10 +236,11 @@ class _TvExitDialogContentState extends State<_TvExitDialogContent> {
           return KeyEventResult.ignored;
         },
         child: AlertDialog(
-          backgroundColor: const Color(0xFF1B1528),
+          backgroundColor: const Color(0xFF161026),
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
           ),
           title: Row(
             children: [

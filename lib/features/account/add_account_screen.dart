@@ -186,9 +186,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           setState(() => _playlistReceived = true);
 
           final l10n = AppLocalizations.of(context)!;
+          final isDe = l10n.localeName == 'de';
           String toastMsg = event.message;
           if (event.type == RemoteSyncEventType.accountAdded) {
             toastMsg = l10n.playlistReceived;
+          } else if (event.type == RemoteSyncEventType.accountUpdated) {
+            toastMsg = isDe ? 'Playlist aktualisiert' : 'Playlist updated';
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -461,6 +464,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: const Color(0xFF0D0915),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           toolbarHeight: GoatPlatform.isTv ? 38 : null,
           title: Padding(
             padding: EdgeInsets.only(top: GoatPlatform.isTv ? 2.0 : 0),

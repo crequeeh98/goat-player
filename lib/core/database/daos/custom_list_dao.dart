@@ -52,6 +52,16 @@ class CustomListDao extends DatabaseAccessor<AppDatabase> with _$CustomListDaoMi
     });
   }
 
+  Future<void> reorderListItems(int listId, List<String> orderedStreamIds) async {
+    await transaction(() async {
+      for (int i = 0; i < orderedStreamIds.length; i++) {
+        await (update(customListItems)
+              ..where((item) => item.listId.equals(listId) & item.streamId.equals(orderedStreamIds[i])))
+            .write(CustomListItemsCompanion(sortOrder: Value(i)));
+      }
+    });
+  }
+
   Stream<List<CustomListItem>> watchListItems(int listId) {
     return (select(customListItems)
           ..where((i) => i.listId.equals(listId))

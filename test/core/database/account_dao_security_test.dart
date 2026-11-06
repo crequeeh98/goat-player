@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:goat_player/core/database/app_database.dart';
 import 'package:goat_player/core/security/security_vault.dart';

@@ -356,9 +356,31 @@ class MyApp extends ConsumerWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        colorSchemeSeed: Colors.deepPurple,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF7C3AED),
+          brightness: Brightness.dark,
+          surface: const Color(0xFF161026),
+          surfaceContainerHighest: const Color(0xFF1E1730),
+        ),
         scaffoldBackgroundColor: const Color(0xFF0D0915),
         canvasColor: const Color(0xFF0D0915),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0D0915),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF161026),
+          surfaceTintColor: Colors.transparent,
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: const Color(0xFF161026),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+          ),
+        ),
       ),
       builder: (context, child) {
         if (GoatPlatform.isTv) {

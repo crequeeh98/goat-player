@@ -155,16 +155,25 @@ class _VpnImportDialogState extends ConsumerState<VpnImportDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF18181A),
+      backgroundColor: const Color(0xFF161026),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
       ),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(AppLocalizations.of(context)!.importWireguard, style: const TextStyle(fontSize: 18)),
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: Color(0xFFB388FF), size: 22),
+              const SizedBox(width: 10),
+              Text(
+                AppLocalizations.of(context)!.importWireguard,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ],
+          ),
           if (_hasSavedConfig && !isConnected)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -247,7 +256,7 @@ class _VpnImportDialogState extends ConsumerState<VpnImportDialog> {
                     borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
                   ),
                   filled: true,
-                  fillColor: const Color(0xFF101012),
+                  fillColor: Colors.black.withValues(alpha: 0.3),
                 ),
               ),
               const SizedBox(height: 8),

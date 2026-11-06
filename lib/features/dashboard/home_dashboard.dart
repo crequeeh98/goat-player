@@ -125,14 +125,21 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161026),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.language, size: 22),
+            const Icon(Icons.language, size: 22, color: Color(0xFFB388FF)),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 AppLocalizations.of(ctx)!.changeLanguage,
                 overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
           ],
@@ -140,30 +147,47 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: _buildUsFlag(),
-              title: Text(AppLocalizations.of(ctx)!.english),
-              trailing: currentLocale.languageCode == 'en' ? const Icon(Icons.check, color: Colors.green) : null,
-              onTap: () {
-                ref.read(localeControllerProvider.notifier).setLocale('en');
-                Navigator.pop(ctx);
-              },
+            Container(
+              decoration: BoxDecoration(
+                color: currentLocale.languageCode == 'en' ? const Color(0xFF7C3AED).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: currentLocale.languageCode == 'en' ? const Color(0xFFB388FF) : Colors.transparent),
+              ),
+              child: ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                leading: _buildUsFlag(),
+                title: Text(AppLocalizations.of(ctx)!.english, style: const TextStyle(fontWeight: FontWeight.w600)),
+                trailing: currentLocale.languageCode == 'en' ? const Icon(Icons.check, color: Color(0xFFB388FF)) : null,
+                onTap: () {
+                  ref.read(localeControllerProvider.notifier).setLocale('en');
+                  Navigator.pop(ctx);
+                },
+              ),
             ),
-            ListTile(
-              leading: _buildGermanFlag(),
-              title: Text(AppLocalizations.of(ctx)!.german),
-              trailing: currentLocale.languageCode == 'de' ? const Icon(Icons.check, color: Colors.green) : null,
-              onTap: () {
-                ref.read(localeControllerProvider.notifier).setLocale('de');
-                Navigator.pop(ctx);
-              },
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: currentLocale.languageCode == 'de' ? const Color(0xFF7C3AED).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: currentLocale.languageCode == 'de' ? const Color(0xFFB388FF) : Colors.transparent),
+              ),
+              child: ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                leading: _buildGermanFlag(),
+                title: Text(AppLocalizations.of(ctx)!.german, style: const TextStyle(fontWeight: FontWeight.w600)),
+                trailing: currentLocale.languageCode == 'de' ? const Icon(Icons.check, color: Color(0xFFB388FF)) : null,
+                onTap: () {
+                  ref.read(localeControllerProvider.notifier).setLocale('de');
+                  Navigator.pop(ctx);
+                },
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(AppLocalizations.of(ctx)!.close),
+            child: Text(AppLocalizations.of(ctx)!.close, style: const TextStyle(color: Color(0xFFB388FF))),
           ),
         ],
       ),
@@ -362,6 +386,9 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
             backgroundColor: Colors.transparent,
             resizeToAvoidBottomInset: false,
             appBar: hideChrome ? null : AppBar(
+              backgroundColor: const Color(0xFF0D0915),
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               toolbarHeight: GoatPlatform.isTv ? 46 : null,
               titleSpacing: isCompact ? 8 : (GoatPlatform.isTv ? 14 : null),
             title: Row(

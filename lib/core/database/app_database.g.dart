@@ -2204,6 +2204,18 @@ class $FavoritesTable extends Favorites
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2211,6 +2223,7 @@ class $FavoritesTable extends Favorites
     streamId,
     streamType,
     addedAt,
+    sortOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2257,6 +2270,12 @@ class $FavoritesTable extends Favorites
         addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
       );
     }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     return context;
   }
 
@@ -2290,6 +2309,10 @@ class $FavoritesTable extends Favorites
         DriftSqlType.dateTime,
         data['${effectivePrefix}added_at'],
       )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
     );
   }
 
@@ -2305,12 +2328,14 @@ class Favorite extends DataClass implements Insertable<Favorite> {
   final String streamId;
   final String streamType;
   final DateTime addedAt;
+  final int sortOrder;
   const Favorite({
     required this.id,
     required this.accountId,
     required this.streamId,
     required this.streamType,
     required this.addedAt,
+    required this.sortOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2320,6 +2345,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
     map['stream_id'] = Variable<String>(streamId);
     map['stream_type'] = Variable<String>(streamType);
     map['added_at'] = Variable<DateTime>(addedAt);
+    map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
 
@@ -2330,6 +2356,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       streamId: Value(streamId),
       streamType: Value(streamType),
       addedAt: Value(addedAt),
+      sortOrder: Value(sortOrder),
     );
   }
 
@@ -2344,6 +2371,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       streamId: serializer.fromJson<String>(json['streamId']),
       streamType: serializer.fromJson<String>(json['streamType']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
   @override
@@ -2355,6 +2383,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       'streamId': serializer.toJson<String>(streamId),
       'streamType': serializer.toJson<String>(streamType),
       'addedAt': serializer.toJson<DateTime>(addedAt),
+      'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
 
@@ -2364,12 +2393,14 @@ class Favorite extends DataClass implements Insertable<Favorite> {
     String? streamId,
     String? streamType,
     DateTime? addedAt,
+    int? sortOrder,
   }) => Favorite(
     id: id ?? this.id,
     accountId: accountId ?? this.accountId,
     streamId: streamId ?? this.streamId,
     streamType: streamType ?? this.streamType,
     addedAt: addedAt ?? this.addedAt,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
   Favorite copyWithCompanion(FavoritesCompanion data) {
     return Favorite(
@@ -2380,6 +2411,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
           ? data.streamType.value
           : this.streamType,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
 
@@ -2390,13 +2422,15 @@ class Favorite extends DataClass implements Insertable<Favorite> {
           ..write('accountId: $accountId, ')
           ..write('streamId: $streamId, ')
           ..write('streamType: $streamType, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, accountId, streamId, streamType, addedAt);
+  int get hashCode =>
+      Object.hash(id, accountId, streamId, streamType, addedAt, sortOrder);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2405,7 +2439,8 @@ class Favorite extends DataClass implements Insertable<Favorite> {
           other.accountId == this.accountId &&
           other.streamId == this.streamId &&
           other.streamType == this.streamType &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.sortOrder == this.sortOrder);
 }
 
 class FavoritesCompanion extends UpdateCompanion<Favorite> {
@@ -2414,12 +2449,14 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
   final Value<String> streamId;
   final Value<String> streamType;
   final Value<DateTime> addedAt;
+  final Value<int> sortOrder;
   const FavoritesCompanion({
     this.id = const Value.absent(),
     this.accountId = const Value.absent(),
     this.streamId = const Value.absent(),
     this.streamType = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.sortOrder = const Value.absent(),
   });
   FavoritesCompanion.insert({
     this.id = const Value.absent(),
@@ -2427,6 +2464,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     required String streamId,
     required String streamType,
     this.addedAt = const Value.absent(),
+    this.sortOrder = const Value.absent(),
   }) : accountId = Value(accountId),
        streamId = Value(streamId),
        streamType = Value(streamType);
@@ -2436,6 +2474,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     Expression<String>? streamId,
     Expression<String>? streamType,
     Expression<DateTime>? addedAt,
+    Expression<int>? sortOrder,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2443,6 +2482,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
       if (streamId != null) 'stream_id': streamId,
       if (streamType != null) 'stream_type': streamType,
       if (addedAt != null) 'added_at': addedAt,
+      if (sortOrder != null) 'sort_order': sortOrder,
     });
   }
 
@@ -2452,6 +2492,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     Value<String>? streamId,
     Value<String>? streamType,
     Value<DateTime>? addedAt,
+    Value<int>? sortOrder,
   }) {
     return FavoritesCompanion(
       id: id ?? this.id,
@@ -2459,6 +2500,7 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
       streamId: streamId ?? this.streamId,
       streamType: streamType ?? this.streamType,
       addedAt: addedAt ?? this.addedAt,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -2480,6 +2522,9 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     if (addedAt.present) {
       map['added_at'] = Variable<DateTime>(addedAt.value);
     }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     return map;
   }
 
@@ -2490,7 +2535,8 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
           ..write('accountId: $accountId, ')
           ..write('streamId: $streamId, ')
           ..write('streamType: $streamType, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -6868,6 +6914,7 @@ typedef $$FavoritesTableCreateCompanionBuilder = FavoritesCompanion Function({
   required String streamId,
   required String streamType,
   Value<DateTime> addedAt,
+  Value<int> sortOrder,
 });
 typedef $$FavoritesTableUpdateCompanionBuilder = FavoritesCompanion Function({
   Value<int> id,
@@ -6875,6 +6922,7 @@ typedef $$FavoritesTableUpdateCompanionBuilder = FavoritesCompanion Function({
   Value<String> streamId,
   Value<String> streamType,
   Value<DateTime> addedAt,
+  Value<int> sortOrder,
 });
 
 final class $$FavoritesTableReferences
@@ -6925,6 +6973,11 @@ class $$FavoritesTableFilterComposer
 
   ColumnFilters<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6981,6 +7034,11 @@ class $$FavoritesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AccountsTableOrderingComposer get accountId {
     final $$AccountsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7027,6 +7085,9 @@ class $$FavoritesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 
   $$AccountsTableAnnotationComposer get accountId {
     final $$AccountsTableAnnotationComposer composer = $composerBuilder(
@@ -7085,12 +7146,14 @@ class $$FavoritesTableTableManager
                 Value<String> streamId = const Value.absent(),
                 Value<String> streamType = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
               }) => FavoritesCompanion(
                 id: id,
                 accountId: accountId,
                 streamId: streamId,
                 streamType: streamType,
                 addedAt: addedAt,
+                sortOrder: sortOrder,
               ),
           createCompanionCallback:
               ({
@@ -7099,12 +7162,14 @@ class $$FavoritesTableTableManager
                 required String streamId,
                 required String streamType,
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
               }) => FavoritesCompanion.insert(
                 id: id,
                 accountId: accountId,
                 streamId: streamId,
                 streamType: streamType,
                 addedAt: addedAt,
+                sortOrder: sortOrder,
               ),
           withReferenceMapper: (p0) => p0
               .map(

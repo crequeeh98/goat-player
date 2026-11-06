@@ -32,11 +32,29 @@ class FavoriteDao extends DatabaseAccessor<AppDatabase> with _$FavoriteDaoMixin 
             ..where((f) => f.accountId.equals(accountId) & f.streamId.equals(streamId) & f.streamType.equals(streamType)))
           .go();
     } else {
+      final countExp = favorites.id.count();
+      final count = await (selectOnly(favorites)
+            ..addColumns([countExp])
+            ..where(favorites.accountId.equals(accountId) & favorites.streamType.equals(streamType)))
+          .map((row) => row.read(countExp))
+          .getSingle();
+
       await into(favorites).insert(FavoritesCompanion.insert(
         accountId: accountId,
         streamId: streamId,
         streamType: streamType,
+        sortOrder: Value(count ?? 0),
       ));
     }
+  }
+
+  Future<void> reorderFavorites(int accountId, String streamType, List<String> orderedStreamIds) async {
+    await transaction(() async {
+      for (int i = 0; i < orderedStreamIds.length; i++) {
+        await (update(favorites)
+              ..where((f) => f.accountId.equals(accountId) & f.streamType.equals(streamType) & f.streamId.equals(orderedStreamIds[i])))
+            .write(FavoritesCompanion(sortOrder: Value(i)));
+      }
+    });
   }
 }

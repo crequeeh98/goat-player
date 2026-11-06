@@ -42,7 +42,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? connection.openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -87,6 +87,9 @@ class AppDatabase extends _$AppDatabase {
             await customStatement('CREATE INDEX IF NOT EXISTS idx_cat_pref_lookup ON category_preferences(account_id, type, is_hidden);');
             await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_lists ON custom_lists(account_id, type);');
             await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_list_items ON custom_list_items(list_id);');
+          }
+          if (from < 10) {
+            await m.addColumn(favorites, favorites.sortOrder);
           }
         },
         beforeOpen: (details) async {

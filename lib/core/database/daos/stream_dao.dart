@@ -31,7 +31,7 @@ class StreamDao extends DatabaseAccessor<AppDatabase> with _$StreamDaoMixin {
       ),
     ])
       ..where(streams.accountId.equals(accountId) & streams.streamType.equals(streamType))
-      ..orderBy([OrderingTerm.desc(favorites.addedAt)]);
+      ..orderBy([OrderingTerm.asc(favorites.sortOrder), OrderingTerm.desc(favorites.addedAt)]);
 
     return query.watch().map((rows) {
       final list = rows.map((row) => row.readTable(streams)).toList();

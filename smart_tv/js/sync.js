@@ -242,12 +242,17 @@
               var updatedAcc = null;
               var isM3uEdit = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
               if (targetAcc) {
+                var newServerUrl = (actionObj.server_url && actionObj.server_url.trim().length > 0) ? actionObj.server_url.trim() : targetAcc.serverUrl;
+                var newUsername = (actionObj.username && actionObj.username.trim().length > 0) ? actionObj.username.trim() : targetAcc.username;
+                var newPassword = (actionObj.password && actionObj.password.trim().length > 0) ? actionObj.password.trim() : targetAcc.password;
+                var newName = (actionObj.playlist_name && actionObj.playlist_name.trim().length > 0) ? actionObj.playlist_name.trim() : (targetAcc.name || targetAcc.username);
+
                 updatedAcc = Object.assign({}, targetAcc, {
                   type: isM3uEdit ? 'm3u' : (targetAcc.type || undefined),
-                  serverUrl: actionObj.server_url || targetAcc.serverUrl,
-                  username: actionObj.username !== undefined ? actionObj.username : targetAcc.username,
-                  password: actionObj.password !== undefined ? actionObj.password : targetAcc.password,
-                  name: actionObj.playlist_name || actionObj.username || targetAcc.name
+                  serverUrl: newServerUrl,
+                  username: newUsername,
+                  password: newPassword,
+                  name: newName
                 });
                 window.TVStorage.saveAccount(updatedAcc);
               } else if (actionObj.id) {

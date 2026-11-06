@@ -23,12 +23,12 @@ void main() {
 
     final derivator = KeyDerivator('SHA-256/HMAC/PBKDF2');
     final params = Pbkdf2Parameters(
-      utf8.encode(salt) as Uint8List,
+      Uint8List.fromList(utf8.encode(salt)),
       iterations,
       32,
     );
     derivator.init(params);
-    final keyBytes = derivator.process(utf8.encode(pin) as Uint8List);
+    final keyBytes = derivator.process(Uint8List.fromList(utf8.encode(pin)));
 
     final hexStr = _bytesToHex(keyBytes);
     expect(hexStr, equals('e4c25802dfd662199dc78ea6e8763c99e237783398060d9e881022190d224005'));

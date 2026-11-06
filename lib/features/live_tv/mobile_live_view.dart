@@ -305,132 +305,182 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
               final now = DateTime.now();
               final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
+              final isReorderable = (widget.categoryId == 'favorites' || widget.categoryId.startsWith('custom_list:')) && _channelSearchQuery.trim().isEmpty;
+
+              Widget buildTile(StreamItem stream, int index) {
+                final account = ref.read(activeAccountProvider);
+                final isFavorite = favoriteStreamIds.contains(stream.streamId);
+                final cleanName = ChannelNameCleaner.clean(stream.name);
+                final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
+                
+                final currentProgram = epgChannelId != null ? currentPrograms[epgChannelId] : null;
+                String? currentShowTitle;
+                double? showProgress;
+                
+                if (currentProgram != null) {
+                  currentShowTitle = currentProgram.title;
+                  final totalMinutes = currentProgram.stopTime.difference(currentProgram.startTime).inMinutes;
+                  final elapsedMinutes = now.difference(currentProgram.startTime).inMinutes;
+                  if (totalMinutes > 0) {
+                    showProgress = (elapsedMinutes / totalMinutes).clamp(0.0, 1.0);
+                  }
+                }
+
+                return ListTile(
+                  key: ValueKey(stream.streamId),
+                  dense: true,
+                  visualDensity: const VisualDensity(horizontal: -1, vertical: -2),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                  leading: ChannelIcon(
+                    iconUrl: stream.streamIcon,
+                    channelName: cleanName,
+                    size: 34,
+                  ),
+                  title: Text(
+                    cleanName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: currentShowTitle != null
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 1),
+                            Text(
+                              currentShowTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: Colors.white70),
+                            ),
+                            if (showProgress != null) ...[
+                              const SizedBox(height: 3),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(1.5),
+                                child: LinearProgressIndicator(
+                                  value: showProgress,
+                                  minHeight: 2.5,
+                                  backgroundColor: Colors.white12,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                                ),
+                              ),
+                            ],
+                          ],
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? Colors.redAccent : Colors.white38,
+                          size: 20,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        splashRadius: 18,
+                        tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                        onPressed: () async {
+                          if (account != null) {
+                            await ref.read(databaseProvider).favoriteDao.toggleFavorite(
+                              account.id,
+                              stream.streamId,
+                              'live',
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.play_circle_outline, color: Colors.white60, size: 22),
+                      if (isReorderable) ...[
+                        const SizedBox(width: 8),
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: const Icon(Icons.drag_handle_rounded, color: Colors.white38, size: 22),
+                        ),
+                      ],
+                    ],
+                  ),
+                  onLongPress: () {
+                    StreamContextMenuModal.show(context, stream);
+                  },
+                  onTap: () {
+                    final baseUrl = account?.serverUrl.endsWith('/') == true
+                        ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
+                        : account?.serverUrl;
+                    final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
+                    final url = (stream.url != null && stream.url!.startsWith('http'))
+                        ? stream.url!
+                        : '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => MobilePlayerScreen(
+                          streamUrl: url,
+                          channelId: epgChannelId,
+                          channelName: cleanName,
+                          streamId: stream.streamId,
+                          categoryId: widget.categoryId,
+                          categoryName: displayCategoryName,
+                          openedFromChannelList: true,
+                        ),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    );
+                  },
+                );
+              }
+
+              if (isReorderable) {
+                return ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.only(
+                    bottom: (isMiniPlayerVisible ? 80 : 16) + bottomPadding,
+                  ),
+                  itemCount: streams.length,
+                  itemBuilder: (context, index) => buildTile(streams[index], index),
+                  onReorder: (oldIndex, newIndex) async {
+                    if (oldIndex < newIndex) {
+                      newIndex -= 1;
+                    }
+                    final account = ref.read(activeAccountProvider);
+                    if (account == null) return;
+                    final updatedList = List<StreamItem>.from(streams);
+                    final item = updatedList.removeAt(oldIndex);
+                    updatedList.insert(newIndex, item);
+                    final orderedIds = updatedList.map((s) => s.streamId).toList();
+
+                    if (widget.categoryId == 'favorites') {
+                      await ref.read(databaseProvider).favoriteDao.reorderFavorites(
+                        account.id,
+                        'live',
+                        orderedIds,
+                      );
+                    } else if (widget.categoryId.startsWith('custom_list:')) {
+                      final listId = int.tryParse(widget.categoryId.split(':')[1]);
+                      if (listId != null) {
+                        await ref.read(databaseProvider).customListDao.reorderListItems(
+                          listId,
+                          orderedIds,
+                        );
+                      }
+                    }
+                  },
+                );
+              }
+
               return ListView.builder(
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.only(
                   bottom: (isMiniPlayerVisible ? 80 : 16) + bottomPadding,
                 ),
                 itemCount: streams.length,
-                itemBuilder: (context, index) {
-                  final stream = streams[index];
-                  final account = ref.read(activeAccountProvider);
-                  final isFavorite = favoriteStreamIds.contains(stream.streamId);
-                  final cleanName = ChannelNameCleaner.clean(stream.name);
-                  final epgChannelId = stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty ? stream.epgChannelId : stream.streamId;
-                  
-                  final currentProgram = epgChannelId != null ? currentPrograms[epgChannelId] : null;
-                  String? currentShowTitle;
-                  double? showProgress;
-                  
-                  if (currentProgram != null) {
-                    currentShowTitle = currentProgram.title;
-                    final totalMinutes = currentProgram.stopTime.difference(currentProgram.startTime).inMinutes;
-                    final elapsedMinutes = now.difference(currentProgram.startTime).inMinutes;
-                    if (totalMinutes > 0) {
-                      showProgress = (elapsedMinutes / totalMinutes).clamp(0.0, 1.0);
-                    }
-                  }
-
-                  return ListTile(
-                    dense: true,
-                    visualDensity: const VisualDensity(horizontal: -1, vertical: -2),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                    leading: ChannelIcon(
-                      iconUrl: stream.streamIcon,
-                      channelName: cleanName,
-                      size: 34,
-                    ),
-                    title: Text(
-                      cleanName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: currentShowTitle != null
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(height: 1),
-                              Text(
-                                currentShowTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, color: Colors.white70),
-                              ),
-                              if (showProgress != null) ...[
-                                const SizedBox(height: 3),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(1.5),
-                                  child: LinearProgressIndicator(
-                                    value: showProgress,
-                                    minHeight: 2.5,
-                                    backgroundColor: Colors.white12,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          )
-                        : null,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: isFavorite ? Colors.redAccent : Colors.white38,
-                            size: 20,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                          splashRadius: 18,
-                          tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
-                          onPressed: () async {
-                            if (account != null) {
-                              await ref.read(databaseProvider).favoriteDao.toggleFavorite(
-                                account.id,
-                                stream.streamId,
-                                'live',
-                              );
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.play_circle_outline, color: Colors.white60, size: 22),
-                      ],
-                    ),
-                    onLongPress: () {
-                      StreamContextMenuModal.show(context, stream);
-                    },
-                    onTap: () {
-                      final baseUrl = account?.serverUrl.endsWith('/') == true
-                          ? account!.serverUrl.substring(0, account.serverUrl.length - 1)
-                          : account?.serverUrl;
-                      final ext = GoatPlatform.isWeb ? 'm3u8' : 'ts';
-                      final url = (stream.url != null && stream.url!.startsWith('http'))
-                          ? stream.url!
-                          : '$baseUrl/live/${account?.username}/${account?.password}/${stream.streamId}.$ext';
-                      Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (_, __, ___) => MobilePlayerScreen(
-                            streamUrl: url,
-                            channelId: epgChannelId,
-                            channelName: cleanName,
-                            streamId: stream.streamId,
-                            categoryId: widget.categoryId,
-                            categoryName: displayCategoryName,
-                            openedFromChannelList: true,
-                          ),
-                          transitionDuration: Duration.zero,
-                          reverseTransitionDuration: Duration.zero,
-                        ),
-                      );
-                    },
-                  );
-                },
+                itemBuilder: (context, index) => buildTile(streams[index], index),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),

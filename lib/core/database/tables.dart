@@ -57,6 +57,7 @@ class Favorites extends Table {
   TextColumn get streamId => text()(); // The stream ID
   TextColumn get streamType => text()(); // 'live', 'movie', 'series'
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
 
   @override
   List<Set<Column>> get uniqueKeys => [{accountId, streamId, streamType}];

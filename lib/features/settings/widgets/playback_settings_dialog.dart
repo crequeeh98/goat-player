@@ -141,10 +141,10 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
       final activeSub = _subtitleCodes.contains(_preferredSubtitle) ? _preferredSubtitle : 'off';
 
       return Dialog(
-        backgroundColor: const Color(0xFF1E1730),
+        backgroundColor: const Color(0xFF161026),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
@@ -287,6 +287,12 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
     }
 
     return AlertDialog(
+      backgroundColor: const Color(0xFF161026),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+      ),
       title: Row(
         children: [
           Container(
@@ -333,6 +339,7 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
+                  dropdownColor: const Color(0xFF161026),
                   isExpanded: true,
                   value: _audioCodes.contains(_preferredAudio) ? _preferredAudio : 'de',
                   items: _audioCodes.map((code) {
@@ -372,6 +379,7 @@ class _PlaybackSettingsDialogState extends ConsumerState<PlaybackSettingsDialog>
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
+                  dropdownColor: const Color(0xFF161026),
                   isExpanded: true,
                   value: _subtitleCodes.contains(_preferredSubtitle) ? _preferredSubtitle : 'off',
                   items: _subtitleCodes.map((code) {

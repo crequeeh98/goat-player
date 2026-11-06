@@ -103,10 +103,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
     final downloadingText = isGerman ? 'Wird heruntergeladen...' : 'Downloading...';
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E2E),
+      backgroundColor: const Color(0xFF161026),
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.deepPurple.shade700, width: 1.2),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
       ),
       title: Row(
         children: [

@@ -420,9 +420,9 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E24),
+              color: const Color(0xFF161026),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.2),
               boxShadow: const [
                 BoxShadow(color: Colors.black87, blurRadius: 12, offset: Offset(0, 4)),
               ],

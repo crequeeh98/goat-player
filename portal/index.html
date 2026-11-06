@@ -2013,11 +2013,11 @@
           if (submitText) submitText.innerText = t('updating');
           const strEditId = String(editingPlaylistId);
           const pl = activePlaylists.find(p => (p.id !== undefined ? String(p.id) : '') === strEditId);
-          const oldServer = pl ? pl.server_url : serverUrl;
-          const oldUser = pl ? pl.username : username;
+          const oldServer = pl ? pl.server_url : (serverUrl || undefined);
+          const oldUser = pl ? pl.username : (username || undefined);
 
           if (pl) {
-            pl.playlist_name = playlistName;
+            if (playlistName) pl.playlist_name = playlistName;
             if (serverUrl) pl.server_url = serverUrl;
             if (username) pl.username = username;
             if (password) pl.password = password;
@@ -2030,15 +2030,15 @@
             action_id: actionId,
             action: 'edit',
             id: strEditId,
-            type: playlistType,
-            old_server_url: oldServer,
-            old_username: oldUser,
-            playlist_name: playlistName,
-            server_url: serverUrl,
-            username: username,
-            password: password,
             timestamp: Date.now()
           };
+          if (playlistType) plainEditAction.type = playlistType;
+          if (oldServer) plainEditAction.old_server_url = oldServer;
+          if (oldUser) plainEditAction.old_username = oldUser;
+          if (playlistName) plainEditAction.playlist_name = playlistName;
+          if (serverUrl) plainEditAction.server_url = serverUrl;
+          if (username) plainEditAction.username = username;
+          if (password) plainEditAction.password = password;
           const securedEditAction = await encryptSyncAction(plainEditAction, activePin, activeDeviceId);
           const updatePayload = {
             sync_action: securedEditAction,

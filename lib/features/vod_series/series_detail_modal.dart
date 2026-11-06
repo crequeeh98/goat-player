@@ -667,11 +667,11 @@ class _SeriesDetailModalState extends ConsumerState<SeriesDetailModal> {
           maxHeight: MediaQuery.sizeOf(context).height * (GoatPlatform.isTv ? 0.94 : 0.78),
         ),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: const Color(0xFF161026),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 1,
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(

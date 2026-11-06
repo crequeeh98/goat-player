@@ -119,8 +119,12 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1730),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: const Color(0xFF161026),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: const Color(0xFF7C3AED).withValues(alpha: 0.35), width: 1.5),
+        ),
         title: Row(
           children: [
             const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
@@ -251,6 +255,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
             isRoot: true,
             child: Scaffold(
             appBar: AppBar(
+              backgroundColor: const Color(0xFF0D0915),
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               toolbarHeight: GoatPlatform.isTv ? 56 : null,
               title: Padding(
                 padding: EdgeInsets.only(

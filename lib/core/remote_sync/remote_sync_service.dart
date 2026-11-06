@@ -321,23 +321,45 @@ class RemoteSyncService {
             if (accountId != null) {
               final existing = await _accountDao.getAccountById(accountId);
               if (existing != null) {
-                final playlistName = syncAction['playlist_name']?.toString();
+                final playlistNameRaw = syncAction['playlist_name']?.toString().trim();
                 final serverUrlRaw = syncAction['server_url']?.toString().trim();
                 final usernameRaw = syncAction['username']?.toString().trim();
                 final passwordRaw = syncAction['password']?.toString().trim();
 
-                final serverUrl = (serverUrlRaw != null && serverUrlRaw.isNotEmpty) ? serverUrlRaw : existing.serverUrl;
-                final username = (usernameRaw != null && usernameRaw.isNotEmpty) ? usernameRaw : existing.username;
-                final password = (passwordRaw != null && passwordRaw.isNotEmpty) ? passwordRaw : existing.password;
+                final playlistName = (playlistNameRaw != null && playlistNameRaw.isNotEmpty)
+                    ? playlistNameRaw
+                    : existing.playlistName;
+                final serverUrl = (serverUrlRaw != null && serverUrlRaw.isNotEmpty)
+                    ? serverUrlRaw
+                    : existing.serverUrl;
+                final username = (usernameRaw != null && usernameRaw.isNotEmpty)
+                    ? usernameRaw
+                    : existing.username;
+                final password = (passwordRaw != null && passwordRaw.isNotEmpty)
+                    ? passwordRaw
+                    : existing.password;
+
+                final credentialsChanged = serverUrl != existing.serverUrl ||
+                    username != existing.username ||
+                    password != existing.password;
 
                 final updated = existing.copyWith(
-                  playlistName: drift.Value(playlistName != null && playlistName.trim().isNotEmpty ? playlistName.trim() : null),
+                  playlistName: drift.Value(playlistName),
                   serverUrl: serverUrl,
                   username: username,
                   password: password,
                 );
 
                 await _accountDao.updateAccount(updated);
+
+                if (credentialsChanged) {
+                  // Purge old cached data when serverUrl or credentials change
+                  await _categoryDao.clearCategories(accountId, 'live');
+                  await _categoryDao.clearCategories(accountId, 'movie');
+                  await _categoryDao.clearCategories(accountId, 'series');
+                  await _streamDao.clearAllStreams(accountId);
+                  await _epgDao.clearPrograms(accountId);
+                }
 
                 final playlistsJson = await getLocalPlaylistsJson();
                 try {
