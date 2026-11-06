@@ -461,14 +461,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: GoatPlatform.isTv ? 56 : null,
+          toolbarHeight: GoatPlatform.isTv ? 44 : null,
           title: Padding(
-            padding: EdgeInsets.only(top: GoatPlatform.isTv ? 8.0 : 0),
+            padding: EdgeInsets.only(top: GoatPlatform.isTv ? 4.0 : 0),
             child: Text(isEditing ? l10n.editAccount : l10n.addAccount),
           ),
           leading: GoatPlatform.isTv
               ? Padding(
-                  padding: const EdgeInsets.only(left: 20.0, top: 8.0),
+                  padding: const EdgeInsets.only(left: 20.0, top: 4.0),
                   child: TvFocusable(
                     borderRadius: BorderRadius.circular(10),
                     onPressed: _isClosingSession ? null : _handleCloseAndPop,
@@ -483,7 +483,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       body: SafeArea(
         minimum: EdgeInsets.symmetric(
           horizontal: GoatPlatform.isTv ? 32.0 : 0,
-          vertical: GoatPlatform.isTv ? 6.0 : 0,
+          vertical: GoatPlatform.isTv ? 4.0 : 0,
         ),
         child: Align(
           alignment: Alignment.topCenter,
@@ -492,10 +492,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: GoatPlatform.isTv ? 16.0 : 20.0,
-                vertical: GoatPlatform.isTv ? 6.0 : 16.0,
+                vertical: GoatPlatform.isTv ? 4.0 : 16.0,
               ),
               child: isEditing
-                  ? SingleChildScrollView(child: _buildManualForm(l10n))
+                  ? SingleChildScrollView(
+                      clipBehavior: Clip.hardEdge,
+                      child: _buildManualForm(l10n),
+                    )
                   : Column(
                       children: [
                         // Mode Selector (Manual vs Remote)
@@ -526,7 +529,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                                     return KeyEventResult.ignored;
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                    padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 10, horizontal: 12),
                                     decoration: BoxDecoration(
                                       color: _selectedMode == AddAccountMode.remote
                                           ? const Color(0xFF7C3AED)
@@ -585,7 +588,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                                     return KeyEventResult.ignored;
                                   },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                                    padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 10, horizontal: 12),
                                     decoration: BoxDecoration(
                                       color: _selectedMode == AddAccountMode.manual
                                           ? const Color(0xFF7C3AED)
@@ -662,7 +665,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                         SizedBox(height: GoatPlatform.isTv ? 10 : 20),
                         Expanded(
                           child: SingleChildScrollView(
-                            clipBehavior: Clip.none,
+                            clipBehavior: Clip.hardEdge,
                             child: _selectedMode == AddAccountMode.manual
                                 ? _buildManualForm(l10n)
                                 : _buildRemotePairingView(l10n),
@@ -693,6 +696,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 Expanded(
                   child: TvFocusable(
                     focusNode: _xtreamTypeFocusNode,
+                    focusScale: 1.0,
                     autofocus: widget.accountToEdit != null && _playlistType == PlaylistType.xtream,
                     borderRadius: BorderRadius.circular(10),
                     onPressed: () => setState(() => _playlistType = PlaylistType.xtream),
@@ -714,16 +718,17 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                       return KeyEventResult.ignored;
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 8, horizontal: 10),
                       decoration: BoxDecoration(
                         color: _playlistType == PlaylistType.xtream
-                            ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                            ? const Color(0xFF7C3AED)
                             : const Color(0xFF1E1730),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: _playlistType == PlaylistType.xtream
                               ? const Color(0xFFB388FF)
                               : Colors.white12,
+                          width: 1.2,
                         ),
                       ),
                       child: const Row(
@@ -741,6 +746,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 Expanded(
                   child: TvFocusable(
                     focusNode: _m3uTypeFocusNode,
+                    focusScale: 1.0,
                     autofocus: widget.accountToEdit != null && _playlistType == PlaylistType.m3u,
                     borderRadius: BorderRadius.circular(10),
                     onPressed: () => setState(() => _playlistType = PlaylistType.m3u),
@@ -762,16 +768,17 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                       return KeyEventResult.ignored;
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 8, horizontal: 10),
                       decoration: BoxDecoration(
                         color: _playlistType == PlaylistType.m3u
-                            ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                            ? const Color(0xFF7C3AED)
                             : const Color(0xFF1E1730),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: _playlistType == PlaylistType.m3u
                               ? const Color(0xFFB388FF)
                               : Colors.white12,
+                          width: 1.2,
                         ),
                       ),
                       child: const Row(
@@ -809,7 +816,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 selectedForegroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
-          const SizedBox(height: 14),
+          SizedBox(height: GoatPlatform.isTv ? 8 : 14),
           TvTextField(
             controller: _playlistNameController,
             focusNode: _nameFocusNode,
@@ -824,7 +831,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             ),
             prefixIcon: const Icon(Icons.badge_outlined),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: GoatPlatform.isTv ? 8 : 14),
           TvTextField(
             controller: _serverUrlController,
             focusNode: _urlFocusNode,
@@ -844,7 +851,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             validator: (v) => v!.trim().isEmpty ? l10n.fieldRequired : null,
           ),
           if (_playlistType == PlaylistType.xtream) ...[
-            const SizedBox(height: 14),
+            SizedBox(height: GoatPlatform.isTv ? 8 : 14),
             TvTextField(
               controller: _usernameController,
               focusNode: _userFocusNode,
@@ -859,7 +866,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.person_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: GoatPlatform.isTv ? 8 : 14),
             TvTextField(
               controller: _passwordController,
               focusNode: _passFocusNode,
@@ -875,12 +882,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.lock_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: GoatPlatform.isTv ? 8 : 16),
             Text(
               isDe ? 'Inhalte synchronisieren' : 'Synchronize Content',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: GoatPlatform.isTv ? 5 : 8),
             Row(
               children: [
                 Expanded(
@@ -921,13 +928,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ],
             ),
           ],
-          const SizedBox(height: 20),
+          SizedBox(height: GoatPlatform.isTv ? 10 : 20),
           TvFocusable(
             focusNode: _submitFocusNode,
             borderRadius: BorderRadius.circular(12),
             onPressed: _isLoading ? null : _submit,
             child: SizedBox(
-              height: 48,
+              height: GoatPlatform.isTv ? 40 : 48,
               width: double.infinity,
               child: ElevatedButton(
                 focusNode: FocusNode(canRequestFocus: false),
@@ -965,7 +972,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       borderRadius: BorderRadius.circular(10),
       onPressed: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: GoatPlatform.isTv ? 5 : 7),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),

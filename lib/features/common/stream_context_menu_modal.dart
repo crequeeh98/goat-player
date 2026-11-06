@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/app_database.dart';
@@ -28,11 +29,13 @@ class StreamContextMenuModal extends ConsumerStatefulWidget {
 
 class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal> {
   final TextEditingController _newListController = TextEditingController();
+  final FocusNode _newListFocusNode = FocusNode(debugLabel: 'new_list_input');
   bool _isCreatingList = false;
 
   @override
   void dispose() {
     _newListController.dispose();
+    _newListFocusNode.dispose();
     super.dispose();
   }
 
@@ -56,6 +59,207 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
     if (mounted) {
       _newListController.clear();
       setState(() => _isCreatingList = false);
+    }
+  }
+
+  void _showRenameListDialog(CustomList list, bool isDe) async {
+    final controller = TextEditingController(text: list.name);
+    final formKey = GlobalKey<FormState>();
+
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161026),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.edit_rounded, color: Color(0xFFB388FF), size: 22),
+            const SizedBox(width: 10),
+            Text(
+              isDe ? 'Liste umbenennen' : 'Rename List',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: isDe ? 'Listenname...' : 'List name...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.08),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFB388FF), width: 1.5),
+              ),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? (isDe ? 'Name darf nicht leer sein' : 'Name cannot be empty')
+                : null,
+            onFieldSubmitted: (v) {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.of(ctx).pop(v.trim());
+              }
+            },
+          ),
+        ),
+        actions: [
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(isDe ? 'Abbrechen' : 'Cancel', style: const TextStyle(color: Colors.white60)),
+            ),
+          ),
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.of(ctx).pop(controller.text.trim());
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isDe ? 'Speichern' : 'Save',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (updated != null && updated.isNotEmpty && mounted) {
+      await ref.read(customListDaoProvider).renameList(list.id, updated);
+      setState(() {});
+    }
+  }
+
+  void _showDeleteListDialog(CustomList list, bool isDe) async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161026),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 10),
+            Text(
+              isDe ? 'Liste löschen' : 'Delete List',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+        content: Text(
+          isDe
+              ? 'Möchtest du die Liste "${list.name}" wirklich löschen?\nEnthaltene Einträge bleiben erhalten.'
+              : 'Do you really want to delete the list "${list.name}"?\nContained streams will not be deleted.',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(isDe ? 'Abbrechen' : 'Cancel', style: const TextStyle(color: Colors.white60)),
+            ),
+          ),
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isDe ? 'Löschen' : 'Delete',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await ref.read(customListDaoProvider).deleteList(list.id);
+      await ref.read(categoryPreferenceDaoProvider).deletePreference(account.id, 'custom_list:${list.id}', widget.stream.streamType);
+      setState(() {});
+    }
+  }
+
+  void _showTvListOptions(CustomList list, bool isDe) async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: const Color(0xFF161026),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+        ),
+        title: Text(
+          list.name,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('rename'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_rounded, color: Color(0xFFB388FF), size: 20),
+                  const SizedBox(width: 12),
+                  Text(isDe ? 'Liste umbenennen' : 'Rename list', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('delete'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                  const SizedBox(width: 12),
+                  Text(isDe ? 'Liste löschen' : 'Delete list', style: const TextStyle(color: Colors.redAccent, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'rename') {
+      _showRenameListDialog(list, isDe);
+    } else if (action == 'delete') {
+      _showDeleteListDialog(list, isDe);
     }
   }
 
@@ -212,6 +416,7 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                                   padding: const EdgeInsets.symmetric(vertical: 3),
                                   child: TvFocusable(
                                     borderRadius: BorderRadius.circular(10),
+                                    onLongPress: GoatPlatform.isTv ? () => _showTvListOptions(list, isDe) : null,
                                     onPressed: () async {
                                       if (isInThisList) {
                                         await customDao.removeItemFromList(list.id, widget.stream.streamId);
@@ -258,6 +463,23 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                                               ),
                                             ),
                                           ),
+                                          if (!GoatPlatform.isTv) ...[
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFFB388FF)),
+                                              tooltip: isDe ? 'Umbenennen' : 'Rename',
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                              onPressed: () => _showRenameListDialog(list, isDe),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                                              tooltip: isDe ? 'Löschen' : 'Delete',
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                              onPressed: () => _showDeleteListDialog(list, isDe),
+                                            ),
+                                            const SizedBox(width: 4),
+                                          ],
                                           Icon(
                                             isInThisList
                                                 ? Icons.check_box_rounded
@@ -302,6 +524,7 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                       children: [
                         Expanded(
                           child: TextField(
+                            focusNode: _newListFocusNode,
                             controller: _newListController,
                             autofocus: true,
                             style: const TextStyle(fontSize: 13, color: Colors.white),
@@ -343,7 +566,20 @@ class _StreamContextMenuModalState extends ConsumerState<StreamContextMenuModal>
                     )
                   : TvFocusable(
                       borderRadius: BorderRadius.circular(10),
-                      onPressed: () => setState(() => _isCreatingList = true),
+                      onPressed: () {
+                        setState(() => _isCreatingList = true);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _newListFocusNode.requestFocus();
+                            SystemChannels.textInput.invokeMethod('TextInput.show');
+                            if (GoatPlatform.isTv) {
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                GoatPlatform.focusTvKeyboard();
+                              });
+                            }
+                          }
+                        });
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(

@@ -63,6 +63,13 @@ class MainActivity : FlutterActivity() {
                         || packageManager.hasSystemFeature("amazon.hardware.fire_tv")
                     result.success(isTv)
                 }
+                "focusTvKeyboard" -> {
+                    val down = android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+                    dispatchKeyEvent(down)
+                    val up = android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+                    dispatchKeyEvent(up)
+                    result.success(true)
+                }
                 "installApk" -> {
                     val filePath = call.argument<String>("filePath")
                     if (filePath == null) {

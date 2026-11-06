@@ -37,6 +37,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
   final FocusNode _firstCategoryNode = FocusNode(debugLabel: 'movie_first_category');
   final FocusNode _selectedCategoryNode = FocusNode(debugLabel: 'selected_movie_cat');
   final FocusNode _catSearchFocusNode = FocusNode(debugLabel: 'movie_cat_search');
+  final FocusNode _catMgrBtnFocusNode = FocusNode(debugLabel: 'movie_cat_mgr_btn');
   final FocusNode _topSearchFocusNode = FocusNode(debugLabel: 'movie_top_search');
   final Map<String, FocusNode> _categoryFocusNodes = {};
   final Map<String, FocusNode> _movieFocusNodes = {};
@@ -64,6 +65,7 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     _firstCategoryNode.dispose();
     _selectedCategoryNode.dispose();
     _catSearchFocusNode.dispose();
+    _catMgrBtnFocusNode.dispose();
     _topSearchFocusNode.dispose();
     for (final node in _categoryFocusNodes.values) {
       node.dispose();
@@ -836,8 +838,8 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                             return KeyEventResult.handled;
                                           }
                                         } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                          if (_catSearchController.text.isEmpty || _catSearchController.selection.extentOffset >= _catSearchController.text.length) {
-                                            _focusFirstGridItem();
+                                          if (_catMgrBtnFocusNode.canRequestFocus) {
+                                            _catMgrBtnFocusNode.requestFocus();
                                             return KeyEventResult.handled;
                                           }
                                         } else if (event.logicalKey == LogicalKeyboardKey.escape ||
@@ -874,12 +876,36 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 TvFocusable(
+                                  focusNode: _catMgrBtnFocusNode,
                                   borderRadius: BorderRadius.circular(10),
                                   onPressed: () {
                                     showDialog(
                                       context: context,
                                       builder: (ctx) => const CategoryManagerModal(type: 'movie'),
                                     );
+                                  },
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent) {
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                        _catSearchFocusNode.requestFocus();
+                                        return KeyEventResult.handled;
+                                      }
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                        _focusFirstGridItem();
+                                        return KeyEventResult.handled;
+                                      }
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                        _focusCategoryColumn();
+                                        return KeyEventResult.handled;
+                                      }
+                                      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                                        if (_topSearchFocusNode.canRequestFocus) {
+                                          _topSearchFocusNode.requestFocus();
+                                          return KeyEventResult.handled;
+                                        }
+                                      }
+                                    }
+                                    return KeyEventResult.ignored;
                                   },
                                   child: Container(
                                     width: GoatPlatform.isTv ? 32 : 38,

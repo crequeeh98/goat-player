@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/database/app_database.dart';
 import '../../core/database/daos/category_dao.dart';
 import '../../core/utils/platform_utils.dart';
 import '../../core/widgets/tv_focusable.dart';
@@ -151,6 +152,252 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     await ref.read(categoryPreferenceDaoProvider).updateSortOrders(account.id, widget.type, orderedIds);
   }
 
+  void _showRenameDialog(CategoryWithPref item, bool isDe) async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+    final listId = int.tryParse(item.category.categoryId.replaceFirst('custom_list:', ''));
+    if (listId == null) return;
+
+    final controller = TextEditingController(text: item.category.name);
+    final formKey = GlobalKey<FormState>();
+
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161026),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.edit_rounded, color: Color(0xFFB388FF), size: 22),
+            const SizedBox(width: 10),
+            Text(
+              isDe ? 'Liste umbenennen' : 'Rename List',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: isDe ? 'Listenname...' : 'List name...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.08),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFB388FF), width: 1.5),
+              ),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? (isDe ? 'Name darf nicht leer sein' : 'Name cannot be empty')
+                : null,
+            onFieldSubmitted: (v) {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.of(ctx).pop(v.trim());
+              }
+            },
+          ),
+        ),
+        actions: [
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(isDe ? 'Abbrechen' : 'Cancel', style: const TextStyle(color: Colors.white60)),
+            ),
+          ),
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.of(ctx).pop(controller.text.trim());
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isDe ? 'Speichern' : 'Save',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (updated != null && updated.isNotEmpty && mounted) {
+      await ref.read(customListDaoProvider).renameList(listId, updated);
+      setState(() {
+        if (_localCategories != null) {
+          final idx = _localCategories!.indexWhere((c) => c.category.categoryId == item.category.categoryId);
+          if (idx != -1) {
+            final old = _localCategories![idx];
+            _localCategories![idx] = CategoryWithPref(
+              category: Category(
+                id: old.category.id,
+                accountId: old.category.accountId,
+                categoryId: old.category.categoryId,
+                name: updated,
+                type: old.category.type,
+              ),
+              isHidden: old.isHidden,
+              sortOrder: old.sortOrder,
+              isNew: old.isNew,
+            );
+          }
+        }
+      });
+    }
+  }
+
+  void _showDeleteDialog(CategoryWithPref item, bool isDe) async {
+    final account = ref.read(activeAccountProvider);
+    if (account == null) return;
+    final listId = int.tryParse(item.category.categoryId.replaceFirst('custom_list:', ''));
+    if (listId == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161026),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.5), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 10),
+            Text(
+              isDe ? 'Liste löschen' : 'Delete List',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+        content: Text(
+          isDe
+              ? 'Möchtest du die Liste "${item.category.name}" wirklich löschen?\nEnthaltene Einträge bleiben erhalten.'
+              : 'Do you really want to delete the list "${item.category.name}"?\nContained streams will not be deleted.',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(isDe ? 'Abbrechen' : 'Cancel', style: const TextStyle(color: Colors.white60)),
+            ),
+          ),
+          TvFocusable(
+            borderRadius: BorderRadius.circular(8),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isDe ? 'Löschen' : 'Delete',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await ref.read(customListDaoProvider).deleteList(listId);
+      await ref.read(categoryPreferenceDaoProvider).deletePreference(account.id, item.category.categoryId, widget.type);
+      setState(() {
+        if (_localCategories != null) {
+          _localCategories!.removeWhere((c) => c.category.categoryId == item.category.categoryId);
+        }
+      });
+    }
+  }
+
+  void _showTvCustomListMenu(CategoryWithPref item, int index, bool isDe) async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: const Color(0xFF161026),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+        ),
+        title: Text(
+          item.category.name,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('move'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.swap_vert_rounded, color: Colors.amber, size: 20),
+                  const SizedBox(width: 12),
+                  Text(isDe ? 'Reihenfolge verschieben' : 'Reorder / Move', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('rename'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_rounded, color: Color(0xFFB388FF), size: 20),
+                  const SizedBox(width: 12),
+                  Text(isDe ? 'Liste umbenennen' : 'Rename list', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('delete'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                  const SizedBox(width: 12),
+                  Text(isDe ? 'Liste löschen' : 'Delete list', style: const TextStyle(color: Colors.redAccent, fontSize: 14)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'move') {
+      setState(() => _movingIndex = index);
+    } else if (action == 'rename') {
+      _showRenameDialog(item, isDe);
+    } else if (action == 'delete') {
+      _showDeleteDialog(item, isDe);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final account = ref.watch(activeAccountProvider);
@@ -235,6 +482,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
               child: Row(
                 children: [
                   TvFocusable(
+                    autofocus: true,
                     borderRadius: BorderRadius.circular(8),
                     onPressed: allVisible ? _hideAll : _unhideAll,
                     child: Container(
@@ -304,6 +552,27 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                 ],
               ),
             ),
+            if (GoatPlatform.isTv) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 14, color: Color(0xFFB388FF)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isDe
+                            ? 'Tipp: OK gedrückt halten = Verschieben / Listen bearbeiten'
+                            : 'Tip: Hold OK = Reorder / Edit list options',
+                        style: const TextStyle(fontSize: 11, color: Colors.white70),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const Divider(height: 1, color: Colors.white10),
 
             // List of Categories
@@ -368,6 +637,13 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                   setState(() => _movingIndex = null);
                 } else {
                   _toggleVisibility(item);
+                }
+              },
+              onLongPress: () {
+                if (isCustomList) {
+                  _showTvCustomListMenu(item, index, isDe);
+                } else {
+                  setState(() => _movingIndex = (_movingIndex == index) ? null : index);
                 }
               },
               onKeyEvent: (fNode, event) {
@@ -447,7 +723,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                       ),
                     ),
 
-                    // Badge for Custom List
+                    // Badge & Actions for Custom List
                     if (isCustomList) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -465,7 +741,25 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
+                      // Rename & Delete buttons (Mobile & Desktop)
+                      if (!GoatPlatform.isTv) ...[
+                        IconButton(
+                          icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFFB388FF)),
+                          tooltip: isDe ? 'Umbenennen' : 'Rename',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                          onPressed: () => _showRenameDialog(item, isDe),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                          tooltip: isDe ? 'Löschen' : 'Delete',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                          onPressed: () => _showDeleteDialog(item, isDe),
+                        ),
+                      ],
+                      const SizedBox(width: 4),
                     ],
 
                     // NEU Badge
@@ -491,8 +785,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
 
                     // Move mode button for TV
                     if (GoatPlatform.isTv) ...[
-                      GestureDetector(
-                        onTap: () {
+                      TvFocusable(
+                        borderRadius: BorderRadius.circular(6),
+                        onPressed: () {
                           setState(() {
                             _movingIndex = (_movingIndex == index) ? null : index;
                           });

@@ -257,8 +257,8 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
           vertical: 24,
         ),
         child: Container(
-          width: GoatPlatform.isTv ? 580 : 480,
-          constraints: BoxConstraints(maxHeight: GoatPlatform.isTv ? 560 : 640),
+          width: GoatPlatform.isTv ? 520 : 480,
+          constraints: BoxConstraints(maxHeight: GoatPlatform.isTv ? 500 : 640),
           decoration: BoxDecoration(
             color: const Color(0xFF160F26),
             borderRadius: BorderRadius.circular(16),
@@ -445,7 +445,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
       borderRadius: BorderRadius.circular(10),
       onPressed: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: GoatPlatform.isTv ? 5 : 7),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
@@ -493,7 +493,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
       children: [
         // Modal Header
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+          padding: EdgeInsets.fromLTRB(20, GoatPlatform.isTv ? 12 : 16, 16, GoatPlatform.isTv ? 8 : 12),
           child: Row(
             children: [
               const Icon(Icons.sync_rounded, color: Color(0xFFB388FF), size: 22),
@@ -524,7 +524,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
 
         Flexible(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: GoatPlatform.isTv ? 8 : 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -542,7 +542,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                     isDe ? 'INHALTS-UMFANG' : 'CONTENT SCOPES',
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 0.8),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: GoatPlatform.isTv ? 5 : 8),
                   Row(
                     children: [
                       Expanded(
@@ -573,9 +573,9 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: GoatPlatform.isTv ? 6 : 10),
                   const Divider(height: 1, color: Colors.white12),
-                  const SizedBox(height: 10),
+                  SizedBox(height: GoatPlatform.isTv ? 6 : 10),
 
                   if (hasLive) ...[
                     _buildSyncRow(
@@ -586,7 +586,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       onPressed: () => _syncLive(isDe),
                       autofocus: true,
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: GoatPlatform.isTv ? 5 : 8),
                   ],
                   if (hasMovies) ...[
                     _buildSyncRow(
@@ -596,7 +596,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       buttonLabel: refreshBtnLabel,
                       onPressed: () => _syncVod(isDe),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: GoatPlatform.isTv ? 5 : 8),
                   ],
                   if (hasSeries) ...[
                     _buildSyncRow(
@@ -606,7 +606,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       buttonLabel: refreshBtnLabel,
                       onPressed: () => _syncSeries(isDe),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: GoatPlatform.isTv ? 5 : 8),
                   ],
                   if (hasLive) ...[
                     _buildSyncRow(
@@ -617,16 +617,16 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
                       onPressed: () => _syncEpg(isDe),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  SizedBox(height: GoatPlatform.isTv ? 6 : 12),
                   const Divider(height: 1, color: Colors.white12),
-                  const SizedBox(height: 12),
+                  SizedBox(height: GoatPlatform.isTv ? 6 : 12),
                   TvFocusable(
                     borderRadius: BorderRadius.circular(12),
                     focusScale: 1.02,
                     focusBorderColor: const Color(0xFFB388FF),
                     onPressed: () => _syncAll(isDe),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 9 : 13),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
@@ -675,7 +675,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
     bool autofocus = false,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: GoatPlatform.isTv ? 7 : 10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
@@ -684,13 +684,13 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: GoatPlatform.isTv ? 30 : 36,
+            height: GoatPlatform.isTv ? 30 : 36,
             decoration: BoxDecoration(
               color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: const Color(0xFFB388FF), size: 20),
+            child: Icon(icon, color: const Color(0xFFB388FF), size: GoatPlatform.isTv ? 18 : 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -700,8 +700,8 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 13.5,
+                  style: TextStyle(
+                    fontSize: GoatPlatform.isTv ? 12.5 : 13.5,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -720,7 +720,7 @@ class _PlaylistSyncModalState extends ConsumerState<PlaylistSyncModal> {
             borderRadius: BorderRadius.circular(8),
             onPressed: onPressed,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: GoatPlatform.isTv ? 10 : 14, vertical: GoatPlatform.isTv ? 6 : 8),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),

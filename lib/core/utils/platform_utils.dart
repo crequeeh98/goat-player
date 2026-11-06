@@ -77,4 +77,13 @@ class GoatPlatform {
 
   static bool get isTizen => false; // Smart TV is purely in /smart_tv web app
   static bool get isWebOS => false;
+
+  /// Focuses virtual keyboard on Android/Fire TV by simulating DPAD_DOWN to soft keyboard window
+  static Future<void> focusTvKeyboard() async {
+    if (!kIsWeb && Platform.isAndroid && isTv) {
+      try {
+        await _channel.invokeMethod('focusTvKeyboard');
+      } catch (_) {}
+    }
+  }
 }

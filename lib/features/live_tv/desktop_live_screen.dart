@@ -38,6 +38,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   final ScrollController _channelScrollController = ScrollController();
   final GlobalKey _videoPreviewKey = GlobalKey();
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'category_search');
+  final FocusNode _catMgrBtnFocusNode = FocusNode(debugLabel: 'cat_mgr_btn');
   final FocusNode _firstCategoryNode = FocusNode(debugLabel: 'first_category');
   final FocusNode _firstChannelNode = FocusNode(debugLabel: 'first_channel');
   final FocusNode _playerNode = FocusNode(debugLabel: 'player_preview');
@@ -73,6 +74,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     _firstChannelNode.dispose();
     _playerNode.dispose();
     _searchFocusNode.dispose();
+    _catMgrBtnFocusNode.dispose();
     for (final node in _categoryFocusNodes.values) {
       node.dispose();
     }
@@ -610,9 +612,8 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                 return KeyEventResult.handled;
                               }
                             } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                              final headerSearch = ref.read(headerSearchFocusNodeProvider);
-                              if (headerSearch != null && headerSearch.context != null && headerSearch.canRequestFocus) {
-                                headerSearch.requestFocus();
+                              if (_catMgrBtnFocusNode.canRequestFocus) {
+                                _catMgrBtnFocusNode.requestFocus();
                                 return KeyEventResult.handled;
                               }
                             } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -661,12 +662,37 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                     ),
                     const SizedBox(width: 4),
                     TvFocusable(
+                      focusNode: _catMgrBtnFocusNode,
                       borderRadius: BorderRadius.circular(10),
                       onPressed: () {
                         showDialog(
                           context: context,
                           builder: (ctx) => const CategoryManagerModal(type: 'live'),
                         );
+                      },
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                            _searchFocusNode.requestFocus();
+                            return KeyEventResult.handled;
+                          }
+                          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                            _focusChannelColumn();
+                            return KeyEventResult.handled;
+                          }
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            _focusCategoryColumn();
+                            return KeyEventResult.handled;
+                          }
+                          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                            final headerSearch = ref.read(headerSearchFocusNodeProvider);
+                            if (headerSearch != null && headerSearch.canRequestFocus) {
+                              headerSearch.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                        }
+                        return KeyEventResult.ignored;
                       },
                       child: Container(
                         width: GoatPlatform.isTv ? 32 : 38,

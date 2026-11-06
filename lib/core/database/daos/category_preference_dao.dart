@@ -168,4 +168,10 @@ class CategoryPreferenceDao extends DatabaseAccessor<AppDatabase> with _$Categor
           ..where((cp) => cp.accountId.equals(accountId) & cp.type.equals(type)))
         .go();
   }
+
+  Future<void> deletePreference(int accountId, String categoryId, String type) {
+    return (delete(categoryPreferences)
+          ..where((cp) => cp.accountId.equals(accountId) & cp.categoryId.equals(categoryId) & cp.type.equals(type)))
+        .go();
+  }
 }
