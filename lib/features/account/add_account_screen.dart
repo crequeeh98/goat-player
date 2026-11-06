@@ -461,14 +461,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          toolbarHeight: GoatPlatform.isTv ? 44 : null,
+          toolbarHeight: GoatPlatform.isTv ? 38 : null,
           title: Padding(
-            padding: EdgeInsets.only(top: GoatPlatform.isTv ? 4.0 : 0),
+            padding: EdgeInsets.only(top: GoatPlatform.isTv ? 2.0 : 0),
             child: Text(isEditing ? l10n.editAccount : l10n.addAccount),
           ),
           leading: GoatPlatform.isTv
               ? Padding(
-                  padding: const EdgeInsets.only(left: 20.0, top: 4.0),
+                  padding: const EdgeInsets.only(left: 20.0, top: 2.0),
                   child: TvFocusable(
                     borderRadius: BorderRadius.circular(10),
                     onPressed: _isClosingSession ? null : _handleCloseAndPop,
@@ -483,7 +483,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       body: SafeArea(
         minimum: EdgeInsets.symmetric(
           horizontal: GoatPlatform.isTv ? 32.0 : 0,
-          vertical: GoatPlatform.isTv ? 4.0 : 0,
+          vertical: 0,
         ),
         child: Align(
           alignment: Alignment.topCenter,
@@ -492,187 +492,183 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: GoatPlatform.isTv ? 16.0 : 20.0,
-                vertical: GoatPlatform.isTv ? 4.0 : 16.0,
+                vertical: GoatPlatform.isTv ? 2.0 : 16.0,
               ),
-              child: isEditing
-                  ? SingleChildScrollView(
-                      clipBehavior: Clip.hardEdge,
-                      child: _buildManualForm(l10n),
-                    )
-                  : Column(
-                      children: [
-                        // Mode Selector (Manual vs Remote)
-                        if (GoatPlatform.isTv)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TvFocusable(
-                                  focusNode: _remoteTabFocusNode,
-                                  autofocus: _selectedMode == AddAccountMode.remote,
-                                  borderRadius: BorderRadius.circular(10),
-                                  onPressed: () => _onModeChanged(AddAccountMode.remote),
-                                  onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent) {
-                                      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                        _manualTabFocusNode.requestFocus();
-                                        return KeyEventResult.handled;
-                                      }
-                                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                        if (_selectedMode == AddAccountMode.remote) {
-                                          _qrDoneFocusNode.requestFocus();
-                                        } else {
-                                          (_playlistType == PlaylistType.xtream ? _xtreamTypeFocusNode : _m3uTypeFocusNode).requestFocus();
+              child: SingleChildScrollView(
+                clipBehavior: Clip.hardEdge,
+                child: isEditing
+                    ? _buildManualForm(l10n)
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Mode Selector (Manual vs Remote)
+                          if (GoatPlatform.isTv)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TvFocusable(
+                                    focusNode: _remoteTabFocusNode,
+                                    autofocus: _selectedMode == AddAccountMode.remote,
+                                    borderRadius: BorderRadius.circular(10),
+                                    onPressed: () => _onModeChanged(AddAccountMode.remote),
+                                    onKeyEvent: (node, event) {
+                                      if (event is KeyDownEvent) {
+                                        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                          _manualTabFocusNode.requestFocus();
+                                          return KeyEventResult.handled;
                                         }
-                                        return KeyEventResult.handled;
+                                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                          if (_selectedMode == AddAccountMode.remote) {
+                                            _qrDoneFocusNode.requestFocus();
+                                          } else {
+                                            (_playlistType == PlaylistType.xtream ? _xtreamTypeFocusNode : _m3uTypeFocusNode).requestFocus();
+                                          }
+                                          return KeyEventResult.handled;
+                                        }
                                       }
-                                    }
-                                    return KeyEventResult.ignored;
-                                  },
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 10, horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: _selectedMode == AddAccountMode.remote
-                                          ? const Color(0xFF7C3AED)
-                                          : const Color(0xFF1E1730),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
+                                      return KeyEventResult.ignored;
+                                    },
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 4 : 10, horizontal: 8),
+                                      decoration: BoxDecoration(
                                         color: _selectedMode == AddAccountMode.remote
-                                            ? const Color(0xFFB388FF)
-                                            : Colors.white12,
+                                            ? const Color(0xFF7C3AED)
+                                            : const Color(0xFF1E1730),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: _selectedMode == AddAccountMode.remote
+                                              ? const Color(0xFFB388FF)
+                                              : Colors.white12,
+                                        ),
                                       ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.qr_code_2, size: 18, color: Colors.white),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            l10n.linkViaWeb,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.qr_code_2, size: 16, color: Colors.white),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Text(
+                                              l10n.linkViaWeb,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: GoatPlatform.isTv ? 12 : 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TvFocusable(
-                                  focusNode: _manualTabFocusNode,
-                                  autofocus: _selectedMode == AddAccountMode.manual,
-                                  borderRadius: BorderRadius.circular(10),
-                                  onPressed: () => _onModeChanged(AddAccountMode.manual),
-                                  onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent) {
-                                      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                                        _remoteTabFocusNode.requestFocus();
-                                        return KeyEventResult.handled;
-                                      }
-                                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                                        if (_selectedMode == AddAccountMode.remote) {
-                                          _qrNewPinFocusNode.requestFocus();
-                                        } else {
-                                          (_playlistType == PlaylistType.xtream ? _xtreamTypeFocusNode : _m3uTypeFocusNode).requestFocus();
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TvFocusable(
+                                    focusNode: _manualTabFocusNode,
+                                    autofocus: _selectedMode == AddAccountMode.manual,
+                                    borderRadius: BorderRadius.circular(10),
+                                    onPressed: () => _onModeChanged(AddAccountMode.manual),
+                                    onKeyEvent: (node, event) {
+                                      if (event is KeyDownEvent) {
+                                        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                                          _remoteTabFocusNode.requestFocus();
+                                          return KeyEventResult.handled;
                                         }
-                                        return KeyEventResult.handled;
+                                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                                          if (_selectedMode == AddAccountMode.remote) {
+                                            _qrNewPinFocusNode.requestFocus();
+                                          } else {
+                                            (_playlistType == PlaylistType.xtream ? _xtreamTypeFocusNode : _m3uTypeFocusNode).requestFocus();
+                                          }
+                                          return KeyEventResult.handled;
+                                        }
                                       }
-                                    }
-                                    return KeyEventResult.ignored;
-                                  },
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 10, horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: _selectedMode == AddAccountMode.manual
-                                          ? const Color(0xFF7C3AED)
-                                          : const Color(0xFF1E1730),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
+                                      return KeyEventResult.ignored;
+                                    },
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 4 : 10, horizontal: 8),
+                                      decoration: BoxDecoration(
                                         color: _selectedMode == AddAccountMode.manual
-                                            ? const Color(0xFFB388FF)
-                                            : Colors.white12,
+                                            ? const Color(0xFF7C3AED)
+                                            : const Color(0xFF1E1730),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: _selectedMode == AddAccountMode.manual
+                                              ? const Color(0xFFB388FF)
+                                              : Colors.white12,
+                                        ),
                                       ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.keyboard_outlined, size: 18, color: Colors.white),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            l10n.manualSetup,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.keyboard_outlined, size: 16, color: Colors.white),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Text(
+                                              l10n.manualSetup,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: GoatPlatform.isTv ? 12 : 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          )
-                        else
-                          SegmentedButton<AddAccountMode>(
-                            segments: [
-                              ButtonSegment(
-                                value: AddAccountMode.manual,
-                                icon: const Icon(Icons.keyboard_outlined, size: 18),
-                                label: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    l10n.manualSetup,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ],
+                            )
+                          else
+                            SegmentedButton<AddAccountMode>(
+                              segments: [
+                                ButtonSegment(
+                                  value: AddAccountMode.manual,
+                                  icon: const Icon(Icons.keyboard_outlined, size: 18),
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      l10n.manualSetup,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              ButtonSegment(
-                                value: AddAccountMode.remote,
-                                icon: const Icon(Icons.qr_code_2, size: 18),
-                                label: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    l10n.linkViaWeb,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                ButtonSegment(
+                                  value: AddAccountMode.remote,
+                                  icon: const Icon(Icons.qr_code_2, size: 18),
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      l10n.linkViaWeb,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
                                   ),
                                 ),
+                              ],
+                              selected: {_selectedMode},
+                              onSelectionChanged: (set) => _onModeChanged(set.first),
+                              style: SegmentedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                selectedBackgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                                selectedForegroundColor: Theme.of(context).colorScheme.primary,
                               ),
-                            ],
-                            selected: {_selectedMode},
-                            onSelectionChanged: (set) => _onModeChanged(set.first),
-                            style: SegmentedButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              selectedBackgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-                              selectedForegroundColor: Theme.of(context).colorScheme.primary,
                             ),
-                          ),
-                        SizedBox(height: GoatPlatform.isTv ? 10 : 20),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            clipBehavior: Clip.hardEdge,
-                            child: _selectedMode == AddAccountMode.manual
-                                ? _buildManualForm(l10n)
-                                : _buildRemotePairingView(l10n),
-                          ),
-                        ),
-                      ],
-                    ),
+                          SizedBox(height: GoatPlatform.isTv ? 4 : 20),
+                          _selectedMode == AddAccountMode.manual
+                              ? _buildManualForm(l10n)
+                              : _buildRemotePairingView(l10n),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
@@ -718,7 +714,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                       return KeyEventResult.ignored;
                     },
                     child: Container(
-                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 8, horizontal: 10),
+                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 4 : 8, horizontal: 8),
                       decoration: BoxDecoration(
                         color: _playlistType == PlaylistType.xtream
                             ? const Color(0xFF7C3AED)
@@ -768,7 +764,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                       return KeyEventResult.ignored;
                     },
                     child: Container(
-                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 7 : 8, horizontal: 10),
+                      padding: EdgeInsets.symmetric(vertical: GoatPlatform.isTv ? 4 : 8, horizontal: 8),
                       decoration: BoxDecoration(
                         color: _playlistType == PlaylistType.m3u
                             ? const Color(0xFF7C3AED)
@@ -816,10 +812,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 selectedForegroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
-          SizedBox(height: GoatPlatform.isTv ? 8 : 14),
+          SizedBox(height: GoatPlatform.isTv ? 5 : 14),
           TvTextField(
             controller: _playlistNameController,
             focusNode: _nameFocusNode,
+            contentPadding: GoatPlatform.isTv ? const EdgeInsets.fromLTRB(10, 5, 10, 5) : null,
             textInputAction: TextInputAction.next,
             onSubmitted: (_) => _urlFocusNode.requestFocus(),
             labelText: l10n.playlistName,
@@ -831,10 +828,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             ),
             prefixIcon: const Icon(Icons.badge_outlined),
           ),
-          SizedBox(height: GoatPlatform.isTv ? 8 : 14),
+          SizedBox(height: GoatPlatform.isTv ? 5 : 14),
           TvTextField(
             controller: _serverUrlController,
             focusNode: _urlFocusNode,
+            contentPadding: GoatPlatform.isTv ? const EdgeInsets.fromLTRB(10, 5, 10, 5) : null,
             keyboardType: TextInputType.url,
             textInputAction: _playlistType == PlaylistType.xtream ? TextInputAction.next : TextInputAction.done,
             onSubmitted: (_) => _playlistType == PlaylistType.xtream
@@ -851,10 +849,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             validator: (v) => v!.trim().isEmpty ? l10n.fieldRequired : null,
           ),
           if (_playlistType == PlaylistType.xtream) ...[
-            SizedBox(height: GoatPlatform.isTv ? 8 : 14),
+            SizedBox(height: GoatPlatform.isTv ? 5 : 14),
             TvTextField(
               controller: _usernameController,
               focusNode: _userFocusNode,
+              contentPadding: GoatPlatform.isTv ? const EdgeInsets.fromLTRB(10, 5, 10, 5) : null,
               textInputAction: TextInputAction.next,
               onSubmitted: (_) => _passFocusNode.requestFocus(),
               labelText: l10n.username,
@@ -866,10 +865,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.person_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
-            SizedBox(height: GoatPlatform.isTv ? 8 : 14),
+            SizedBox(height: GoatPlatform.isTv ? 5 : 14),
             TvTextField(
               controller: _passwordController,
               focusNode: _passFocusNode,
+              contentPadding: GoatPlatform.isTv ? const EdgeInsets.fromLTRB(10, 5, 10, 5) : null,
               obscureText: true,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _submitFocusNode.requestFocus(),
@@ -882,12 +882,16 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               prefixIcon: const Icon(Icons.lock_outline),
               validator: (v) => (_playlistType == PlaylistType.xtream && v!.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
-            SizedBox(height: GoatPlatform.isTv ? 8 : 16),
+            SizedBox(height: GoatPlatform.isTv ? 5 : 16),
             Text(
               isDe ? 'Inhalte synchronisieren' : 'Synchronize Content',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+              style: TextStyle(
+                fontSize: GoatPlatform.isTv ? 11 : 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white70,
+              ),
             ),
-            SizedBox(height: GoatPlatform.isTv ? 5 : 8),
+            SizedBox(height: GoatPlatform.isTv ? 3 : 8),
             Row(
               children: [
                 Expanded(
@@ -928,13 +932,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ],
             ),
           ],
-          SizedBox(height: GoatPlatform.isTv ? 10 : 20),
+          SizedBox(height: GoatPlatform.isTv ? 6 : 20),
           TvFocusable(
             focusNode: _submitFocusNode,
             borderRadius: BorderRadius.circular(12),
             onPressed: _isLoading ? null : _submit,
             child: SizedBox(
-              height: GoatPlatform.isTv ? 40 : 48,
+              height: GoatPlatform.isTv ? 36 : 48,
               width: double.infinity,
               child: ElevatedButton(
                 focusNode: FocusNode(canRequestFocus: false),
@@ -972,7 +976,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       borderRadius: BorderRadius.circular(10),
       onPressed: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6, vertical: GoatPlatform.isTv ? 5 : 7),
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: GoatPlatform.isTv ? 4 : 7),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF7C3AED).withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
@@ -986,15 +990,15 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           children: [
             Icon(
               icon,
-              size: 16,
+              size: GoatPlatform.isTv ? 14 : 16,
               color: isSelected ? const Color(0xFFB388FF) : Colors.white54,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Text(
               label,
               maxLines: 1,
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: GoatPlatform.isTv ? 11.5 : 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.white60,
               ),
@@ -1064,22 +1068,20 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       return const SizedBox.shrink();
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            l10n.scanWithPhone,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
-          ),
-          const SizedBox(height: 8),
-          _buildQrCard(context),
-          const SizedBox(height: 8),
-          _buildPairingDetails(context, l10n),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          l10n.scanWithPhone,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, color: Colors.white70),
+        ),
+        const SizedBox(height: 8),
+        _buildQrCard(context),
+        const SizedBox(height: 8),
+        _buildPairingDetails(context, l10n),
+      ],
     );
   }
 
