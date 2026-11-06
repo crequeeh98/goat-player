@@ -728,29 +728,32 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           color: item.isHidden ? Colors.white38 : Colors.white,
                           decoration: item.isHidden ? TextDecoration.lineThrough : null,
                         ),
+                        maxLines: GoatPlatform.isPhone ? 2 : 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
 
                     // Badge & Actions for Custom List
                     if (isCustomList) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFB388FF), width: 0.8),
-                        ),
-                        child: Text(
-                          isDe ? 'LISTE' : 'LIST',
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFB388FF),
+                      if (!GoatPlatform.isPhone) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFB388FF), width: 0.8),
+                          ),
+                          child: Text(
+                            isDe ? 'LISTE' : 'LIST',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFB388FF),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
+                        const SizedBox(width: 4),
+                      ],
                       // Rename & Delete buttons (Mobile & Desktop)
                       if (!GoatPlatform.isTv) ...[
                         IconButton(
