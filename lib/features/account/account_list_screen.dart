@@ -541,16 +541,19 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         ? account.playlistName!.trim()
         : (isM3u ? 'M3U Playlist' : account.username);
 
-    void selectAccount() {
+    void selectAccount() async {
+      final freshAccount = await ref.read(accountDaoProvider).getAccountById(account.id) ?? account;
       ref.read(playbackControllerProvider.notifier).stop();
       ref.read(selectedLiveCategoryProvider.notifier).set(null);
       ref.read(selectedLiveStreamProvider.notifier).set(null);
       ref.read(isLiveFullWidthProvider.notifier).set(false);
-      ref.read(activeAccountProvider.notifier).set(account);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeDashboard()),
-      );
+      ref.read(activeAccountProvider.notifier).set(freshAccount);
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeDashboard()),
+        );
+      }
     }
 
     if (GoatPlatform.isTv) {

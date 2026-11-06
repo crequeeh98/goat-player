@@ -106,6 +106,10 @@ class CategoryDao extends DatabaseAccessor<AppDatabase> with _$CategoryDaoMixin 
     );
   }
 
+  Future<List<Category>> getCategories(int accountId, String type) {
+    return (select(categories)..where((c) => c.accountId.equals(accountId) & c.type.equals(type))).get();
+  }
+
   Future<void> clearCategories(int accountId, String type) {
     return (delete(categories)..where((c) => c.accountId.equals(accountId) & c.type.equals(type))).go();
   }

@@ -88,6 +88,46 @@ final newCategoryIdsProvider = StreamProvider.family.autoDispose<Set<String>, St
   });
 });
 
+Stream<T> _combineLatest2<A, B, T>(
+  Stream<A> streamA,
+  Stream<B> streamB,
+  T Function(A a, B b) combiner,
+) {
+  late StreamController<T> controller;
+  StreamSubscription<A>? subA;
+  StreamSubscription<B>? subB;
+  A? latestA;
+  B? latestB;
+  bool hasA = false;
+  bool hasB = false;
+
+  controller = StreamController<T>(
+    onListen: () {
+      subA = streamA.listen(
+        (a) {
+          latestA = a;
+          hasA = true;
+          if (hasB) controller.add(combiner(latestA as A, latestB as B));
+        },
+        onError: controller.addError,
+      );
+      subB = streamB.listen(
+        (b) {
+          latestB = b;
+          hasB = true;
+          if (hasA) controller.add(combiner(latestA as A, latestB as B));
+        },
+        onError: controller.addError,
+      );
+    },
+    onCancel: () {
+      subA?.cancel();
+      subB?.cancel();
+    },
+  );
+  return controller.stream;
+}
+
 final managedCategoriesProvider = StreamProvider.family.autoDispose<List<CategoryWithPref>, String>((ref, type) {
   final account = ref.watch(activeAccountProvider);
   if (account == null) return const Stream.empty();
@@ -96,10 +136,11 @@ final managedCategoriesProvider = StreamProvider.family.autoDispose<List<Categor
   final catDao = ref.watch(categoryDaoProvider);
   final customLists = ref.watch(customListsProvider(type)).asData?.value ?? const <CustomList>[];
 
-  return prefDao.watchPreferences(account.id, type).asyncMap((prefs) async {
-    final prefsMap = {for (final p in prefs) p.categoryId: p};
-    final rawCats = await catDao.watchAllCategoriesWithPrefs(account.id, type).first;
+  final prefStream = prefDao.watchPreferences(account.id, type);
+  final catStream = catDao.watchAllCategoriesWithPrefs(account.id, type);
 
+  return _combineLatest2(prefStream, catStream, (prefs, rawCats) {
+    final prefsMap = {for (final p in prefs) p.categoryId: p};
     final allList = <CategoryWithPref>[];
 
     // Favorites / Watchlist

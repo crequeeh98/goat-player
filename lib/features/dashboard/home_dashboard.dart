@@ -10,6 +10,7 @@ import 'package:wireguard_flutter/wireguard_flutter.dart';
 import '../vod_movies/movies_grid_screen.dart';
 import '../vod_series/series_grid_screen.dart';
 import '../account/account_list_screen.dart';
+import '../../core/database/app_database.dart';
 import '../../main.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -222,11 +223,17 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
     // Smooth, non-blocking background sync pipeline:
     // Allow the UI to render and settle smoothly on startup before checking background updates
     Future.microtask(() async {
-      await Future.delayed(const Duration(milliseconds: 1000));
+      final currentAcc = ref.read(activeAccountProvider);
+      if (currentAcc != null) {
+        final existingCats = await ref.read(categoryDaoProvider).getCategories(currentAcc.id, 'live');
+        if (existingCats.isNotEmpty) {
+          await Future.delayed(const Duration(milliseconds: 600));
+        }
+      }
       if (!mounted) return;
       ref.read(epgControllerProvider).pruneOldEpg();
-      final currentAcc = ref.read(activeAccountProvider);
-      final isCurrentM3u = currentAcc != null && (currentAcc.username.isEmpty || currentAcc.serverUrl.contains('.m3u'));
+      final syncAcc = ref.read(activeAccountProvider);
+      final isCurrentM3u = syncAcc != null && (syncAcc.username.isEmpty || syncAcc.serverUrl.contains('.m3u'));
       if (isCurrentM3u) {
         await ref.read(liveTvControllerProvider).syncAllLiveStreams();
       } else {
@@ -287,6 +294,23 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
               });
             }
           });
+        }
+      }
+    });
+
+    ref.listen<Account?>(activeAccountProvider, (previous, current) {
+      if (current != null && previous != null) {
+        final urlChanged = previous.serverUrl != current.serverUrl;
+        final credsChanged = previous.username != current.username || previous.password != current.password;
+        if (urlChanged || credsChanged) {
+          final isM3u = current.username.isEmpty || current.serverUrl.contains('.m3u');
+          if (isM3u) {
+            ref.read(liveTvControllerProvider).syncAllLiveStreams(force: true);
+          } else {
+            ref.read(liveTvControllerProvider).syncLiveCategories(force: true);
+            ref.read(vodControllerProvider).syncVodCategories(force: true);
+            ref.read(seriesControllerProvider).syncSeriesCategories(force: true);
+          }
         }
       }
     });
