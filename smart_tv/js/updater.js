@@ -4,7 +4,7 @@
 
   var CURRENT_VERSION = (window.TVBootloader && window.TVBootloader.getBaseVersion)
     ? window.TVBootloader.getBaseVersion()
-    : '2.0.4';
+    : '2.0.5';
   var GITHUB_REPO = 'crequeeh98/goat-player';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
@@ -59,19 +59,30 @@
 
         var latestTag = data.tag_name.trim();
         if (!/^v?\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9._-]+)?$/.test(latestTag)) return;
-        var latestVer = latestTag.replace(/^v/, '');
 
-        var activeVer = getActiveVersion();
+        // Fetch manifest.json to inspect the Smart TV specific version
+        var rawBaseUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + latestTag + '/';
+        var manifestUrl = rawBaseUrl + 'smart_tv/manifest.json?t=' + Date.now();
 
-        if (isNewer(activeVer, latestVer)) {
-          _pendingUpdate = {
-            version: latestVer,
-            tag: latestTag,
-            body: data.body || '',
-            assets: data.assets || []
-          };
-          showUpdateModal(activeVer, latestVer, _pendingUpdate.body);
-        }
+        return fetch(manifestUrl)
+          .then(function(mRes) {
+            if (mRes.ok) return mRes.json();
+            return null;
+          })
+          .then(function(manifest) {
+            var tvVersion = (manifest && manifest.version) ? manifest.version : latestTag.replace(/^v/, '');
+            var activeVer = getActiveVersion();
+
+            if (isNewer(activeVer, tvVersion)) {
+              _pendingUpdate = {
+                version: tvVersion,
+                tag: latestTag,
+                body: data.body || '',
+                assets: data.assets || []
+              };
+              showUpdateModal(activeVer, tvVersion, _pendingUpdate.body);
+            }
+          });
       })
       .catch(function(err) {
         console.log('[TVUpdater] Check skipped / offline:', err.message);

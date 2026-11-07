@@ -7,7 +7,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20FireTV%20%7C%20Tizen%20%7C%20webOS-blue)](#-device-installation-guides)
 [![Repository](https://img.shields.io/badge/Repo-GitHub-blue)](https://github.com/crequeeh98/goat-player)
-[![Release](https://img.shields.io/badge/Release-v2.0.4-purple)](https://github.com/crequeeh98/goat-player/releases)
+[![Release](https://img.shields.io/badge/Release-v2.1.0-purple)](https://github.com/crequeeh98/goat-player/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
@@ -32,6 +32,12 @@
 - **1-Tap QR Code Pairing**: Scan the pairing QR code on the TV screen to automatically link in under a second.
 - **Smart M3U Link Breakdown**: Paste raw M3U URLs (`http://server:port/get.php?username=...`), and the portal automatically extracts the host, username, password, and output format.
 - **Real-Time Disconnection Guard**: WebSocket heartbeat monitoring alerts you when the TV exits pairing mode, preventing orphaned edits.
+
+### 📋 Custom Lists & Category Reordering (v2.1.0)
+- **User-Defined Custom Playlists**: Create unlimited personal collections (e.g., "Sports Night", "4K HDR Movies", "Kids Classics") partitioned across Live TV, Movies, and Series.
+- **Category Reordering & Visibility Manager**: Easily reorder categories via drag-and-drop or D-Pad controls, toggle category visibility to hide unwanted content, and reset to alphabetical order.
+- **New Category Detection**: Automatically detects new categories from provider synchronizations and highlights them with subtle "NEW" badges until browsed.
+- **Context Menu Integration**: Long-press on mobile or press `Enter` / remote Option key on TV to pin streams directly into custom lists.
 
 ### 📺 Live TV & Smart IPTV Overlays
 - **Sub-Second Channel Zapping**: Instantaneous stream tuning on native Flutter and Smart TV web engines.
@@ -123,15 +129,15 @@ Pick whichever installation path is most convenient for you:
 ---
 
 ### 5. 📺 LG Smart TV (webOS 4.0+)
-1. Download `com.goatplayer.tv_2.0.4_all.ipk` from [Releases](https://github.com/crequeeh98/goat-player/releases) to your computer.
+1. Download `com.goatplayer.tv_2.0.5_all.ipk` from [Releases](https://github.com/crequeeh98/goat-player/releases) to your computer.
 2. Install the **Developer Mode** app from the LG Content Store on your TV, launch it, log in with your free LG Developer account, and turn **Dev Mode Status** to **ON** (note the TV IP and Passphrase).
 3. **Easiest Installation (1-Click GUI via PC/Mac)**:
    - Download and open the free open-source [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) on your computer.
    - Click **Add Device**, enter the TV IP and Passphrase.
-   - Click **Install App**, select `com.goatplayer.tv_2.0.0_all.ipk`.
+   - Click **Install App**, select `com.goatplayer.tv_2.0.5_all.ipk`.
 4. **Alternative via CLI (`ares-cli`)**:
    ```powershell
-   ares-install -d <DEVICE_NAME> com.goatplayer.tv_2.0.0_all.ipk
+   ares-install -d <DEVICE_NAME> com.goatplayer.tv_2.0.5_all.ipk
    ```
 
 ---

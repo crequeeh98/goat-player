@@ -24,6 +24,9 @@ Stores IPTV provider credentials and playlist configurations.
 | `isTrial` | Bool | Default `false` | Trial account indicator |
 | `maxConnections` | Int | Nullable | Maximum allowed concurrent streams |
 | `expDate` | Int | Nullable | Subscription expiration Unix timestamp |
+| `syncLiveTv` | Bool | Default `true` | Granular synchronization scope for Live TV |
+| `syncMovies` | Bool | Default `true` | Granular synchronization scope for VOD Movies |
+| `syncSeries` | Bool | Default `true` | Granular synchronization scope for TV Series |
 | `createdAt` | DateTime | Default `currentDateAndTime` | Account creation timestamp |
 
 #### 2. `Categories` Table
@@ -77,6 +80,38 @@ Maintains granular playback state, watch history, and episode completion.
 | `isCompleted` | Bool | Default `false` | True when position $\ge 95\%$ of duration |
 | `lastWatched` | DateTime | Default `currentDateAndTime` | Timestamp of last playback |
 
+#### 6. `CategoryPreferences` Table (`v2.1.0`)
+Stores user-defined ordering, visibility, and unread badges for categories.
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Int | Primary Key, Auto-Increment | Internal row ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owning account ID |
+| `type` | Text | Not Null | Category type: `'live'`, `'movie'`, or `'series'` |
+| `categoryId` | Text | Not Null | Category ID mapping |
+| `sortOrder` | Int | Not Null | Custom visual display order index |
+| `isVisible` | Bool | Default `true` | Visibility toggle (hidden categories omitted from UI) |
+| `isNew` | Bool | Default `false` | True for newly discovered categories until viewed |
+
+#### 7. `CustomLists` Table (`v2.1.0`)
+Stores user-created custom playlist headers.
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Int | Primary Key, Auto-Increment | Unique custom list ID |
+| `accountId` | Int | Foreign Key (`Accounts.id`) | Owning account ID |
+| `name` | Text | Not Null | Custom list display title |
+| `type` | Text | Not Null | Scope: `'live'`, `'movie'`, or `'series'` |
+| `createdAt` | DateTime | Default `currentDateAndTime` | Creation timestamp |
+
+#### 8. `CustomListItems` Table (`v2.1.0`)
+Maps stream items into user custom lists with custom ordering.
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Int | Primary Key, Auto-Increment | Internal row ID |
+| `listId` | Int | Foreign Key (`CustomLists.id`) | Parent custom list ID (cascades on delete) |
+| `streamId` | Text | Not Null | Provider stream ID or episode ID |
+| `sortOrder` | Int | Not Null | Position index within the custom list |
+| `addedAt` | DateTime | Default `currentDateAndTime` | Item added timestamp |
+
 ---
 
 ### 1.2 Data Access Objects (DAOs)
@@ -87,10 +122,16 @@ Maintains granular playback state, watch history, and episode completion.
    - Handles global search queries with prefix and substring matching.
 2. **`AccountDao` (`lib/core/database/daos/account_dao.dart`)**:
    - Manages account creation, credential updates, and playlist deletion with cascading cleanup.
-3. **`EpgDao` (`lib/core/database/daos/epg_dao.dart`)**:
+3. **`CategoryPreferenceDao` (`lib/core/database/daos/category_preference_dao.dart`)**:
+   - Manages custom category sort ordering, visibility toggles, and new category tracking.
+   - Supports atomic batch order updates and alphabetical resets.
+4. **`CustomListDao` (`lib/core/database/daos/custom_list_dao.dart`)**:
+   - Manages creation, renaming, and deletion of user custom playlists.
+   - Handles adding, removing, and reordering stream entries within custom lists.
+5. **`EpgDao` (`lib/core/database/daos/epg_dao.dart`)**:
    - Queries currently airing and upcoming programs for channel lists and OSD infobars.
    - Calculates real-time program progress percentages.
-4. **`PlaybackProgressDao` (`lib/core/database/daos/playback_progress_dao.dart`)**:
+6. **`PlaybackProgressDao` (`lib/core/database/daos/playback_progress_dao.dart`)**:
    - Powers the **Continue Watching Rail**:
      - Automatically deduplicates series, displaying only the single latest or next episode.
      - Automatically advances to the next episode when the previous episode reaches $\ge 95\%$ completion.

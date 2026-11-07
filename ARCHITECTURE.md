@@ -61,7 +61,7 @@ The native Flutter stack targets **Windows Desktop**, **Android Mobile / Tablets
   - **Drift (SQLite)** compiled in Write-Ahead Logging (`WAL`) mode.
   - **At-Rest Password Encryption**: All account passwords stored in Drift SQLite are encrypted via AES-GCM (`enc:v1:`) using PBKDF2 device-derived keys (`SecurityVault`), with automatic zero-breakage migration of legacy plaintext rows.
   - Asynchronous isolate-based transactions preventing frame drops during background synchronization of 20,000+ streams.
-  - Modular DAOs: `StreamDao`, `AccountDao`, `EpgDao`, and `PlaybackProgressDao`.
+  - Modular DAOs: `StreamDao`, `AccountDao`, `CategoryPreferenceDao`, `CustomListDao`, `EpgDao`, and `PlaybackProgressDao`.
 - **Remote Pairing Service (`lib/core/remote_sync/`)**:
   - `RemoteSyncService` connects to Supabase Realtime via secure WebSocket channels.
   - **Zero-Knowledge Decryption**: Uses AES-GCM (256-bit) with PBKDF2 key derivation from the 6-digit TV PIN. The remote portal encrypts credentials in the browser, and the Flutter client decrypts them locally without the cloud database ever possessing the plaintext credentials.

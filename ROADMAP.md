@@ -4,15 +4,29 @@ This document outlines the development history, architectural milestones, and pr
 
 ---
 
-## 🏆 Current Release: v2.0.4 (Security Hardening Suite & Full Localization)
+## 🏆 Current Releases
+- **Flutter Client & Web Portal**: `v2.1.0` (Custom Lists, Category Management, Granular Scopes, Zero-Knowledge Sync)
+- **Smart TV (Tizen & webOS)**: `v2.0.5` (Pairing Maintenance Patch & Sharp 512px Samsung Launcher Icon)
 
-All core goals of Milestone v1 and Milestone v2 are **100% completed, tested, and verified** across Windows Desktop, Android Phone, Android TV, Amazon Fire TV, LG webOS, and Samsung Tizen.
+---
+
+## 🚀 Active Feature Branch: `feat/v2.1-smart-tv-overhaul`
+- [ ] **Smart TV UI Overhaul (v2.1)**: Porting custom playlist drawers, category reordering modal, and spatial navigation focus graphs to the zero-framework Smart TV web app.
 
 ---
 
 ## ✅ Completed Milestones
 
-### 1. Security & Hardening Suite (v2.0.4)
+### 1. Custom Lists, Category Management & Pairing Suite (v2.1.0 / v2.0.5)
+- [x] **User Custom Lists**: Create, rename, delete custom lists and add streams from context menus across Live TV, Movies, and Series.
+- [x] **Category Management & Reordering**: Drag-and-drop / D-Pad category sorting, category visibility toggle, and alphabetical resets.
+- [x] **New Category Discovery**: Automated tracking and visual "NEW" chips on newly ingested categories.
+- [x] **Granular Account Scopes**: Selective synchronization toggles for Live TV, Movies, and Series per playlist.
+- [x] **Smart TV Pairing Fix (v2.0.5)**: Fixed Xtream playlist credential preservation during name edits via Web Portal.
+- [x] **Samsung Tizen Sharp Branding (v2.0.5)**: High-resolution 512×512 textless icon eliminating blurriness on 4K Samsung TVs.
+- [x] **Smart TV Decoupled OTA Updater (v2.0.5)**: `updater.js` checks `smart_tv/manifest.json` version, allowing independent Smart TV releases without false update prompts.
+
+### 2. Security & Hardening Suite (v2.0.4)
 - [x] **Zero-Knowledge Remote Pairing**: AES-256-GCM encryption with PBKDF2 key derivation for cloud pairing between TVs and Web Portal.
 - [x] **At-Rest Database & Storage Encryption**: Secret credentials encrypted via AES-GCM (`enc:v1:`) in Drift SQLite and LocalStorage with automated zero-breakage migration.
 - [x] **Smart TV OTA Code Integrity**: SHA-256 cryptographic verification before running cached OTA update scripts.
