@@ -61,6 +61,10 @@ graphify-out/
 .graphifyignore
 
 # Environment & secrets
+/ios/
+/linux/
+/macos/
+/web/
 .env
 *.env
 .env.*
