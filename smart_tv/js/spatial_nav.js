@@ -648,7 +648,7 @@
         return;
       }
 
-      // Handle long-press on channel row to open context menu / toggle favorite
+      // Handle long-press on channel row to toggle favorite
       var channelWrap = _currentFocused ? _currentFocused.closest('.channel-row-wrap') : null;
       if (channelWrap) {
         e.preventDefault();
@@ -662,69 +662,8 @@
             _enterHoldTimer = null;
             var idx = parseInt(channelWrap.getAttribute('data-index'), 10);
             var stream = (window._goatVirtualList && window._goatVirtualList.items) ? window._goatVirtualList.items[idx] : null;
-            if (stream && typeof window.showStreamContextMenu === 'function') {
-              window.showStreamContextMenu(stream, 'live');
-            } else if (stream && typeof window.toggleChannelFavorite === 'function') {
+            if (stream && typeof window.toggleChannelFavorite === 'function') {
               window.toggleChannelFavorite(stream, channelWrap);
-            }
-          }, 500);
-        }
-        return;
-      }
-
-      // Handle long-press on Movie / Series poster cards to open stream context menu
-      var movieCard = _currentFocused ? _currentFocused.closest('.movie-card') : null;
-      if (movieCard) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!e.repeat) {
-          _enterHoldTriggered = false;
-          _enterFocusedElement = _currentFocused;
-          if (_enterHoldTimer) clearTimeout(_enterHoldTimer);
-          _enterHoldTimer = setTimeout(function() {
-            _enterHoldTriggered = true;
-            _enterHoldTimer = null;
-            if (typeof window.showStreamContextMenuForCard === 'function') {
-              window.showStreamContextMenuForCard(movieCard, 'movie');
-            }
-          }, 500);
-        }
-        return;
-      }
-
-      var seriesCard = _currentFocused ? _currentFocused.closest('.series-card') : null;
-      if (seriesCard) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!e.repeat) {
-          _enterHoldTriggered = false;
-          _enterFocusedElement = _currentFocused;
-          if (_enterHoldTimer) clearTimeout(_enterHoldTimer);
-          _enterHoldTimer = setTimeout(function() {
-            _enterHoldTriggered = true;
-            _enterHoldTimer = null;
-            if (typeof window.showStreamContextMenuForCard === 'function') {
-              window.showStreamContextMenuForCard(seriesCard, 'series');
-            }
-          }, 500);
-        }
-        return;
-      }
-
-      // Handle long-press on Category Item to open Category Manager
-      var catItem = _currentFocused ? _currentFocused.closest('.category-item') : null;
-      if (catItem) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!e.repeat) {
-          _enterHoldTriggered = false;
-          _enterFocusedElement = _currentFocused;
-          if (_enterHoldTimer) clearTimeout(_enterHoldTimer);
-          _enterHoldTimer = setTimeout(function() {
-            _enterHoldTriggered = true;
-            _enterHoldTimer = null;
-            if (typeof window.openCategoryManagerForCurrentTab === 'function') {
-              window.openCategoryManagerForCurrentTab();
             }
           }, 500);
         }
@@ -781,36 +720,8 @@
       }
     }
 
-    // Yellow Key (code 405 on Smart TV), 'F' or 'Y' Key: Toggle favorite on focused channel or move mode in Category Manager
+    // Yellow Key (code 405 on Smart TV), 'F' or 'Y' Key: Toggle favorite on focused channel
     if (!isEpgOverlayOpen && isYellowKey(e, code)) {
-      var catMgrModal = document.getElementById('modal-category-manager');
-      if (catMgrModal && catMgrModal.classList.contains('active')) {
-        e.preventDefault();
-        e.stopPropagation();
-        var item = _currentFocused ? _currentFocused.closest('.cat-mgr-item') : null;
-        if (item) {
-          var idx = parseInt(item.getAttribute('data-index'), 10);
-          window._moveModeActive = !window._moveModeActive;
-          window._moveModeSelectedIndex = window._moveModeActive ? idx : -1;
-          if (typeof window.renderCategoryManagerList === 'function') {
-            window.renderCategoryManagerList();
-            var reFocus = catMgrModal.querySelector('.cat-mgr-item[data-index="' + idx + '"]');
-            if (reFocus) setFocus(reFocus);
-          }
-        }
-        return;
-      }
-
-      var catItem = _currentFocused ? _currentFocused.closest('.category-item') : null;
-      if (catItem) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof window.openCategoryManagerForCurrentTab === 'function') {
-          window.openCategoryManagerForCurrentTab();
-        }
-        return;
-      }
-
       var chMenu = document.getElementById('live-channel-menu');
       if (chMenu && chMenu.style.display !== 'none') {
         var menuItem = (_currentFocused && _currentFocused.closest('.channel-menu-item')) ||
@@ -895,20 +806,6 @@
 
     // Navigation overrides for smooth columns and panels
     if (_currentFocused) {
-      // Category Manager Item: if move mode active, UP/DOWN swaps category position
-      if (_currentFocused.classList.contains('cat-mgr-item')) {
-        if (code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
-          if (window._moveModeActive && typeof window.moveCategoryInManager === 'function') {
-            var moved = window.moveCategoryInManager(code === KEY_CODES.UP ? -1 : 1);
-            if (moved) {
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
-          }
-        }
-      }
-
       // Smart IPTV Channel Menu Item: UP/DOWN inside page or flip page, LEFT/RIGHT flip page
       if (_currentFocused.classList.contains('channel-menu-item')) {
         if (code === KEY_CODES.UP) {

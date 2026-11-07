@@ -996,25 +996,12 @@
       var pSpin = document.getElementById('player-loading-spinner');
       if (pSpin) pSpin.style.display = 'none';
 
-      // Update sidebar nav destinations according to account sync scopes
-      updateNavRailScopes();
+      // Switch to Live TV tab
+      switchTab('live');
 
-      // Switch to first enabled tab
-      var initialTab = (account.syncLiveTv !== false) ? 'live' : (account.syncMovies !== false ? 'movies' : 'series');
-      switchTab(initialTab);
-
-      // Pre-fetch Movies and Series in parallel during splash if enabled!
-      if (account.syncMovies !== false) {
-        preloadMovies(account);
-      } else {
-        onSplashMoviesLoaded();
-      }
-
-      if (account.syncSeries !== false) {
-        preloadSeries(account);
-      } else {
-        onSplashSeriesLoaded();
-      }
+      // Pre-fetch Movies and Series in parallel during splash!
+      preloadMovies(account);
+      preloadSeries(account);
     }
 
     if (options && options.showSplash) {
@@ -1025,10 +1012,7 @@
   }
 
   function preloadMovies(account) {
-    if (!account || account.syncMovies === false) {
-      onSplashMoviesLoaded();
-      return;
-    }
+    if (!account) return;
     window.TVApi.getVodCategories(account)
       .then(function(cats) {
         _movieCategories = cats;
@@ -1041,10 +1025,7 @@
   }
 
   function preloadSeries(account) {
-    if (!account || account.syncSeries === false) {
-      onSplashSeriesLoaded();
-      return;
-    }
+    if (!account) return;
     window.TVApi.getSeriesCategories(account)
       .then(function(cats) {
         _seriesCategories = cats;
@@ -1057,10 +1038,6 @@
   }
 
   function ensureMasterTabData(tab) {
-    if (!_activeAccount) return Promise.resolve([]);
-    if (tab === 'live' && _activeAccount.syncLiveTv === false) return Promise.resolve([]);
-    if (tab === 'movies' && _activeAccount.syncMovies === false) return Promise.resolve([]);
-    if (tab === 'series' && _activeAccount.syncSeries === false) return Promise.resolve([]);
     if (!_activeAccount) return Promise.resolve([]);
     if (tab === 'live') {
       if (_allAccountLiveStreams) return Promise.resolve(_allAccountLiveStreams);
@@ -1139,33 +1116,6 @@
         };
       }
     });
-  }
-
-  function updateNavRailScopes() {
-    if (!_activeAccount) return;
-    var liveBtn = document.getElementById('nav-btn-live');
-    var movBtn = document.getElementById('nav-btn-movies');
-    var serBtn = document.getElementById('nav-btn-series');
-
-    var hasLive = _activeAccount.syncLiveTv !== false;
-    var hasMovies = _activeAccount.syncMovies !== false;
-    var hasSeries = _activeAccount.syncSeries !== false;
-
-    if (liveBtn) liveBtn.style.display = hasLive ? '' : 'none';
-    if (movBtn) movBtn.style.display = hasMovies ? '' : 'none';
-    if (serBtn) serBtn.style.display = hasSeries ? '' : 'none';
-
-    // If active tab was disabled, switch to first available tab
-    if (_currentTab === 'live' && !hasLive) {
-      if (hasMovies) switchTab('movies');
-      else if (hasSeries) switchTab('series');
-    } else if (_currentTab === 'movies' && !hasMovies) {
-      if (hasLive) switchTab('live');
-      else if (hasSeries) switchTab('series');
-    } else if (_currentTab === 'series' && !hasSeries) {
-      if (hasLive) switchTab('live');
-      else if (hasMovies) switchTab('movies');
-    }
   }
 
   function closeMovieSortDropdown() {
@@ -1562,15 +1512,6 @@
   }
 
   function switchTab(tabName) {
-    if (_activeAccount) {
-      if (tabName === 'live' && _activeAccount.syncLiveTv === false) {
-        tabName = _activeAccount.syncMovies !== false ? 'movies' : 'series';
-      } else if (tabName === 'movies' && _activeAccount.syncMovies === false) {
-        tabName = _activeAccount.syncLiveTv !== false ? 'live' : 'series';
-      } else if (tabName === 'series' && _activeAccount.syncSeries === false) {
-        tabName = _activeAccount.syncLiveTv !== false ? 'live' : 'movies';
-      }
-    }
     var previousTab = _currentTab;
     _currentTab = tabName;
 
@@ -1711,10 +1652,7 @@
   // 3. TAB 1: LIVE TV (3-COLUMN LAYOUT)
   // =========================================================
   function loadLiveTv() {
-    if (!_activeAccount || _activeAccount.syncLiveTv === false) {
-      onSplashLiveLoaded();
-      return;
-    }
+    if (!_activeAccount) return;
     var listEl = document.getElementById('live-categories-list');
     if (listEl) listEl.innerHTML = '<div class="col-placeholder" data-i18n="loading_categories">' + (window.TVI18n ? window.TVI18n.t('loading_categories') : 'Loading categories...') + '</div>';
 
@@ -1771,15 +1709,9 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    // Apply User Preferences & Sorting from TVStorage
-    if (_activeAccount && window.TVStorage) {
-      cats = window.TVStorage.syncCategoriesWithPrefs(_activeAccount.id, 'live', cats);
-    }
-
     var favText = window.TVI18n ? window.TVI18n.t('favorites') : 'Favorites';
     var starIcon = window.TVIcons ? window.TVIcons.star : '★';
     var tvIcon = window.TVIcons ? window.TVIcons.tv : '📺';
-    var listIcon = '☰';
 
     var targetEl = null;
 
@@ -1797,45 +1729,18 @@
     listEl.appendChild(favEl);
     if (isFavActive) targetEl = favEl;
 
-    // Custom Lists (Live TV)
-    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, 'live') : [];
-    customLists.forEach(function(cl) {
-      var isClActive = (activeCategoryId === 'custom_list:' + cl.id);
-      var clEl = document.createElement('div');
-      clEl.className = 'category-item focusable' + (isClActive ? ' active' : '');
-      clEl.setAttribute('data-category-id', 'custom_list:' + cl.id);
-      clEl.innerHTML = 
-        '<div class="category-left">' +
-          '<span class="category-icon" style="color:#64B5F6;">' + listIcon + '</span>' +
-          '<span class="category-name-text" style="color:#90CAF9; font-weight:600;">' + escapeHtml(cl.name) + '</span>' +
-        '</div>';
-      clEl.onclick = function() { selectLiveCustomList(cl, clEl); };
-      listEl.appendChild(clEl);
-      if (isClActive) targetEl = clEl;
-    });
-
-    // Standard Categories
+    // Standard Categories (A-Z)
     cats.forEach(function(cat) {
       var el = document.createElement('div');
       var isCatActive = (activeCategoryId && String(cat.category_id) === String(activeCategoryId));
       el.className = 'category-item focusable' + (isCatActive ? ' active' : '');
       el.setAttribute('data-category-id', String(cat.category_id));
-      var badgeHtml = cat.isNew ? '<span class="badge-cat-new">NEU</span>' : '';
       el.innerHTML = 
         '<div class="category-left">' +
           '<span class="category-icon">' + tvIcon + '</span>' +
           '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
-          badgeHtml +
         '</div>';
-      el.onclick = function() {
-        if (cat.isNew && _activeAccount && window.TVStorage) {
-          window.TVStorage.markCategoryViewed(_activeAccount.id, 'live', cat.category_id);
-          var b = el.querySelector('.badge-cat-new');
-          if (b) b.remove();
-          cat.isNew = false;
-        }
-        selectLiveCategory(cat, el);
-      };
+      el.onclick = function() { selectLiveCategory(cat, el); };
       listEl.appendChild(el);
       if (isCatActive) targetEl = el;
     });
@@ -1866,63 +1771,6 @@
         }
       }
     }
-  }
-
-  function selectLiveCustomList(cl, element) {
-    if (!cl) return;
-    _selectedLiveCategory = { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustomList: true, customListId: cl.id };
-    window._selectedLiveCategory = _selectedLiveCategory;
-
-    document.querySelectorAll('#live-categories-list .category-item').forEach(function(el) {
-      el.classList.remove('active');
-    });
-    if (element) element.classList.add('active');
-
-    var titleEl = document.getElementById('live-selected-category-title');
-    if (titleEl) titleEl.textContent = cl.name;
-
-    var countBadge = document.getElementById('live-channels-count');
-    var loadingOverlay = document.getElementById('channels-loading-overlay');
-    if (loadingOverlay) loadingOverlay.style.display = 'none';
-
-    var items = window.TVStorage.getCustomListItems(_activeAccount.id, cl.id);
-    var streams = [];
-    if (_allAccountLiveStreams && _allAccountLiveStreams.length > 0) {
-      var itemMap = {};
-      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
-      streams = _allAccountLiveStreams.filter(function(s) {
-        return !!itemMap[String(s.stream_id)];
-      });
-      // Fallback matching by streamName if streamId shifted
-      if (streams.length < items.length) {
-        var existingIds = streams.map(function(s) { return String(s.stream_id); });
-        items.forEach(function(it) {
-          if (existingIds.indexOf(String(it.streamId)) === -1 && it.streamName) {
-            var matched = _allAccountLiveStreams.find(function(s) {
-              return (s.name || '').trim().toLowerCase() === it.streamName.trim().toLowerCase();
-            });
-            if (matched && existingIds.indexOf(String(matched.stream_id)) === -1) {
-              streams.push(matched);
-              existingIds.push(String(matched.stream_id));
-            }
-          }
-        });
-      }
-    } else {
-      streams = items.map(function(it) {
-        return {
-          stream_id: it.streamId,
-          name: it.streamName,
-          stream_icon: it.streamIcon
-        };
-      });
-    }
-
-    if (countBadge) countBadge.textContent = streams.length + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels');
-    _liveStreams = streams;
-    window._liveStreams = streams;
-    _player.setChannelList(streams);
-    _virtualList.setItems(streams, true);
   }
 
   function selectLiveCategory(cat, element) {
@@ -2727,10 +2575,7 @@
   // 4. TAB 2: VOD MOVIES
   // =========================================================
   function loadMovies(isPreload) {
-    if (!_activeAccount || _activeAccount.syncMovies === false) {
-      onSplashMoviesLoaded();
-      return;
-    }
+    if (!_activeAccount) return;
     var listEl = document.getElementById('movies-categories-list');
 
     if (_movieCategories && _movieCategories.length > 0) {
@@ -2774,14 +2619,9 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    if (_activeAccount && window.TVStorage) {
-      cats = window.TVStorage.syncCategoriesWithPrefs(_activeAccount.id, 'movie', cats);
-    }
-
     var watchText = window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist';
     var starIcon = window.TVIcons ? window.TVIcons.star : '★';
     var filmIcon = window.TVIcons ? window.TVIcons.film : '🎬';
-    var listIcon = '☰';
 
     var targetEl = null;
 
@@ -2798,44 +2638,17 @@
     listEl.appendChild(watchEl);
     if (isWatchActive) targetEl = watchEl;
 
-    // Custom Lists (Movies)
-    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, 'movie') : [];
-    customLists.forEach(function(cl) {
-      var isClActive = (activeCategoryId === 'custom_list:' + cl.id);
-      var clEl = document.createElement('div');
-      clEl.className = 'category-item focusable' + (isClActive ? ' active' : '');
-      clEl.setAttribute('data-category-id', 'custom_list:' + cl.id);
-      clEl.innerHTML = 
-        '<div class="category-left">' +
-          '<span class="category-icon" style="color:#64B5F6;">' + listIcon + '</span>' +
-          '<span class="category-name-text" style="color:#90CAF9; font-weight:600;">' + escapeHtml(cl.name) + '</span>' +
-        '</div>';
-      clEl.onclick = function() { selectMovieCustomList(cl, clEl); };
-      listEl.appendChild(clEl);
-      if (isClActive) targetEl = clEl;
-    });
-
-    // Standard Categories
+    // Standard Categories (A-Z)
     cats.forEach(function(cat) {
       var el = document.createElement('div');
       var isCatActive = (activeCategoryId && String(cat.category_id) === String(activeCategoryId));
       el.className = 'category-item focusable' + (isCatActive ? ' active' : '');
-      var badgeHtml = cat.isNew ? '<span class="badge-cat-new">NEU</span>' : '';
       el.innerHTML = 
         '<div class="category-left">' +
           '<span class="category-icon">' + filmIcon + '</span>' +
           '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
-          badgeHtml +
         '</div>';
-      el.onclick = function() {
-        if (cat.isNew && _activeAccount && window.TVStorage) {
-          window.TVStorage.markCategoryViewed(_activeAccount.id, 'movie', cat.category_id);
-          var b = el.querySelector('.badge-cat-new');
-          if (b) b.remove();
-          cat.isNew = false;
-        }
-        selectMovieCategory(cat, el);
-      };
+      el.onclick = function() { selectMovieCategory(cat, el); };
       listEl.appendChild(el);
       if (isCatActive) targetEl = el;
     });
@@ -2892,66 +2705,6 @@
     if (element) element.classList.add('active');
 
     fetchCategoryMovies();
-  }
-
-  function selectMovieCustomList(cl, element) {
-    if (!cl) return;
-    _selectedMovieCategory = { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustomList: true, customListId: cl.id };
-
-    var movSearch = document.getElementById('movies-search-input');
-    var movClearBtn = document.getElementById('movies-search-clear-btn');
-    if (movSearch) { movSearch.value = ''; _movieSearchQuery = ''; }
-    if (movClearBtn) movClearBtn.style.display = 'none';
-
-    var gridEl = document.getElementById('movies-grid-container');
-    if (gridEl) {
-      gridEl.innerHTML = '';
-      gridEl.scrollTop = 0;
-    }
-
-    document.querySelectorAll('#movies-categories-list .category-item').forEach(function(el) {
-      el.classList.remove('active');
-    });
-    if (element) element.classList.add('active');
-
-    var overlay = document.getElementById('movies-loading-overlay');
-    if (overlay) overlay.style.display = 'flex';
-
-    var items = window.TVStorage.getCustomListItems(_activeAccount.id, cl.id);
-    if (_allAccountVodStreams && _allAccountVodStreams.length > 0) {
-      if (overlay) overlay.style.display = 'none';
-      var itemMap = {};
-      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
-      var matches = _allAccountVodStreams.filter(function(m) { return !!itemMap[String(m.stream_id)]; });
-      if (matches.length < items.length) {
-        var existingIds = matches.map(function(m) { return String(m.stream_id); });
-        items.forEach(function(it) {
-          if (existingIds.indexOf(String(it.streamId)) === -1 && it.streamName) {
-            var found = _allAccountVodStreams.find(function(m) { return (m.name || '').trim().toLowerCase() === it.streamName.trim().toLowerCase(); });
-            if (found && existingIds.indexOf(String(found.stream_id)) === -1) {
-              matches.push(found);
-              existingIds.push(String(found.stream_id));
-            }
-          }
-        });
-      }
-      _movieStreams = _sortVodList(matches, _movieSortMode);
-      renderMovieGrid();
-      return;
-    }
-
-    ensureMasterTabData('movies').then(function(all) {
-      if (overlay) overlay.style.display = 'none';
-      var itemMap = {};
-      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
-      var matches = (all || []).filter(function(m) { return !!itemMap[String(m.stream_id)]; });
-      _movieStreams = _sortVodList(matches, _movieSortMode);
-      renderMovieGrid();
-    }).catch(function() {
-      if (overlay) overlay.style.display = 'none';
-      _movieStreams = [];
-      renderMovieGrid();
-    });
   }
 
   function fetchCategoryMovies() {
@@ -4069,10 +3822,7 @@
   // 5. TAB 3: SERIES
   // =========================================================
   function loadSeries(isPreload) {
-    if (!_activeAccount || _activeAccount.syncSeries === false) {
-      onSplashSeriesLoaded();
-      return;
-    }
+    if (!_activeAccount) return;
     var listEl = document.getElementById('series-categories-list');
 
     if (_seriesCategories && _seriesCategories.length > 0) {
@@ -4116,14 +3866,9 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    if (_activeAccount && window.TVStorage) {
-      cats = window.TVStorage.syncCategoriesWithPrefs(_activeAccount.id, 'series', cats);
-    }
-
     var watchText = window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist';
     var starIcon = window.TVIcons ? window.TVIcons.star : '★';
     var seriesIcon = window.TVIcons ? window.TVIcons.series : '📁';
-    var listIcon = '☰';
 
     var targetEl = null;
 
@@ -4140,44 +3885,17 @@
     listEl.appendChild(watchEl);
     if (isWatchActive) targetEl = watchEl;
 
-    // Custom Lists (Series)
-    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, 'series') : [];
-    customLists.forEach(function(cl) {
-      var isClActive = (activeCategoryId === 'custom_list:' + cl.id);
-      var clEl = document.createElement('div');
-      clEl.className = 'category-item focusable' + (isClActive ? ' active' : '');
-      clEl.setAttribute('data-category-id', 'custom_list:' + cl.id);
-      clEl.innerHTML = 
-        '<div class="category-left">' +
-          '<span class="category-icon" style="color:#64B5F6;">' + listIcon + '</span>' +
-          '<span class="category-name-text" style="color:#90CAF9; font-weight:600;">' + escapeHtml(cl.name) + '</span>' +
-        '</div>';
-      clEl.onclick = function() { selectSeriesCustomList(cl, clEl); };
-      listEl.appendChild(clEl);
-      if (isClActive) targetEl = clEl;
-    });
-
     // Standard Categories (A-Z)
     cats.forEach(function(cat) {
       var el = document.createElement('div');
       var isCatActive = (activeCategoryId && String(cat.category_id) === String(activeCategoryId));
       el.className = 'category-item focusable' + (isCatActive ? ' active' : '');
-      var badgeHtml = cat.isNew ? '<span class="badge-cat-new">NEU</span>' : '';
       el.innerHTML = 
         '<div class="category-left">' +
           '<span class="category-icon">' + seriesIcon + '</span>' +
           '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
-          badgeHtml +
         '</div>';
-      el.onclick = function() {
-        if (cat.isNew && _activeAccount && window.TVStorage) {
-          window.TVStorage.markCategoryViewed(_activeAccount.id, 'series', cat.category_id);
-          var b = el.querySelector('.badge-cat-new');
-          if (b) b.remove();
-          cat.isNew = false;
-        }
-        selectSeriesCategory(cat, el);
-      };
+      el.onclick = function() { selectSeriesCategory(cat, el); };
       listEl.appendChild(el);
       if (isCatActive) targetEl = el;
     });
@@ -4234,66 +3952,6 @@
     if (element) element.classList.add('active');
 
     fetchCategorySeries();
-  }
-
-  function selectSeriesCustomList(cl, element) {
-    if (!cl) return;
-    _selectedSeriesCategory = { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustomList: true, customListId: cl.id };
-
-    var serSearch = document.getElementById('series-search-input');
-    var serClearBtn = document.getElementById('series-search-clear-btn');
-    if (serSearch) { serSearch.value = ''; _seriesSearchQuery = ''; }
-    if (serClearBtn) serClearBtn.style.display = 'none';
-
-    var gridEl = document.getElementById('series-grid-container');
-    if (gridEl) {
-      gridEl.innerHTML = '';
-      gridEl.scrollTop = 0;
-    }
-
-    document.querySelectorAll('#series-categories-list .category-item').forEach(function(el) {
-      el.classList.remove('active');
-    });
-    if (element) element.classList.add('active');
-
-    var overlay = document.getElementById('series-loading-overlay');
-    if (overlay) overlay.style.display = 'flex';
-
-    var items = window.TVStorage.getCustomListItems(_activeAccount.id, cl.id);
-    if (_allAccountSeriesStreams && _allAccountSeriesStreams.length > 0) {
-      if (overlay) overlay.style.display = 'none';
-      var itemMap = {};
-      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
-      var matches = _allAccountSeriesStreams.filter(function(s) { return !!itemMap[String(s.series_id)]; });
-      if (matches.length < items.length) {
-        var existingIds = matches.map(function(s) { return String(s.series_id); });
-        items.forEach(function(it) {
-          if (existingIds.indexOf(String(it.streamId)) === -1 && it.streamName) {
-            var found = _allAccountSeriesStreams.find(function(s) { return (s.name || '').trim().toLowerCase() === it.streamName.trim().toLowerCase(); });
-            if (found && existingIds.indexOf(String(found.series_id)) === -1) {
-              matches.push(found);
-              existingIds.push(String(found.series_id));
-            }
-          }
-        });
-      }
-      _seriesList = _sortSeriesList(matches, _seriesSortMode);
-      renderSeriesGrid();
-      return;
-    }
-
-    ensureMasterTabData('series').then(function(all) {
-      if (overlay) overlay.style.display = 'none';
-      var itemMap = {};
-      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
-      var matches = (all || []).filter(function(s) { return !!itemMap[String(s.series_id)]; });
-      _seriesList = _sortSeriesList(matches, _seriesSortMode);
-      renderSeriesGrid();
-    }).catch(function() {
-      if (overlay) overlay.style.display = 'none';
-      _seriesList = [];
-      renderSeriesGrid();
-    });
   }
 
   function fetchCategorySeries() {
@@ -6215,12 +5873,7 @@
       { id: 'resume-close-btn', modal: 'modal-resume-playback' },
       { id: 'exit-cancel-btn', modal: 'exit-modal' },
       { id: 'delete-account-close-btn', modal: 'delete-account-modal' },
-      { id: 'delete-account-cancel-btn', modal: 'delete-account-modal' },
-      { id: 'cat-mgr-close-btn', modal: 'modal-category-manager' },
-      { id: 'cat-mgr-done-btn', modal: 'modal-category-manager' },
-      { id: 'ctx-close-btn', modal: 'modal-stream-context' },
-      { id: 'create-list-close-btn', modal: 'modal-create-list' },
-      { id: 'create-list-cancel-btn', modal: 'modal-create-list' }
+      { id: 'delete-account-cancel-btn', modal: 'delete-account-modal' }
     ];
 
     modalCloses.forEach(function(item) {
@@ -6235,132 +5888,6 @@
           if (item.modal === 'login-modal' && window.TVSync) {
             window.TVSync.stopPolling();
           }
-        };
-      }
-    });
-
-    // Category Manager Modal Toolbar
-    var unhideAllBtn = document.getElementById('cat-mgr-unhide-all');
-    if (unhideAllBtn) {
-      unhideAllBtn.onclick = function() {
-        if (_activeAccount && window.TVStorage) {
-          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-          var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType);
-          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-          var customCats = customLists.map(function(cl) {
-            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
-          });
-          var allCats = [favCat].concat(customCats).concat(rawCats);
-          var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
-          var allVisible = allCats.length > 0 && allCats.every(function(c) {
-            var id = String(c.category_id || c.categoryId);
-            return prefs.hidden.indexOf(id) === -1;
-          });
-          if (allVisible) {
-            prefs.hidden = allCats.map(function(c) { return String(c.category_id || c.categoryId); });
-            window.TVStorage.saveCategoryPrefs(_activeAccount.id, _activeCategoryManagerType, prefs);
-            renderCategoryManagerList();
-            showToast('Alle Kategorien ausgeblendet', '✓');
-          } else {
-            window.TVStorage.unhideAllCategories(_activeAccount.id, _activeCategoryManagerType);
-            renderCategoryManagerList();
-            showToast('Alle Kategorien eingeblendet', '✓');
-          }
-        }
-      };
-    }
-
-    var resetAzBtn = document.getElementById('cat-mgr-reset-az');
-    if (resetAzBtn) {
-      resetAzBtn.onclick = function() {
-        if (_activeAccount && window.TVStorage) {
-          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-          var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
-          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-          var customCats = customLists.map(function(cl) {
-            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
-          });
-          var allCats = [favCat].concat(customCats).concat(rawCats);
-          window.TVStorage.resetCategorySortOrder(_activeAccount.id, _activeCategoryManagerType, allCats);
-          renderCategoryManagerList();
-          showToast('A-Z Sortierung wiederhergestellt', '✓');
-        }
-      };
-    }
-
-    var toggleMoveBtn = document.getElementById('cat-mgr-toggle-move');
-    if (toggleMoveBtn) {
-      toggleMoveBtn.onclick = function() {
-        window._moveModeActive = !window._moveModeActive;
-        if (!window._moveModeActive) window._moveModeSelectedIndex = -1;
-        renderCategoryManagerList();
-      };
-    }
-
-    var catMgrDoneBtn = document.getElementById('cat-mgr-done-btn');
-    if (catMgrDoneBtn) {
-      catMgrDoneBtn.onclick = function() {
-        closeModal(document.getElementById('modal-category-manager'));
-        if (_activeCategoryManagerType === 'live') {
-          renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
-        } else if (_activeCategoryManagerType === 'movie') {
-          renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
-        } else if (_activeCategoryManagerType === 'series') {
-          renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
-        }
-      };
-    }
-
-    // Category Manager Open Buttons in Search Bars
-    var liveCatManageBtn = document.getElementById('live-cat-manage-btn');
-    if (liveCatManageBtn) liveCatManageBtn.onclick = function() { openCategoryManager('live'); };
-    var moviesCatManageBtn = document.getElementById('movies-cat-manage-btn');
-    if (moviesCatManageBtn) moviesCatManageBtn.onclick = function() { openCategoryManager('movie'); };
-    var seriesCatManageBtn = document.getElementById('series-cat-manage-btn');
-    if (seriesCatManageBtn) seriesCatManageBtn.onclick = function() { openCategoryManager('series'); };
-
-    // Stream Context Custom List Actions
-    var ctxCreateListBtn = document.getElementById('ctx-create-list-btn');
-    if (ctxCreateListBtn) {
-      ctxCreateListBtn.onclick = function() {
-        closeModal(document.getElementById('modal-stream-context'));
-        var createModal = document.getElementById('modal-create-list');
-        var input = document.getElementById('create-list-input');
-        if (input) input.value = '';
-        openModal(createModal, input);
-      };
-    }
-
-    var createListSubmit = document.getElementById('create-list-submit-btn');
-    if (createListSubmit) {
-      createListSubmit.onclick = function() {
-        var input = document.getElementById('create-list-input');
-        var name = (input ? input.value : '').trim();
-        if (!name) return;
-        var newList = window.TVStorage.createCustomList(_activeAccount.id, name, _activeContextType);
-        if (newList && _activeContextStream) {
-          window.TVStorage.addStreamToCustomList(_activeAccount.id, newList.id, _activeContextStream);
-        }
-        closeModal(document.getElementById('modal-create-list'));
-        showToast('Liste "' + name + '" erstellt', '✓');
-        if (_activeContextType === 'live') renderLiveCategories(_liveCategories, true, 'custom_list:' + newList.id);
-        else if (_activeContextType === 'movie') renderMovieCategories(_movieCategories, true, 'custom_list:' + newList.id);
-        else if (_activeContextType === 'series') renderSeriesCategories(_seriesCategories, true, 'custom_list:' + newList.id);
-      };
-    }
-
-    // Scope selection chips in Login / Add Account modal
-    ['login-scope-live', 'login-scope-movies', 'login-scope-series'].forEach(function(chipId) {
-      var chip = document.getElementById(chipId);
-      if (chip) {
-        chip.onclick = function() {
-          var activeChips = document.querySelectorAll('.scope-chips-row .scope-chip.active');
-          if (chip.classList.contains('active') && activeChips.length <= 1) {
-            showToast('Mindestens ein Bereich muss aktiv bleiben', '⚠️');
-            return;
-          }
-          var isAct = !chip.classList.contains('active');
-          setScopeChip(chipId, isAct);
         };
       }
     });
@@ -6500,10 +6027,6 @@
         var statusEl = document.getElementById('login-status');
         var submitBtn = document.getElementById('login-submit-btn');
 
-        var scopeLive = document.getElementById('login-scope-live') ? document.getElementById('login-scope-live').classList.contains('active') : true;
-        var scopeMovies = document.getElementById('login-scope-movies') ? document.getElementById('login-scope-movies').classList.contains('active') : true;
-        var scopeSeries = document.getElementById('login-scope-series') ? document.getElementById('login-scope-series').classList.contains('active') : true;
-
         if (currentType === 'm3u') {
           if (statusEl) statusEl.textContent = window.TVI18n ? window.TVI18n.t('loading_m3u') : 'Downloading and parsing M3U playlist...';
           if (submitBtn) submitBtn.disabled = true;
@@ -6523,10 +6046,7 @@
                 password: '',
                 name: cleanName,
                 channelCount: res.streamCount,
-                categoryCount: res.categoryCount,
-                syncLiveTv: scopeLive,
-                syncMovies: scopeMovies,
-                syncSeries: scopeSeries
+                categoryCount: res.categoryCount
               });
               if (window.TVStorage.saveM3uData) {
                 window.TVStorage.saveM3uData(acc.id, res.parsed);
@@ -6562,10 +6082,7 @@
               name: playlistName.trim().length > 0 ? playlistName.trim() : (data.userInfo && data.userInfo.username) || user,
               expDate: (data.userInfo && data.userInfo.exp_date) ? data.userInfo.exp_date : null,
               maxConnections: (data.userInfo && data.userInfo.max_connections) ? data.userInfo.max_connections : null,
-              activeConnections: (data.userInfo && data.userInfo.active_cons) ? data.userInfo.active_cons : null,
-              syncLiveTv: scopeLive,
-              syncMovies: scopeMovies,
-              syncSeries: scopeSeries
+              activeConnections: (data.userInfo && data.userInfo.active_cons) ? data.userInfo.active_cons : null
             });
             if (window.TVSync && window.TVSync.pushPlaylists) {
               window.TVSync.pushPlaylists();
@@ -6594,10 +6111,6 @@
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
     document.getElementById('login-status').textContent = '';
-
-    setScopeChip('login-scope-live', true);
-    setScopeChip('login-scope-movies', true);
-    setScopeChip('login-scope-series', true);
 
     var tabManual = document.getElementById('tab-btn-manual');
     var tabRemote = document.getElementById('tab-btn-remote');
@@ -6628,10 +6141,6 @@
     document.getElementById('login-username').value = acc.username || '';
     document.getElementById('login-password').value = acc.password || '';
     document.getElementById('login-status').textContent = '';
-
-    setScopeChip('login-scope-live', acc.syncLiveTv !== false);
-    setScopeChip('login-scope-movies', acc.syncMovies !== false);
-    setScopeChip('login-scope-series', acc.syncSeries !== false);
 
     if (acc.type === 'm3u') {
       var typeBtnM3u = document.getElementById('type-btn-m3u');
@@ -6811,40 +6320,25 @@
             }
           } else if (event && event.type === 'accountUpdated' && event.account) {
             renderAccountsList();
-            if (window.TVApi && window.TVApi.clearCache) {
-              window.TVApi.clearCache(event.account.id);
-            }
-            if (window.TVStorage && window.TVStorage.deleteM3uData) {
-              window.TVStorage.deleteM3uData(event.account.id);
-            }
             if (_activeAccount && String(_activeAccount.id) === String(event.account.id)) {
-              var credsChanged = (_activeAccount.serverUrl !== event.account.serverUrl ||
-                                  _activeAccount.username !== event.account.username ||
-                                  _activeAccount.password !== event.account.password);
               _activeAccount.name = event.account.name;
               _activeAccount.serverUrl = event.account.serverUrl;
               _activeAccount.username = event.account.username;
               _activeAccount.password = event.account.password;
               var nameEl = document.getElementById('header-account-name');
               if (nameEl) nameEl.textContent = _activeAccount.name || _activeAccount.username;
-
-              if (credsChanged && document.getElementById('view-dashboard').classList.contains('active')) {
-                resetAllAccountState();
-                var currentTab = _currentTab || 'live';
-                switchTab(currentTab);
-              }
             }
-
-            var doneBtn = document.getElementById('remote-done-btn');
-            if (doneBtn) {
-              doneBtn.style.display = 'inline-flex';
-            }
-            if (statusEl) {
-              statusEl.textContent = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert' : 'Playlist updated';
-            }
-
             var updatedToast = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert: ' : 'Playlist updated: ';
             showToast(updatedToast + (event.account.name || event.account.username), '✏️');
+            var statusEl = document.getElementById('remote-status-text');
+            if (statusEl) statusEl.textContent = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert' : 'Playlist updated';
+            var doneBtn = document.getElementById('remote-done-btn');
+            if (doneBtn) {
+              doneBtn.style.display = 'inline-block';
+              if (window.SpatialNav && typeof window.SpatialNav.setFocus === 'function') {
+                window.SpatialNav.setFocus(doneBtn);
+              }
+            }
           } else if (event && event.type === 'accountDeleted') {
             renderAccountsList();
             if (_activeAccount && String(_activeAccount.id) === String(event.id)) {
@@ -6895,299 +6389,6 @@
       window.close();
     }
   }
-
-  // Scope Chip toggle helper
-  function setScopeChip(id, active) {
-    var chip = document.getElementById(id);
-    if (!chip) return;
-    chip.classList.toggle('active', !!active);
-    var label = chip.getAttribute('data-scope');
-    var text = (label === 'live' ? 'Live TV' : (label === 'movies' ? 'Filme' : 'Serien'));
-    chip.textContent = (active ? '✓ ' : '✕ ') + text;
-  }
-
-  // =========================================================
-  // CATEGORY MANAGER & MOVE MODE (v2.1)
-  // =========================================================
-  var _activeCategoryManagerType = 'live';
-  var _moveModeActive = false;
-  var _moveModeSelectedIndex = -1;
-
-  function openCategoryManager(type) {
-    _activeCategoryManagerType = type || _currentTab || 'live';
-    if (_activeCategoryManagerType === 'movies') _activeCategoryManagerType = 'movie';
-    _moveModeActive = false;
-    _moveModeSelectedIndex = -1;
-
-    var modal = document.getElementById('modal-category-manager');
-    if (!modal) return;
-
-    var titleEl = document.getElementById('cat-mgr-title');
-    var subEl = document.getElementById('cat-mgr-subtitle');
-    var typeLabel = (_activeCategoryManagerType === 'live' ? 'Live TV' : (_activeCategoryManagerType === 'movie' ? 'Filme' : 'Serien'));
-    if (titleEl) titleEl.textContent = 'Kategorien anpassen (' + typeLabel + ')';
-    if (subEl) subEl.textContent = 'Wähle Kategorien ab oder drücke [GELB] zum Verschieben';
-
-    renderCategoryManagerList();
-    openModal(modal);
-
-    var firstItem = document.querySelector('#cat-mgr-list .cat-mgr-item');
-    if (firstItem && window.SpatialNav) {
-      window.SpatialNav.setFocus(firstItem);
-    }
-  }
-
-  function renderCategoryManagerList() {
-    var listEl = document.getElementById('cat-mgr-list');
-    if (!listEl) return;
-    listEl.innerHTML = '';
-
-    var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
-    var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-    var customCats = customLists.map(function(cl) {
-      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
-    });
-    var allCats = [favCat].concat(customCats).concat(rawCats);
-    var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType) : { order: [], hidden: [], newIds: [] };
-
-    var unhideBtn = document.getElementById('cat-mgr-unhide-all');
-    if (unhideBtn) {
-      var allVis = allCats.length > 0 && allCats.every(function(c) {
-        var id = String(c.category_id || c.categoryId);
-        return prefs.hidden.indexOf(id) === -1;
-      });
-      unhideBtn.textContent = allVis ? 'Alle ausblenden' : 'Alle einblenden';
-    }
-
-    // Order categories according to prefs.order
-    var catMap = {};
-    allCats.forEach(function(c) {
-      var id = String(c.category_id || c.categoryId);
-      catMap[id] = c;
-    });
-
-    var orderedList = [];
-    prefs.order.forEach(function(id) {
-      if (catMap[id]) orderedList.push(catMap[id]);
-    });
-    // Append any not yet in prefs.order
-    allCats.forEach(function(c) {
-      var id = String(c.category_id || c.categoryId);
-      if (prefs.order.indexOf(id) === -1) orderedList.push(c);
-    });
-
-    orderedList.forEach(function(cat, idx) {
-      var catId = String(cat.category_id || cat.categoryId);
-      var isHidden = prefs.hidden.indexOf(catId) >= 0;
-      var isNew = prefs.newIds.indexOf(catId) >= 0;
-      var isMoving = _moveModeActive && (_moveModeSelectedIndex === idx);
-
-      var itemEl = document.createElement('div');
-      itemEl.className = 'cat-mgr-item focusable' + (isMoving ? ' move-active' : '');
-      itemEl.setAttribute('data-cat-id', catId);
-      itemEl.setAttribute('data-index', String(idx));
-
-      var handleIcon = isMoving ? '↕' : '☰';
-      var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
-      var typeIcon = cat.isFav ? '★ ' : (cat.isCustom ? '📋 ' : '');
-      var customBadge = cat.isCustom ? '<span class="badge-cat-new" style="background:#7c3aed;color:#fff;">LISTE</span>' : '';
-      var checkClass = !isHidden ? ' checked' : '';
-      var checkIcon = !isHidden ? '✓' : '';
-
-      itemEl.innerHTML = 
-        '<div class="cat-mgr-item-left">' +
-          '<span class="cat-mgr-handle">' + handleIcon + '</span>' +
-          '<span class="cat-mgr-name">' + typeIcon + escapeHtml(cat.category_name || cat.name || '') + '</span>' +
-          customBadge +
-          badgeHtml +
-        '</div>' +
-        '<div class="cat-mgr-checkbox' + checkClass + '">' + checkIcon + '</div>';
-
-      itemEl.onclick = function() {
-        if (_moveModeActive) {
-          // Toggle move mode off
-          _moveModeActive = false;
-          _moveModeSelectedIndex = -1;
-          renderCategoryManagerList();
-          var itemToFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + catId + '"]');
-          if (itemToFocus && window.SpatialNav) window.SpatialNav.setFocus(itemToFocus);
-        } else {
-          // Toggle visibility checkbox
-          window.TVStorage.setCategoryVisibility(_activeAccount.id, _activeCategoryManagerType, catId, isHidden);
-          renderCategoryManagerList();
-          var reFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + catId + '"]');
-          if (reFocus && window.SpatialNav) window.SpatialNav.setFocus(reFocus);
-        }
-      };
-
-      listEl.appendChild(itemEl);
-    });
-  }
-
-  function moveCategoryInManager(dir) {
-    if (!_moveModeActive || _moveModeSelectedIndex < 0) return false;
-    var allCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-    var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
-    var catMap = {};
-    allCats.forEach(function(c) { catMap[String(c.category_id || c.categoryId)] = c; });
-
-    var currentOrder = prefs.order.slice();
-    allCats.forEach(function(c) {
-      var id = String(c.category_id || c.categoryId);
-      if (currentOrder.indexOf(id) === -1) currentOrder.push(id);
-    });
-
-    var fromIdx = _moveModeSelectedIndex;
-    var toIdx = fromIdx + dir;
-    if (toIdx < 0 || toIdx >= currentOrder.length) return false;
-
-    var temp = currentOrder[fromIdx];
-    currentOrder[fromIdx] = currentOrder[toIdx];
-    currentOrder[toIdx] = temp;
-
-    _moveModeSelectedIndex = toIdx;
-    window.TVStorage.reorderCategories(_activeAccount.id, _activeCategoryManagerType, currentOrder);
-    renderCategoryManagerList();
-
-    var movingEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-index="' + toIdx + '"]');
-    if (movingEl && window.SpatialNav) {
-      window.SpatialNav.setFocus(movingEl);
-    }
-    return true;
-  }
-
-  // =========================================================
-  // STREAM CONTEXT MENU & CUSTOM LISTS (v2.1)
-  // =========================================================
-  var _activeContextStream = null;
-  var _activeContextType = 'live';
-
-  function showStreamContextMenu(stream, type) {
-    if (!stream) return;
-    _activeContextStream = stream;
-    _activeContextType = type || 'live';
-    if (_activeContextType === 'movies') _activeContextType = 'movie';
-
-    var modal = document.getElementById('modal-stream-context');
-    if (!modal) return;
-
-    var titleEl = document.getElementById('ctx-stream-title');
-    var thumbEl = document.getElementById('ctx-stream-icon');
-    var favBtn = document.getElementById('ctx-fav-btn');
-    var favIcon = document.getElementById('ctx-fav-icon');
-    var favLabel = document.getElementById('ctx-fav-label');
-
-    var streamId = String(stream.stream_id || stream.streamId || stream.series_id || stream.seriesId);
-    var streamName = stream.name || stream.title || ('Stream ' + streamId);
-    var streamIcon = stream.stream_icon || stream.streamIcon || stream.cover || '';
-
-    if (titleEl) titleEl.textContent = streamName;
-    if (thumbEl) {
-      if (streamIcon) {
-        thumbEl.src = streamIcon;
-        thumbEl.style.display = 'block';
-      } else {
-        thumbEl.style.display = 'none';
-      }
-    }
-
-    var isFav = window.TVStorage.isFavorite(_activeAccount.id, streamId, _activeContextType);
-    if (favIcon) favIcon.textContent = isFav ? '★' : '☆';
-    if (favLabel) favLabel.textContent = isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen';
-
-    favBtn.onclick = function() {
-      var res = window.TVStorage.toggleFavorite(_activeAccount.id, streamId, _activeContextType);
-      favIcon.textContent = res ? '★' : '☆';
-      favLabel.textContent = res ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen';
-      showToast(res ? 'Zu Favoriten hinzugefügt' : 'Aus Favoriten entfernt', res ? '★' : '🗑');
-    };
-
-    renderContextCustomLists();
-    openModal(modal);
-
-    if (favBtn && window.SpatialNav) {
-      window.SpatialNav.setFocus(favBtn);
-    }
-  }
-
-  function showStreamContextMenuForCard(cardEl, type) {
-    if (!cardEl) return;
-    var stream = null;
-    if (type === 'movie' || type === 'movies') {
-      var id = cardEl.getAttribute('data-stream-id') || cardEl.getAttribute('data-id');
-      stream = (_movieStreams || []).find(function(m) { return String(m.stream_id) === String(id); }) ||
-               (_allAccountVodStreams || []).find(function(m) { return String(m.stream_id) === String(id); });
-      if (!stream) {
-        var title = (cardEl.querySelector('.poster-title') || {}).textContent || '';
-        stream = { stream_id: id, name: title, stream_icon: (cardEl.querySelector('img') || {}).src || '' };
-      }
-      showStreamContextMenu(stream, 'movie');
-    } else if (type === 'series') {
-      var sId = cardEl.getAttribute('data-series-id') || cardEl.getAttribute('data-id');
-      stream = (_seriesList || []).find(function(s) { return String(s.series_id) === String(sId); }) ||
-               (_allAccountSeriesStreams || []).find(function(s) { return String(s.series_id) === String(sId); });
-      if (!stream) {
-        var sTitle = (cardEl.querySelector('.poster-title') || {}).textContent || '';
-        stream = { series_id: sId, name: sTitle, cover: (cardEl.querySelector('img') || {}).src || '' };
-      }
-      showStreamContextMenu(stream, 'series');
-    }
-  }
-
-  function renderContextCustomLists() {
-    var box = document.getElementById('ctx-custom-lists-container');
-    if (!box) return;
-    box.innerHTML = '';
-
-    var streamId = String(_activeContextStream.stream_id || _activeContextStream.streamId || _activeContextStream.series_id || _activeContextStream.seriesId);
-    var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeContextType);
-
-    if (customLists.length === 0) {
-      var emptyMsg = document.createElement('div');
-      emptyMsg.style.cssText = 'font-size:13px; color:rgba(255,255,255,0.4); padding:8px 0;';
-      emptyMsg.textContent = 'Keine eigenen Listen vorhanden.';
-      box.appendChild(emptyMsg);
-      return;
-    }
-
-    customLists.forEach(function(cl) {
-      var inList = window.TVStorage.isStreamInCustomList(_activeAccount.id, cl.id, streamId);
-      var btn = document.createElement('button');
-      btn.className = 'ctx-action-btn focusable';
-      btn.innerHTML = 
-        '<span class="ctx-action-icon">' + (inList ? '✓' : '＋') + '</span>' +
-        '<span style="flex:1;">' + escapeHtml(cl.name) + '</span>' +
-        '<span style="font-size:12px; color:rgba(255,255,255,0.4);">' + (inList ? 'In Liste' : 'Hinzufügen') + '</span>';
-
-      btn.onclick = function() {
-        if (inList) {
-          window.TVStorage.removeStreamFromCustomList(_activeAccount.id, cl.id, streamId);
-          showToast('Aus "' + cl.name + '" entfernt', '✓');
-        } else {
-          window.TVStorage.addStreamToCustomList(_activeAccount.id, cl.id, _activeContextStream);
-          showToast('Zu "' + cl.name + '" hinzugefügt', '✓');
-        }
-        renderContextCustomLists();
-        var reFocus = box.querySelector('.ctx-action-btn');
-        if (reFocus && window.SpatialNav) window.SpatialNav.setFocus(reFocus);
-      };
-
-      box.appendChild(btn);
-    });
-  }
-
-  window.openCategoryManager = openCategoryManager;
-  window.openCategoryManagerForCurrentTab = function() {
-    var t = _currentTab === 'movies' ? 'movie' : (_currentTab === 'series' ? 'series' : 'live');
-    openCategoryManager(t);
-  };
-  window.renderCategoryManagerList = renderCategoryManagerList;
-  window.moveCategoryInManager = moveCategoryInManager;
-  window.showStreamContextMenu = showStreamContextMenu;
-  window.showStreamContextMenuForCard = showStreamContextMenuForCard;
-  window._moveModeActive = false;
-  window._moveModeSelectedIndex = -1;
 
   window.TVApp = {
     openModal: openModal,
