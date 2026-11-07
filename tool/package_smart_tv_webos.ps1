@@ -34,6 +34,7 @@ New-Item -ItemType Directory -Path $tempStaging -Force | Out-Null
 
 Copy-Item -Path "smart_tv/*" -Destination $tempStaging -Recurse -Force
 if (Test-Path "$tempStaging/config.xml") { Remove-Item -Force "$tempStaging/config.xml" }
+if (Test-Path "$tempStaging/tizen_icon.png") { Remove-Item -Force "$tempStaging/tizen_icon.png" }
 if (Test-Path "$tempStaging/tizen_web_project.yaml") { Remove-Item -Force "$tempStaging/tizen_web_project.yaml" }
 if (Test-Path "$tempStaging/Debug") { Remove-Item -Recurse -Force "$tempStaging/Debug" }
 if (Test-Path "$tempStaging/.tizen-rds") { Remove-Item -Recurse -Force "$tempStaging/.tizen-rds" }

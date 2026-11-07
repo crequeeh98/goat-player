@@ -10,7 +10,7 @@
     <content src="index.html"/>
     <feature name="http://tizen.org/feature/screen.size.all"/>
     <feature name="http://tizen.org/feature/network.internet"/>
-    <icon src="icon.png"/>
+    <icon src="tizen_icon.png"/>
     <name>GOATPlayer TV</name>
     <access origin="*" subdomains="true"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
