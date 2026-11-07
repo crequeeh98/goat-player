@@ -91,10 +91,13 @@
     if (!window.TVStorage) return [];
     var accounts = window.TVStorage.getAccounts();
     return accounts.map(function(acc) {
+      var hasCreds = !!(acc.username && acc.username.trim().length > 0);
+      var isExplicitM3uUrl = !!(acc.serverUrl && (acc.serverUrl.indexOf('.m3u') !== -1 || acc.serverUrl.indexOf('.m3u8') !== -1));
+      var isM3u = isExplicitM3uUrl || (!hasCreds && acc.type === 'm3u');
       return {
         id: acc.id,
         playlist_name: acc.name || 'IPTV Playlist',
-        type: acc.type || (acc.serverUrl && acc.serverUrl.indexOf('.m3u') !== -1 ? 'm3u' : 'xtream')
+        type: isM3u ? 'm3u' : 'xtream'
       };
     });
   }
@@ -240,15 +243,27 @@
               });
 
               var updatedAcc = null;
-              var isM3uEdit = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
               if (targetAcc) {
                 var newServerUrl = (actionObj.server_url && actionObj.server_url.trim().length > 0) ? actionObj.server_url.trim() : targetAcc.serverUrl;
                 var newUsername = (actionObj.username && actionObj.username.trim().length > 0) ? actionObj.username.trim() : targetAcc.username;
                 var newPassword = (actionObj.password && actionObj.password.trim().length > 0) ? actionObj.password.trim() : targetAcc.password;
                 var newName = (actionObj.playlist_name && actionObj.playlist_name.trim().length > 0) ? actionObj.playlist_name.trim() : (targetAcc.name || targetAcc.username);
 
+                var isM3u = false;
+                if (actionObj.type === 'm3u') {
+                  isM3u = true;
+                } else if (actionObj.type === 'xtream') {
+                  isM3u = false;
+                } else if (newServerUrl && (newServerUrl.indexOf('.m3u') !== -1 || newServerUrl.indexOf('.m3u8') !== -1)) {
+                  isM3u = true;
+                } else if (newUsername && newPassword) {
+                  isM3u = false;
+                } else if (targetAcc.type === 'm3u') {
+                  isM3u = true;
+                }
+
                 updatedAcc = Object.assign({}, targetAcc, {
-                  type: isM3uEdit ? 'm3u' : (targetAcc.type || undefined),
+                  type: isM3u ? 'm3u' : undefined,
                   serverUrl: newServerUrl,
                   username: newUsername,
                   password: newPassword,
@@ -256,13 +271,14 @@
                 });
                 window.TVStorage.saveAccount(updatedAcc);
               } else if (actionObj.id) {
+                var isM3uNew = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
                 updatedAcc = window.TVStorage.saveAccount({
                   id: actionObj.id,
-                  type: isM3uEdit ? 'm3u' : undefined,
+                  type: isM3uNew ? 'm3u' : undefined,
                   serverUrl: actionObj.server_url || '',
                   username: actionObj.username || '',
                   password: actionObj.password || '',
-                  name: actionObj.playlist_name || actionObj.username || (isM3uEdit ? 'M3U Playlist' : 'Remote Playlist')
+                  name: actionObj.playlist_name || actionObj.username || (isM3uNew ? 'M3U Playlist' : 'Remote Playlist')
                 });
               }
               if (onEvent) onEvent({ type: 'accountUpdated', account: updatedAcc });

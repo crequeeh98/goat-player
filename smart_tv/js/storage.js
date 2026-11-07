@@ -213,6 +213,9 @@
               hasPlaintext = true; // Legacy account detected
             }
           }
+          if (clone.type === 'm3u' && clone.username && clone.username.trim().length > 0 && clone.serverUrl && clone.serverUrl.indexOf('.m3u') === -1) {
+            delete clone.type;
+          }
           return clone;
         });
 
@@ -242,6 +245,9 @@
       acc.syncLiveTv = acc.syncLiveTv !== false;
       acc.syncMovies = acc.syncMovies !== false;
       acc.syncSeries = acc.syncSeries !== false;
+      if (acc.username && String(acc.username).trim().length > 0 && acc.serverUrl && acc.serverUrl.indexOf('.m3u') === -1) {
+        delete acc.type;
+      }
       var strId = String(acc.id);
       var idx = accounts.findIndex(function(a) { return String(a.id) === strId; });
       if (idx >= 0) {
