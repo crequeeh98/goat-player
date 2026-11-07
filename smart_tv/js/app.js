@@ -6834,6 +6834,15 @@
                 switchTab(currentTab);
               }
             }
+
+            var doneBtn = document.getElementById('remote-done-btn');
+            if (doneBtn) {
+              doneBtn.style.display = 'inline-flex';
+            }
+            if (statusEl) {
+              statusEl.textContent = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert' : 'Playlist updated';
+            }
+
             var updatedToast = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert: ' : 'Playlist updated: ';
             showToast(updatedToast + (event.account.name || event.account.username), '✏️');
           } else if (event && event.type === 'accountDeleted') {
