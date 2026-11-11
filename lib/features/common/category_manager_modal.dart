@@ -566,115 +566,25 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
             const Divider(height: 1, color: Colors.white12),
 
             // Action Bar (Show Hidden Toggle / Reset A-Z / Bulk Visibility)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  // Toggle Show Hidden Categories
-                  TvFocusable(
-                    focusNode: _showHiddenBtnNode,
-                    autofocus: true,
-                    borderRadius: BorderRadius.circular(8),
-                    onPressed: () {
-                      setState(() {
-                        _showHidden = !_showHidden;
-                        _movingIndex = null;
-                      });
-                    },
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                          final currentDisplayed = _showHidden
-                              ? (_localCategories ?? const <CategoryWithPref>[])
-                              : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
-                          if (currentDisplayed.isNotEmpty) {
-                            final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
-                            if (firstNode != null && firstNode.canRequestFocus) {
-                              firstNode.requestFocus();
-                              return KeyEventResult.handled;
-                            }
-                          }
-                        }
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _showHidden
-                            ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
-                            : Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _showHidden ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                            size: 14,
-                            color: _showHidden ? const Color(0xFFB388FF) : Colors.white70,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _showHidden
-                                ? (isDe ? 'Ausgeblendete verbergen' : 'Hide Inactive')
-                                : (isDe ? 'Ausgeblendete anzeigen ($hiddenCount)' : 'Show Hidden ($hiddenCount)'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _showHidden ? Colors.white : Colors.white70,
-                              fontWeight: _showHidden ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Reset to A-Z
-                  TvFocusable(
-                    focusNode: _resetOrderBtnNode,
-                    borderRadius: BorderRadius.circular(8),
-                    onPressed: _resetOrder,
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                          final currentDisplayed = _showHidden
-                              ? (_localCategories ?? const <CategoryWithPref>[])
-                              : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
-                          if (currentDisplayed.isNotEmpty) {
-                            final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
-                            if (firstNode != null && firstNode.canRequestFocus) {
-                              firstNode.requestFocus();
-                              return KeyEventResult.handled;
-                            }
-                          }
-                        }
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.sort_by_alpha_rounded, size: 14, color: Colors.white54),
-                          const SizedBox(width: 6),
-                          Text(isDe ? 'A-Z Zurücksetzen' : 'Reset A-Z', style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Bulk Show/Hide all (accessible when showing hidden categories)
-                  if (_showHidden) ...[
-                    const SizedBox(width: 8),
+            SizedBox(
+              width: double.infinity,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Toggle Show Hidden Categories
                     TvFocusable(
-                      focusNode: _bulkVisibilityBtnNode,
+                      focusNode: _showHiddenBtnNode,
+                      autofocus: true,
                       borderRadius: BorderRadius.circular(8),
-                      onPressed: allVisible ? _hideAll : _unhideAll,
+                      onPressed: () {
+                        setState(() {
+                          _showHidden = !_showHidden;
+                          _movingIndex = null;
+                        });
+                      },
                       onKeyEvent: (node, event) {
                         if (event is KeyDownEvent || event is KeyRepeatEvent) {
                           if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -693,7 +603,61 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         return KeyEventResult.ignored;
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _showHidden
+                              ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                              : Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showHidden ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                              size: 14,
+                              color: _showHidden ? const Color(0xFFB388FF) : Colors.white70,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _showHidden
+                                  ? (isDe ? 'Ausgeblendete verbergen' : 'Hide Inactive')
+                                  : (isDe ? 'Ausgeblendete anzeigen ($hiddenCount)' : 'Show Hidden ($hiddenCount)'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _showHidden ? Colors.white : Colors.white70,
+                                fontWeight: _showHidden ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Reset to A-Z
+                    TvFocusable(
+                      focusNode: _resetOrderBtnNode,
+                      borderRadius: BorderRadius.circular(8),
+                      onPressed: _resetOrder,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            final currentDisplayed = _showHidden
+                                ? (_localCategories ?? const <CategoryWithPref>[])
+                                : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                            if (currentDisplayed.isNotEmpty) {
+                              final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                              if (firstNode != null && firstNode.canRequestFocus) {
+                                firstNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(8),
@@ -701,43 +665,85 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              allVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                              size: 14,
-                              color: const Color(0xFFB388FF),
-                            ),
+                            const Icon(Icons.sort_by_alpha_rounded, size: 14, color: Colors.white54),
                             const SizedBox(width: 6),
-                            Text(
-                              allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
-                              style: const TextStyle(fontSize: 12, color: Colors.white70),
-                            ),
+                            Text(isDe ? 'A-Z Zurücksetzen' : 'Reset A-Z', style: const TextStyle(fontSize: 12, color: Colors.white70)),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                  const Spacer(),
-                  if (GoatPlatform.isTv && _movingIndex != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.swap_vert_rounded, size: 14, color: Colors.amber),
-                          const SizedBox(width: 4),
-                          Text(
-                            isDe ? 'Verschiebemodus aktiv (▲/▼)' : 'Move mode active (▲/▼)',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                    // Bulk Show/Hide all (accessible when showing hidden categories)
+                    if (_showHidden) ...[
+                      const SizedBox(width: 8),
+                      TvFocusable(
+                        focusNode: _bulkVisibilityBtnNode,
+                        borderRadius: BorderRadius.circular(8),
+                        onPressed: allVisible ? _hideAll : _unhideAll,
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                              final currentDisplayed = _showHidden
+                                  ? (_localCategories ?? const <CategoryWithPref>[])
+                                  : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                              if (currentDisplayed.isNotEmpty) {
+                                final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                                if (firstNode != null && firstNode.canRequestFocus) {
+                                  firstNode.requestFocus();
+                                  return KeyEventResult.handled;
+                                }
+                              }
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                allVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                size: 14,
+                                color: const Color(0xFFB388FF),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
+                                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                ],
+                    ],
+                    if (GoatPlatform.isTv && _movingIndex != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.amber, width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_vert_rounded, size: 14, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            Text(
+                              isDe ? 'Verschiebemodus aktiv (▲/▼)' : 'Move mode active (▲/▼)',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             if (GoatPlatform.isTv) ...[
