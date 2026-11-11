@@ -26,9 +26,15 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
   List<CategoryWithPref>? _localCategories;
   final ScrollController _scrollController = ScrollController();
   final Map<String, FocusNode> _itemFocusNodes = {};
+  final FocusNode _showHiddenBtnNode = FocusNode(debugLabel: 'cat_mgr_toggle_hidden');
+  final FocusNode _resetOrderBtnNode = FocusNode(debugLabel: 'cat_mgr_reset_order');
+  final FocusNode _bulkVisibilityBtnNode = FocusNode(debugLabel: 'cat_mgr_bulk_visibility');
 
   @override
   void dispose() {
+    _showHiddenBtnNode.dispose();
+    _resetOrderBtnNode.dispose();
+    _bulkVisibilityBtnNode.dispose();
     _scrollController.dispose();
     for (final node in _itemFocusNodes.values) {
       node.dispose();
@@ -116,6 +122,11 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (account == null) return;
 
     final newHidden = !item.isHidden;
+    final currentDisplayed = _showHidden
+        ? (_localCategories ?? const <CategoryWithPref>[])
+        : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+    final currentIdx = currentDisplayed.indexWhere((c) => c.category.categoryId == item.category.categoryId);
+
     setState(() {
       if (_localCategories != null) {
         final idx = _localCategories!.indexWhere((c) => c.category.categoryId == item.category.categoryId);
@@ -138,12 +149,11 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
         if (!mounted || _localCategories == null) return;
         final remaining = _localCategories!.where((c) => !c.isHidden).toList();
         if (remaining.isNotEmpty) {
-          final nextItem = remaining.firstOrNull;
-          if (nextItem != null) {
-            final node = _itemFocusNodes[nextItem.category.categoryId];
-            if (node != null && node.canRequestFocus) {
-              node.requestFocus();
-            }
+          final targetIdx = (currentIdx >= 0 ? currentIdx : 0).clamp(0, remaining.length - 1);
+          final nextItem = remaining[targetIdx];
+          final node = _itemFocusNodes[nextItem.category.categoryId];
+          if (node != null && node.canRequestFocus) {
+            node.requestFocus();
           }
         }
       });
@@ -562,6 +572,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                 children: [
                   // Toggle Show Hidden Categories
                   TvFocusable(
+                    focusNode: _showHiddenBtnNode,
                     autofocus: true,
                     borderRadius: BorderRadius.circular(8),
                     onPressed: () {
@@ -570,17 +581,30 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         _movingIndex = null;
                       });
                     },
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          final currentDisplayed = _showHidden
+                              ? (_localCategories ?? const <CategoryWithPref>[])
+                              : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                          if (currentDisplayed.isNotEmpty) {
+                            final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                            if (firstNode != null && firstNode.canRequestFocus) {
+                              firstNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                        }
+                      }
+                      return KeyEventResult.ignored;
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: _showHidden
-                            ? const Color(0xFF7C3AED).withValues(alpha: 0.3)
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
                             : Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _showHidden ? const Color(0xFFB388FF) : Colors.transparent,
-                          width: 1,
-                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -608,8 +632,26 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                   const SizedBox(width: 8),
                   // Reset to A-Z
                   TvFocusable(
+                    focusNode: _resetOrderBtnNode,
                     borderRadius: BorderRadius.circular(8),
                     onPressed: _resetOrder,
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          final currentDisplayed = _showHidden
+                              ? (_localCategories ?? const <CategoryWithPref>[])
+                              : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                          if (currentDisplayed.isNotEmpty) {
+                            final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                            if (firstNode != null && firstNode.canRequestFocus) {
+                              firstNode.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                        }
+                      }
+                      return KeyEventResult.ignored;
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
@@ -630,8 +672,26 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                   if (_showHidden) ...[
                     const SizedBox(width: 8),
                     TvFocusable(
+                      focusNode: _bulkVisibilityBtnNode,
                       borderRadius: BorderRadius.circular(8),
                       onPressed: allVisible ? _hideAll : _unhideAll,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            final currentDisplayed = _showHidden
+                                ? (_localCategories ?? const <CategoryWithPref>[])
+                                : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                            if (currentDisplayed.isNotEmpty) {
+                              final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                              if (firstNode != null && firstNode.canRequestFocus) {
+                                firstNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -822,6 +882,11 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
                         event.logicalKey == LogicalKeyboardKey.goBack) {
                       setState(() => _movingIndex = null);
+                      return KeyEventResult.handled;
+                    }
+                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
+                    if (_showHiddenBtnNode.canRequestFocus) {
+                      _showHiddenBtnNode.requestFocus();
                       return KeyEventResult.handled;
                     }
                   }
