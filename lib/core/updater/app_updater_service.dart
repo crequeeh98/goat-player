@@ -27,6 +27,30 @@ class AppUpdateInfo {
   });
 }
 
+const String kBundledReleaseNotes = '''
+### 🇩🇪 Änderungen & Optimierungen
+- **Kategorien-Manager Hotfix**:
+  - *Mobiles Wischen & Scrolling*: Action Bar (`Ausgeblendete verbergen/anzeigen`, `A-Z Zurücksetzen`, `Alle ein-/ausblenden`) auf Mobilgeräten horizontal flüssig scroll- und wischbar.
+  - *Fokus-Glow Beseitigung*: Kein nachrückender lila Fokusrahmen auf Touch- und Desktop-Geräten nach dem Ausblenden von Kategorien.
+  - *TV D-Pad Stabilität*: Schnelles und unterbrechungsfreies Zappen & Verschieben auf Fire TV / Android TV bleibt uneingeschränkt erhalten.
+- **Modernisiertes Update-Modal & Changelog-Viewer**:
+  - *Automatischer Sprachfilter*: Zeigt auf deutschen Geräten exklusiv deutsche Release-Notes und auf englischen Geräten englische Texte.
+  - *Rich Markdown Rendering*: Kompakte Bullets, `Code-Badges`, **Fettschrift** und *Kursivschrift* auf einen Blick ohne unnötiges Scrollen.
+  - *Changelog jederzeit abrufbar*: Klick auf die Versions-Badge öffnet die Neuerungen; bei aktuellem Stand mit grünem Bestätigungshaken und reinem „Schließen“-Button.
+  - *Responsive Dialogmaße*: 620px breite TV-Darstellung und D-Pad Autofokus.
+
+### 🇬🇧 Changes & Optimizations
+- **Category Manager Hotfix**:
+  - *Mobile Touch Scrolling*: Horizontally scrollable Action Bar (`Show/Hide Inactive`, `Reset A-Z`, `Bulk Toggle`) for smartphones.
+  - *Focus Glow Cleared*: Removed lingering purple focus outline on mobile touch and desktop mouse interactions after hiding categories.
+  - *TV D-Pad Navigation*: Preserved seamless auto-focus continuation on Android TV and Fire TV remotes.
+- **Modernized Update Dialog & Changelog Viewer**:
+  - *Automated Language Filter*: Displays German notes on German systems and English notes on English systems without bilingual clutter.
+  - *Rich Markdown Formatting*: Dense bullet points, `code tags`, **bold** and *italic* styling fitting on a single screen without scrolling.
+  - *Changelog on Demand*: Clicking the version badge displays the release notes; shows verified checkmark with "Close" button when up-to-date.
+  - *Responsive TV Dialog*: 620px wide layout for television screens with D-Pad autofocus.
+''';
+
 class AppUpdaterService {
   static const String _repoOwner = 'crequeeh98';
   static const String _repoName = 'goat-player';
@@ -57,7 +81,7 @@ class AppUpdaterService {
           final versionFile = File('${exeDir.path}${Platform.pathSeparator}version.txt');
           if (versionFile.existsSync()) {
             final fileVer = versionFile.readAsStringSync().trim();
-            if (fileVer.isNotEmpty) {
+            if (fileVer.isNotEmpty && (currentVersion.isEmpty || currentVersion == '0.0.0' || isNewer(currentVersion, fileVer))) {
               currentVersion = fileVer;
             }
           } else if (packageInfo.version.isNotEmpty && packageInfo.version != '0.0.0') {
@@ -118,6 +142,25 @@ class AppUpdaterService {
       debugPrint('[AppUpdaterService] Check failed: $e');
       return null;
     }
+  }
+
+  /// Fetches release notes for the active [currentVer] from GitHub tags,
+  /// with automatic fallback to [kBundledReleaseNotes] if offline or unreleased.
+  Future<String> getCurrentVersionChangelog(String currentVer) async {
+    final cleanVer = currentVer.split('+').first;
+    if (cleanVer == '2.1.1') {
+      return kBundledReleaseNotes;
+    }
+    try {
+      final response = await _dio.get(
+        'https://api.github.com/repos/$_repoOwner/$_repoName/releases/tags/v$cleanVer',
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final body = response.data['body'] as String? ?? '';
+        if (body.trim().isNotEmpty) return body;
+      }
+    } catch (_) {}
+    return kBundledReleaseNotes;
   }
 
   Future<String?> _fetchManifestSha256(List<dynamic> assets, String targetFileName) async {

@@ -30,6 +30,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   bool _hasNoAccounts = true;
   bool _didAutoLogin = false;
   String _appVersion = '';
+  bool _isCheckingChangelog = false;
 
   @override
   void initState() {
@@ -70,7 +71,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
           final versionFile = File('${exeDir.path}${Platform.pathSeparator}version.txt');
           if (versionFile.existsSync()) {
             final fileVer = versionFile.readAsStringSync().trim();
-            if (fileVer.isNotEmpty) ver = fileVer;
+            if (fileVer.isNotEmpty && (ver.isEmpty || ver == '0.0.0' || AppUpdaterService.isNewer(ver, fileVer))) {
+              ver = fileVer;
+            }
           }
         } catch (_) {}
       }
@@ -78,6 +81,41 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         setState(() => _appVersion = ver);
       }
     } catch (_) {}
+  }
+
+  void _onVersionBadgePressed() async {
+    if (_isCheckingChangelog) return;
+    _isCheckingChangelog = true;
+
+    try {
+      final updater = AppUpdaterService();
+      try {
+        final info = await updater.checkForUpdate();
+        if (info != null && info.hasUpdate && mounted) {
+          UpdateDialog.show(context, updateInfo: info, updaterService: updater);
+          return;
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
+      final activeVer = _appVersion.isNotEmpty ? _appVersion : '2.1.1';
+      final notes = await updater.getCurrentVersionChangelog(activeVer);
+      final upToDateInfo = AppUpdateInfo(
+        hasUpdate: false,
+        currentVersion: activeVer,
+        latestVersion: activeVer,
+        releaseNotes: notes,
+        downloadUrl: '',
+        fileName: '',
+      );
+      if (mounted) {
+        UpdateDialog.show(context, updateInfo: upToDateInfo, updaterService: updater);
+      }
+    } finally {
+      if (mounted) {
+        _isCheckingChangelog = false;
+      }
+    }
   }
 
   @override
@@ -270,21 +308,25 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                     Text(l10n.accounts),
                     if (_appVersion.isNotEmpty) ...[
                       const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                      TvFocusable(
+                        borderRadius: BorderRadius.circular(6),
+                        onPressed: _onVersionBadgePressed,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          'v$_appVersion',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFC4B5FD),
+                          child: Text(
+                            'v$_appVersion',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFC4B5FD),
+                            ),
                           ),
                         ),
                       ),

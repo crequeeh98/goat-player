@@ -5,7 +5,8 @@ This document outlines the development history, architectural milestones, and pr
 ---
 
 ## 🏆 Current Releases
-- **Flutter Client & Web Portal**: `v2.1.0` (Custom Lists, Category Management, Granular Scopes, Zero-Knowledge Sync)
+- **Flutter Client**: `v2.1.1` (Hotfix: Modernized Markdown Update Dialog, Mobile Touch Category Bar, Focus Glow Clearance)
+- **Web Portal**: `v2.1.0` (Custom Lists, Category Management, Granular Scopes, Zero-Knowledge Sync)
 - **Smart TV (Tizen & webOS)**: `v2.0.5` (Pairing Maintenance Patch & Sharp 512px Samsung Launcher Icon)
 
 ---
@@ -17,14 +18,14 @@ This document outlines the development history, architectural milestones, and pr
 
 ## ✅ Completed Milestones
 
-### 1. Custom Lists, Category Management & Pairing Suite (v2.1.0 / v2.0.5)
-- [x] **User Custom Lists**: Create, rename, delete custom lists and add streams from context menus across Live TV, Movies, and Series.
-- [x] **Category Management & Reordering**: Drag-and-drop / D-Pad category sorting, category visibility toggle, and alphabetical resets.
-- [x] **New Category Discovery**: Automated tracking and visual "NEW" chips on newly ingested categories.
-- [x] **Granular Account Scopes**: Selective synchronization toggles for Live TV, Movies, and Series per playlist.
-- [x] **Smart TV Pairing Fix (v2.0.5)**: Fixed Xtream playlist credential preservation during name edits via Web Portal.
-- [x] **Samsung Tizen Sharp Branding (v2.0.5)**: High-resolution 512×512 textless icon eliminating blurriness on 4K Samsung TVs.
-- [x] **Smart TV Decoupled OTA Updater (v2.0.5)**: `updater.js` checks `smart_tv/manifest.json` version, allowing independent Smart TV releases without false update prompts.
+### 1. Custom Playlists, Category Manager & Modernized Changelog (v2.1.0 - v2.1.1)
+- [x] **Eigene Listen (Custom Playlists)**: User-defined stream playlists partitioned across Live TV, Movies, and Series with recovery on provider stream ID shifts.
+- [x] **Category Manager & Custom Sorting**: Drag-and-drop & remote-driven category reordering, hide/unhide toggling, bulk reset, and auto NEW badge on newly added provider categories.
+- [x] **Granular Playlist Sync Scopes**: Independent toggles for Live TV, Movies, and Series sync per account.
+- [x] **Compact Localized Update Modal**: Single-screen rich Markdown release notes with automatic language filtering (DE/EN) and TV D-Pad autofocus.
+- [x] **On-Demand Changelog Viewer**: Version badge on Account screen clickable anytime; shows verified status with "Close" action when up-to-date.
+- [x] **Category Modal Polish (Hotfix v2.1.1)**: Horizontal scrolling action bar for mobile touch screens and auto-glow/focus suppression on desktop and touch devices.
+- [x] **Smart TV Maintenance (v2.0.5)**: 512×512 crisp Tizen icon, elevated toast z-index, Xtream credential retention during portal edits, and independent manifest-based updater.
 
 ### 2. Security & Hardening Suite (v2.0.4)
 - [x] **Zero-Knowledge Remote Pairing**: AES-256-GCM encryption with PBKDF2 key derivation for cloud pairing between TVs and Web Portal.

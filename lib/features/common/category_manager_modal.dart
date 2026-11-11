@@ -22,17 +22,40 @@ class CategoryManagerModal extends ConsumerStatefulWidget {
 
 class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
   int? _movingIndex;
+  bool _showHidden = false; // Default: show only active/unhidden categories
   List<CategoryWithPref>? _localCategories;
   final ScrollController _scrollController = ScrollController();
   final Map<String, FocusNode> _itemFocusNodes = {};
+  final FocusNode _showHiddenBtnNode = FocusNode(debugLabel: 'cat_mgr_toggle_hidden');
+  final FocusNode _resetOrderBtnNode = FocusNode(debugLabel: 'cat_mgr_reset_order');
+  final FocusNode _bulkVisibilityBtnNode = FocusNode(debugLabel: 'cat_mgr_bulk_visibility');
 
   @override
   void dispose() {
+    _showHiddenBtnNode.dispose();
+    _resetOrderBtnNode.dispose();
+    _bulkVisibilityBtnNode.dispose();
     _scrollController.dispose();
     for (final node in _itemFocusNodes.values) {
       node.dispose();
     }
     super.dispose();
+  }
+
+  void _scrollToIndex(int index) {
+    if (!_scrollController.hasClients) return;
+    const itemHeight = 52.0;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
+    final clampedOffset = targetOffset.clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      clampedOffset,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _onReorder(int oldIndex, int newIndex) async {
@@ -42,12 +65,49 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
+    if (oldIndex == newIndex) return;
+
+    final currentDisplayed = _showHidden
+        ? _localCategories!
+        : _localCategories!.where((c) => !c.isHidden).toList();
+    if (oldIndex < 0 ||
+        oldIndex >= currentDisplayed.length ||
+        newIndex < 0 ||
+        newIndex >= currentDisplayed.length) {
+      return;
+    }
+
+    final itemToMove = currentDisplayed[oldIndex];
+    final targetItem = currentDisplayed[newIndex];
 
     setState(() {
-      final item = _localCategories!.removeAt(oldIndex);
-      _localCategories!.insert(newIndex, item);
+      if (_showHidden) {
+        final item = _localCategories!.removeAt(oldIndex);
+        _localCategories!.insert(newIndex, item);
+      } else {
+        _localCategories!.removeWhere((c) => c.category.categoryId == itemToMove.category.categoryId);
+        final targetActualIndex = _localCategories!.indexWhere((c) => c.category.categoryId == targetItem.category.categoryId);
+        if (targetActualIndex != -1) {
+          final insertIndex = oldIndex < newIndex ? targetActualIndex + 1 : targetActualIndex;
+          _localCategories!.insert(insertIndex, itemToMove);
+        } else {
+          _localCategories!.add(itemToMove);
+        }
+      }
       if (_movingIndex != null) {
         _movingIndex = newIndex;
+      }
+    });
+
+    // Auto-scroll and keep focus on the moved item
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (GoatPlatform.isTv) {
+        final node = _itemFocusNodes[itemToMove.category.categoryId];
+        if (node != null && node.canRequestFocus) {
+          node.requestFocus();
+        }
+        _scrollToIndex(newIndex);
       }
     });
 
@@ -64,6 +124,11 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (account == null) return;
 
     final newHidden = !item.isHidden;
+    final currentDisplayed = _showHidden
+        ? (_localCategories ?? const <CategoryWithPref>[])
+        : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+    final currentIdx = currentDisplayed.indexWhere((c) => c.category.categoryId == item.category.categoryId);
+
     setState(() {
       if (_localCategories != null) {
         final idx = _localCategories!.indexWhere((c) => c.category.categoryId == item.category.categoryId);
@@ -76,7 +141,31 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
           );
         }
       }
+      if (_movingIndex != null) {
+        _movingIndex = null;
+      }
     });
+
+    if (GoatPlatform.isTv && !_showHidden && newHidden) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _localCategories == null) return;
+        final remaining = _localCategories!.where((c) => !c.isHidden).toList();
+        if (remaining.isNotEmpty) {
+          final targetIdx = (currentIdx >= 0 ? currentIdx : 0).clamp(0, remaining.length - 1);
+          final nextItem = remaining[targetIdx];
+          final node = _itemFocusNodes[nextItem.category.categoryId];
+          if (node != null && node.canRequestFocus) {
+            node.requestFocus();
+          }
+        }
+      });
+    } else if (!GoatPlatform.isTv) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        FocusManager.instance.primaryFocus?.unfocus();
+      });
+    }
 
     await ref.read(categoryPreferenceDaoProvider).setVisibility(
           account.id,
@@ -414,6 +503,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
 
     final currentList = _localCategories ?? initialData ?? const <CategoryWithPref>[];
     final allVisible = currentList.isNotEmpty && currentList.every((c) => !c.isHidden);
+    final hiddenCount = currentList.where((c) => c.isHidden).length;
 
     final isDe = Localizations.localeOf(context).languageCode == 'de';
 
@@ -483,80 +573,185 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
             ),
             const Divider(height: 1, color: Colors.white12),
 
-            // Action Bar (Unhide all / Reset)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  TvFocusable(
-                    autofocus: true,
-                    borderRadius: BorderRadius.circular(8),
-                    onPressed: allVisible ? _hideAll : _unhideAll,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
+            // Action Bar (Show Hidden Toggle / Reset A-Z / Bulk Visibility)
+            SizedBox(
+              width: double.infinity,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Toggle Show Hidden Categories
+                    TvFocusable(
+                      focusNode: _showHiddenBtnNode,
+                      autofocus: GoatPlatform.isTv,
+                      borderRadius: BorderRadius.circular(8),
+                      onPressed: () {
+                        setState(() {
+                          _showHidden = !_showHidden;
+                          _movingIndex = null;
+                        });
+                      },
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            final currentDisplayed = _showHidden
+                                ? (_localCategories ?? const <CategoryWithPref>[])
+                                : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                            if (currentDisplayed.isNotEmpty) {
+                              final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                              if (firstNode != null && firstNode.canRequestFocus) {
+                                firstNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _showHidden
+                              ? const Color(0xFF7C3AED).withValues(alpha: 0.35)
+                              : Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _showHidden ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                              size: 14,
+                              color: _showHidden ? const Color(0xFFB388FF) : Colors.white70,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _showHidden
+                                  ? (isDe ? 'Ausgeblendete verbergen' : 'Hide Inactive')
+                                  : (isDe ? 'Ausgeblendete anzeigen ($hiddenCount)' : 'Show Hidden ($hiddenCount)'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _showHidden ? Colors.white : Colors.white70,
+                                fontWeight: _showHidden ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Reset to A-Z
+                    TvFocusable(
+                      focusNode: _resetOrderBtnNode,
+                      borderRadius: BorderRadius.circular(8),
+                      onPressed: _resetOrder,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            final currentDisplayed = _showHidden
+                                ? (_localCategories ?? const <CategoryWithPref>[])
+                                : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                            if (currentDisplayed.isNotEmpty) {
+                              final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                              if (firstNode != null && firstNode.canRequestFocus) {
+                                firstNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.sort_by_alpha_rounded, size: 14, color: Colors.white54),
+                            const SizedBox(width: 6),
+                            Text(isDe ? 'A-Z Zurücksetzen' : 'Reset A-Z', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Bulk Show/Hide all (accessible when showing hidden categories)
+                    if (_showHidden) ...[
+                      const SizedBox(width: 8),
+                      TvFocusable(
+                        focusNode: _bulkVisibilityBtnNode,
                         borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            allVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                            size: 14,
-                            color: const Color(0xFFB388FF),
+                        onPressed: allVisible ? _hideAll : _unhideAll,
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                              final currentDisplayed = _showHidden
+                                  ? (_localCategories ?? const <CategoryWithPref>[])
+                                  : (_localCategories ?? const <CategoryWithPref>[]).where((c) => !c.isHidden).toList();
+                              if (currentDisplayed.isNotEmpty) {
+                                final firstNode = _itemFocusNodes[currentDisplayed[0].category.categoryId];
+                                if (firstNode != null && firstNode.canRequestFocus) {
+                                  firstNode.requestFocus();
+                                  return KeyEventResult.handled;
+                                }
+                              }
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                allVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                size: 14,
+                                color: const Color(0xFFB388FF),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
+                                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  TvFocusable(
-                    borderRadius: BorderRadius.circular(8),
-                    onPressed: _resetOrder,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8),
+                    ],
+                    if (GoatPlatform.isTv && _movingIndex != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.amber, width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_vert_rounded, size: 14, color: Colors.amber),
+                            const SizedBox(width: 4),
+                            Text(
+                              isDe ? 'Verschiebemodus aktiv (▲/▼)' : 'Move mode active (▲/▼)',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.sort_by_alpha_rounded, size: 14, color: Colors.white54),
-                          const SizedBox(width: 6),
-                          Text(isDe ? 'A-Z Zurücksetzen' : 'Reset A-Z', style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (GoatPlatform.isTv && _movingIndex != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.amber, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.swap_vert_rounded, size: 14, color: Colors.amber),
-                          const SizedBox(width: 4),
-                          Text(
-                            isDe ? 'Verschiebemodus aktiv (▲/▼)' : 'Move mode active (▲/▼)',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+                    ],
+                  ],
+                ),
               ),
             ),
             if (GoatPlatform.isTv) ...[
@@ -616,13 +811,40 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
   }
 
   Widget _buildListView(bool isDe) {
+    final allList = _localCategories ?? const <CategoryWithPref>[];
+    final displayedList = _showHidden
+        ? allList
+        : allList.where((c) => !c.isHidden).toList();
+
+    if (displayedList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.visibility_off_rounded, size: 40, color: Colors.white24),
+              const SizedBox(height: 12),
+              Text(
+                isDe
+                    ? 'Alle Kategorien sind ausgeblendet.\nKlicke oben auf "Ausgeblendete anzeigen", um Kategorien zu aktivieren.'
+                    : 'All categories are hidden.\nClick "Show Hidden" above to re-enable categories.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
       scrollController: _scrollController,
-      itemCount: _localCategories!.length,
+      itemCount: displayedList.length,
       onReorder: _onReorder,
       itemBuilder: (context, index) {
-        final item = _localCategories![index];
+        final item = displayedList[index];
         final isMoving = GoatPlatform.isTv && _movingIndex == index;
         final isFavorites = item.category.categoryId == 'favorites';
         final isCustomList = item.category.categoryId.startsWith('custom_list:');
@@ -652,6 +874,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         _showTvCustomListMenu(item, index, isDe);
                       } else {
                         setState(() => _movingIndex = (_movingIndex == index) ? null : index);
+                        if (_movingIndex != null) {
+                          _scrollToIndex(_movingIndex!);
+                        }
                       }
                     }
                   : null,
@@ -665,12 +890,17 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                       _onReorder(index, index - 1);
                       return KeyEventResult.handled;
                     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
-                        index < _localCategories!.length - 1) {
+                        index < displayedList.length - 1) {
                       _onReorder(index, index + 2);
                       return KeyEventResult.handled;
                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
                         event.logicalKey == LogicalKeyboardKey.goBack) {
                       setState(() => _movingIndex = null);
+                      return KeyEventResult.handled;
+                    }
+                  } else if (event.logicalKey == LogicalKeyboardKey.arrowUp && index == 0) {
+                    if (_showHiddenBtnNode.canRequestFocus) {
+                      _showHiddenBtnNode.requestFocus();
                       return KeyEventResult.handled;
                     }
                   }
@@ -803,6 +1033,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           setState(() {
                             _movingIndex = (_movingIndex == index) ? null : index;
                           });
+                          if (_movingIndex != null) {
+                            _scrollToIndex(_movingIndex!);
+                          }
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
