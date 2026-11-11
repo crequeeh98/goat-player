@@ -22,6 +22,7 @@ class CategoryManagerModal extends ConsumerStatefulWidget {
 
 class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
   int? _movingIndex;
+  bool _showHidden = false; // Default: show only active/unhidden categories
   List<CategoryWithPref>? _localCategories;
   final ScrollController _scrollController = ScrollController();
   final Map<String, FocusNode> _itemFocusNodes = {};
@@ -35,6 +36,22 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     super.dispose();
   }
 
+  void _scrollToIndex(int index) {
+    if (!_scrollController.hasClients) return;
+    const itemHeight = 52.0;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
+    final clampedOffset = targetOffset.clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      clampedOffset,
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   void _onReorder(int oldIndex, int newIndex) async {
     final account = ref.read(activeAccountProvider);
     if (account == null || _localCategories == null) return;
@@ -42,13 +59,48 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
+    if (oldIndex == newIndex) return;
+
+    final currentDisplayed = _showHidden
+        ? _localCategories!
+        : _localCategories!.where((c) => !c.isHidden).toList();
+    if (oldIndex < 0 ||
+        oldIndex >= currentDisplayed.length ||
+        newIndex < 0 ||
+        newIndex >= currentDisplayed.length) {
+      return;
+    }
+
+    final itemToMove = currentDisplayed[oldIndex];
+    final targetItem = currentDisplayed[newIndex];
 
     setState(() {
-      final item = _localCategories!.removeAt(oldIndex);
-      _localCategories!.insert(newIndex, item);
+      if (_showHidden) {
+        final item = _localCategories!.removeAt(oldIndex);
+        _localCategories!.insert(newIndex, item);
+      } else {
+        _localCategories!.removeWhere((c) => c.category.categoryId == itemToMove.category.categoryId);
+        final targetActualIndex = _localCategories!.indexWhere((c) => c.category.categoryId == targetItem.category.categoryId);
+        if (targetActualIndex != -1) {
+          final insertIndex = oldIndex < newIndex ? targetActualIndex + 1 : targetActualIndex;
+          _localCategories!.insert(insertIndex, itemToMove);
+        } else {
+          _localCategories!.add(itemToMove);
+        }
+      }
       if (_movingIndex != null) {
         _movingIndex = newIndex;
       }
+    });
+
+    // Auto-scroll and keep focus on the moved item
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final node = _itemFocusNodes[itemToMove.category.categoryId];
+      if (node != null && node.canRequestFocus) {
+        node.requestFocus();
+      }
+      _scrollToIndex(newIndex);
     });
 
     final orderedIds = _localCategories!.map((c) => c.category.categoryId).toList();
@@ -76,7 +128,26 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
           );
         }
       }
+      if (_movingIndex != null) {
+        _movingIndex = null;
+      }
     });
+
+    if (!_showHidden && newHidden) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _localCategories == null) return;
+        final remaining = _localCategories!.where((c) => !c.isHidden).toList();
+        if (remaining.isNotEmpty) {
+          final nextItem = remaining.firstOrNull;
+          if (nextItem != null) {
+            final node = _itemFocusNodes[nextItem.category.categoryId];
+            if (node != null && node.canRequestFocus) {
+              node.requestFocus();
+            }
+          }
+        }
+      });
+    }
 
     await ref.read(categoryPreferenceDaoProvider).setVisibility(
           account.id,
@@ -414,6 +485,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
 
     final currentList = _localCategories ?? initialData ?? const <CategoryWithPref>[];
     final allVisible = currentList.isNotEmpty && currentList.every((c) => !c.isHidden);
+    final hiddenCount = currentList.where((c) => c.isHidden).length;
 
     final isDe = Localizations.localeOf(context).languageCode == 'de';
 
@@ -483,39 +555,58 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
             ),
             const Divider(height: 1, color: Colors.white12),
 
-            // Action Bar (Unhide all / Reset)
+            // Action Bar (Show Hidden Toggle / Reset A-Z / Bulk Visibility)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
+                  // Toggle Show Hidden Categories
                   TvFocusable(
                     autofocus: true,
                     borderRadius: BorderRadius.circular(8),
-                    onPressed: allVisible ? _hideAll : _unhideAll,
+                    onPressed: () {
+                      setState(() {
+                        _showHidden = !_showHidden;
+                        _movingIndex = null;
+                      });
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
+                        color: _showHidden
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _showHidden ? const Color(0xFFB388FF) : Colors.transparent,
+                          width: 1,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            allVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            _showHidden ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                             size: 14,
-                            color: const Color(0xFFB388FF),
+                            color: _showHidden ? const Color(0xFFB388FF) : Colors.white70,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                            _showHidden
+                                ? (isDe ? 'Ausgeblendete verbergen' : 'Hide Inactive')
+                                : (isDe ? 'Ausgeblendete anzeigen ($hiddenCount)' : 'Show Hidden ($hiddenCount)'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _showHidden ? Colors.white : Colors.white70,
+                              fontWeight: _showHidden ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // Reset to A-Z
                   TvFocusable(
                     borderRadius: BorderRadius.circular(8),
                     onPressed: _resetOrder,
@@ -535,6 +626,36 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                       ),
                     ),
                   ),
+                  // Bulk Show/Hide all (accessible when showing hidden categories)
+                  if (_showHidden) ...[
+                    const SizedBox(width: 8),
+                    TvFocusable(
+                      borderRadius: BorderRadius.circular(8),
+                      onPressed: allVisible ? _hideAll : _unhideAll,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              allVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              size: 14,
+                              color: const Color(0xFFB388FF),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              allVisible ? (isDe ? 'Alle ausblenden' : 'Hide All') : (isDe ? 'Alle einblenden' : 'Show All'),
+                              style: const TextStyle(fontSize: 12, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   if (GoatPlatform.isTv && _movingIndex != null)
                     Container(
@@ -616,13 +737,40 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
   }
 
   Widget _buildListView(bool isDe) {
+    final allList = _localCategories ?? const <CategoryWithPref>[];
+    final displayedList = _showHidden
+        ? allList
+        : allList.where((c) => !c.isHidden).toList();
+
+    if (displayedList.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.visibility_off_rounded, size: 40, color: Colors.white24),
+              const SizedBox(height: 12),
+              Text(
+                isDe
+                    ? 'Alle Kategorien sind ausgeblendet.\nKlicke oben auf "Ausgeblendete anzeigen", um Kategorien zu aktivieren.'
+                    : 'All categories are hidden.\nClick "Show Hidden" above to re-enable categories.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
       scrollController: _scrollController,
-      itemCount: _localCategories!.length,
+      itemCount: displayedList.length,
       onReorder: _onReorder,
       itemBuilder: (context, index) {
-        final item = _localCategories![index];
+        final item = displayedList[index];
         final isMoving = GoatPlatform.isTv && _movingIndex == index;
         final isFavorites = item.category.categoryId == 'favorites';
         final isCustomList = item.category.categoryId.startsWith('custom_list:');
@@ -652,6 +800,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                         _showTvCustomListMenu(item, index, isDe);
                       } else {
                         setState(() => _movingIndex = (_movingIndex == index) ? null : index);
+                        if (_movingIndex != null) {
+                          _scrollToIndex(_movingIndex!);
+                        }
                       }
                     }
                   : null,
@@ -665,7 +816,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                       _onReorder(index, index - 1);
                       return KeyEventResult.handled;
                     } else if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
-                        index < _localCategories!.length - 1) {
+                        index < displayedList.length - 1) {
                       _onReorder(index, index + 2);
                       return KeyEventResult.handled;
                     } else if (event.logicalKey == LogicalKeyboardKey.escape ||
@@ -803,6 +954,9 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                           setState(() {
                             _movingIndex = (_movingIndex == index) ? null : index;
                           });
+                          if (_movingIndex != null) {
+                            _scrollToIndex(_movingIndex!);
+                          }
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
