@@ -79,7 +79,7 @@ class AppUpdaterService {
           final versionFile = File('${exeDir.path}${Platform.pathSeparator}version.txt');
           if (versionFile.existsSync()) {
             final fileVer = versionFile.readAsStringSync().trim();
-            if (fileVer.isNotEmpty) {
+            if (fileVer.isNotEmpty && (currentVersion.isEmpty || currentVersion == '0.0.0' || isNewer(currentVersion, fileVer))) {
               currentVersion = fileVer;
             }
           } else if (packageInfo.version.isNotEmpty && packageInfo.version != '0.0.0') {
@@ -145,8 +145,11 @@ class AppUpdaterService {
   /// Fetches release notes for the active [currentVer] from GitHub tags,
   /// with automatic fallback to [kBundledReleaseNotes] if offline or unreleased.
   Future<String> getCurrentVersionChangelog(String currentVer) async {
+    final cleanVer = currentVer.split('+').first;
+    if (cleanVer == '2.1.1') {
+      return kBundledReleaseNotes;
+    }
     try {
-      final cleanVer = currentVer.split('+').first;
       final response = await _dio.get(
         'https://api.github.com/repos/$_repoOwner/$_repoName/releases/tags/v$cleanVer',
       );

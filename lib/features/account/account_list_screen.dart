@@ -30,6 +30,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   bool _hasNoAccounts = true;
   bool _didAutoLogin = false;
   String _appVersion = '';
+  bool _isCheckingChangelog = false;
 
   @override
   void initState() {
@@ -70,7 +71,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
           final versionFile = File('${exeDir.path}${Platform.pathSeparator}version.txt');
           if (versionFile.existsSync()) {
             final fileVer = versionFile.readAsStringSync().trim();
-            if (fileVer.isNotEmpty) ver = fileVer;
+            if (fileVer.isNotEmpty && (ver.isEmpty || ver == '0.0.0' || AppUpdaterService.isNewer(ver, fileVer))) {
+              ver = fileVer;
+            }
           }
         } catch (_) {}
       }
@@ -81,28 +84,37 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   }
 
   void _onVersionBadgePressed() async {
-    final updater = AppUpdaterService();
-    try {
-      final info = await updater.checkForUpdate();
-      if (info != null && info.hasUpdate && mounted) {
-        UpdateDialog.show(context, updateInfo: info, updaterService: updater);
-        return;
-      }
-    } catch (_) {}
+    if (_isCheckingChangelog) return;
+    _isCheckingChangelog = true;
 
-    if (!mounted) return;
-    final activeVer = _appVersion.isNotEmpty ? _appVersion : '2.1.1';
-    final notes = await updater.getCurrentVersionChangelog(activeVer);
-    final upToDateInfo = AppUpdateInfo(
-      hasUpdate: false,
-      currentVersion: activeVer,
-      latestVersion: activeVer,
-      releaseNotes: notes,
-      downloadUrl: '',
-      fileName: '',
-    );
-    if (mounted) {
-      UpdateDialog.show(context, updateInfo: upToDateInfo, updaterService: updater);
+    try {
+      final updater = AppUpdaterService();
+      try {
+        final info = await updater.checkForUpdate();
+        if (info != null && info.hasUpdate && mounted) {
+          UpdateDialog.show(context, updateInfo: info, updaterService: updater);
+          return;
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
+      final activeVer = _appVersion.isNotEmpty ? _appVersion : '2.1.1';
+      final notes = await updater.getCurrentVersionChangelog(activeVer);
+      final upToDateInfo = AppUpdateInfo(
+        hasUpdate: false,
+        currentVersion: activeVer,
+        latestVersion: activeVer,
+        releaseNotes: notes,
+        downloadUrl: '',
+        fileName: '',
+      );
+      if (mounted) {
+        UpdateDialog.show(context, updateInfo: upToDateInfo, updaterService: updater);
+      }
+    } finally {
+      if (mounted) {
+        _isCheckingChangelog = false;
+      }
     }
   }
 
