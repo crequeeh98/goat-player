@@ -157,12 +157,20 @@ class _UpdateDialogState extends State<UpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final isGerman = Localizations.localeOf(context).languageCode == 'de';
+    final hasUpdate = widget.updateInfo.hasUpdate;
 
-    final titleText = isGerman ? 'Update verfügbar' : 'Update Available';
-    final installedText = isGerman
-        ? 'Installiert: v${widget.updateInfo.currentVersion} → Neu: v${widget.updateInfo.latestVersion}'
-        : 'Installed: v${widget.updateInfo.currentVersion} → New: v${widget.updateInfo.latestVersion}';
+    final titleText = hasUpdate
+        ? (isGerman ? 'Update verfügbar' : 'Update Available')
+        : (isGerman ? 'Changelog' : 'Release Notes');
+    final installedText = hasUpdate
+        ? (isGerman
+            ? 'Installiert: v${widget.updateInfo.currentVersion} → Neu: v${widget.updateInfo.latestVersion}'
+            : 'Installed: v${widget.updateInfo.currentVersion} → New: v${widget.updateInfo.latestVersion}')
+        : (isGerman
+            ? 'v${widget.updateInfo.currentVersion} • Du bist auf dem neuesten Stand'
+            : 'v${widget.updateInfo.currentVersion} • You are up to date');
     final laterText = isGerman ? 'Später' : 'Later';
+    final closeText = isGerman ? 'Schließen' : 'Close';
     final updateNowText = _errorMessage != null
         ? (isGerman ? 'Erneut versuchen' : 'Retry')
         : (isGerman ? 'Jetzt aktualisieren' : 'Update Now');
@@ -186,10 +194,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+              color: (hasUpdate ? const Color(0xFF7C3AED) : Colors.green).withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.system_update_rounded, color: Color(0xFFB388FF), size: 24),
+            child: Icon(
+              hasUpdate ? Icons.system_update_rounded : Icons.check_circle_rounded,
+              color: hasUpdate ? const Color(0xFFB388FF) : Colors.greenAccent,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -215,7 +227,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         border: Border.all(color: const Color(0xFFB388FF).withValues(alpha: 0.6), width: 1),
                       ),
                       child: Text(
-                        'v${widget.updateInfo.latestVersion}',
+                        'v${hasUpdate ? widget.updateInfo.latestVersion : widget.updateInfo.currentVersion}',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -321,58 +333,78 @@ class _UpdateDialogState extends State<UpdateDialog> {
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
-        if (!_isDownloading)
+        if (hasUpdate) ...[
+          if (!_isDownloading)
+            TvFocusable(
+              focusNode: _laterBtnFocusNode,
+              borderRadius: BorderRadius.circular(8),
+              onPressed: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  laterText,
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                ),
+              ),
+            ),
+          TvFocusable(
+            focusNode: _updateBtnFocusNode,
+            autofocus: GoatPlatform.isTv,
+            borderRadius: BorderRadius.circular(8),
+            onPressed: _isDownloading ? null : _startUpdate,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isDownloading)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  else
+                    Icon(
+                      _errorMessage != null ? Icons.refresh_rounded : Icons.download_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _isDownloading ? downloadingText : updateNowText,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
           TvFocusable(
             focusNode: _laterBtnFocusNode,
+            autofocus: GoatPlatform.isTv,
             borderRadius: BorderRadius.circular(8),
             onPressed: () => Navigator.of(context).pop(),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: const Color(0xFF7C3AED),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                laterText,
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                closeText,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
               ),
             ),
           ),
-        TvFocusable(
-          focusNode: _updateBtnFocusNode,
-          autofocus: GoatPlatform.isTv,
-          borderRadius: BorderRadius.circular(8),
-          onPressed: _isDownloading ? null : _startUpdate,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isDownloading)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                else
-                  Icon(
-                    _errorMessage != null ? Icons.refresh_rounded : Icons.download_rounded,
-                    size: 18,
-                    color: Colors.white,
-                  ),
-                const SizedBox(width: 8),
-                Text(
-                  _isDownloading ? downloadingText : updateNowText,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
+        ],
       ],
     );
   }

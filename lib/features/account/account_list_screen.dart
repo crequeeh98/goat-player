@@ -80,6 +80,32 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
     } catch (_) {}
   }
 
+  void _onVersionBadgePressed() async {
+    final updater = AppUpdaterService();
+    try {
+      final info = await updater.checkForUpdate();
+      if (info != null && info.hasUpdate && mounted) {
+        UpdateDialog.show(context, updateInfo: info, updaterService: updater);
+        return;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    final activeVer = _appVersion.isNotEmpty ? _appVersion : '2.1.1';
+    final notes = await updater.getCurrentVersionChangelog(activeVer);
+    final upToDateInfo = AppUpdateInfo(
+      hasUpdate: false,
+      currentVersion: activeVer,
+      latestVersion: activeVer,
+      releaseNotes: notes,
+      downloadUrl: '',
+      fileName: '',
+    );
+    if (mounted) {
+      UpdateDialog.show(context, updateInfo: upToDateInfo, updaterService: updater);
+    }
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -270,21 +296,25 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                     Text(l10n.accounts),
                     if (_appVersion.isNotEmpty) ...[
                       const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                      TvFocusable(
+                        borderRadius: BorderRadius.circular(6),
+                        onPressed: _onVersionBadgePressed,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          'v$_appVersion',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFC4B5FD),
+                          child: Text(
+                            'v$_appVersion',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFC4B5FD),
+                            ),
                           ),
                         ),
                       ),
