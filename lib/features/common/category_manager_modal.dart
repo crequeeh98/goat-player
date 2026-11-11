@@ -102,11 +102,13 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
     // Auto-scroll and keep focus on the moved item
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final node = _itemFocusNodes[itemToMove.category.categoryId];
-      if (node != null && node.canRequestFocus) {
-        node.requestFocus();
+      if (GoatPlatform.isTv) {
+        final node = _itemFocusNodes[itemToMove.category.categoryId];
+        if (node != null && node.canRequestFocus) {
+          node.requestFocus();
+        }
+        _scrollToIndex(newIndex);
       }
-      _scrollToIndex(newIndex);
     });
 
     final orderedIds = _localCategories!.map((c) => c.category.categoryId).toList();
@@ -144,7 +146,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
       }
     });
 
-    if (!_showHidden && newHidden) {
+    if (GoatPlatform.isTv && !_showHidden && newHidden) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _localCategories == null) return;
         final remaining = _localCategories!.where((c) => !c.isHidden).toList();
@@ -156,6 +158,12 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
             node.requestFocus();
           }
         }
+      });
+    } else if (!GoatPlatform.isTv) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        FocusManager.instance.primaryFocus?.unfocus();
       });
     }
 
@@ -577,7 +585,7 @@ class _CategoryManagerModalState extends ConsumerState<CategoryManagerModal> {
                     // Toggle Show Hidden Categories
                     TvFocusable(
                       focusNode: _showHiddenBtnNode,
-                      autofocus: true,
+                      autofocus: GoatPlatform.isTv,
                       borderRadius: BorderRadius.circular(8),
                       onPressed: () {
                         setState(() {
