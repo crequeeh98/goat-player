@@ -4,15 +4,24 @@ This document outlines the development history, architectural milestones, and pr
 
 ---
 
-## 🏆 Current Release: v2.0.4 (Security Hardening Suite & Full Localization)
+## 🏆 Current Release: v2.1.1 (Flutter Hotfix) & v2.0.5 (Smart TV Maintenance)
 
-All core goals of Milestone v1 and Milestone v2 are **100% completed, tested, and verified** across Windows Desktop, Android Phone, Android TV, Amazon Fire TV, LG webOS, and Samsung Tizen.
+All core goals of Milestone v1, Milestone v2, and Milestone v2.1 are **100% completed, tested, and verified** across Windows Desktop, Android Phone, Android TV, Amazon Fire TV, LG webOS, and Samsung Tizen.
 
 ---
 
 ## ✅ Completed Milestones
 
-### 1. Security & Hardening Suite (v2.0.4)
+### 1. Custom Playlists, Category Manager & Modernized Changelog (v2.1.0 - v2.1.1)
+- [x] **Eigene Listen (Custom Playlists)**: User-defined stream playlists partitioned across Live TV, Movies, and Series with recovery on provider stream ID shifts.
+- [x] **Category Manager & Custom Sorting**: Drag-and-drop & remote-driven category reordering, hide/unhide toggling, bulk reset, and auto NEW badge on newly added provider categories.
+- [x] **Granular Playlist Sync Scopes**: Independent toggles for Live TV, Movies, and Series sync per account.
+- [x] **Compact Localized Update Modal**: Single-screen rich Markdown release notes with automatic language filtering (DE/EN) and TV D-Pad autofocus.
+- [x] **On-Demand Changelog Viewer**: Version badge on Account screen clickable anytime; shows verified status with "Close" action when up-to-date.
+- [x] **Category Modal Polish (Hotfix v2.1.1)**: Horizontal scrolling action bar for mobile touch screens and auto-glow/focus suppression on desktop and touch devices.
+- [x] **Smart TV Maintenance (v2.0.5)**: 512×512 crisp Tizen icon, elevated toast z-index, Xtream credential retention during portal edits, and independent manifest-based updater.
+
+### 2. Security & Hardening Suite (v2.0.4)
 - [x] **Zero-Knowledge Remote Pairing**: AES-256-GCM encryption with PBKDF2 key derivation for cloud pairing between TVs and Web Portal.
 - [x] **At-Rest Database & Storage Encryption**: Secret credentials encrypted via AES-GCM (`enc:v1:`) in Drift SQLite and LocalStorage with automated zero-breakage migration.
 - [x] **Smart TV OTA Code Integrity**: SHA-256 cryptographic verification before running cached OTA update scripts.
