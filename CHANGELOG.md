@@ -4,6 +4,30 @@ All notable changes to the **GOATPlayer** project will be documented in this fil
 
 ---
 
+## [2.1.1] - 2026-11-11
+
+### 🇩🇪 Änderungen & Optimierungen
+- **Kategorien-Manager Hotfix**:
+  - *Mobiles Wischen & Scrolling*: Action Bar (`Ausgeblendete verbergen/anzeigen`, `A-Z Zurücksetzen`, `Alle ein-/ausblenden`) auf Mobilgeräten horizontal flüssig scroll- und wischbar.
+  - *Fokus-Glow Beseitigung*: Kein nachrückender lila Fokusrahmen auf Touch- und Desktop-Geräten nach dem Ausblenden von Kategorien.
+  - *TV D-Pad Stabilität*: Schnelles und unterbrechungsfreies Zappen & Verschieben auf Fire TV / Android TV bleibt uneingeschränkt erhalten.
+- **Modernisiertes Update-Modal**:
+  - *Automatischer Sprachfilter*: Zeigt auf deutschen Geräten exklusiv deutsche Release-Notes und auf englischen Geräten englische Texte.
+  - *Rich Markdown Rendering*: Kompakte Bullets, `Code-Badges`, **Fettschrift** und *Kursivschrift* auf einen Blick ohne unnötiges Scrollen.
+  - *Responsive Dialogmaße*: 620px breite TV-Darstellung und D-Pad Autofokus auf *„Jetzt aktualisieren“*.
+
+### 🇬🇧 Changes & Optimizations
+- **Category Manager Hotfix**:
+  - *Mobile Touch Scrolling*: Horizontally scrollable Action Bar (`Show/Hide Inactive`, `Reset A-Z`, `Bulk Toggle`) for smartphones.
+  - *Focus Glow Cleared*: Removed lingering purple focus outline on mobile touch and desktop mouse interactions after hiding categories.
+  - *TV D-Pad Navigation*: Preserved seamless auto-focus continuation on Android TV and Fire TV remotes.
+- **Modernized Update Dialog**:
+  - *Automated Language Filter*: Displays German notes on German systems and English notes on English systems without bilingual clutter.
+  - *Rich Markdown Formatting*: Dense bullet points, `code tags`, **bold** and *italic* styling fitting on a single screen without scrolling.
+  - *Responsive TV Dialog*: 620px wide layout for television screens with D-Pad autofocus on *Update Now*.
+
+---
+
 ## [2.0.4] - 2026-11-03
 
 ### 🇩🇪 Änderungen & Optimierungen

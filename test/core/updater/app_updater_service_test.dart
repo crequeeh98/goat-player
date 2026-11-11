@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:goat_player/core/updater/app_updater_service.dart';
+import 'package:goat_player/core/updater/widgets/update_dialog.dart';
 
 void main() {
   group('AppUpdaterService Version & Asset Matching', () {
@@ -134,6 +135,38 @@ void main() {
         ),
         isNull,
       );
+    });
+  });
+
+  group('UpdateDialog Changelog Extraction', () {
+    const rawChangelog = '''
+### 🇩🇪 Änderungen & Optimierungen
+- **Kategorien-Manager**: Wischen und Scrollen auf Handy
+- **Fokus-Glow**: Glow auf Desktop entfernt
+
+### 🇬🇧 Changes & Optimizations
+- **Category Manager**: Touch scroll on phone
+- **Focus Glow**: Removed glow on desktop
+''';
+
+    test('extracts German section when isGerman is true', () {
+      final de = UpdateDialog.extractLocalizedChangelog(rawChangelog, true);
+      expect(de.contains('Wischen und Scrollen auf Handy'), isTrue);
+      expect(de.contains('Changes & Optimizations'), isFalse);
+      expect(de.contains('Touch scroll on phone'), isFalse);
+    });
+
+    test('extracts English section when isGerman is false', () {
+      final en = UpdateDialog.extractLocalizedChangelog(rawChangelog, false);
+      expect(en.contains('Touch scroll on phone'), isTrue);
+      expect(en.contains('Änderungen & Optimierungen'), isFalse);
+      expect(en.contains('Wischen und Scrollen auf Handy'), isFalse);
+    });
+
+    test('falls back to full text when no language markers are present', () {
+      const fallbackText = '- General bug fixes and stability improvements';
+      final res = UpdateDialog.extractLocalizedChangelog(fallbackText, true);
+      expect(res, fallbackText);
     });
   });
 }
