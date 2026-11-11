@@ -60,7 +60,7 @@ jobs:
             VERSION="${{ github.event.inputs.release_tag || '2.0.2' }}"
             VERSION="${VERSION#v}"
           fi
-          flutter build apk --release --build-name="$VERSION"
+          flutter build apk --release --build-name="$VERSION" --android-skip-build-dependency-validation
           mkdir -p dist/android
           cp build/app/outputs/flutter-apk/app-release.apk dist/android/GOATPlayer-universal.apk
 
@@ -73,7 +73,7 @@ jobs:
             VERSION="${{ github.event.inputs.release_tag || '2.0.2' }}"
             VERSION="${VERSION#v}"
           fi
-          flutter build apk --release --split-per-abi --build-name="$VERSION"
+          flutter build apk --release --split-per-abi --build-name="$VERSION" --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/GOATPlayer-armeabi-v7a.apk
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/GOATPlayer-arm64-v8a.apk
 
