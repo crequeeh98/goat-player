@@ -97,7 +97,10 @@
       return {
         id: acc.id,
         playlist_name: acc.name || 'IPTV Playlist',
-        type: isM3u ? 'm3u' : 'xtream'
+        type: isM3u ? 'm3u' : 'xtream',
+        sync_live_tv: acc.syncLiveTv !== false,
+        sync_movies: acc.syncMovies !== false,
+        sync_series: acc.syncSeries !== false
       };
     });
   }
@@ -227,7 +230,10 @@
                   serverUrl: actionObj.server_url || '',
                   username: actionObj.username || '',
                   password: actionObj.password || '',
-                  name: actionObj.playlist_name || actionObj.username || (isM3u ? 'M3U Playlist' : 'Remote Playlist')
+                  name: actionObj.playlist_name || actionObj.username || (isM3u ? 'M3U Playlist' : 'Remote Playlist'),
+                  syncLiveTv: actionObj.sync_live_tv !== undefined ? !!actionObj.sync_live_tv : (actionObj.syncLiveTv !== undefined ? !!actionObj.syncLiveTv : true),
+                  syncMovies: actionObj.sync_movies !== undefined ? !!actionObj.sync_movies : (actionObj.syncMovies !== undefined ? !!actionObj.syncMovies : true),
+                  syncSeries: actionObj.sync_series !== undefined ? !!actionObj.sync_series : (actionObj.syncSeries !== undefined ? !!actionObj.syncSeries : true)
                 }
               });
             }
@@ -262,12 +268,19 @@
                   isM3u = true;
                 }
 
+                var syncLiveTv = actionObj.sync_live_tv !== undefined ? !!actionObj.sync_live_tv : (actionObj.syncLiveTv !== undefined ? !!actionObj.syncLiveTv : (targetAcc.syncLiveTv !== false));
+                var syncMovies = actionObj.sync_movies !== undefined ? !!actionObj.sync_movies : (actionObj.syncMovies !== undefined ? !!actionObj.syncMovies : (targetAcc.syncMovies !== false));
+                var syncSeries = actionObj.sync_series !== undefined ? !!actionObj.sync_series : (actionObj.syncSeries !== undefined ? !!actionObj.syncSeries : (targetAcc.syncSeries !== false));
+
                 updatedAcc = Object.assign({}, targetAcc, {
                   type: isM3u ? 'm3u' : undefined,
                   serverUrl: newServerUrl,
                   username: newUsername,
                   password: newPassword,
-                  name: newName
+                  name: newName,
+                  syncLiveTv: syncLiveTv,
+                  syncMovies: syncMovies,
+                  syncSeries: syncSeries
                 });
                 window.TVStorage.saveAccount(updatedAcc);
               } else if (actionObj.id) {
@@ -278,7 +291,10 @@
                   serverUrl: actionObj.server_url || '',
                   username: actionObj.username || '',
                   password: actionObj.password || '',
-                  name: actionObj.playlist_name || actionObj.username || (isM3uNew ? 'M3U Playlist' : 'Remote Playlist')
+                  name: actionObj.playlist_name || actionObj.username || (isM3uNew ? 'M3U Playlist' : 'Remote Playlist'),
+                  syncLiveTv: actionObj.sync_live_tv !== undefined ? !!actionObj.sync_live_tv : (actionObj.syncLiveTv !== undefined ? !!actionObj.syncLiveTv : true),
+                  syncMovies: actionObj.sync_movies !== undefined ? !!actionObj.sync_movies : (actionObj.syncMovies !== undefined ? !!actionObj.syncMovies : true),
+                  syncSeries: actionObj.sync_series !== undefined ? !!actionObj.sync_series : (actionObj.syncSeries !== undefined ? !!actionObj.syncSeries : true)
                 });
               }
               if (onEvent) onEvent({ type: 'accountUpdated', account: updatedAcc });

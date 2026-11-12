@@ -2,7 +2,8 @@
 (function() {
   'use strict';
 
-  var BASE_VERSION = '2.0.5';
+  var BASE_VERSION = '2.1.2';
+  var EMBEDDED_VERSION = '2.1.2';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
   var CRASH_CANARY_KEY = 'goat_ota_boot_in_progress';
 
@@ -233,6 +234,7 @@
 
   window.TVBootloader = {
     getBaseVersion: function() { return BASE_VERSION; },
+    getEmbeddedVersion: function() { return EMBEDDED_VERSION; },
     getActiveVersion: function() { return window.__GOAT_TV_VERSION__ || BASE_VERSION; },
     computeSha256: computeSha256,
     clearOtaBundle: function() {

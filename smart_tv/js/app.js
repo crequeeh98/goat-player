@@ -355,6 +355,18 @@
     if (modalEl.id === 'delete-account-modal') {
       _accountPendingDelete = null;
     }
+    if (modalEl.id === 'modal-category-manager') {
+      _moveModeActive = false;
+      _moveModeCategoryId = null;
+      window._moveModeActive = false;
+      if (_activeCategoryManagerType === 'live') {
+        renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
+      } else if (_activeCategoryManagerType === 'movie') {
+        renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
+      } else if (_activeCategoryManagerType === 'series') {
+        renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
+      }
+    }
     if (modalEl.id === 'modal-master-search') {
       var mi = document.getElementById('master-search-input');
       if (mi) mi.value = '';
@@ -498,8 +510,8 @@
     var newFav = window.TVStorage.toggleFavorite(_activeAccount.id, stream.stream_id, 'live');
     if (wrapEl) {
       var favBtn = wrapEl.querySelector('.fav-btn');
-      var starIcon = window.TVIcons ? window.TVIcons.star : '★';
-      var starOutlineIcon = window.TVIcons ? window.TVIcons.starOutline : '☆';
+      var starIcon = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : (window.TVIcons ? window.TVIcons.star : '★');
+      var starOutlineIcon = (window.TVIcons && window.TVIcons.starOutline) ? window.TVIcons.starOutline : '☆';
       if (favBtn) {
         favBtn.className = 'fav-btn ' + (newFav ? 'active' : '');
         favBtn.innerHTML = newFav ? starIcon : starOutlineIcon;
@@ -507,7 +519,7 @@
     }
     var cleanName = stream.name ? stream.name.replace(/^\[.*?\]\s*/, '') : 'Channel';
     var text = newFav ? (window.TVI18n ? window.TVI18n.t('fav_added') : 'Added to Favorites') : (window.TVI18n ? window.TVI18n.t('fav_removed') : 'Removed from Favorites');
-    showToast(cleanName + ': ' + text, '★');
+    showToast(cleanName + ': ' + text, newFav ? 'star' : 'trash');
 
     if (_selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
       if (!newFav) {
@@ -537,12 +549,19 @@
         var iconUrl = sanitizeImgUrl(stream.stream_icon || '');
         var isFav = _activeAccount ? window.TVStorage.isFavorite(_activeAccount.id, stream.stream_id, 'live') : false;
         var isPlaying = _selectedLiveStream && String(_selectedLiveStream.stream_id) === String(stream.stream_id);
-        var starIcon = window.TVIcons ? window.TVIcons.star : '★';
-        var starOutlineIcon = window.TVIcons ? window.TVIcons.starOutline : '☆';
-        var tvIcon = window.TVIcons ? window.TVIcons.tv : '';
+        var isMoving = window._movingLiveStreamId && String(stream.stream_id) === String(window._movingLiveStreamId);
+        var moveClass = isMoving ? ' move-active' : '';
+        var starIcon = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : (window.TVIcons ? window.TVIcons.star : '★');
+        var starOutlineIcon = (window.TVIcons && window.TVIcons.starOutline) ? window.TVIcons.starOutline : '☆';
+        var tvIcon = (window.TVIcons && window.TVIcons.tv) ? window.TVIcons.tv : '';
+        var swapVertIcon = (window.TVIcons && window.TVIcons.swapVert) ? window.TVIcons.swapVert : '↕';
+
+        var rightIndicator = isMoving
+          ? '<span class="channel-move-indicator" style="color: #F59E0B; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;">' + swapVertIcon + '</span>'
+          : '<button class="fav-btn ' + (isFav ? 'active' : '') + '" tabindex="-1" title="Favorite">' + (isFav ? starIcon : starOutlineIcon) + '</button>';
 
         rowEl.innerHTML = 
-          '<div class="channel-row ' + (isPlaying ? 'active-playing' : '') + ' focusable" style="height:100%; width:100%;">' +
+          '<div class="channel-row ' + (isPlaying ? 'active-playing' : '') + moveClass + ' focusable" style="height:100%; width:100%;" data-stream-id="' + escapeHtml(String(stream.stream_id)) + '">' +
             '<div class="channel-info">' +
               (iconUrl ? '<img class="channel-logo" loading="lazy" decoding="async" src="' + iconUrl + '" onerror="this.style.display=\'none\'" />' : '<div class="channel-logo">' + tvIcon + '</div>') +
               '<div class="channel-text-col">' +
@@ -550,7 +569,7 @@
                 '<span class="channel-epg-now">LIVE TV</span>' +
               '</div>' +
             '</div>' +
-            '<button class="fav-btn ' + (isFav ? 'active' : '') + '" tabindex="-1" title="Favorite">' + (isFav ? starIcon : starOutlineIcon) + '</button>' +
+            rightIndicator +
           '</div>';
 
         var favBtn = rowEl.querySelector('.fav-btn');
@@ -857,21 +876,22 @@
     var curLang = (window.TVI18n && window.TVI18n.getLanguage) ? window.TVI18n.getLanguage() : 'en';
     var expiresPrefix = window.TVI18n ? window.TVI18n.t('expires') : 'Expires:';
     var clockIcon = '<svg width="15" height="15" class="tv-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+    var userIcon = (window.TVIcons && window.TVIcons.user) || '';
+    var playlistIcon = (window.TVIcons && window.TVIcons.playlist) || '';
+    var editIcon = (window.TVIcons && window.TVIcons.edit) || '';
+    var trashIcon = (window.TVIcons && window.TVIcons.trash) || '';
 
     accounts.forEach(function(acc) {
       var card = document.createElement('div');
       card.className = 'account-card focusable';
       var editTitle = window.TVI18n ? window.TVI18n.t('edit') : 'Edit';
       var delTitle = window.TVI18n ? window.TVI18n.t('delete') : 'Delete';
-      var userIcon = window.TVIcons ? window.TVIcons.user : '👤';
-      var editIcon = window.TVIcons ? window.TVIcons.edit : '✏️';
-      var trashIcon = window.TVIcons ? window.TVIcons.trash : '🗑️';
 
       var badgeHtml = '';
       if (acc.type === 'm3u') {
         var chCount = acc.channelCount ? (acc.channelCount + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels')) : 'M3U';
         badgeHtml = '<div class="account-expiry-badge active">' +
-          '<span class="expiry-value" style="color: var(--accent-light);">📺 ' + chCount + '</span>' +
+          '<span class="expiry-value" style="color: var(--accent-light); display: inline-flex; align-items: center; gap: 6px;">' + playlistIcon + ' ' + chCount + '</span>' +
         '</div>';
       } else {
         var expText = '--';
@@ -889,7 +909,7 @@
 
       card.innerHTML = 
         '<div class="account-card-left">' +
-          '<div class="account-avatar">' + (acc.type === 'm3u' ? '📺' : userIcon) + '</div>' +
+          '<div class="account-avatar">' + (acc.type === 'm3u' ? playlistIcon : userIcon) + '</div>' +
           '<div class="account-details">' +
             '<span class="account-name">' + escapeHtml(acc.name || acc.username || 'M3U Playlist') + '</span>' +
             '<span class="account-url">' + escapeHtml(acc.serverUrl) + '</span>' +
@@ -996,12 +1016,25 @@
       var pSpin = document.getElementById('player-loading-spinner');
       if (pSpin) pSpin.style.display = 'none';
 
-      // Switch to Live TV tab
-      switchTab('live');
+      // Update sidebar nav destinations according to account sync scopes
+      updateNavRailScopes();
 
-      // Pre-fetch Movies and Series in parallel during splash!
-      preloadMovies(account);
-      preloadSeries(account);
+      // Switch to first enabled tab
+      var initialTab = (account.syncLiveTv !== false) ? 'live' : (account.syncMovies !== false ? 'movies' : 'series');
+      switchTab(initialTab);
+
+      // Pre-fetch Movies and Series in parallel during splash if enabled!
+      if (account.syncMovies !== false) {
+        preloadMovies(account);
+      } else {
+        onSplashMoviesLoaded();
+      }
+
+      if (account.syncSeries !== false) {
+        preloadSeries(account);
+      } else {
+        onSplashSeriesLoaded();
+      }
     }
 
     if (options && options.showSplash) {
@@ -1012,7 +1045,10 @@
   }
 
   function preloadMovies(account) {
-    if (!account) return;
+    if (!account || account.syncMovies === false) {
+      onSplashMoviesLoaded();
+      return;
+    }
     window.TVApi.getVodCategories(account)
       .then(function(cats) {
         _movieCategories = cats;
@@ -1025,7 +1061,10 @@
   }
 
   function preloadSeries(account) {
-    if (!account) return;
+    if (!account || account.syncSeries === false) {
+      onSplashSeriesLoaded();
+      return;
+    }
     window.TVApi.getSeriesCategories(account)
       .then(function(cats) {
         _seriesCategories = cats;
@@ -1039,6 +1078,9 @@
 
   function ensureMasterTabData(tab) {
     if (!_activeAccount) return Promise.resolve([]);
+    if (tab === 'live' && _activeAccount.syncLiveTv === false) return Promise.resolve([]);
+    if (tab === 'movies' && _activeAccount.syncMovies === false) return Promise.resolve([]);
+    if (tab === 'series' && _activeAccount.syncSeries === false) return Promise.resolve([]);
     if (tab === 'live') {
       if (_allAccountLiveStreams) return Promise.resolve(_allAccountLiveStreams);
       if (!_fetchingMasterLivePromise) {
@@ -1096,6 +1138,33 @@
     ensureMasterTabData('live');
     ensureMasterTabData('movies');
     ensureMasterTabData('series');
+  }
+
+  function updateNavRailScopes() {
+    if (!_activeAccount) return;
+    var liveBtn = document.getElementById('nav-btn-live');
+    var movBtn = document.getElementById('nav-btn-movies');
+    var serBtn = document.getElementById('nav-btn-series');
+
+    var hasLive = _activeAccount.syncLiveTv !== false;
+    var hasMovies = _activeAccount.syncMovies !== false;
+    var hasSeries = _activeAccount.syncSeries !== false;
+
+    if (liveBtn) liveBtn.style.display = hasLive ? '' : 'none';
+    if (movBtn) movBtn.style.display = hasMovies ? '' : 'none';
+    if (serBtn) serBtn.style.display = hasSeries ? '' : 'none';
+
+    // If active tab was disabled, switch to first available tab
+    if (_currentTab === 'live' && !hasLive) {
+      if (hasMovies) switchTab('movies');
+      else if (hasSeries) switchTab('series');
+    } else if (_currentTab === 'movies' && !hasMovies) {
+      if (hasLive) switchTab('live');
+      else if (hasSeries) switchTab('series');
+    } else if (_currentTab === 'series' && !hasSeries) {
+      if (hasLive) switchTab('live');
+      else if (hasMovies) switchTab('movies');
+    }
   }
 
   // =========================================================
@@ -1512,11 +1581,20 @@
   }
 
   function switchTab(tabName) {
+    if (_activeAccount) {
+      if (tabName === 'live' && _activeAccount.syncLiveTv === false) {
+        tabName = _activeAccount.syncMovies !== false ? 'movies' : 'series';
+      } else if (tabName === 'movies' && _activeAccount.syncMovies === false) {
+        tabName = _activeAccount.syncLiveTv !== false ? 'live' : 'series';
+      } else if (tabName === 'series' && _activeAccount.syncSeries === false) {
+        tabName = _activeAccount.syncLiveTv !== false ? 'live' : 'movies';
+      }
+    }
     var previousTab = _currentTab;
     _currentTab = tabName;
 
     // Release large full-account stream arrays for inactive tabs to free RAM
-    var masterSearchModal = document.getElementById('master-search-modal');
+    var masterSearchModal = document.getElementById('modal-master-search');
     var isSearchOpen = masterSearchModal && masterSearchModal.classList.contains('active');
     if (!isSearchOpen) {
       if (tabName !== 'movies' && previousTab === 'movies') {
@@ -1652,7 +1730,10 @@
   // 3. TAB 1: LIVE TV (3-COLUMN LAYOUT)
   // =========================================================
   function loadLiveTv() {
-    if (!_activeAccount) return;
+    if (!_activeAccount || _activeAccount.syncLiveTv === false) {
+      onSplashLiveLoaded();
+      return;
+    }
     var listEl = document.getElementById('live-categories-list');
     if (listEl) listEl.innerHTML = '<div class="col-placeholder" data-i18n="loading_categories">' + (window.TVI18n ? window.TVI18n.t('loading_categories') : 'Loading categories...') + '</div>';
 
@@ -1709,41 +1790,105 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
+    var rawCats = cats || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, 'live') : [];
     var favText = window.TVI18n ? window.TVI18n.t('favorites') : 'Favorites';
-    var starIcon = window.TVIcons ? window.TVIcons.star : '★';
-    var tvIcon = window.TVIcons ? window.TVIcons.tv : '📺';
+    var starIcon = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : (window.TVIcons ? window.TVIcons.star : '★');
+    var tvIcon = (window.TVIcons && window.TVIcons.tv) ? window.TVIcons.tv : '';
+    var listIcon = (window.TVIcons && window.TVIcons.playlist) ? window.TVIcons.playlist : '';
+
+    var favCat = { category_id: 'favorites', category_name: favText, isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true, customList: cl };
+    });
+    var allCats = [favCat].concat(customCats).concat(rawCats);
+    var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, 'live') : { order: [], hidden: [], newIds: [] };
+
+    // Fast O(1) lookups
+    var orderSet = {};
+    (prefs.order || []).forEach(function(id) { orderSet[id] = true; });
+    var hiddenSet = {};
+    (prefs.hidden || []).forEach(function(id) { hiddenSet[id] = true; });
+
+    // Order categories according to prefs.order
+    var catMap = {};
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      catMap[id] = c;
+    });
+
+    var orderedList = [];
+    var favIdx = prefs.order.indexOf('favorites');
+    if (favIdx === -1) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    } else if (favIdx === prefs.order.length - 1 && prefs.order.length > 1 && !prefs.hasManualSort) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    }
+
+    prefs.order.forEach(function(id) {
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (catMap[id]) orderedList.push(catMap[id]);
+    });
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (!orderSet[id]) orderedList.push(c);
+    });
+
+    // Filter hidden categories
+    var visibleList = orderedList.filter(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      return !hiddenSet[id];
+    });
 
     var targetEl = null;
+    var frag = document.createDocumentFragment();
 
-    // Favorites Category at top
-    var isFavActive = (activeCategoryId === 'favorites');
-    var favEl = document.createElement('div');
-    favEl.className = 'category-item focusable' + (isFavActive ? ' active' : '');
-    favEl.setAttribute('data-category-id', 'favorites');
-    favEl.innerHTML = 
-      '<div class="category-left">' +
-        '<span class="category-icon" style="color:var(--accent-gold);">' + starIcon + '</span>' +
-        '<span class="category-name-text">' + favText + '</span>' +
-      '</div>';
-    favEl.onclick = function() { selectLiveCategory({ category_id: 'favorites', category_name: favText }, favEl); };
-    listEl.appendChild(favEl);
-    if (isFavActive) targetEl = favEl;
-
-    // Standard Categories (A-Z)
-    cats.forEach(function(cat) {
+    visibleList.forEach(function(cat) {
+      var catId = String(cat.category_id || cat.categoryId);
+      var isCatActive = (activeCategoryId && String(activeCategoryId) === catId);
       var el = document.createElement('div');
-      var isCatActive = (activeCategoryId && String(cat.category_id) === String(activeCategoryId));
       el.className = 'category-item focusable' + (isCatActive ? ' active' : '');
-      el.setAttribute('data-category-id', String(cat.category_id));
-      el.innerHTML = 
-        '<div class="category-left">' +
-          '<span class="category-icon">' + tvIcon + '</span>' +
-          '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
-        '</div>';
-      el.onclick = function() { selectLiveCategory(cat, el); };
-      listEl.appendChild(el);
+      el.setAttribute('data-category-id', catId);
+
+      if (cat.isFav) {
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon" style="color:var(--accent-gold);">' + starIcon + '</span>' +
+            '<span class="category-name-text">' + favText + '</span>' +
+          '</div>';
+        el.onclick = function() { selectLiveCategory({ category_id: 'favorites', category_name: favText }, el); };
+      } else if (cat.isCustom) {
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon" style="color:#B388FF;">' + listIcon + '</span>' +
+            '<span class="category-name-text" style="color:#C4B5FD; font-weight:600;">' + escapeHtml(cat.category_name) + '</span>' +
+            '<span class="badge-cat-list">LISTE</span>' +
+          '</div>';
+        el.onclick = function() { selectLiveCustomList(cat.customList, el); };
+      } else {
+        var isNew = prefs.newIds.indexOf(catId) >= 0;
+        var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon">' + tvIcon + '</span>' +
+            '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
+            badgeHtml +
+          '</div>';
+        el.onclick = function() {
+          if (isNew && _activeAccount && window.TVStorage) {
+            window.TVStorage.markCategoryViewed(_activeAccount.id, 'live', cat.category_id);
+            var b = el.querySelector('.badge-cat-new');
+            if (b) b.remove();
+          }
+          selectLiveCategory(cat, el);
+        };
+      }
+
+      frag.appendChild(el);
       if (isCatActive) targetEl = el;
     });
+    listEl.appendChild(frag);
 
     var catSearchInput = document.getElementById('live-cat-search');
     var isSearchFocused = (document.activeElement === catSearchInput) ||
@@ -1752,10 +1897,9 @@
     var favIds = (_activeAccount && window.TVStorage) ? window.TVStorage.getFavorites(_activeAccount.id, 'live') : [];
 
     if (!targetEl) {
-      if (favIds && favIds.length > 0) {
+      var favEl = listEl.querySelector('.category-item[data-category-id="favorites"]');
+      if (favIds && favIds.length > 0 && favEl) {
         targetEl = favEl;
-      } else if (listEl.children.length > 1) {
-        targetEl = listEl.children[1];
       } else if (listEl.firstElementChild) {
         targetEl = listEl.firstElementChild;
       }
@@ -1773,10 +1917,93 @@
     }
   }
 
+  function selectLiveCustomList(cl, element) {
+    if (!cl) return;
+    _selectedLiveCategory = { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustomList: true, customListId: cl.id };
+    window._selectedLiveCategory = _selectedLiveCategory;
+
+    var catSearch = document.getElementById('live-cat-search');
+    var catClearBtn = document.getElementById('live-cat-clear-btn');
+    if (catSearch) { catSearch.value = ''; _liveSearchQuery = ''; }
+    if (catClearBtn) catClearBtn.style.display = 'none';
+
+    var chSearch = document.getElementById('live-channels-search-input');
+    var chClearBtn = document.getElementById('live-channels-search-clear-btn');
+    if (chSearch) { chSearch.value = ''; _liveChannelSearchQuery = ''; }
+    if (chClearBtn) chClearBtn.style.display = 'none';
+
+    document.querySelectorAll('#live-categories-list .category-item').forEach(function(el) {
+      el.classList.remove('active');
+    });
+    if (element) element.classList.add('active');
+
+    var titleEl = document.getElementById('live-selected-category-title');
+    if (titleEl) titleEl.textContent = cl.name;
+
+    var countBadge = document.getElementById('live-channels-count');
+    var loadingOverlay = document.getElementById('channels-loading-overlay');
+    if (loadingOverlay) loadingOverlay.style.display = 'flex';
+
+    var items = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomListItems(_activeAccount.id, cl.id) : [];
+    var orderedIds = items.map(function(it) { return String(it.streamId); });
+
+    function renderMatches(allStreams) {
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
+      var streamMap = {};
+      (allStreams || []).forEach(function(s) { streamMap[String(s.stream_id)] = s; });
+      var matches = [];
+      orderedIds.forEach(function(id) {
+        if (streamMap[id]) matches.push(streamMap[id]);
+      });
+      if (matches.length < items.length) {
+        var existingIds = matches.map(function(m) { return String(m.stream_id); });
+        items.forEach(function(it) {
+          if (existingIds.indexOf(String(it.streamId)) === -1 && it.streamName) {
+            var found = allStreams.find(function(s) { return (s.name || '').trim().toLowerCase() === it.streamName.trim().toLowerCase(); });
+            if (found && existingIds.indexOf(String(found.stream_id)) === -1) {
+              matches.push(found);
+              existingIds.push(String(found.stream_id));
+            }
+          }
+        });
+      }
+      if (countBadge) countBadge.textContent = matches.length + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels');
+      _liveStreams = matches;
+      window._liveStreams = matches;
+      if (_player) _player.setChannelList(matches);
+      if (_virtualList) _virtualList.setItems(matches, true);
+    }
+
+    if (_allAccountLiveStreams && _allAccountLiveStreams.length > 0) {
+      renderMatches(_allAccountLiveStreams);
+    } else {
+      window.TVApi.getLiveStreams(_activeAccount).then(function(all) {
+        _allAccountLiveStreams = all;
+        renderMatches(all);
+      }).catch(function() {
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        _liveStreams = [];
+        window._liveStreams = [];
+        if (_player) _player.setChannelList([]);
+        if (_virtualList) _virtualList.setItems([], true);
+      });
+    }
+  }
+
   function selectLiveCategory(cat, element) {
     if (!cat) return;
     _selectedLiveCategory = cat;
     window._selectedLiveCategory = cat;
+
+    var catSearch = document.getElementById('live-cat-search');
+    var catClearBtn = document.getElementById('live-cat-clear-btn');
+    if (catSearch) { catSearch.value = ''; _liveSearchQuery = ''; }
+    if (catClearBtn) catClearBtn.style.display = 'none';
+
+    var chSearch = document.getElementById('live-channels-search-input');
+    var chClearBtn = document.getElementById('live-channels-search-clear-btn');
+    if (chSearch) { chSearch.value = ''; _liveChannelSearchQuery = ''; }
+    if (chClearBtn) chClearBtn.style.display = 'none';
 
     document.querySelectorAll('#live-categories-list .category-item').forEach(function(el) {
       el.classList.remove('active');
@@ -1807,8 +2034,11 @@
       }
       if (_allAccountLiveStreams && _allAccountLiveStreams.length > 0) {
         if (loadingOverlay) loadingOverlay.style.display = 'none';
-        var favStreams = _allAccountLiveStreams.filter(function(s) {
-          return favIds.indexOf(String(s.stream_id)) >= 0;
+        var streamMap = {};
+        _allAccountLiveStreams.forEach(function(s) { streamMap[String(s.stream_id)] = s; });
+        var favStreams = [];
+        favIds.forEach(function(id) {
+          if (streamMap[id]) favStreams.push(streamMap[id]);
         });
         if (countBadge) countBadge.textContent = favStreams.length + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels');
         _liveStreams = favStreams;
@@ -1821,8 +2051,11 @@
       window.TVApi.getLiveStreams(_activeAccount)
         .then(function(allStreams) {
           _allAccountLiveStreams = allStreams;
-          var favStreams = allStreams.filter(function(s) {
-            return favIds.indexOf(String(s.stream_id)) >= 0;
+          var streamMap = {};
+          allStreams.forEach(function(s) { streamMap[String(s.stream_id)] = s; });
+          var favStreams = [];
+          favIds.forEach(function(id) {
+            if (streamMap[id]) favStreams.push(streamMap[id]);
           });
           if (loadingOverlay) loadingOverlay.style.display = 'none';
           if (countBadge) countBadge.textContent = favStreams.length + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels');
@@ -2027,7 +2260,7 @@
     if (!cat) {
       var isPlayingFromFavorites = _player && String(_player.currentCategoryId) === 'favorites';
       if (isPlayingFromFavorites) {
-        cat = { category_id: 'favorites', category_name: '★ ' + favText };
+        cat = { category_id: 'favorites', category_name: favText };
       } else if (_player && _player.currentCategory && String(_player.currentCategory.category_id) !== 'favorites') {
         cat = _player.currentCategory;
       } else if (targetStream && targetStream.category_id && _liveCategories && _liveCategories.length > 0) {
@@ -2178,7 +2411,7 @@
           '<div class="channel-menu-right">' +
             '<span class="channel-menu-duration" id="cm-dur-' + safeStreamId + '"></span>' +
             '<div class="channel-menu-prog-bar"><div class="channel-menu-prog-fill" id="cm-fill-' + safeStreamId + '" style="width:0%;"></div></div>' +
-            '<span class="channel-menu-fav" id="cm-fav-' + safeStreamId + '">' + (isFav ? '★' : '') + '</span>' +
+            '<span class="channel-menu-fav" id="cm-fav-' + safeStreamId + '">' + (isFav ? ((window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★') : '') + '</span>' +
           '</div>';
 
         item.onclick = function() {
@@ -2284,11 +2517,11 @@
 
     var newFav = window.TVStorage.toggleFavorite(_activeAccount.id, streamId, 'live');
     var starEl = document.getElementById('cm-fav-' + streamId);
-    if (starEl) starEl.textContent = newFav ? '★' : '';
+    if (starEl) starEl.innerHTML = newFav ? ((window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★') : '';
 
     var cleanName = ch.name ? ch.name.replace(/^\[.*?\]\s*/, '') : 'Channel';
     var text = newFav ? (window.TVI18n ? window.TVI18n.t('fav_added') : 'Added to Favorites') : (window.TVI18n ? window.TVI18n.t('fav_removed') : 'Removed from Favorites');
-    showToast(cleanName + ': ' + text, '★');
+    showToast(cleanName + ': ' + text, newFav ? 'star' : 'trash');
 
     if (_selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
       if (!newFav) {
@@ -2335,7 +2568,7 @@
     closeLiveEpgOverlay();
 
     var favText = window.TVI18n ? window.TVI18n.t('favorites') : 'Favorites';
-    var favCat = { category_id: 'favorites', category_name: '★ ' + favText };
+    var favCat = { category_id: 'favorites', category_name: favText };
     _categoryMenuCategories = [favCat].concat(_liveCategories || []);
 
     var activeAccount = _activeAccount || (window.TVStorage ? window.TVStorage.getActiveAccount() : null);
@@ -2619,39 +2852,105 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
+    var rawCats = cats || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, 'movie') : [];
     var watchText = window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist';
-    var starIcon = window.TVIcons ? window.TVIcons.star : '★';
-    var filmIcon = window.TVIcons ? window.TVIcons.film : '🎬';
+    var starIcon = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : (window.TVIcons ? window.TVIcons.star : '★');
+    var filmIcon = (window.TVIcons && window.TVIcons.film) ? window.TVIcons.film : '';
+    var playlistIcon = (window.TVIcons && window.TVIcons.playlist) ? window.TVIcons.playlist : '';
+
+    var favCat = { category_id: 'favorites', category_name: watchText, isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true, customList: cl };
+    });
+    var allCats = [favCat].concat(customCats).concat(rawCats);
+    var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, 'movie') : { order: [], hidden: [], newIds: [] };
+
+    // Fast O(1) lookups
+    var orderSet = {};
+    (prefs.order || []).forEach(function(id) { orderSet[id] = true; });
+    var hiddenSet = {};
+    (prefs.hidden || []).forEach(function(id) { hiddenSet[id] = true; });
+
+    // Order categories according to prefs.order
+    var catMap = {};
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      catMap[id] = c;
+    });
+
+    var orderedList = [];
+    var favIdx = prefs.order.indexOf('favorites');
+    if (favIdx === -1) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    } else if (favIdx === prefs.order.length - 1 && prefs.order.length > 1 && !prefs.hasManualSort) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    }
+
+    prefs.order.forEach(function(id) {
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (catMap[id]) orderedList.push(catMap[id]);
+    });
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (!orderSet[id]) orderedList.push(c);
+    });
+
+    // Filter hidden categories
+    var visibleList = orderedList.filter(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      return !hiddenSet[id];
+    });
 
     var targetEl = null;
+    var frag = document.createDocumentFragment();
 
-    // Watchlist at top
-    var isWatchActive = (activeCategoryId === 'favorites');
-    var watchEl = document.createElement('div');
-    watchEl.className = 'category-item focusable' + (isWatchActive ? ' active' : '');
-    watchEl.innerHTML = 
-      '<div class="category-left">' +
-        '<span class="category-icon" style="color:var(--accent-gold);">' + starIcon + '</span>' +
-        '<span class="category-name-text">' + watchText + '</span>' +
-      '</div>';
-    watchEl.onclick = function() { selectMovieCategory({ category_id: 'favorites', category_name: watchText }, watchEl); };
-    listEl.appendChild(watchEl);
-    if (isWatchActive) targetEl = watchEl;
-
-    // Standard Categories (A-Z)
-    cats.forEach(function(cat) {
+    visibleList.forEach(function(cat) {
+      var catId = String(cat.category_id || cat.categoryId);
+      var isCatActive = (activeCategoryId && String(activeCategoryId) === catId);
       var el = document.createElement('div');
-      var isCatActive = (activeCategoryId && String(cat.category_id) === String(activeCategoryId));
       el.className = 'category-item focusable' + (isCatActive ? ' active' : '');
-      el.innerHTML = 
-        '<div class="category-left">' +
-          '<span class="category-icon">' + filmIcon + '</span>' +
-          '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
-        '</div>';
-      el.onclick = function() { selectMovieCategory(cat, el); };
-      listEl.appendChild(el);
+      el.setAttribute('data-category-id', catId);
+
+      if (cat.isFav) {
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon" style="color:var(--accent-gold);">' + starIcon + '</span>' +
+            '<span class="category-name-text">' + watchText + '</span>' +
+          '</div>';
+        el.onclick = function() { selectMovieCategory({ category_id: 'favorites', category_name: watchText }, el); };
+      } else if (cat.isCustom) {
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon" style="color:#B388FF;">' + playlistIcon + '</span>' +
+            '<span class="category-name-text" style="color:#C4B5FD; font-weight:600;">' + escapeHtml(cat.category_name) + '</span>' +
+            '<span class="badge-cat-list">LISTE</span>' +
+          '</div>';
+        el.onclick = function() { selectMovieCustomList(cat.customList, el); };
+      } else {
+        var isNew = prefs.newIds.indexOf(catId) >= 0;
+        var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon">' + filmIcon + '</span>' +
+            '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
+            badgeHtml +
+          '</div>';
+        el.onclick = function() {
+          if (isNew && _activeAccount && window.TVStorage) {
+            window.TVStorage.markCategoryViewed(_activeAccount.id, 'movie', cat.category_id);
+            var b = el.querySelector('.badge-cat-new');
+            if (b) b.remove();
+          }
+          selectMovieCategory(cat, el);
+        };
+      }
+
+      frag.appendChild(el);
       if (isCatActive) targetEl = el;
     });
+    listEl.appendChild(frag);
 
     var catSearchInput = document.getElementById('movies-cat-search');
     var isSearchFocused = (document.activeElement === catSearchInput) ||
@@ -2660,7 +2959,8 @@
     var watchIds = (_activeAccount && window.TVStorage) ? window.TVStorage.getFavorites(_activeAccount.id, 'movie') : [];
 
     if (!targetEl) {
-      if (watchIds && watchIds.length > 0) {
+      var watchEl = listEl.querySelector('.category-item[data-category-id="favorites"]');
+      if (watchIds && watchIds.length > 0 && watchEl) {
         targetEl = watchEl;
       } else if (listEl.children.length > 1) {
         // Auto-select first real movie category instead of empty watchlist!
@@ -2682,6 +2982,66 @@
         }
       }
     }
+  }
+
+  function selectMovieCustomList(cl, element) {
+    if (!cl) return;
+    _selectedMovieCategory = { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustomList: true, customListId: cl.id };
+
+    var movSearch = document.getElementById('movies-search-input');
+    var movClearBtn = document.getElementById('movies-search-clear-btn');
+    if (movSearch) { movSearch.value = ''; _movieSearchQuery = ''; }
+    if (movClearBtn) movClearBtn.style.display = 'none';
+
+    var gridEl = document.getElementById('movies-grid-container');
+    if (gridEl) {
+      gridEl.innerHTML = '';
+      gridEl.scrollTop = 0;
+    }
+
+    document.querySelectorAll('#movies-categories-list .category-item').forEach(function(el) {
+      el.classList.remove('active');
+    });
+    if (element) element.classList.add('active');
+
+    var overlay = document.getElementById('movies-loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    var items = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomListItems(_activeAccount.id, cl.id) : [];
+    if (_allAccountVodStreams && _allAccountVodStreams.length > 0) {
+      if (overlay) overlay.style.display = 'none';
+      var itemMap = {};
+      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
+      var matches = _allAccountVodStreams.filter(function(m) { return !!itemMap[String(m.stream_id)]; });
+      if (matches.length < items.length) {
+        var existingIds = matches.map(function(m) { return String(m.stream_id); });
+        items.forEach(function(it) {
+          if (existingIds.indexOf(String(it.streamId)) === -1 && it.streamName) {
+            var found = _allAccountVodStreams.find(function(m) { return (m.name || '').trim().toLowerCase() === it.streamName.trim().toLowerCase(); });
+            if (found && existingIds.indexOf(String(found.stream_id)) === -1) {
+              matches.push(found);
+              existingIds.push(String(found.stream_id));
+            }
+          }
+        });
+      }
+      _movieStreams = _sortVodList(matches, _movieSortMode);
+      renderMovieGrid();
+      return;
+    }
+
+    ensureMasterTabData('movies').then(function(all) {
+      if (overlay) overlay.style.display = 'none';
+      var itemMap = {};
+      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
+      var matches = (all || []).filter(function(m) { return !!itemMap[String(m.stream_id)]; });
+      _movieStreams = _sortVodList(matches, _movieSortMode);
+      renderMovieGrid();
+    }).catch(function() {
+      if (overlay) overlay.style.display = 'none';
+      _movieStreams = [];
+      renderMovieGrid();
+    });
   }
 
   function selectMovieCategory(cat, element) {
@@ -3271,11 +3631,14 @@
         var pct = (dur > 100) ? Math.min(99, Math.max(0, Math.round((item.position / dur) * 100))) : 0;
         var poster = sanitizeImgUrl(item.posterUrl) || 'assets/logo.png';
 
+        var cwCloseIcon = (window.TVIcons && window.TVIcons.close) ? window.TVIcons.close : '✕';
+        var cwPlayIcon = (window.TVIcons && window.TVIcons.play) ? window.TVIcons.play : '▶';
+
         card.innerHTML = 
           '<div class="cw-poster-wrapper">' +
             '<img class="cw-poster-img" src="' + poster + '" alt="" />' +
-            '<button class="cw-remove-btn focusable" title="Remove" aria-label="Remove">✕</button>' +
-            '<span class="cw-play-badge">▶</span>' +
+            '<button class="cw-remove-btn focusable" title="Remove" aria-label="Remove">' + cwCloseIcon + '</button>' +
+            '<span class="cw-play-badge">' + cwPlayIcon + '</span>' +
           '</div>' +
           '<div class="cw-card-info">' +
             '<div class="cw-card-title">' + escapeHtml(item.title || 'Movie') + '</div>' +
@@ -3346,7 +3709,7 @@
                 mSection.style.display = 'none';
               }
             }, 200);
-            showToast(window.TVI18n ? window.TVI18n.t('removed') || 'Removed from Continue Watching' : 'Removed', '🗑');
+            showToast(window.TVI18n ? window.TVI18n.t('removed') || 'Removed from Continue Watching' : 'Removed', 'trash');
           };
         }
 
@@ -3411,12 +3774,15 @@
         var pct = (item.isAdvanced || dur <= 100) ? 0 : Math.min(99, Math.max(0, Math.round((item.position / dur) * 100)));
         var poster = sanitizeImgUrl(item.posterUrl) || 'assets/logo.png';
 
+        var sCwCloseIcon = (window.TVIcons && window.TVIcons.close) ? window.TVIcons.close : '✕';
+        var sCwPlayIcon = (window.TVIcons && window.TVIcons.play) ? window.TVIcons.play : '▶';
+
         card.innerHTML = 
           '<div class="cw-poster-wrapper">' +
             '<img class="cw-poster-img" src="' + poster + '" alt="" />' +
             '<span class="cw-badge">[' + escapeHtml(sPill) + ']</span>' +
-            '<button class="cw-remove-btn focusable" title="Remove" aria-label="Remove">✕</button>' +
-            '<span class="cw-play-badge">▶</span>' +
+            '<button class="cw-remove-btn focusable" title="Remove" aria-label="Remove">' + sCwCloseIcon + '</button>' +
+            '<span class="cw-play-badge">' + sCwPlayIcon + '</span>' +
           '</div>' +
           '<div class="cw-card-info">' +
             (item.seriesName ? '<div class="cw-series-name">' + escapeHtml(item.seriesName) + '</div>' : '') +
@@ -3495,7 +3861,7 @@
                 sSection.style.display = 'none';
               }
             }, 200);
-            showToast(window.TVI18n ? window.TVI18n.t('removed') || 'Removed from Continue Watching' : 'Removed', '🗑');
+            showToast(window.TVI18n ? window.TVI18n.t('removed') || 'Removed from Continue Watching' : 'Removed', 'trash');
           };
         }
 
@@ -3610,11 +3976,14 @@
       var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
       var movieName = (movie.name || 'Movie').replace(/^[0-9]+\.\s*/, '');
 
+      var filmFallbackSvg = (window.TVIcons && window.TVIcons.film) ? window.TVIcons.film : '';
+      var starSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
+
       card.innerHTML = 
-        '<div class="poster-card-fallback">🎬</div>' +
+        '<div class="poster-card-fallback">' + filmFallbackSvg + '</div>' +
         (posterUrl ? '<img class="poster-card-img" loading="lazy" decoding="async" src="' + posterUrl + '" onerror="this.style.display=\'none\'" />' : '') +
         '<div class="poster-card-gradient"></div>' +
-        (rating ? '<span class="poster-rating-badge">★ ' + rating + '</span>' : '') +
+        (rating ? '<span class="poster-rating-badge">' + starSvg + ' ' + rating + '</span>' : '') +
         '<div class="poster-card-title">' + escapeHtml(movieName) + '</div>';
 
       (function(m, idx) {
@@ -3652,7 +4021,9 @@
     if (posterEl) posterEl.src = sanitizeRawUrl(movie.stream_icon) || 'assets/logo.png';
     if (titleEl) titleEl.textContent = movie.name || 'Movie';
     if (yearEl) yearEl.textContent = movie.year || 'VOD';
-    if (ratingEl) ratingEl.textContent = movie.rating ? '★ ' + parseFloat(movie.rating).toFixed(1) : '★ N/A';
+    var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
+    var starOutlineSvg = (window.TVIcons && window.TVIcons.starOutline) ? window.TVIcons.starOutline : '☆';
+    if (ratingEl) ratingEl.innerHTML = movie.rating ? starFilledSvg + ' ' + parseFloat(movie.rating).toFixed(1) : starFilledSvg + ' N/A';
     if (plotEl) plotEl.textContent = window.TVI18n ? window.TVI18n.t('loading_movie_details') : 'Loading movie details...';
 
     var _currentVodInfo = null;
@@ -3778,19 +4149,21 @@
 
     if (favBtn) {
       var isFav = window.TVStorage.isFavorite(_activeAccount.id, movie.stream_id, 'movie');
-      var icon = isFav ? '★' : '☆';
+      var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
+      var starOutlineSvg = (window.TVIcons && window.TVIcons.starOutline) ? window.TVIcons.starOutline : '☆';
+      var icon = isFav ? starFilledSvg : starOutlineSvg;
       var rawTxt = isFav ? (window.TVI18n ? window.TVI18n.t('in_watchlist') : 'In Watchlist') : (window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist');
       var txt = rawTxt.replace(/^[★☆\s]+/, '');
-      favBtn.innerHTML = '<span class="btn-icon">' + icon + '</span> <span>' + txt + '</span>';
+      favBtn.innerHTML = '<span class="btn-icon">' + icon + '</span> <span>' + escapeHtml(txt) + '</span>';
       favBtn.onclick = function() {
         var newFav = window.TVStorage.toggleFavorite(_activeAccount.id, movie.stream_id, 'movie');
-        var nIcon = newFav ? '★' : '☆';
+        var nIcon = newFav ? starFilledSvg : starOutlineSvg;
         var nRawTxt = newFav ? (window.TVI18n ? window.TVI18n.t('in_watchlist') : 'In Watchlist') : (window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist');
         var nTxt = nRawTxt.replace(/^[★☆\s]+/, '');
-        favBtn.innerHTML = '<span class="btn-icon">' + nIcon + '</span> <span>' + nTxt + '</span>';
+        favBtn.innerHTML = '<span class="btn-icon">' + nIcon + '</span> <span>' + escapeHtml(nTxt) + '</span>';
         var cleanName = (movie.name || 'Movie').replace(/^[0-9]+\.\s*/, '');
         var toastText = newFav ? (window.TVI18n && window.TVI18n.getLanguage() === 'de' ? 'Zur Watchlist hinzugefügt' : 'Added to Watchlist') : (window.TVI18n && window.TVI18n.getLanguage() === 'de' ? 'Aus Watchlist entfernt' : 'Removed from Watchlist');
-        showToast(cleanName + ': ' + toastText, '★');
+        showToast(cleanName + ': ' + toastText, newFav ? 'star' : 'trash');
 
         // Immediately update Watchlist category if currently viewing it
         if (_selectedMovieCategory && _selectedMovieCategory.category_id === 'favorites') {
@@ -3822,7 +4195,10 @@
   // 5. TAB 3: SERIES
   // =========================================================
   function loadSeries(isPreload) {
-    if (!_activeAccount) return;
+    if (!_activeAccount || _activeAccount.syncSeries === false) {
+      onSplashSeriesLoaded();
+      return;
+    }
     var listEl = document.getElementById('series-categories-list');
 
     if (_seriesCategories && _seriesCategories.length > 0) {
@@ -3866,39 +4242,105 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
+    var rawCats = cats || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, 'series') : [];
     var watchText = window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist';
-    var starIcon = window.TVIcons ? window.TVIcons.star : '★';
-    var seriesIcon = window.TVIcons ? window.TVIcons.series : '📁';
+    var starIcon = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : (window.TVIcons ? window.TVIcons.star : '★');
+    var seriesIcon = (window.TVIcons && window.TVIcons.series) ? window.TVIcons.series : '';
+    var playlistIcon = (window.TVIcons && window.TVIcons.playlist) ? window.TVIcons.playlist : '';
+
+    var favCat = { category_id: 'favorites', category_name: watchText, isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true, customList: cl };
+    });
+    var allCats = [favCat].concat(customCats).concat(rawCats);
+    var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, 'series') : { order: [], hidden: [], newIds: [] };
+
+    // Fast O(1) lookups
+    var orderSet = {};
+    (prefs.order || []).forEach(function(id) { orderSet[id] = true; });
+    var hiddenSet = {};
+    (prefs.hidden || []).forEach(function(id) { hiddenSet[id] = true; });
+
+    // Order categories according to prefs.order
+    var catMap = {};
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      catMap[id] = c;
+    });
+
+    var orderedList = [];
+    var favIdx = prefs.order.indexOf('favorites');
+    if (favIdx === -1) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    } else if (favIdx === prefs.order.length - 1 && prefs.order.length > 1 && !prefs.hasManualSort) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    }
+
+    prefs.order.forEach(function(id) {
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (catMap[id]) orderedList.push(catMap[id]);
+    });
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (!orderSet[id]) orderedList.push(c);
+    });
+
+    // Filter hidden categories
+    var visibleList = orderedList.filter(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      return !hiddenSet[id];
+    });
 
     var targetEl = null;
+    var frag = document.createDocumentFragment();
 
-    // Watchlist
-    var isWatchActive = (activeCategoryId === 'favorites');
-    var watchEl = document.createElement('div');
-    watchEl.className = 'category-item focusable' + (isWatchActive ? ' active' : '');
-    watchEl.innerHTML = 
-      '<div class="category-left">' +
-        '<span class="category-icon" style="color:var(--accent-gold);">' + starIcon + '</span>' +
-        '<span class="category-name-text">' + watchText + '</span>' +
-      '</div>';
-    watchEl.onclick = function() { selectSeriesCategory({ category_id: 'favorites', category_name: watchText }, watchEl); };
-    listEl.appendChild(watchEl);
-    if (isWatchActive) targetEl = watchEl;
-
-    // Standard Categories (A-Z)
-    cats.forEach(function(cat) {
+    visibleList.forEach(function(cat) {
+      var catId = String(cat.category_id || cat.categoryId);
+      var isCatActive = (activeCategoryId && String(activeCategoryId) === catId);
       var el = document.createElement('div');
-      var isCatActive = (activeCategoryId && String(cat.category_id) === String(activeCategoryId));
       el.className = 'category-item focusable' + (isCatActive ? ' active' : '');
-      el.innerHTML = 
-        '<div class="category-left">' +
-          '<span class="category-icon">' + seriesIcon + '</span>' +
-          '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
-        '</div>';
-      el.onclick = function() { selectSeriesCategory(cat, el); };
-      listEl.appendChild(el);
+      el.setAttribute('data-category-id', catId);
+
+      if (cat.isFav) {
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon" style="color:var(--accent-gold);">' + starIcon + '</span>' +
+            '<span class="category-name-text">' + watchText + '</span>' +
+          '</div>';
+        el.onclick = function() { selectSeriesCategory({ category_id: 'favorites', category_name: watchText }, el); };
+      } else if (cat.isCustom) {
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon" style="color:#B388FF;">' + playlistIcon + '</span>' +
+            '<span class="category-name-text" style="color:#C4B5FD; font-weight:600;">' + escapeHtml(cat.category_name) + '</span>' +
+            '<span class="badge-cat-list">LISTE</span>' +
+          '</div>';
+        el.onclick = function() { selectSeriesCustomList(cat.customList, el); };
+      } else {
+        var isNew = prefs.newIds.indexOf(catId) >= 0;
+        var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+        el.innerHTML = 
+          '<div class="category-left">' +
+            '<span class="category-icon">' + seriesIcon + '</span>' +
+            '<span class="category-name-text">' + escapeHtml(cat.category_name) + '</span>' +
+            badgeHtml +
+          '</div>';
+        el.onclick = function() {
+          if (isNew && _activeAccount && window.TVStorage) {
+            window.TVStorage.markCategoryViewed(_activeAccount.id, 'series', cat.category_id);
+            var b = el.querySelector('.badge-cat-new');
+            if (b) b.remove();
+          }
+          selectSeriesCategory(cat, el);
+        };
+      }
+
+      frag.appendChild(el);
       if (isCatActive) targetEl = el;
     });
+    listEl.appendChild(frag);
 
     var catSearchInput = document.getElementById('series-cat-search');
     var isSearchFocused = (document.activeElement === catSearchInput) ||
@@ -3907,7 +4349,8 @@
     var watchIds = (_activeAccount && window.TVStorage) ? window.TVStorage.getFavorites(_activeAccount.id, 'series') : [];
 
     if (!targetEl) {
-      if (watchIds && watchIds.length > 0) {
+      var watchEl = listEl.querySelector('.category-item[data-category-id="favorites"]');
+      if (watchIds && watchIds.length > 0 && watchEl) {
         targetEl = watchEl;
       } else if (listEl.children.length > 1) {
         // Auto-select first real series category instead of empty watchlist!
@@ -3929,6 +4372,66 @@
         }
       }
     }
+  }
+
+  function selectSeriesCustomList(cl, element) {
+    if (!cl) return;
+    _selectedSeriesCategory = { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustomList: true, customListId: cl.id };
+
+    var serSearch = document.getElementById('series-search-input');
+    var serClearBtn = document.getElementById('series-search-clear-btn');
+    if (serSearch) { serSearch.value = ''; _seriesSearchQuery = ''; }
+    if (serClearBtn) serClearBtn.style.display = 'none';
+
+    var gridEl = document.getElementById('series-grid-container');
+    if (gridEl) {
+      gridEl.innerHTML = '';
+      gridEl.scrollTop = 0;
+    }
+
+    document.querySelectorAll('#series-categories-list .category-item').forEach(function(el) {
+      el.classList.remove('active');
+    });
+    if (element) element.classList.add('active');
+
+    var overlay = document.getElementById('series-loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    var items = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomListItems(_activeAccount.id, cl.id) : [];
+    if (_allAccountSeriesStreams && _allAccountSeriesStreams.length > 0) {
+      if (overlay) overlay.style.display = 'none';
+      var itemMap = {};
+      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
+      var matches = _allAccountSeriesStreams.filter(function(s) { return !!itemMap[String(s.series_id)]; });
+      if (matches.length < items.length) {
+        var existingIds = matches.map(function(s) { return String(s.series_id); });
+        items.forEach(function(it) {
+          if (existingIds.indexOf(String(it.streamId)) === -1 && it.streamName) {
+            var found = _allAccountSeriesStreams.find(function(s) { return (s.name || '').trim().toLowerCase() === it.streamName.trim().toLowerCase(); });
+            if (found && existingIds.indexOf(String(found.series_id)) === -1) {
+              matches.push(found);
+              existingIds.push(String(found.series_id));
+            }
+          }
+        });
+      }
+      _seriesList = _sortSeriesList(matches, _seriesSortMode);
+      renderSeriesGrid();
+      return;
+    }
+
+    ensureMasterTabData('series').then(function(all) {
+      if (overlay) overlay.style.display = 'none';
+      var itemMap = {};
+      items.forEach(function(it) { itemMap[String(it.streamId)] = it; });
+      var matches = (all || []).filter(function(s) { return !!itemMap[String(s.series_id)]; });
+      _seriesList = _sortSeriesList(matches, _seriesSortMode);
+      renderSeriesGrid();
+    }).catch(function() {
+      if (overlay) overlay.style.display = 'none';
+      _seriesList = [];
+      renderSeriesGrid();
+    });
   }
 
   function selectSeriesCategory(cat, element) {
@@ -4069,11 +4572,14 @@
       var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
       var seriesName = (series.name || 'Series').replace(/^[0-9]+\.\s*/, '');
 
+      var seriesFallbackSvg = (window.TVIcons && window.TVIcons.series) ? window.TVIcons.series : '';
+      var starSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
+
       card.innerHTML = 
-        '<div class="poster-card-fallback">📁</div>' +
+        '<div class="poster-card-fallback">' + seriesFallbackSvg + '</div>' +
         (posterUrl ? '<img class="poster-card-img" loading="lazy" decoding="async" src="' + posterUrl + '" onerror="this.style.display=\'none\'" />' : '') +
         '<div class="poster-card-gradient"></div>' +
-        (rating ? '<span class="poster-rating-badge">★ ' + rating + '</span>' : '') +
+        (rating ? '<span class="poster-rating-badge">' + starSvg + ' ' + rating + '</span>' : '') +
         '<div class="poster-card-title">' + escapeHtml(seriesName) + '</div>';
 
       (function(s, idx) {
@@ -4122,7 +4628,9 @@
 
     if (posterEl) posterEl.src = sanitizeRawUrl(series.cover) || 'assets/logo.png';
     if (titleEl) titleEl.textContent = series.name || 'Series';
-    if (ratingEl) ratingEl.textContent = series.rating ? '★ ' + parseFloat(series.rating).toFixed(1) : '★ N/A';
+    var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
+    var starOutlineSvg = (window.TVIcons && window.TVIcons.starOutline) ? window.TVIcons.starOutline : '☆';
+    if (ratingEl) ratingEl.innerHTML = series.rating ? starFilledSvg + ' ' + parseFloat(series.rating).toFixed(1) : starFilledSvg + ' N/A';
     if (plotEl) plotEl.textContent = window.TVI18n ? window.TVI18n.t('loading_series_details') : 'Loading series details...';
     if (tabsEl) tabsEl.innerHTML = '';
     if (epContainer) epContainer.innerHTML = '<div class="col-placeholder">' + (window.TVI18n ? window.TVI18n.t('loading_seasons_episodes') : 'Loading seasons & episodes...') + '</div>';
@@ -4130,19 +4638,19 @@
     var favBtn = document.getElementById('series-fav-btn');
     if (favBtn) {
       var isFav = window.TVStorage.isFavorite(_activeAccount.id, series.series_id, 'series');
-      var icon = isFav ? '★' : '☆';
+      var icon = isFav ? starFilledSvg : starOutlineSvg;
       var rawTxt = isFav ? (window.TVI18n ? window.TVI18n.t('in_watchlist') : 'In Watchlist') : (window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist');
       var txt = rawTxt.replace(/^[★☆\s]+/, '');
-      favBtn.innerHTML = '<span class="btn-icon">' + icon + '</span> <span>' + txt + '</span>';
+      favBtn.innerHTML = '<span class="btn-icon">' + icon + '</span> <span>' + escapeHtml(txt) + '</span>';
       favBtn.onclick = function() {
         var newFav = window.TVStorage.toggleFavorite(_activeAccount.id, series.series_id, 'series');
-        var nIcon = newFav ? '★' : '☆';
+        var nIcon = newFav ? starFilledSvg : starOutlineSvg;
         var nRawTxt = newFav ? (window.TVI18n ? window.TVI18n.t('in_watchlist') : 'In Watchlist') : (window.TVI18n ? window.TVI18n.t('watchlist') : 'Watchlist');
         var nTxt = nRawTxt.replace(/^[★☆\s]+/, '');
-        favBtn.innerHTML = '<span class="btn-icon">' + nIcon + '</span> <span>' + nTxt + '</span>';
+        favBtn.innerHTML = '<span class="btn-icon">' + nIcon + '</span> <span>' + escapeHtml(nTxt) + '</span>';
         var cleanName = (series.name || 'Series').replace(/^[0-9]+\.\s*/, '');
         var toastText = newFav ? (window.TVI18n && window.TVI18n.getLanguage() === 'de' ? 'Zur Watchlist hinzugefügt' : 'Added to Watchlist') : (window.TVI18n && window.TVI18n.getLanguage() === 'de' ? 'Aus Watchlist entfernt' : 'Removed from Watchlist');
-        showToast(cleanName + ': ' + toastText, '★');
+        showToast(cleanName + ': ' + toastText, newFav ? 'star' : 'trash');
 
         // Immediately update Watchlist category if currently viewing it
         if (_selectedSeriesCategory && _selectedSeriesCategory.category_id === 'favorites') {
@@ -4290,7 +4798,10 @@
       var isComp = epProg && (epProg.isCompleted || (epDur > 30 && (epProg.position / epDur) >= 0.95));
       var progPct = (epProg && epDur > 30 && !isComp) ? Math.min(100, Math.round((epProg.position / epDur) * 100)) : 0;
 
-      var completedBadgeHtml = isComp ? '<span class="episode-completed-badge" title="Completed">✓</span>' : '';
+      var checkSvg = (window.TVIcons && window.TVIcons.check) ? window.TVIcons.check : '✓';
+      var playSvg = (window.TVIcons && window.TVIcons.play) ? window.TVIcons.play : '▶';
+
+      var completedBadgeHtml = isComp ? '<span class="episode-completed-badge" title="Completed">' + checkSvg + '</span>' : '';
       var progressBarHtml = (!isComp && progPct > 0) ? '<div class="episode-progress-track"><div class="episode-progress-fill" style="width:' + progPct + '%;"></div></div>' : '';
 
       var epImg = sanitizeImgUrl((ep.info && (ep.info.movie_image || ep.info.cover)) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '');
@@ -4298,7 +4809,7 @@
         '<div class="episode-thumb-wrap">' +
           (epImg ? '<img class="episode-thumb-img" src="' + epImg + '" alt="" onerror="this.style.display=\'none\';" />' : '') +
           '<span class="episode-thumb-fallback">E' + escapeHtml(String(epNum).padStart(2, '0')) + '</span>' +
-          '<span class="episode-thumb-play">▶</span>' +
+          '<span class="episode-thumb-play">' + playSvg + '</span>' +
         '</div>';
 
       card.innerHTML = 
@@ -4312,7 +4823,7 @@
           '</div>' +
           '<div class="episode-right-actions">' +
             completedBadgeHtml +
-            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none;">▶ ' + escapeHtml(playLabel) + '</button>' +
+            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none; display:inline-flex; align-items:center; gap:6px;">' + playSvg + ' <span>' + escapeHtml(playLabel) + '</span></button>' +
           '</div>' +
         '</div>' +
         progressBarHtml;
@@ -4508,7 +5019,7 @@
         window.TVStorage.setPreference('audioLanguage', audioVal);
         window.TVStorage.setPreference('subtitleLanguage', subVal);
         closeModal(document.getElementById('modal-preferences'));
-        showToast(window.TVI18n ? window.TVI18n.t('prefs_saved') : 'Preferences saved!', '⚙️');
+        showToast(window.TVI18n ? window.TVI18n.t('prefs_saved') : 'Preferences saved!', 'settings');
       };
     }
 
@@ -4607,7 +5118,7 @@
       // 4. Overlays & bouquet menu
       if (_categoryMenuCategories && _categoryMenuCategories.length > 0) {
         if (_categoryMenuCategories[0].category_id === 'favorites') {
-          _categoryMenuCategories[0].category_name = '★ ' + favText;
+          _categoryMenuCategories[0].category_name = favText;
         }
       }
       if (_selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
@@ -4658,7 +5169,7 @@
       var toastMsg = (targetLang === 'de')
         ? (window.TVI18n ? window.TVI18n.t('lang_changed_de') : 'Sprache auf Deutsch geändert')
         : (window.TVI18n ? window.TVI18n.t('lang_changed_en') : 'Language set to English');
-      showToast(toastMsg, '🌐');
+      showToast(toastMsg, 'globe');
     }
 
     if (langEn) {
@@ -4744,7 +5255,7 @@
     var noMatchesText = window.TVI18n ? window.TVI18n.t('no_results') : 'No results found.';
     var playText = window.TVI18n ? window.TVI18n.t('play_episode') : 'Play';
     var playIcon = window.TVIcons ? window.TVIcons.play : '▶';
-    var tvIcon = window.TVIcons ? window.TVIcons.tv : '📺';
+    var tvIcon = (window.TVIcons && window.TVIcons.tv) || '';
 
     if (_searchTab === 'live') {
       if (!_allAccountLiveStreams) {
@@ -4858,6 +5369,7 @@
         return;
       }
       var playMovieText = window.TVI18n ? window.TVI18n.t('play_movie') : 'Play Movie';
+      var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
       movieMatches.slice(0, 30).forEach(function(m) {
         var row = document.createElement('div');
         row.className = 'search-result-row focusable';
@@ -4873,7 +5385,7 @@
               '<div class="search-row-meta">' +
                 '<span class="search-meta-badge">' + escapeHtml(window.TVI18n ? window.TVI18n.t('movies') : 'Movie') + '</span>' +
                 (year ? '<span>' + escapeHtml(year) + '</span>' : '') +
-                (rating ? '<span class="search-meta-rating">★ ' + rating + '</span>' : '') +
+                (rating ? '<span class="search-meta-rating">' + starFilledSvg + ' ' + rating + '</span>' : '') +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -4913,6 +5425,7 @@
         return;
       }
       var episodesText = window.TVI18n ? window.TVI18n.t('episodes') : 'Episodes';
+      var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
       seriesMatches.slice(0, 30).forEach(function(s) {
         var row = document.createElement('div');
         row.className = 'search-result-row focusable';
@@ -4926,7 +5439,7 @@
               '<span class="search-row-title">' + escapeHtml(s.name || 'Series') + '</span>' +
               '<div class="search-row-meta">' +
                 '<span class="search-meta-badge">' + escapeHtml(window.TVI18n ? window.TVI18n.t('series') : 'Series') + '</span>' +
-                (rating ? '<span class="search-meta-rating">★ ' + rating + '</span>' : '') +
+                (rating ? '<span class="search-meta-rating">' + starFilledSvg + ' ' + rating + '</span>' : '') +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -4965,7 +5478,7 @@
         var defTxt = window.TVI18n ? (window.TVI18n.t('default_audio') || 'Default Audio') : 'Default Audio';
         defaultBtn.innerHTML = '<span>' + defTxt + '</span><span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>';
         defaultBtn.onclick = function() {
-          showToast(defTxt, '🔊');
+          showToast(defTxt, 'audio');
           closeModal(modal);
         };
         listEl.appendChild(defaultBtn);
@@ -5012,7 +5525,7 @@
             });
             btn.classList.add('active');
             btn.insertAdjacentHTML('beforeend', '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>');
-            showToast('Audio: ' + trackLabel, '🔊');
+            showToast('Audio: ' + trackLabel, 'audio');
           };
           listEl.appendChild(btn);
         });
@@ -5072,7 +5585,7 @@
         });
         autoBtn.classList.add('active');
         autoBtn.insertAdjacentHTML('beforeend', '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>');
-        showToast(autoTxt, '💬');
+        showToast(autoTxt, 'subtitle');
       };
       listEl.appendChild(autoBtn);
 
@@ -5096,7 +5609,7 @@
         });
         offBtn.classList.add('active');
         offBtn.insertAdjacentHTML('beforeend', '<span class="track-check">' + (window.TVIcons ? window.TVIcons.check : '✓') + '</span>');
-        showToast(offTxt, '💬');
+        showToast(offTxt, 'subtitle');
       };
       listEl.appendChild(offBtn);
 
@@ -5135,7 +5648,7 @@
               var fNotice = window.TVI18n ? (window.TVI18n.t('forced_sub_notice') || ' (Active during foreign dialogue)') : ' (Active during foreign dialogue)';
               toastMsg = sLabel + fNotice;
             }
-            showToast(toastMsg, '💬');
+            showToast(toastMsg, 'subtitle');
           };
           listEl.appendChild(sBtn);
         });
@@ -5235,7 +5748,7 @@
             _player.playVod(fe, 'series', seriesName, '[' + fePill + '] ' + (fe.title || ('Episode ' + feNum)), function() { playNextEpisodeForCurrentSeries(); }, feMeta);
           }
         } else {
-          showToast(window.TVI18n && window.TVI18n.getLanguage() === 'de' ? 'Staffel-Finale erreicht' : 'Series finale reached', '🎬');
+          showToast(window.TVI18n && window.TVI18n.getLanguage() === 'de' ? 'Staffel-Finale erreicht' : 'Series finale reached', 'film');
         }
       }
     }
@@ -5372,7 +5885,10 @@
       var isComp = epProg && (epProg.isCompleted || (epDur > 30 && (epProg.position / epDur) >= 0.95));
       var progPct = (epProg && epDur > 30 && !isComp) ? Math.min(100, Math.round((epProg.position / epDur) * 100)) : 0;
 
-      var completedBadgeHtml = isComp ? '<span class="episode-completed-badge" title="Completed">✓</span>' : '';
+      var checkSvg = (window.TVIcons && window.TVIcons.check) ? window.TVIcons.check : '✓';
+      var playSvg = (window.TVIcons && window.TVIcons.play) ? window.TVIcons.play : '▶';
+
+      var completedBadgeHtml = isComp ? '<span class="episode-completed-badge" title="Completed">' + checkSvg + '</span>' : '';
       var progressBarHtml = (!isComp && progPct > 0) ? '<div class="episode-progress-track"><div class="episode-progress-fill" style="width:' + progPct + '%;"></div></div>' : '';
 
       var epImg = sanitizeImgUrl((ep.info && (ep.info.movie_image || ep.info.cover)) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '');
@@ -5380,7 +5896,7 @@
         '<div class="episode-thumb-wrap">' +
           (epImg ? '<img class="episode-thumb-img" src="' + epImg + '" alt="" onerror="this.style.display=\'none\';" />' : '') +
           '<span class="episode-thumb-fallback">E' + escapeHtml(String(epNum).padStart(2, '0')) + '</span>' +
-          '<span class="episode-thumb-play">▶</span>' +
+          '<span class="episode-thumb-play">' + playSvg + '</span>' +
         '</div>';
 
       card.innerHTML = 
@@ -5394,7 +5910,7 @@
           '</div>' +
           '<div class="episode-right-actions">' +
             completedBadgeHtml +
-            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none;">▶ ' + escapeHtml(playLabel) + '</button>' +
+            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none; display:inline-flex; align-items:center; gap:6px;">' + playSvg + ' <span>' + escapeHtml(playLabel) + '</span></button>' +
           '</div>' +
         '</div>' +
         progressBarHtml;
@@ -5695,7 +6211,7 @@
               _player.showInfobar(3000);
               var cleanName = _player.currentStream.name ? _player.currentStream.name.replace(/^\[.*?\]\s*/, '') : 'Channel';
               var text = newFav ? (window.TVI18n ? window.TVI18n.t('fav_added') : 'Added to Favorites') : (window.TVI18n ? window.TVI18n.t('fav_removed') : 'Removed from Favorites');
-              showToast(cleanName + ': ' + text, '★');
+              showToast(cleanName + ': ' + text, 'star');
               if (_selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
                 if (!newFav) {
                   _liveStreams = (_liveStreams || []).filter(function(s) {
@@ -5812,6 +6328,18 @@
         if (topModal.id === 'login-modal' && window.TVSync) {
           window.TVSync.stopPolling();
         }
+        if (topModal.id === 'modal-category-manager') {
+          _moveModeActive = false;
+          _moveModeCategoryId = null;
+          window._moveModeActive = false;
+          if (_activeCategoryManagerType === 'live') {
+            renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
+          } else if (_activeCategoryManagerType === 'movie') {
+            renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
+          } else if (_activeCategoryManagerType === 'series') {
+            renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
+          }
+        }
         return true;
       }
 
@@ -5855,6 +6383,8 @@
   // =========================================================
   // 8. ADD ACCOUNT & MODAL SETUP
   // =========================================================
+  var _editingAccountId = null;
+
   function setupModals() {
     var addBtn = document.getElementById('accounts-add-btn');
     if (addBtn) addBtn.onclick = function() { showAddAccountModal(); };
@@ -5873,7 +6403,16 @@
       { id: 'resume-close-btn', modal: 'modal-resume-playback' },
       { id: 'exit-cancel-btn', modal: 'exit-modal' },
       { id: 'delete-account-close-btn', modal: 'delete-account-modal' },
-      { id: 'delete-account-cancel-btn', modal: 'delete-account-modal' }
+      { id: 'delete-account-cancel-btn', modal: 'delete-account-modal' },
+      { id: 'cat-mgr-close-btn', modal: 'modal-category-manager' },
+      { id: 'cat-mgr-done-btn', modal: 'modal-category-manager' },
+      { id: 'ctx-close-btn', modal: 'modal-stream-context' },
+      { id: 'create-list-close-btn', modal: 'modal-create-list' },
+      { id: 'create-list-cancel-btn', modal: 'modal-create-list' },
+      { id: 'custom-list-options-close-btn', modal: 'modal-custom-list-options' },
+      { id: 'opt-list-cancel-btn', modal: 'modal-custom-list-options' },
+      { id: 'delete-list-close-btn', modal: 'modal-delete-list' },
+      { id: 'delete-list-cancel-btn', modal: 'modal-delete-list' }
     ];
 
     modalCloses.forEach(function(item) {
@@ -5888,9 +6427,216 @@
           if (item.modal === 'login-modal' && window.TVSync) {
             window.TVSync.stopPolling();
           }
+          if (item.modal === 'modal-category-manager') {
+            if (_activeCategoryManagerType === 'live') {
+              renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
+            } else if (_activeCategoryManagerType === 'movie') {
+              renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
+            } else if (_activeCategoryManagerType === 'series') {
+              renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
+            }
+            _moveModeActive = false;
+            _moveModeCategoryId = null;
+          }
         };
       }
     });
+
+    // Category Manager Modal Toolbar
+    var toggleHiddenBtn = document.getElementById('cat-mgr-toggle-hidden');
+    if (toggleHiddenBtn) {
+      toggleHiddenBtn.onclick = function() {
+        _showHiddenCategories = !_showHiddenCategories;
+        renderCategoryManagerList();
+      };
+    }
+
+    var unhideAllBtn = document.getElementById('cat-mgr-unhide-all');
+    if (unhideAllBtn) {
+      unhideAllBtn.onclick = function() {
+        if (_activeAccount && window.TVStorage) {
+          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+          var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType);
+          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+          var customCats = customLists.map(function(cl) {
+            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
+          });
+          var allCats = [favCat].concat(customCats).concat(rawCats);
+          var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
+          var allVisible = allCats.length > 0 && allCats.every(function(c) {
+            var id = String(c.category_id || c.categoryId);
+            return prefs.hidden.indexOf(id) === -1;
+          });
+          if (allVisible) {
+            prefs.hidden = allCats.map(function(c) { return String(c.category_id || c.categoryId); });
+            window.TVStorage.saveCategoryPrefs(_activeAccount.id, _activeCategoryManagerType, prefs);
+            renderCategoryManagerList();
+            showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Alle Kategorien ausgeblendet' : 'All categories hidden', 'check');
+          } else {
+            window.TVStorage.unhideAllCategories(_activeAccount.id, _activeCategoryManagerType);
+            renderCategoryManagerList();
+            showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Alle Kategorien eingeblendet' : 'All categories shown', 'check');
+          }
+        }
+      };
+    }
+
+    var resetAzBtn = document.getElementById('cat-mgr-reset-az');
+    if (resetAzBtn) {
+      resetAzBtn.onclick = function() {
+        if (_activeAccount && window.TVStorage) {
+          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+          var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType);
+          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+          var customCats = customLists.map(function(cl) {
+            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
+          });
+          var allCats = [favCat].concat(customCats).concat(rawCats);
+          window.TVStorage.resetCategorySortOrder(_activeAccount.id, _activeCategoryManagerType, allCats);
+          renderCategoryManagerList();
+          showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'A-Z Sortierung wiederhergestellt' : 'A-Z sort restored', 'check');
+        }
+      };
+    }
+
+    // Category Manager Open Buttons in Search Bars
+    var liveCatManageBtn = document.getElementById('live-cat-manage-btn');
+    if (liveCatManageBtn) liveCatManageBtn.onclick = function() { openCategoryManager('live'); };
+    var moviesCatManageBtn = document.getElementById('movies-cat-manage-btn');
+    if (moviesCatManageBtn) moviesCatManageBtn.onclick = function() { openCategoryManager('movie'); };
+    var seriesCatManageBtn = document.getElementById('series-cat-manage-btn');
+    if (seriesCatManageBtn) seriesCatManageBtn.onclick = function() { openCategoryManager('series'); };
+
+    // Stream Context Custom List Actions
+    var ctxCreateListBtn = document.getElementById('ctx-create-list-btn');
+    if (ctxCreateListBtn) {
+      ctxCreateListBtn.onclick = function() {
+        if (Date.now() < _ignoreContextClicksUntil) return;
+        openCreateOrRenameListModal('create');
+      };
+    }
+
+    var createListSubmit = document.getElementById('create-list-submit-btn');
+    if (createListSubmit) {
+      createListSubmit.onclick = function() {
+        var input = document.getElementById('create-list-input');
+        var name = (input ? input.value : '').trim();
+        if (!name) return;
+        var listType = (_activeCustomList && _activeCustomList.type) || _activeCategoryManagerType || _activeContextType || 'live';
+        if (_createListMode === 'rename' && _activeCustomList) {
+          window.TVStorage.renameCustomList(_activeAccount.id, _activeCustomList.id, name, listType);
+          closeModal(document.getElementById('modal-create-list'));
+          showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Liste "' + name + '" umbenannt' : 'List "' + name + '" renamed', 'check');
+        } else {
+          var newList = window.TVStorage.createCustomList(_activeAccount.id, name, listType);
+          if (newList && _activeContextStream) {
+            window.TVStorage.addStreamToCustomList(_activeAccount.id, newList.id, _activeContextStream);
+          }
+          closeModal(document.getElementById('modal-create-list'));
+          showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Liste "' + name + '" erstellt' : 'List "' + name + '" created', 'check');
+        }
+        var catMgrModal = document.getElementById('modal-category-manager');
+        if (catMgrModal && catMgrModal.classList.contains('active')) {
+          renderCategoryManagerList();
+        }
+        if (listType === 'live') renderLiveCategories(_liveCategories, true, _activeCustomList ? 'custom_list:' + _activeCustomList.id : null);
+        else if (listType === 'movie') renderMovieCategories(_movieCategories, true, _activeCustomList ? 'custom_list:' + _activeCustomList.id : null);
+        else if (listType === 'series') renderSeriesCategories(_seriesCategories, true, _activeCustomList ? 'custom_list:' + _activeCustomList.id : null);
+      };
+    }
+
+    // Custom List Options Modal Actions
+    var optListMoveBtn = document.getElementById('opt-list-move-btn');
+    if (optListMoveBtn) {
+      optListMoveBtn.onclick = function() {
+        var cl = _activeCustomList;
+        closeModal(document.getElementById('modal-custom-list-options'));
+        if (cl) {
+          openCategoryManager(_activeCategoryManagerType);
+          _moveModeActive = true;
+          _moveModeCategoryId = 'custom_list:' + cl.id;
+          renderCategoryManagerList();
+        }
+      };
+    }
+
+    var optListRenameBtn = document.getElementById('opt-list-rename-btn');
+    if (optListRenameBtn) {
+      optListRenameBtn.onclick = function() {
+        var cl = _activeCustomList;
+        closeModal(document.getElementById('modal-custom-list-options'));
+        if (cl) {
+          openCreateOrRenameListModal('rename', cl);
+        }
+      };
+    }
+
+    var optListDeleteBtn = document.getElementById('opt-list-delete-btn');
+    if (optListDeleteBtn) {
+      optListDeleteBtn.onclick = function() {
+        var cl = _activeCustomList;
+        closeModal(document.getElementById('modal-custom-list-options'));
+        if (cl) {
+          openDeleteListModal(cl);
+        }
+      };
+    }
+
+    var optListCancelBtn = document.getElementById('opt-list-cancel-btn');
+    if (optListCancelBtn) {
+      optListCancelBtn.onclick = function() {
+        closeModal(document.getElementById('modal-custom-list-options'));
+      };
+    }
+
+    var deleteListConfirmBtn = document.getElementById('delete-list-confirm-btn');
+    if (deleteListConfirmBtn) {
+      deleteListConfirmBtn.onclick = function() {
+        if (_activeCustomList && _activeAccount) {
+          var name = _activeCustomList.name || '';
+          var listType = (_activeCustomList && _activeCustomList.type) || _activeCategoryManagerType || _activeContextType || 'live';
+          window.TVStorage.deleteCustomList(_activeAccount.id, _activeCustomList.id, listType);
+          _activeCustomList = null;
+          closeModal(document.getElementById('modal-delete-list'));
+          showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Liste "' + name + '" gelöscht' : 'List "' + name + '" deleted', 'trash');
+          var catMgrModal = document.getElementById('modal-category-manager');
+          if (catMgrModal && catMgrModal.classList.contains('active')) {
+            renderCategoryManagerList();
+          }
+          if (listType === 'live') renderLiveCategories(_liveCategories, true);
+          else if (listType === 'movie') renderMovieCategories(_movieCategories, true);
+          else if (listType === 'series') renderSeriesCategories(_seriesCategories, true);
+        }
+      };
+    }
+
+    // Scope selection chips in Login / Add Account modal
+    ['login-scope-live', 'login-scope-movies', 'login-scope-series'].forEach(function(chipId) {
+      var chip = document.getElementById(chipId);
+      if (chip) {
+        chip.onclick = function() {
+          var activeChips = document.querySelectorAll('.scope-chips-row .scope-chip.active');
+          if (chip.classList.contains('active') && activeChips.length <= 1) {
+            var msg = (window.TVI18n && window.TVI18n.t('min_one_scope')) ||
+                      ((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Mindestens ein Bereich muss aktiv bleiben' : 'At least one category must remain active');
+            showToast(msg, 'alert');
+            return;
+          }
+          var isAct = !chip.classList.contains('active');
+          setScopeChip(chipId, isAct);
+        };
+      }
+    });
+
+    // Accounts Version Badge changelog modal
+    var verBadge = document.getElementById('accounts-version-badge');
+    if (verBadge) {
+      verBadge.onclick = function() {
+        if (window.TVUpdater && window.TVUpdater.openChangelogModal) {
+          window.TVUpdater.openChangelogModal();
+        }
+      };
+    }
 
     var doneBtnInit = document.getElementById('remote-done-btn');
     if (doneBtnInit) {
@@ -5922,7 +6668,7 @@
           }
           closeModal(document.getElementById('delete-account-modal'));
           var toastDel = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? ' gelöscht' : ' deleted';
-          showToast((acc.name || acc.username) + toastDel, '🗑');
+          showToast((acc.name || acc.username) + toastDel, 'trash');
           renderAccountsList();
         }
       };
@@ -5972,11 +6718,13 @@
 
     function setPlaylistType(type) {
       currentType = type;
+      var syncScopesGroup = document.getElementById('login-sync-scopes-group');
       if (type === 'm3u') {
         if (typeBtnM3u) typeBtnM3u.classList.add('active');
         if (typeBtnXtream) typeBtnXtream.classList.remove('active');
         if (groupUser) groupUser.style.display = 'none';
         if (groupPass) groupPass.style.display = 'none';
+        if (syncScopesGroup) syncScopesGroup.style.display = 'none';
         if (userInput) userInput.required = false;
         if (passInput) passInput.required = false;
         if (labelServer) {
@@ -5996,6 +6744,7 @@
         if (typeBtnM3u) typeBtnM3u.classList.remove('active');
         if (groupUser) groupUser.style.display = 'block';
         if (groupPass) groupPass.style.display = 'block';
+        if (syncScopesGroup) syncScopesGroup.style.display = 'block';
         if (userInput) userInput.required = true;
         if (passInput) passInput.required = true;
         if (labelServer) {
@@ -6005,10 +6754,13 @@
           inputServer.placeholder = 'http://example.com:8080';
           inputServer.setAttribute('data-nav-down', '#login-username');
         }
+        if (passInput) {
+          passInput.setAttribute('data-nav-down', '#login-scope-live');
+        }
         if (submitBtn) {
-          submitBtn.setAttribute('data-nav-up', '#login-password');
+          submitBtn.setAttribute('data-nav-up', '#login-scope-live');
           var cancelBtn = document.getElementById('login-cancel-btn');
-          if (cancelBtn) cancelBtn.setAttribute('data-nav-up', '#login-password');
+          if (cancelBtn) cancelBtn.setAttribute('data-nav-up', '#login-scope-live');
         }
       }
     }
@@ -6027,6 +6779,10 @@
         var statusEl = document.getElementById('login-status');
         var submitBtn = document.getElementById('login-submit-btn');
 
+        var scopeLive = document.getElementById('login-scope-live') ? document.getElementById('login-scope-live').classList.contains('active') : true;
+        var scopeMovies = document.getElementById('login-scope-movies') ? document.getElementById('login-scope-movies').classList.contains('active') : true;
+        var scopeSeries = document.getElementById('login-scope-series') ? document.getElementById('login-scope-series').classList.contains('active') : true;
+
         if (currentType === 'm3u') {
           if (statusEl) statusEl.textContent = window.TVI18n ? window.TVI18n.t('loading_m3u') : 'Downloading and parsing M3U playlist...';
           if (submitBtn) submitBtn.disabled = true;
@@ -6039,15 +6795,21 @@
                 var filename = urlParts[urlParts.length - 1] || 'playlist.m3u';
                 cleanName = filename.replace(/\.(m3u8?)$/i, '').toUpperCase() + ' (M3U)';
               }
-              var acc = window.TVStorage.saveAccount({
+              var accData = {
                 type: 'm3u',
                 serverUrl: server.trim(),
                 username: '',
                 password: '',
                 name: cleanName,
                 channelCount: res.streamCount,
-                categoryCount: res.categoryCount
-              });
+                categoryCount: res.categoryCount,
+                syncLiveTv: true,
+                syncMovies: true,
+                syncSeries: true
+              };
+              if (_editingAccountId) accData.id = _editingAccountId;
+              var acc = window.TVStorage.saveAccount(accData);
+              _editingAccountId = null;
               if (window.TVStorage.saveM3uData) {
                 window.TVStorage.saveM3uData(acc.id, res.parsed);
               }
@@ -6058,8 +6820,9 @@
               var toastMsg = (window.TVI18n && window.TVI18n.getLanguage() === 'de')
                 ? 'M3U-Playlist hinzugefügt: ' + acc.name + ' (' + res.streamCount + ' Sender)'
                 : 'M3U Playlist added: ' + acc.name + ' (' + res.streamCount + ' channels)';
-              showToast(toastMsg, '📺');
+              showToast(toastMsg, 'tv');
               renderAccountsList();
+              updateNavRailScopes();
               enterDashboardWithAccount(acc, { showSplash: true });
             })
             .catch(function(err) {
@@ -6075,22 +6838,34 @@
 
         window.TVApi.authenticate(server, user, pass)
           .then(function(data) {
-            var acc = window.TVStorage.saveAccount({
+            var accData = {
               serverUrl: server,
               username: user,
               password: pass,
               name: playlistName.trim().length > 0 ? playlistName.trim() : (data.userInfo && data.userInfo.username) || user,
               expDate: (data.userInfo && data.userInfo.exp_date) ? data.userInfo.exp_date : null,
               maxConnections: (data.userInfo && data.userInfo.max_connections) ? data.userInfo.max_connections : null,
-              activeConnections: (data.userInfo && data.userInfo.active_cons) ? data.userInfo.active_cons : null
-            });
+              activeConnections: (data.userInfo && data.userInfo.active_cons) ? data.userInfo.active_cons : null,
+              syncLiveTv: scopeLive,
+              syncMovies: scopeMovies,
+              syncSeries: scopeSeries
+            };
+            if (_editingAccountId) {
+              accData.id = _editingAccountId;
+              if (!scopeLive && window.TVApi && window.TVApi.clearCache) window.TVApi.clearCache(accData.id, 'live');
+              if (!scopeMovies && window.TVApi && window.TVApi.clearCache) window.TVApi.clearCache(accData.id, 'vod');
+              if (!scopeSeries && window.TVApi && window.TVApi.clearCache) window.TVApi.clearCache(accData.id, 'series');
+            }
+            var acc = window.TVStorage.saveAccount(accData);
+            _editingAccountId = null;
             if (window.TVSync && window.TVSync.pushPlaylists) {
               window.TVSync.pushPlaylists();
             }
             closeModal(document.getElementById('login-modal'));
             var toastPrefix = window.TVI18n ? window.TVI18n.t('account_added_toast') : 'Account added: ';
-            showToast(toastPrefix + (acc.name || acc.username), '🎉');
+            showToast(toastPrefix + (acc.name || acc.username), 'info');
             renderAccountsList();
+            updateNavRailScopes();
             enterDashboardWithAccount(acc, { showSplash: true });
           })
           .catch(function(err) {
@@ -6103,6 +6878,7 @@
   }
 
   function showAddAccountModal() {
+    _editingAccountId = null;
     var modal = document.getElementById('login-modal');
     var titleEl = document.getElementById('modal-account-title');
     if (titleEl) titleEl.textContent = window.TVI18n ? window.TVI18n.t('add_account') : 'Add Account';
@@ -6111,6 +6887,13 @@
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
     document.getElementById('login-status').textContent = '';
+
+    var modeTabs = document.getElementById('login-mode-tabs');
+    if (modeTabs) modeTabs.style.display = 'flex';
+
+    setScopeChip('login-scope-live', true);
+    setScopeChip('login-scope-movies', true);
+    setScopeChip('login-scope-series', true);
 
     var tabManual = document.getElementById('tab-btn-manual');
     var tabRemote = document.getElementById('tab-btn-remote');
@@ -6133,6 +6916,7 @@
   }
 
   function showEditAccountModal(acc) {
+    _editingAccountId = acc ? acc.id : null;
     var modal = document.getElementById('login-modal');
     var titleEl = document.getElementById('modal-account-title');
     if (titleEl) titleEl.textContent = window.TVI18n ? window.TVI18n.t('edit_account') : 'Edit Account';
@@ -6141,6 +6925,19 @@
     document.getElementById('login-username').value = acc.username || '';
     document.getElementById('login-password').value = acc.password || '';
     document.getElementById('login-status').textContent = '';
+
+    var modeTabs = document.getElementById('login-mode-tabs');
+    if (modeTabs) modeTabs.style.display = 'none';
+
+    var viewManual = document.getElementById('view-manual');
+    var viewRemote = document.getElementById('view-remote');
+    if (viewManual) viewManual.classList.add('active');
+    if (viewRemote) viewRemote.classList.remove('active');
+    if (window.TVSync) window.TVSync.stopPolling();
+
+    setScopeChip('login-scope-live', acc.syncLiveTv !== false);
+    setScopeChip('login-scope-movies', acc.syncMovies !== false);
+    setScopeChip('login-scope-series', acc.syncSeries !== false);
 
     if (acc.type === 'm3u') {
       var typeBtnM3u = document.getElementById('type-btn-m3u');
@@ -6292,7 +7089,7 @@
             renderAccountsList();
 
             var toastPrefix = window.TVI18n ? window.TVI18n.t('playlist_received_toast') : 'Playlist received: ';
-            showToast(toastPrefix + (acc.name || acc.username), '📱');
+            showToast(toastPrefix + (acc.name || acc.username), 'mobile');
 
             var doneBtn = document.getElementById('remote-done-btn');
             if (doneBtn) {
@@ -6329,7 +7126,7 @@
               if (nameEl) nameEl.textContent = _activeAccount.name || _activeAccount.username;
             }
             var updatedToast = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert: ' : 'Playlist updated: ';
-            showToast(updatedToast + (event.account.name || event.account.username), '✏️');
+            showToast(updatedToast + (event.account.name || event.account.username), 'edit');
             var statusEl = document.getElementById('remote-status-text');
             if (statusEl) statusEl.textContent = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist aktualisiert' : 'Playlist updated';
             var doneBtn = document.getElementById('remote-done-btn');
@@ -6347,7 +7144,7 @@
               document.getElementById('view-accounts').classList.add('active');
             }
             var deletedToast = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Playlist gelöscht' : 'Playlist deleted';
-            showToast(deletedToast, '🗑️');
+            showToast(deletedToast, 'trash');
           }
         });
       })
@@ -6365,10 +7162,45 @@
     if (!banner || !msgEl) return;
 
     msgEl.textContent = message;
-    if (iconEl && icon) iconEl.textContent = icon;
+    if (iconEl) {
+      if (icon) {
+        var svgIcon = null;
+        if (window.TVIcons) {
+          if (icon === 'star') svgIcon = window.TVIcons.starFilled;
+          else if (icon === 'edit') svgIcon = window.TVIcons.edit;
+          else if (icon === 'trash') svgIcon = window.TVIcons.trash;
+          else if (icon === 'check') svgIcon = window.TVIcons.check;
+          else if (icon === 'tv') svgIcon = window.TVIcons.tv;
+          else if (icon === 'film' || icon === 'movie') svgIcon = window.TVIcons.film;
+          else if (icon === 'series' || icon === 'folder') svgIcon = window.TVIcons.series;
+          else if (icon === 'playlist' || icon === 'list') svgIcon = window.TVIcons.playlist;
+          else if (icon === 'alert' || icon === 'warning') svgIcon = window.TVIcons.alertCircle || window.TVIcons.info;
+          else if (icon === 'info' || icon === 'party') svgIcon = window.TVIcons.info;
+          else if (icon === 'close') svgIcon = window.TVIcons.close;
+          else if (icon === 'play') svgIcon = window.TVIcons.play;
+          else if (icon === 'swapVert' || icon === 'reorder') svgIcon = window.TVIcons.swapVert;
+          else if (icon === 'audio' || icon === 'volume') svgIcon = window.TVIcons.audio || window.TVIcons.settings;
+          else if (icon === 'subtitle' || icon === 'sub') svgIcon = window.TVIcons.subtitles || window.TVIcons.settings;
+          else if (icon === 'settings' || icon === 'gear') svgIcon = window.TVIcons.settings;
+          else if (icon === 'mobile' || icon === 'phone') svgIcon = window.TVIcons.mobile || window.TVIcons.info;
+          else if (icon === 'globe' || icon === 'lang') svgIcon = window.TVIcons.globe || window.TVIcons.settings;
+          else if (typeof icon === 'string' && icon.indexOf('<svg') !== -1) svgIcon = icon;
+        }
+        if (svgIcon) {
+          iconEl.innerHTML = svgIcon;
+        } else {
+          iconEl.textContent = icon;
+        }
+        iconEl.style.display = 'inline-flex';
+      } else {
+        iconEl.innerHTML = '';
+        iconEl.style.display = 'none';
+      }
+    }
     banner.classList.add('show');
 
-    setTimeout(function() {
+    if (window._toastTimer) clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(function() {
       banner.classList.remove('show');
     }, 4000);
   }
@@ -6389,6 +7221,624 @@
       window.close();
     }
   }
+
+  // Scope Chip toggle helper
+  function setScopeChip(id, active) {
+    var chip = document.getElementById(id);
+    if (!chip) return;
+    chip.classList.toggle('active', !!active);
+    var scope = chip.getAttribute('data-scope');
+    var labelText = (scope === 'live' ? (window.TVI18n ? window.TVI18n.t('live_tv') : 'Live TV') :
+                    (scope === 'movies' ? (window.TVI18n ? window.TVI18n.t('movies') : 'Movies') :
+                    (window.TVI18n ? window.TVI18n.t('series') : 'Series')));
+    var iconSvg = (scope === 'live' ? (window.TVIcons ? window.TVIcons.tv : '') :
+                  (scope === 'movies' ? (window.TVIcons ? window.TVIcons.film : '') :
+                  (window.TVIcons ? window.TVIcons.series : '')));
+    var checkSvg = (active && window.TVIcons) ? window.TVIcons.check : '';
+
+    chip.innerHTML = 
+      '<span class="scope-chip-icon">' + iconSvg + '</span>' +
+      '<span class="scope-chip-label">' + labelText + '</span>' +
+      '<span class="scope-chip-check">' + checkSvg + '</span>';
+  }
+
+  // =========================================================
+  // CATEGORY MANAGER & MOVE MODE (v2.1)
+  // =========================================================
+  var _activeCategoryManagerType = 'live';
+  var _showHiddenCategories = false;
+  var _moveModeActive = false;
+  var _moveModeCategoryId = null;
+
+  function openCategoryManager(type) {
+    _activeCategoryManagerType = type || _currentTab || 'live';
+    if (_activeCategoryManagerType === 'movies') _activeCategoryManagerType = 'movie';
+    _showHiddenCategories = false;
+    _moveModeActive = false;
+    _moveModeCategoryId = null;
+    window._moveModeActive = false;
+
+    var modal = document.getElementById('modal-category-manager');
+    if (!modal) return;
+
+    var titleEl = document.getElementById('cat-mgr-title');
+    var tipEl = document.getElementById('cat-mgr-tip-text');
+    var typeLabel = (_activeCategoryManagerType === 'live' ? (window.TVI18n ? window.TVI18n.t('live_tv') : 'Live TV') :
+                    (_activeCategoryManagerType === 'movie' ? (window.TVI18n ? window.TVI18n.t('movies') : 'Filme') :
+                    (window.TVI18n ? window.TVI18n.t('series') : 'Serien')));
+    if (titleEl) {
+      var manageKey = _activeCategoryManagerType === 'live' ? 'manage_live_categories' :
+                      (_activeCategoryManagerType === 'movie' ? 'manage_movie_categories' : 'manage_series_categories');
+      titleEl.textContent = (window.TVI18n && window.TVI18n.t(manageKey)) || ('Kategorien anpassen (' + typeLabel + ')');
+    }
+    if (tipEl) {
+      tipEl.textContent = (window.TVI18n && window.TVI18n.t('cat_mgr_tip')) || 'Tipp: OK = Ein-/Ausblenden • GELB oder OK halten = Verschieben / Liste bearbeiten';
+    }
+
+    renderCategoryManagerList();
+    openModal(modal);
+
+    var firstFocus = document.querySelector('#cat-mgr-list .cat-mgr-item') || document.getElementById('cat-mgr-toggle-hidden');
+    if (firstFocus && window.SpatialNav) {
+      window.SpatialNav.setFocus(firstFocus);
+    }
+  }
+
+  function renderCategoryManagerList() {
+    var listEl = document.getElementById('cat-mgr-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
+    var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true, customList: cl };
+    });
+    var allCats = [favCat].concat(customCats).concat(rawCats);
+    var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType) : { order: [], hidden: [], newIds: [] };
+
+    // Fast O(1) lookups
+    var orderSet = {};
+    (prefs.order || []).forEach(function(id) { orderSet[id] = true; });
+    var hiddenSet = {};
+    (prefs.hidden || []).forEach(function(id) { hiddenSet[id] = true; });
+
+    // Order categories according to prefs.order
+    var catMap = {};
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      catMap[id] = c;
+    });
+
+    var orderedList = [];
+    var favIdx = prefs.order.indexOf('favorites');
+    if (favIdx === -1) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    } else if (favIdx === prefs.order.length - 1 && prefs.order.length > 1 && !prefs.hasManualSort) {
+      if (catMap['favorites']) orderedList.push(catMap['favorites']);
+    }
+
+    prefs.order.forEach(function(id) {
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (catMap[id]) orderedList.push(catMap[id]);
+    });
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
+      if (!orderSet[id]) orderedList.push(c);
+    });
+
+    // Hidden categories count
+    var hiddenCount = 0;
+    orderedList.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      if (hiddenSet[id]) hiddenCount++;
+    });
+
+    // Update Toolbar buttons
+    var toggleHiddenText = document.getElementById('cat-mgr-toggle-hidden-text');
+    var toggleHiddenBtn = document.getElementById('cat-mgr-toggle-hidden');
+    if (toggleHiddenText) {
+      if (_showHiddenCategories) {
+        toggleHiddenText.textContent = (window.TVI18n && window.TVI18n.t('hide_hidden_categories')) || 'Ausgeblendete verbergen';
+      } else {
+        var tmpl = (window.TVI18n && window.TVI18n.t('show_hidden_count')) || 'Ausgeblendete anzeigen ({count})';
+        toggleHiddenText.textContent = tmpl.replace('{count}', hiddenCount);
+      }
+    }
+    if (toggleHiddenBtn) {
+      toggleHiddenBtn.classList.toggle('active', _showHiddenCategories);
+    }
+
+    var unhideBtn = document.getElementById('cat-mgr-unhide-all');
+    var unhideText = document.getElementById('cat-mgr-unhide-all-text');
+    if (unhideBtn) {
+      var allVis = orderedList.length > 0 && orderedList.every(function(c) {
+        var id = String(c.category_id || c.categoryId);
+        return prefs.hidden.indexOf(id) === -1;
+      });
+      var unhideLabel = allVis ? ((window.TVI18n && window.TVI18n.t('hide_all')) || 'Alle ausblenden') : ((window.TVI18n && window.TVI18n.t('show_all')) || 'Alle einblenden');
+      if (unhideText) unhideText.textContent = unhideLabel;
+      else unhideBtn.textContent = unhideLabel;
+    }
+
+    var moveBadge = document.getElementById('cat-mgr-move-badge');
+    if (moveBadge) {
+      moveBadge.style.display = _moveModeActive ? 'inline-flex' : 'none';
+    }
+    window._moveModeActive = _moveModeActive;
+
+    // Filter list if hidden categories should not be shown
+    var displayedList = orderedList.filter(function(c) {
+      if (_showHiddenCategories) return true;
+      var id = String(c.category_id || c.categoryId);
+      return prefs.hidden.indexOf(id) === -1;
+    });
+
+    if (displayedList.length === 0) {
+      var emptyEl = document.createElement('div');
+      emptyEl.className = 'cat-mgr-empty';
+      emptyEl.style.cssText = 'padding: 30px; text-align: center; color: rgba(255,255,255,0.5); font-size: 15px;';
+      emptyEl.textContent = (window.TVI18n && window.TVI18n.t('all_categories_hidden')) || 'Alle Kategorien sind ausgeblendet. Klicke oben auf "Ausgeblendete anzeigen", um sie wieder einzublenden.';
+      listEl.appendChild(emptyEl);
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+
+    displayedList.forEach(function(cat, idx) {
+      var catId = String(cat.category_id || cat.categoryId);
+      var isHidden = prefs.hidden.indexOf(catId) >= 0;
+      var isNew = prefs.newIds.indexOf(catId) >= 0;
+      var isMoving = _moveModeActive && (_moveModeCategoryId === catId);
+
+      var itemEl = document.createElement('div');
+      itemEl.className = 'cat-mgr-item focusable' + (isMoving ? ' move-active' : '') + (isHidden ? ' is-hidden' : '');
+      itemEl.setAttribute('data-cat-id', catId);
+      itemEl.setAttribute('data-index', String(idx));
+      if (cat.isCustom) {
+        itemEl.setAttribute('data-is-custom', 'true');
+        itemEl.setAttribute('data-custom-id', cat.customList ? cat.customList.id : catId.replace('custom_list:', ''));
+      }
+
+      var handleSvg = isMoving ? ((window.TVIcons && window.TVIcons.swapVert) || '') : ((window.TVIcons && window.TVIcons.dragHandle) || '');
+      var badgeNew = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+      var customBadge = cat.isCustom ? '<span class="badge-cat-new badge-custom-list">LISTE</span>' : '';
+      var checkSvg = !isHidden ? ((window.TVIcons && window.TVIcons.checkboxChecked) || '') : ((window.TVIcons && window.TVIcons.checkboxEmpty) || '');
+
+      var typeIcon = cat.isFav ? ('<span class="cat-mgr-type-icon is-fav">' + ((window.TVIcons && window.TVIcons.starFilled) || '') + '</span>') :
+                     (cat.isCustom ? ('<span class="cat-mgr-type-icon is-custom">' + ((window.TVIcons && window.TVIcons.playlist) || '') + '</span>') :
+                     ('<span class="cat-mgr-type-icon">' + (_activeCategoryManagerType === 'live' ? ((window.TVIcons && window.TVIcons.tv) || '') : (_activeCategoryManagerType === 'movie' ? ((window.TVIcons && window.TVIcons.film) || '') : ((window.TVIcons && window.TVIcons.series) || ''))) + '</span>'));
+
+      var movePill = isMoving ? '<span class="cat-mgr-move-pill active">Fertig</span>' : '<span class="cat-mgr-move-pill">Verschieben</span>';
+
+      itemEl.innerHTML = 
+        '<div class="cat-mgr-item-left">' +
+          '<div class="cat-mgr-checkbox' + (!isHidden ? ' checked' : '') + '">' + checkSvg + '</div>' +
+          typeIcon +
+          '<span class="cat-mgr-name' + (isHidden ? ' dimmed' : '') + '">' + escapeHtml(cat.category_name || cat.name || '') + '</span>' +
+          customBadge +
+          badgeNew +
+        '</div>' +
+        '<div class="cat-mgr-item-right">' +
+          movePill +
+          '<span class="cat-mgr-handle">' + handleSvg + '</span>' +
+        '</div>';
+
+      itemEl.onclick = function() {
+        if (_moveModeActive) {
+          exitCategoryMoveMode();
+          var reFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + catId + '"]');
+          if (reFocus && window.SpatialNav) window.SpatialNav.setFocus(reFocus);
+        } else {
+          window.TVStorage.setCategoryVisibility(_activeAccount.id, _activeCategoryManagerType, catId, isHidden);
+          renderCategoryManagerList();
+          var itemToFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + catId + '"]');
+          if (!itemToFocus && !_showHiddenCategories) {
+            var allItems = listEl.querySelectorAll('.cat-mgr-item');
+            var targetIdx = Math.min(idx, allItems.length - 1);
+            if (targetIdx >= 0) itemToFocus = allItems[targetIdx];
+            else itemToFocus = document.getElementById('cat-mgr-toggle-hidden');
+          }
+          if (itemToFocus && window.SpatialNav) window.SpatialNav.setFocus(itemToFocus);
+        }
+      };
+
+      frag.appendChild(itemEl);
+    });
+
+    listEl.appendChild(frag);
+  }
+
+  function moveCategoryInManager(dir) {
+    if (!_moveModeActive || !_moveModeCategoryId) return false;
+    var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
+    var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
+    });
+    var allCats = [favCat].concat(customCats).concat(rawCats);
+    var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
+
+    var currentOrder = prefs.order.slice();
+    allCats.forEach(function(c) {
+      var id = String(c.category_id || c.categoryId);
+      if (currentOrder.indexOf(id) === -1) currentOrder.push(id);
+    });
+
+    var fromIdx = currentOrder.indexOf(_moveModeCategoryId);
+    if (fromIdx === -1) return false;
+    var toIdx = fromIdx + dir;
+    if (toIdx < 0 || toIdx >= currentOrder.length) return false;
+
+    var temp = currentOrder[fromIdx];
+    currentOrder[fromIdx] = currentOrder[toIdx];
+    currentOrder[toIdx] = temp;
+
+    window.TVStorage.reorderCategories(_activeAccount.id, _activeCategoryManagerType, currentOrder);
+    renderCategoryManagerList();
+
+    var movingEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + _moveModeCategoryId + '"]');
+    if (movingEl && window.SpatialNav) {
+      window.SpatialNav.setFocus(movingEl);
+    }
+    return true;
+  }
+
+  function exitCategoryMoveMode() {
+    _moveModeActive = false;
+    _moveModeCategoryId = null;
+    window._moveModeActive = false;
+    renderCategoryManagerList();
+  }
+
+  function onCategoryManagerItemLongPress(itemEl) {
+    if (!itemEl) return;
+    var isCustom = itemEl.getAttribute('data-is-custom') === 'true';
+    var catId = itemEl.getAttribute('data-cat-id');
+
+    if (isCustom) {
+      var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
+      var customId = itemEl.getAttribute('data-custom-id') || catId.replace('custom_list:', '');
+      var found = customLists.find(function(cl) { return String(cl.id) === String(customId); });
+      if (found) {
+        openCustomListOptionsModal(found);
+        return;
+      }
+    }
+
+    if (_moveModeActive && _moveModeCategoryId === catId) {
+      exitCategoryMoveMode();
+    } else {
+      _moveModeActive = true;
+      _moveModeCategoryId = catId;
+      window._moveModeActive = true;
+      renderCategoryManagerList();
+      var movingEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + catId + '"]');
+      if (movingEl && window.SpatialNav) window.SpatialNav.setFocus(movingEl);
+    }
+  }
+
+  // =========================================================
+  // STREAM CONTEXT MENU & CUSTOM LISTS (v2.1)
+  // =========================================================
+  var _activeContextStream = null;
+  var _activeContextType = 'live';
+  var _activeCustomList = null;
+  var _createListMode = 'create';
+  var _ignoreContextClicksUntil = 0;
+
+  function showStreamContextMenu(stream, type) {
+    if (!stream) return;
+    _ignoreContextClicksUntil = Date.now() + 450;
+    _activeContextStream = stream;
+    _activeContextType = type || 'live';
+    if (_activeContextType === 'movies') _activeContextType = 'movie';
+
+    var modal = document.getElementById('modal-stream-context');
+    if (!modal) return;
+
+    var titleEl = document.getElementById('ctx-stream-title');
+    var thumbEl = document.getElementById('ctx-stream-icon');
+    var headerSvg = document.getElementById('ctx-header-svg');
+    var favBtn = document.getElementById('ctx-fav-btn');
+    var favIcon = document.getElementById('ctx-fav-icon');
+    var favLabel = document.getElementById('ctx-fav-label');
+    var moveBtn = document.getElementById('ctx-move-btn');
+
+    var streamId = String(stream.stream_id || stream.streamId || stream.series_id || stream.seriesId);
+    var streamName = stream.name || stream.title || ('Stream ' + streamId);
+    var streamIcon = stream.stream_icon || stream.streamIcon || stream.cover || '';
+
+    if (titleEl) titleEl.textContent = streamName;
+    if (thumbEl) {
+      if (streamIcon) {
+        thumbEl.src = streamIcon;
+        thumbEl.style.display = 'block';
+        if (headerSvg) headerSvg.style.display = 'none';
+      } else {
+        thumbEl.style.display = 'none';
+        if (headerSvg) headerSvg.style.display = 'inline-flex';
+      }
+    }
+
+    var inReorderableCategory = (_activeContextType === 'live') && (
+      (_selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') ||
+      (_selectedLiveCategory && typeof _selectedLiveCategory.category_id === 'string' && _selectedLiveCategory.category_id.indexOf('custom_list:') === 0)
+    );
+
+    if (moveBtn) {
+      if (inReorderableCategory) {
+        moveBtn.style.display = 'flex';
+        moveBtn.onclick = function() {
+          if (Date.now() < _ignoreContextClicksUntil) return;
+          closeModal(modal);
+          window._channelMoveModeActive = true;
+          window._movingLiveStreamId = streamId;
+          if (_virtualList && typeof _virtualList.refreshMovingState === 'function') {
+            _virtualList.refreshMovingState(streamId);
+          }
+          var toastMsg = (window.TVI18n && window.TVI18n.getLanguage() === 'de')
+            ? 'Verschiebemodus aktiv (▲/▼) — OK zum Speichern'
+            : 'Move mode active (▲/▼) — Press OK to save';
+          showToast(toastMsg, '↕');
+        };
+      } else {
+        moveBtn.style.display = 'none';
+      }
+    }
+
+    var isFav = window.TVStorage.isFavorite(_activeAccount.id, streamId, _activeContextType);
+    if (favIcon) favIcon.innerHTML = isFav ? ((window.TVIcons && window.TVIcons.starFilled) || '') : ((window.TVIcons && window.TVIcons.starOutline) || '');
+    if (favLabel) {
+      var favKey = isFav ? 'remove_from_favorites' : 'add_to_favorites';
+      favLabel.textContent = (window.TVI18n && window.TVI18n.t(favKey)) || (isFav ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen');
+    }
+
+    favBtn.onclick = function() {
+      if (Date.now() < _ignoreContextClicksUntil) return;
+      var res = window.TVStorage.toggleFavorite(_activeAccount.id, streamId, _activeContextType);
+      favIcon.innerHTML = res ? ((window.TVIcons && window.TVIcons.starFilled) || '') : ((window.TVIcons && window.TVIcons.starOutline) || '');
+      var newKey = res ? 'remove_from_favorites' : 'add_to_favorites';
+      favLabel.textContent = (window.TVI18n && window.TVI18n.t(newKey)) || (res ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen');
+      showToast(res ? 'Zu Favoriten hinzugefügt' : 'Aus Favoriten entfernt', res ? 'star' : 'trash');
+
+      if (_activeContextType === 'live' && _selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
+        selectLiveCategory(_selectedLiveCategory);
+      } else if (_activeContextType === 'movie' && _selectedMovieCategory && _selectedMovieCategory.category_id === 'favorites') {
+        selectMovieCategory(_selectedMovieCategory);
+      } else if (_activeContextType === 'series' && _selectedSeriesCategory && _selectedSeriesCategory.category_id === 'favorites') {
+        selectSeriesCategory(_selectedSeriesCategory);
+      }
+    };
+
+    renderContextCustomLists();
+    openModal(modal);
+
+    var initialFocus = inReorderableCategory ? moveBtn : favBtn;
+    if (initialFocus && window.SpatialNav) {
+      window.SpatialNav.setFocus(initialFocus);
+    }
+  }
+
+  function showStreamContextMenuForCard(cardEl, type) {
+    if (!cardEl) return;
+    var stream = null;
+    if (type === 'movie' || type === 'movies') {
+      var id = cardEl.getAttribute('data-stream-id') || cardEl.getAttribute('data-id');
+      stream = (_movieStreams || []).find(function(m) { return String(m.stream_id) === String(id); }) ||
+               (_allAccountVodStreams || []).find(function(m) { return String(m.stream_id) === String(id); });
+      if (!stream) {
+        var title = (cardEl.querySelector('.poster-title') || {}).textContent || '';
+        stream = { stream_id: id, name: title, stream_icon: (cardEl.querySelector('img') || {}).src || '' };
+      }
+      showStreamContextMenu(stream, 'movie');
+    } else if (type === 'series') {
+      var sId = cardEl.getAttribute('data-series-id') || cardEl.getAttribute('data-id');
+      stream = (_seriesList || []).find(function(s) { return String(s.series_id) === String(sId); }) ||
+               (_allAccountSeriesStreams || []).find(function(s) { return String(s.series_id) === String(sId); });
+      if (!stream) {
+        var sTitle = (cardEl.querySelector('.poster-title') || {}).textContent || '';
+        stream = { series_id: sId, name: sTitle, cover: (cardEl.querySelector('img') || {}).src || '' };
+      }
+      showStreamContextMenu(stream, 'series');
+    }
+  }
+
+  function renderContextCustomLists() {
+    var box = document.getElementById('ctx-custom-lists-container');
+    if (!box) return;
+    box.innerHTML = '';
+
+    var streamId = String(_activeContextStream.stream_id || _activeContextStream.streamId || _activeContextStream.series_id || _activeContextStream.seriesId);
+    var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeContextType);
+
+    if (customLists.length === 0) {
+      var emptyMsg = document.createElement('div');
+      emptyMsg.style.cssText = 'font-size:13px; color:rgba(255,255,255,0.4); padding:8px 0;';
+      emptyMsg.textContent = (window.TVI18n && window.TVI18n.t('no_custom_lists')) || 'Keine eigenen Listen vorhanden.';
+      box.appendChild(emptyMsg);
+      return;
+    }
+
+    customLists.forEach(function(cl) {
+      var inList = window.TVStorage.isStreamInCustomList(_activeAccount.id, cl.id, streamId);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ctx-action-btn focusable ctx-list-row';
+      btn.setAttribute('data-list-id', cl.id);
+
+      var checkSvg = inList ? ((window.TVIcons && window.TVIcons.checkboxChecked) || '') : ((window.TVIcons && window.TVIcons.checkboxEmpty) || '');
+      var inListText = inList ? ((window.TVI18n && window.TVI18n.t('in_list')) || 'In Liste') : ((window.TVI18n && window.TVI18n.t('add')) || 'Hinzufügen');
+
+      btn.innerHTML = 
+        '<span class="btn-icon">' + checkSvg + '</span>' +
+        '<span style="flex:1; text-align:left;">' + escapeHtml(cl.name) + '</span>' +
+        '<span style="font-size:12px; color:rgba(255,255,255,0.4);">' + inListText + '</span>';
+
+      btn.onclick = function() {
+        if (Date.now() < _ignoreContextClicksUntil) return;
+        if (inList) {
+          window.TVStorage.removeStreamFromCustomList(_activeAccount.id, cl.id, streamId);
+          showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Aus "' + cl.name + '" entfernt' : 'Removed from "' + cl.name + '"', 'check');
+        } else {
+          window.TVStorage.addStreamToCustomList(_activeAccount.id, cl.id, _activeContextStream);
+          showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Zu "' + cl.name + '" hinzugefügt' : 'Added to "' + cl.name + '"', 'check');
+        }
+        renderContextCustomLists();
+        var reFocus = box.querySelector('.ctx-list-row[data-list-id="' + cl.id + '"]');
+        if (reFocus && window.SpatialNav) window.SpatialNav.setFocus(reFocus);
+
+        if (_activeContextType === 'live' && _selectedLiveCategory && _selectedLiveCategory.category_id === 'custom_list:' + cl.id) {
+          selectLiveCustomList(cl);
+        } else if (_activeContextType === 'movie' && _selectedMovieCategory && _selectedMovieCategory.category_id === 'custom_list:' + cl.id) {
+          selectMovieCustomList(cl);
+        } else if (_activeContextType === 'series' && _selectedSeriesCategory && _selectedSeriesCategory.category_id === 'custom_list:' + cl.id) {
+          selectSeriesCustomList(cl);
+        }
+      };
+
+      box.appendChild(btn);
+    });
+  }
+
+  function onContextCustomListLongPress(itemEl) {
+    if (!itemEl) return;
+    var listId = itemEl.getAttribute('data-list-id');
+    if (!listId) return;
+    var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeContextType);
+    var found = customLists.find(function(cl) { return String(cl.id) === String(listId); });
+    if (found) {
+      openCustomListOptionsModal(found);
+    }
+  }
+
+  function openCustomListOptionsModal(cl) {
+    if (!cl) return;
+    _activeCustomList = cl;
+    var modal = document.getElementById('modal-custom-list-options');
+    if (!modal) return;
+
+    var titleEl = document.getElementById('custom-list-options-title');
+    if (titleEl) titleEl.textContent = cl.name || 'Listen-Optionen';
+
+    openModal(modal);
+    var firstBtn = document.getElementById('opt-list-move-btn');
+    if (firstBtn && window.SpatialNav) window.SpatialNav.setFocus(firstBtn);
+  }
+
+  function openCreateOrRenameListModal(mode, cl) {
+    _createListMode = mode || 'create';
+    _activeCustomList = cl || null;
+
+    var modal = document.getElementById('modal-create-list');
+    if (!modal) return;
+
+    var titleEl = document.getElementById('create-list-title');
+    var inputEl = document.getElementById('create-list-input');
+
+    if (titleEl) {
+      titleEl.textContent = _createListMode === 'rename'
+        ? ((window.TVI18n && window.TVI18n.t('rename_list')) || 'Liste umbenennen')
+        : ((window.TVI18n && window.TVI18n.t('create_new_list')) || 'Neue Liste erstellen');
+    }
+    if (inputEl) {
+      inputEl.value = (_createListMode === 'rename' && cl) ? cl.name : '';
+    }
+
+    openModal(modal, inputEl);
+  }
+
+  function openDeleteListModal(cl) {
+    if (!cl) return;
+    _activeCustomList = cl;
+    var modal = document.getElementById('modal-delete-list');
+    if (!modal) return;
+
+    var descEl = document.getElementById('delete-list-desc');
+    if (descEl) {
+      var tmpl = (window.TVI18n && window.TVI18n.t('delete_list_confirm')) || 'Möchtest du diese Liste "{name}" wirklich löschen?';
+      descEl.textContent = tmpl.replace('{name}', cl.name || '');
+    }
+
+    openModal(modal, document.getElementById('delete-list-cancel-btn'));
+  }
+
+  // =========================================================
+  // LIVE CHANNEL MOVE MODE (v2.1)
+  // =========================================================
+  window._channelMoveModeActive = false;
+  window._movingLiveStreamId = null;
+
+  window.moveLiveChannelInList = function(dir) {
+    if (!window._channelMoveModeActive || !window._movingLiveStreamId || !_liveStreams || _liveStreams.length < 2) return false;
+
+    var streamId = String(window._movingLiveStreamId);
+    var fromIdx = _liveStreams.findIndex(function(s) { return String(s.stream_id) === streamId; });
+    if (fromIdx === -1) return false;
+
+    var toIdx = fromIdx + dir;
+    if (toIdx < 0 || toIdx >= _liveStreams.length) return false;
+
+    // Swap in array
+    var temp = _liveStreams[fromIdx];
+    _liveStreams[fromIdx] = _liveStreams[toIdx];
+    _liveStreams[toIdx] = temp;
+    window._liveStreams = _liveStreams;
+
+    // Update VirtualList
+    if (_virtualList) {
+      _virtualList.setItems(_liveStreams, false);
+      if (typeof _virtualList.refreshMovingState === 'function') {
+        _virtualList.refreshMovingState(streamId);
+      }
+      _virtualList.scrollToIndex(toIdx);
+    }
+
+    // Persist new order
+    var orderedIds = _liveStreams.map(function(s) { return String(s.stream_id); });
+    if (_selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
+      window.TVStorage.reorderFavorites(_activeAccount.id, 'live', orderedIds);
+    } else if (_selectedLiveCategory && typeof _selectedLiveCategory.category_id === 'string' && _selectedLiveCategory.category_id.indexOf('custom_list:') === 0) {
+      var clId = _selectedLiveCategory.category_id.replace('custom_list:', '');
+      window.TVStorage.reorderCustomListItems(_activeAccount.id, clId, orderedIds);
+    }
+
+    return true;
+  };
+
+  window.exitLiveChannelMoveMode = function() {
+    window._channelMoveModeActive = false;
+    var streamId = window._movingLiveStreamId;
+    window._movingLiveStreamId = null;
+
+    if (_virtualList && typeof _virtualList.refreshMovingState === 'function') {
+      _virtualList.refreshMovingState(null);
+    }
+
+    var toastMsg = (window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Senderreihenfolge gespeichert' : 'Channel order saved';
+    showToast(toastMsg, 'check');
+
+    if (streamId) {
+      var rowEl = document.querySelector('.channel-row[data-stream-id="' + streamId + '"]');
+      if (rowEl && window.SpatialNav) window.SpatialNav.setFocus(rowEl);
+    }
+  };
+
+  window.openCategoryManager = openCategoryManager;
+  window.openCategoryManagerForCurrentTab = function() {
+    var t = _currentTab === 'movies' ? 'movie' : (_currentTab === 'series' ? 'series' : 'live');
+    openCategoryManager(t);
+  };
+  window.renderCategoryManagerList = renderCategoryManagerList;
+  window.moveCategoryInManager = moveCategoryInManager;
+  window.exitCategoryMoveMode = exitCategoryMoveMode;
+  window.onCategoryManagerItemLongPress = onCategoryManagerItemLongPress;
+  window.showStreamContextMenu = showStreamContextMenu;
+  window.showStreamContextMenuForCard = showStreamContextMenuForCard;
+  window.onContextCustomListLongPress = onContextCustomListLongPress;
 
   window.TVApp = {
     openModal: openModal,

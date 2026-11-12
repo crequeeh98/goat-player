@@ -9,6 +9,7 @@
   var _enterHoldTimer = null;
   var _enterHoldTriggered = false;
   var _enterFocusedElement = null;
+  var _suppressNextClick = false;
 
   var KEY_CODES = {
     LEFT: 37,
@@ -238,14 +239,18 @@
       }
     }
 
-    // Fast-path: Vertical list navigation (Categories, Channels, Episode drawers, Settings)
+    // Fast-path: Vertical list navigation (Categories, Channels, Episode drawers, Settings, Category Manager, Context Menu)
     var isListRow = current.classList.contains('category-menu-item') ||
                     current.classList.contains('channel-menu-item') ||
                     current.classList.contains('channel-row') ||
                     current.classList.contains('category-item') ||
                     current.classList.contains('track-opt-btn') ||
                     current.classList.contains('episode-card') ||
-                    current.classList.contains('sort-opt-btn');
+                    current.classList.contains('sort-opt-btn') ||
+                    current.classList.contains('cat-mgr-item') ||
+                    current.classList.contains('ctx-action-btn') ||
+                    current.classList.contains('ctx-list-row') ||
+                    current.classList.contains('ctx-custom-list-btn');
 
     if (isListRow && current.parentElement) {
       if (direction === 'down') {
@@ -355,7 +360,7 @@
       document.body.classList.remove('preview-focused');
       if (_currentFocused) {
         _currentFocused.classList.remove('focused');
-        var prevWrap = _currentFocused.closest ? _currentFocused.closest('.input-wrapper, .search-input-wrapper, .vod-search-wrapper, .search-box-container') : null;
+        var prevWrap = _currentFocused.closest ? _currentFocused.closest('.input-wrapper, .search-input-wrapper, .vod-search-wrapper, .search-box-container, .col-search-box') : null;
         if (prevWrap) prevWrap.classList.remove('input-focused');
         if (isInput(_currentFocused) && document.activeElement === _currentFocused) {
           try { _currentFocused.blur(); } catch(e){}
@@ -366,7 +371,7 @@
     }
     if (_currentFocused && _currentFocused !== el) {
       _currentFocused.classList.remove('focused');
-      var oldWrap = _currentFocused.closest ? _currentFocused.closest('.input-wrapper, .search-input-wrapper, .vod-search-wrapper, .search-box-container') : null;
+      var oldWrap = _currentFocused.closest ? _currentFocused.closest('.input-wrapper, .search-input-wrapper, .vod-search-wrapper, .search-box-container, .col-search-box') : null;
       if (oldWrap) oldWrap.classList.remove('input-focused');
       if (isInput(_currentFocused) && document.activeElement === _currentFocused) {
         try { _currentFocused.blur(); } catch(e){}
@@ -375,7 +380,7 @@
 
     _currentFocused = el;
     el.classList.add('focused');
-    var newWrap = el.closest ? el.closest('.input-wrapper, .search-input-wrapper, .vod-search-wrapper, .search-box-container') : null;
+    var newWrap = el.closest ? el.closest('.input-wrapper, .search-input-wrapper, .vod-search-wrapper, .search-box-container, .col-search-box') : null;
     if (newWrap) newWrap.classList.add('input-focused');
 
     if (el && (el.id === 'preview-player-box' || el.id === 'player-container')) {
@@ -509,6 +514,20 @@
     if (isBackKey) {
       e.preventDefault();
 
+      // Exit Category Manager Move Mode on Back key first (without closing modal)
+      if (window._moveModeActive && typeof window.exitCategoryMoveMode === 'function') {
+        e.stopPropagation();
+        window.exitCategoryMoveMode();
+        return;
+      }
+
+      // Exit Live Channel Move Mode on Back key first
+      if (window._channelMoveModeActive && typeof window.exitLiveChannelMoveMode === 'function') {
+        e.stopPropagation();
+        window.exitLiveChannelMoveMode();
+        return;
+      }
+
       // If a search input or clear button is focused, escape to content below instead of exiting dashboard!
       if (_currentFocused && (isInput(_currentFocused) || (_currentFocused.id && _currentFocused.id.indexOf('-clear-btn') !== -1))) {
         var escapedFromSearch = escapeFromSearchInput(_currentFocused);
@@ -637,6 +656,12 @@
 
     // Handle ENTER
     if (code === KEY_CODES.ENTER) {
+      if (_enterHoldTriggered) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       if (isInput(_currentFocused)) {
         e.preventDefault();
         try {
@@ -648,9 +673,87 @@
         return;
       }
 
-      // Handle long-press on channel row to toggle favorite
-      var channelWrap = _currentFocused ? _currentFocused.closest('.channel-row-wrap') : null;
-      if (channelWrap) {
+      // Live Channel Move Mode: exit move mode on ENTER
+      if (window._channelMoveModeActive && typeof window.exitLiveChannelMoveMode === 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+        window.exitLiveChannelMoveMode();
+        return;
+      }
+
+      // Handle long-press (500ms hold) for Stream Context Menu, Category Manager & Custom Lists
+      var longPressTarget = null;
+      var longPressAction = null;
+
+      if (_currentFocused) {
+        var channelWrap = _currentFocused.closest('.channel-row-wrap, .channel-row');
+        var movieCard = _currentFocused.closest('.movie-card, .poster-card[data-type="movie"]') ||
+                        (_currentFocused.closest('#movies-grid-container') ? _currentFocused.closest('.poster-card') : null);
+        var seriesCard = _currentFocused.closest('.series-card, .poster-card[data-type="series"]') ||
+                         (_currentFocused.closest('#series-grid-container') ? _currentFocused.closest('.poster-card') : null);
+        var catItem = _currentFocused.closest('.category-item');
+        var catMgrItem = _currentFocused.closest('.cat-mgr-item');
+        var ctxListRow = _currentFocused.closest('.ctx-list-row, .ctx-custom-list-btn');
+        var accCard = _currentFocused.closest('.account-card');
+
+        if (channelWrap) {
+          longPressTarget = channelWrap;
+          longPressAction = function() {
+            var idx = parseInt(channelWrap.getAttribute('data-index'), 10);
+            var stream = (window._goatVirtualList && window._goatVirtualList.items) ? window._goatVirtualList.items[idx] : null;
+            if (stream) {
+              if (typeof window.showStreamContextMenu === 'function') {
+                window.showStreamContextMenu(stream, 'live');
+              } else if (typeof window.toggleChannelFavorite === 'function') {
+                window.toggleChannelFavorite(stream, channelWrap);
+              }
+            }
+          };
+        } else if (movieCard) {
+          longPressTarget = movieCard;
+          longPressAction = function() {
+            if (typeof window.showStreamContextMenuForCard === 'function') {
+              window.showStreamContextMenuForCard(movieCard, 'movie');
+            }
+          };
+        } else if (seriesCard) {
+          longPressTarget = seriesCard;
+          longPressAction = function() {
+            if (typeof window.showStreamContextMenuForCard === 'function') {
+              window.showStreamContextMenuForCard(seriesCard, 'series');
+            }
+          };
+        } else if (catItem) {
+          longPressTarget = catItem;
+          longPressAction = function() {
+            if (typeof window.openCategoryManagerForCurrentTab === 'function') {
+              window.openCategoryManagerForCurrentTab();
+            }
+          };
+        } else if (catMgrItem) {
+          longPressTarget = catMgrItem;
+          longPressAction = function() {
+            if (typeof window.onCategoryManagerItemLongPress === 'function') {
+              window.onCategoryManagerItemLongPress(catMgrItem);
+            }
+          };
+        } else if (ctxListRow) {
+          longPressTarget = ctxListRow;
+          longPressAction = function() {
+            if (typeof window.onContextCustomListLongPress === 'function') {
+              window.onContextCustomListLongPress(ctxListRow);
+            }
+          };
+        } else if (accCard) {
+          longPressTarget = accCard;
+          longPressAction = function() {
+            var editBtn = accCard.querySelector('.account-icon-btn.edit');
+            if (editBtn) editBtn.click();
+          };
+        }
+      }
+
+      if (longPressTarget && longPressAction) {
         e.preventDefault();
         e.stopPropagation();
         if (!e.repeat) {
@@ -660,11 +763,7 @@
           _enterHoldTimer = setTimeout(function() {
             _enterHoldTriggered = true;
             _enterHoldTimer = null;
-            var idx = parseInt(channelWrap.getAttribute('data-index'), 10);
-            var stream = (window._goatVirtualList && window._goatVirtualList.items) ? window._goatVirtualList.items[idx] : null;
-            if (stream && typeof window.toggleChannelFavorite === 'function') {
-              window.toggleChannelFavorite(stream, channelWrap);
-            }
+            longPressAction();
           }, 500);
         }
         return;
@@ -718,10 +817,54 @@
         }
         return;
       }
+
+      var redAccCard = _currentFocused ? _currentFocused.closest('.account-card') : null;
+      if (redAccCard) {
+        var delBtn = redAccCard.querySelector('.account-icon-btn.delete');
+        if (delBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          delBtn.click();
+          return;
+        }
+      }
     }
 
-    // Yellow Key (code 405 on Smart TV), 'F' or 'Y' Key: Toggle favorite on focused channel
+    // Yellow Key (code 405 on Smart TV), 'F' or 'Y' Key:
     if (!isEpgOverlayOpen && isYellowKey(e, code)) {
+      var yellowAccCard = _currentFocused ? _currentFocused.closest('.account-card') : null;
+      if (yellowAccCard) {
+        var editBtn = yellowAccCard.querySelector('.account-icon-btn.edit');
+        if (editBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          editBtn.click();
+          return;
+        }
+      }
+      // 1. Inside Category Manager Modal: Reorder / Options on focused category item
+      var catMgrModal = document.getElementById('modal-category-manager');
+      if (catMgrModal && catMgrModal.classList.contains('active')) {
+        var catMgrTarget = _currentFocused ? _currentFocused.closest('.cat-mgr-item') : null;
+        if (catMgrTarget && typeof window.onCategoryManagerItemLongPress === 'function') {
+          e.preventDefault();
+          e.stopPropagation();
+          window.onCategoryManagerItemLongPress(catMgrTarget);
+          return;
+        }
+      }
+
+      // 2. Focused on category item on dashboard: Open Category Manager for current tab
+      if (_currentFocused && _currentFocused.closest('.category-item')) {
+        if (typeof window.openCategoryManagerForCurrentTab === 'function') {
+          e.preventDefault();
+          e.stopPropagation();
+          window.openCategoryManagerForCurrentTab();
+          return;
+        }
+      }
+
+      // 3. Smart IPTV Channel Menu: toggle favorite
       var chMenu = document.getElementById('live-channel-menu');
       if (chMenu && chMenu.style.display !== 'none') {
         var menuItem = (_currentFocused && _currentFocused.closest('.channel-menu-item')) ||
@@ -735,8 +878,10 @@
           return;
         }
       }
+
+      // 4. Focused on channel row: toggle favorite
       if (_currentFocused) {
-        var channelWrap = _currentFocused.closest('.channel-row-wrap');
+        var channelWrap = _currentFocused.closest('.channel-row-wrap, .channel-row');
         if (channelWrap) {
           e.preventDefault();
           e.stopPropagation();
@@ -806,6 +951,29 @@
 
     // Navigation overrides for smooth columns and panels
     if (_currentFocused) {
+      // Category Manager Move Mode: UP / DOWN moves category in list
+      if (window._moveModeActive && _currentFocused.closest('.cat-mgr-item')) {
+        if (code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.moveCategoryInManager === 'function') {
+            window.moveCategoryInManager(code === KEY_CODES.UP ? -1 : 1);
+          }
+          return;
+        }
+      }
+
+      // Live Channel List Move Mode: UP / DOWN moves live channel in list
+      if (window._channelMoveModeActive && (_currentFocused.closest('.channel-row') || _currentFocused.closest('.channel-row-wrap') || _currentFocused.closest('#live-channels-list'))) {
+        if (code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.moveLiveChannelInList === 'function') {
+            window.moveLiveChannelInList(code === KEY_CODES.UP ? -1 : 1);
+          }
+          return;
+        }
+      }
       // Smart IPTV Channel Menu Item: UP/DOWN inside page or flip page, LEFT/RIGHT flip page
       if (_currentFocused.classList.contains('channel-menu-item')) {
         if (code === KEY_CODES.UP) {
@@ -884,11 +1052,18 @@
         }
       }
 
-      // App Update Notification Modal: strict horizontal and vertical trapping
+      // App Update Notification Modal: strict horizontal and vertical trapping (Modes A & B)
       var updateModalEl = document.getElementById('modal-update');
       if (updateModalEl && updateModalEl.classList.contains('active')) {
+        var cfBtn = document.getElementById('update-now-btn') || document.getElementById('update-confirm-btn');
+        var ltBtn = document.getElementById('update-later-btn');
+        var clBtn = document.getElementById('update-close-btn');
+        var clBox = document.getElementById('update-changelog-box');
+        var hasConfirm = cfBtn && cfBtn.offsetParent !== null && cfBtn.style.display !== 'none';
+        var hasChangelogFocusable = clBox && clBox.offsetParent !== null && clBox.classList.contains('focusable');
+
         if (!_currentFocused || !_currentFocused.closest || !_currentFocused.closest('#modal-update')) {
-          var initialTarget = document.getElementById('update-confirm-btn');
+          var initialTarget = hasConfirm ? cfBtn : (ltBtn || clBtn);
           if (initialTarget) {
             e.preventDefault();
             e.stopPropagation();
@@ -896,26 +1071,31 @@
             return;
           }
         } else {
-          if (_currentFocused.id === 'update-confirm-btn') {
-            if (code === KEY_CODES.RIGHT) {
-              var ltBtn = document.getElementById('update-later-btn');
-              if (ltBtn) { e.preventDefault(); e.stopPropagation(); setFocus(ltBtn); return; }
+          if (_currentFocused === cfBtn) {
+            if (code === KEY_CODES.RIGHT && ltBtn && ltBtn.offsetParent !== null) {
+              e.preventDefault(); e.stopPropagation(); setFocus(ltBtn); return;
             } else if (code === KEY_CODES.UP) {
-              var clBtn = document.getElementById('update-close-btn');
-              if (clBtn) { e.preventDefault(); e.stopPropagation(); setFocus(clBtn); return; }
+              var targetUp = hasChangelogFocusable ? clBox : clBtn;
+              if (targetUp) { e.preventDefault(); e.stopPropagation(); setFocus(targetUp); return; }
             }
-          } else if (_currentFocused.id === 'update-later-btn') {
-            if (code === KEY_CODES.LEFT) {
-              var cfBtn = document.getElementById('update-confirm-btn');
-              if (cfBtn) { e.preventDefault(); e.stopPropagation(); setFocus(cfBtn); return; }
+          } else if (_currentFocused === ltBtn) {
+            if (code === KEY_CODES.LEFT && hasConfirm) {
+              e.preventDefault(); e.stopPropagation(); setFocus(cfBtn); return;
             } else if (code === KEY_CODES.UP) {
-              var clBtn2 = document.getElementById('update-close-btn');
-              if (clBtn2) { e.preventDefault(); e.stopPropagation(); setFocus(clBtn2); return; }
+              var targetUp2 = hasChangelogFocusable ? clBox : clBtn;
+              if (targetUp2) { e.preventDefault(); e.stopPropagation(); setFocus(targetUp2); return; }
             }
-          } else if (_currentFocused.id === 'update-close-btn') {
+          } else if (_currentFocused === clBox) {
             if (code === KEY_CODES.DOWN) {
-              var cfBtn2 = document.getElementById('update-confirm-btn');
-              if (cfBtn2) { e.preventDefault(); e.stopPropagation(); setFocus(cfBtn2); return; }
+              var targetDown = hasConfirm ? cfBtn : ltBtn;
+              if (targetDown) { e.preventDefault(); e.stopPropagation(); setFocus(targetDown); return; }
+            } else if (code === KEY_CODES.UP && clBtn) {
+              e.preventDefault(); e.stopPropagation(); setFocus(clBtn); return;
+            }
+          } else if (_currentFocused === clBtn) {
+            if (code === KEY_CODES.DOWN) {
+              var downTarget = hasChangelogFocusable ? clBox : (hasConfirm ? cfBtn : ltBtn);
+              if (downTarget) { e.preventDefault(); e.stopPropagation(); setFocus(downTarget); return; }
             }
           }
           if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT || code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
@@ -1127,38 +1307,74 @@
         }
       }
 
-      // 00. From Top Add Account Button -> DOWN moves to first account card
-      if (_currentFocused.id === 'accounts-add-btn') {
+      // 00. From Top Add Account Button or Version Badge -> DOWN moves to account cards
+      if (_currentFocused.id === 'accounts-add-btn' || _currentFocused.id === 'accounts-version-badge') {
+        var allCards = Array.from(document.querySelectorAll('.accounts-grid .account-card'));
         if (code === KEY_CODES.DOWN) {
-          var firstCard = document.querySelector('.accounts-grid .account-card');
-          if (firstCard) {
+          if (_currentFocused.id === 'accounts-add-btn') {
+            var targetCard = (allCards.length > 1) ? allCards[1] : allCards[0];
+            if (targetCard) { e.preventDefault(); setFocus(targetCard); return; }
+          } else {
+            if (allCards.length > 0) { e.preventDefault(); setFocus(allCards[0]); return; }
+          }
+        } else if (code === KEY_CODES.LEFT && _currentFocused.id === 'accounts-add-btn') {
+          var vBadge = document.getElementById('accounts-version-badge');
+          if (vBadge && vBadge.offsetParent !== null) {
             e.preventDefault();
-            setFocus(firstCard);
+            setFocus(vBadge);
+            return;
+          }
+        } else if (code === KEY_CODES.RIGHT && _currentFocused.id === 'accounts-version-badge') {
+          var addBtn = document.getElementById('accounts-add-btn');
+          if (addBtn && addBtn.offsetParent !== null) {
+            e.preventDefault();
+            setFocus(addBtn);
             return;
           }
         }
       }
 
-      // 01. From Account Card -> RIGHT moves to its edit button; UP to add button
+      // 01. From Account Card -> deterministic traversal (Card -> Edit -> Delete -> Next Card)
       if (_currentFocused.classList.contains('account-card')) {
-        if (code === KEY_CODES.RIGHT) {
-          var editBtn = _currentFocused.querySelector('.account-icon-btn.edit');
-          if (editBtn) {
+        var allCards = Array.from(document.querySelectorAll('.accounts-grid .account-card'));
+        var idx = allCards.indexOf(_currentFocused);
+        if (idx >= 0) {
+          if (code === KEY_CODES.RIGHT) {
             e.preventDefault();
-            setFocus(editBtn);
+            var editBtn = _currentFocused.querySelector('.account-icon-btn.edit');
+            if (editBtn) {
+              setFocus(editBtn);
+            } else if (idx + 1 < allCards.length) {
+              setFocus(allCards[idx + 1]);
+            }
             return;
-          }
-        } else if (code === KEY_CODES.UP) {
-          var upCard = findNextInDirection(_currentFocused, 'up');
-          if (upCard && upCard.classList.contains('account-card')) {
+          } else if (code === KEY_CODES.LEFT) {
             e.preventDefault();
-            setFocus(upCard);
+            if (idx > 0) {
+              var prevCard = allCards[idx - 1];
+              var prevDel = prevCard.querySelector('.account-icon-btn.delete') || prevCard;
+              setFocus(prevDel);
+            }
             return;
-          }
-          var addBtn = document.getElementById('accounts-add-btn');
-          if (addBtn && addBtn.offsetParent !== null) {
+          } else if (code === KEY_CODES.DOWN) {
             e.preventDefault();
-            setFocus(addBtn);
+            if (idx + 2 < allCards.length) {
+              setFocus(allCards[idx + 2]);
+            } else if (idx % 2 === 0 && idx + 1 < allCards.length) {
+              setFocus(allCards[idx + 1]);
+            }
+            return;
+          } else if (code === KEY_CODES.UP) {
+            e.preventDefault();
+            if (idx - 2 >= 0) {
+              setFocus(allCards[idx - 2]);
+            } else if (idx === 1) {
+              var addBtn = document.getElementById('accounts-add-btn');
+              if (addBtn && addBtn.offsetParent !== null) setFocus(addBtn);
+            } else if (idx === 0) {
+              var vBadge = document.getElementById('accounts-version-badge') || document.getElementById('accounts-add-btn');
+              if (vBadge && vBadge.offsetParent !== null) setFocus(vBadge);
+            }
             return;
           }
         }
@@ -1166,82 +1382,121 @@
 
       // 02. From Account Edit Button -> LEFT back to card, RIGHT to delete button
       if (_currentFocused.classList.contains('account-icon-btn') && _currentFocused.classList.contains('edit')) {
+        var parentCard = _currentFocused.closest('.account-card');
+        var allCards = Array.from(document.querySelectorAll('.accounts-grid .account-card'));
+        var idx = parentCard ? allCards.indexOf(parentCard) : -1;
+
         if (code === KEY_CODES.LEFT) {
-          var parentCard = _currentFocused.closest('.account-card');
-          if (parentCard) {
-            e.preventDefault();
-            setFocus(parentCard);
-            return;
-          }
+          if (parentCard) { e.preventDefault(); setFocus(parentCard); return; }
         } else if (code === KEY_CODES.RIGHT) {
           var delBtn = _currentFocused.parentElement ? _currentFocused.parentElement.querySelector('.account-icon-btn.delete') : null;
-          if (delBtn) {
-            e.preventDefault();
-            setFocus(delBtn);
-            return;
-          }
+          if (delBtn) { e.preventDefault(); setFocus(delBtn); return; }
+          else if (idx >= 0 && idx + 1 < allCards.length) { e.preventDefault(); setFocus(allCards[idx + 1]); return; }
         } else if (code === KEY_CODES.UP) {
-          var parentCard = _currentFocused.closest('.account-card');
-          var upCard = parentCard ? findNextInDirection(parentCard, 'up') : null;
-          if (upCard && upCard.classList.contains('account-card')) {
-            e.preventDefault();
-            setFocus(upCard);
-            return;
+          e.preventDefault();
+          if (idx - 2 >= 0) setFocus(allCards[idx - 2]);
+          else {
+            var addBtn = document.getElementById('accounts-add-btn');
+            if (addBtn) setFocus(addBtn);
           }
-          var addBtn = document.getElementById('accounts-add-btn');
-          if (addBtn && addBtn.offsetParent !== null) {
-            e.preventDefault();
-            setFocus(addBtn);
-            return;
-          }
+          return;
         } else if (code === KEY_CODES.DOWN) {
-          var parentCard = _currentFocused.closest('.account-card');
-          var downCard = parentCard ? findNextInDirection(parentCard, 'down') : null;
-          if (downCard && downCard.classList.contains('account-card')) {
-            e.preventDefault();
-            setFocus(downCard);
-            return;
-          }
+          e.preventDefault();
+          if (idx >= 0 && idx + 2 < allCards.length) setFocus(allCards[idx + 2]);
+          return;
         }
       }
 
       // 03. From Account Delete Button -> LEFT to edit button, RIGHT to next column card
       if (_currentFocused.classList.contains('account-icon-btn') && _currentFocused.classList.contains('delete')) {
+        var parentCard = _currentFocused.closest('.account-card');
+        var allCards = Array.from(document.querySelectorAll('.accounts-grid .account-card'));
+        var idx = parentCard ? allCards.indexOf(parentCard) : -1;
+
         if (code === KEY_CODES.LEFT) {
           var editBtn = _currentFocused.parentElement ? _currentFocused.parentElement.querySelector('.account-icon-btn.edit') : null;
-          if (editBtn) {
-            e.preventDefault();
-            setFocus(editBtn);
-            return;
-          }
+          if (editBtn) { e.preventDefault(); setFocus(editBtn); return; }
+          else if (parentCard) { e.preventDefault(); setFocus(parentCard); return; }
         } else if (code === KEY_CODES.RIGHT) {
-          var parentCard = _currentFocused.closest('.account-card');
-          var rightCard = parentCard ? findNextInDirection(parentCard, 'right') : null;
-          if (rightCard && rightCard.classList.contains('account-card')) {
-            e.preventDefault();
-            setFocus(rightCard);
-            return;
+          e.preventDefault();
+          if (idx >= 0 && idx + 1 < allCards.length) {
+            setFocus(allCards[idx + 1]);
           }
+          return;
         } else if (code === KEY_CODES.UP) {
-          var parentCard = _currentFocused.closest('.account-card');
-          var upCard = parentCard ? findNextInDirection(parentCard, 'up') : null;
-          if (upCard && upCard.classList.contains('account-card')) {
-            e.preventDefault();
-            setFocus(upCard);
-            return;
+          e.preventDefault();
+          if (idx - 2 >= 0) setFocus(allCards[idx - 2]);
+          else {
+            var addBtn = document.getElementById('accounts-add-btn');
+            if (addBtn) setFocus(addBtn);
           }
-          var addBtn = document.getElementById('accounts-add-btn');
-          if (addBtn && addBtn.offsetParent !== null) {
-            e.preventDefault();
-            setFocus(addBtn);
-            return;
-          }
+          return;
         } else if (code === KEY_CODES.DOWN) {
-          var parentCard = _currentFocused.closest('.account-card');
-          var downCard = parentCard ? findNextInDirection(parentCard, 'down') : null;
-          if (downCard && downCard.classList.contains('account-card')) {
+          e.preventDefault();
+          if (idx >= 0 && idx + 2 < allCards.length) setFocus(allCards[idx + 2]);
+          return;
+        }
+      }
+
+      // 03b. Stream Context Menu Navigation (modal-stream-context)
+      if (_currentFocused && _currentFocused.closest('#modal-stream-context')) {
+        if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT) {
+          e.preventDefault();
+          return;
+        }
+        if (_currentFocused.id === 'ctx-fav-btn') {
+          if (code === KEY_CODES.DOWN) {
+            var firstList = document.querySelector('#ctx-custom-lists-container .ctx-list-row');
+            var target = firstList || document.getElementById('ctx-create-list-btn');
+            if (target) { e.preventDefault(); setFocus(target); return; }
+          } else if (code === KEY_CODES.UP) {
+            var moveBtn = document.getElementById('ctx-move-btn');
+            if (moveBtn && moveBtn.style.display !== 'none' && moveBtn.offsetParent !== null) {
+              e.preventDefault(); setFocus(moveBtn); return;
+            }
+            var closeBtn = document.getElementById('ctx-close-btn');
+            if (closeBtn) { e.preventDefault(); setFocus(closeBtn); return; }
+          }
+        } else if (_currentFocused.id === 'ctx-move-btn') {
+          if (code === KEY_CODES.DOWN) {
+            var favBtn = document.getElementById('ctx-fav-btn');
+            if (favBtn) { e.preventDefault(); setFocus(favBtn); return; }
+          } else if (code === KEY_CODES.UP) {
+            var closeBtn = document.getElementById('ctx-close-btn');
+            if (closeBtn) { e.preventDefault(); setFocus(closeBtn); return; }
+          }
+        } else if (_currentFocused.classList.contains('ctx-list-row')) {
+          if (code === KEY_CODES.DOWN) {
+            var nextRow = _currentFocused.nextElementSibling;
+            if (nextRow && nextRow.classList.contains('ctx-list-row')) {
+              e.preventDefault(); setFocus(nextRow); return;
+            }
+            var createBtn = document.getElementById('ctx-create-list-btn');
+            if (createBtn) { e.preventDefault(); setFocus(createBtn); return; }
+          } else if (code === KEY_CODES.UP) {
+            var prevRow = _currentFocused.previousElementSibling;
+            if (prevRow && prevRow.classList.contains('ctx-list-row')) {
+              e.preventDefault(); setFocus(prevRow); return;
+            }
+            var favBtn = document.getElementById('ctx-fav-btn');
+            if (favBtn) { e.preventDefault(); setFocus(favBtn); return; }
+          }
+        } else if (_currentFocused.id === 'ctx-create-list-btn') {
+          if (code === KEY_CODES.UP) {
+            var listRows = document.querySelectorAll('#ctx-custom-lists-container .ctx-list-row');
+            var target = listRows.length > 0 ? listRows[listRows.length - 1] : document.getElementById('ctx-fav-btn');
+            if (target) { e.preventDefault(); setFocus(target); return; }
+          } else if (code === KEY_CODES.DOWN) {
             e.preventDefault();
-            setFocus(downCard);
+            return;
+          }
+        } else if (_currentFocused.id === 'ctx-close-btn') {
+          if (code === KEY_CODES.DOWN) {
+            var moveBtn = document.getElementById('ctx-move-btn');
+            var target = (moveBtn && moveBtn.style.display !== 'none' && moveBtn.offsetParent !== null) ? moveBtn : document.getElementById('ctx-fav-btn');
+            if (target) { e.preventDefault(); setFocus(target); return; }
+          } else if (code === KEY_CODES.UP) {
+            e.preventDefault();
             return;
           }
         }
@@ -1305,8 +1560,12 @@
           var searchBtn = document.getElementById('header-search-btn') || document.getElementById('header-pref-btn');
           if (searchBtn) { setFocus(searchBtn); return; }
         } else if (code === KEY_CODES.RIGHT) {
-          // RIGHT from live-cat-search goes to channel list, NEVER preview player
           e.preventDefault();
+          var catMgrBtn = document.getElementById('live-cat-manage-btn');
+          if (catMgrBtn && catMgrBtn.offsetParent !== null) {
+            setFocus(catMgrBtn);
+            return;
+          }
           if (window._goatVirtualList && window._goatVirtualList.getItemCount() > 0) {
             window._goatVirtualList.focusActive();
             return;
@@ -1316,6 +1575,28 @@
           e.preventDefault();
           var railBtn = document.getElementById('nav-btn-live');
           if (railBtn) { setFocus(railBtn); return; }
+        }
+      }
+
+      if (_currentFocused.id === 'live-cat-manage-btn') {
+        if (code === KEY_CODES.LEFT) {
+          e.preventDefault();
+          var liveSearch = document.getElementById('live-cat-search');
+          if (liveSearch) { setFocus(liveSearch); return; }
+        } else if (code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          var firstCat = document.querySelector('#live-categories-list .category-item');
+          if (firstCat) { setFocus(firstCat); return; }
+        } else if (code === KEY_CODES.UP) {
+          e.preventDefault();
+          var searchBtn = document.getElementById('header-search-btn') || document.getElementById('header-pref-btn');
+          if (searchBtn) { setFocus(searchBtn); return; }
+        } else if (code === KEY_CODES.RIGHT) {
+          e.preventDefault();
+          if (window._goatVirtualList && window._goatVirtualList.getItemCount() > 0) {
+            window._goatVirtualList.focusActive();
+            return;
+          }
         }
       }
 
@@ -1330,12 +1611,37 @@
           if (searchBtn) { setFocus(searchBtn); return; }
         } else if (code === KEY_CODES.RIGHT) {
           e.preventDefault();
+          var catMgrBtnM = document.getElementById('movies-cat-manage-btn');
+          if (catMgrBtnM && catMgrBtnM.offsetParent !== null) {
+            setFocus(catMgrBtnM);
+            return;
+          }
           var movInput = document.getElementById('movies-search-input');
           if (movInput) { setFocus(movInput); return; }
         } else if (code === KEY_CODES.LEFT) {
           e.preventDefault();
           var railBtn = document.getElementById('nav-btn-movies');
           if (railBtn) { setFocus(railBtn); return; }
+        }
+      }
+
+      if (_currentFocused.id === 'movies-cat-manage-btn') {
+        if (code === KEY_CODES.LEFT) {
+          e.preventDefault();
+          var movCatSearch = document.getElementById('movies-cat-search');
+          if (movCatSearch) { setFocus(movCatSearch); return; }
+        } else if (code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          var firstCatM = document.querySelector('#movies-categories-list .category-item');
+          if (firstCatM) { setFocus(firstCatM); return; }
+        } else if (code === KEY_CODES.UP) {
+          e.preventDefault();
+          var searchBtnM = document.getElementById('header-search-btn') || document.getElementById('header-pref-btn');
+          if (searchBtnM) { setFocus(searchBtnM); return; }
+        } else if (code === KEY_CODES.RIGHT) {
+          e.preventDefault();
+          var movInputM = document.getElementById('movies-search-input');
+          if (movInputM) { setFocus(movInputM); return; }
         }
       }
 
@@ -1355,6 +1661,11 @@
           if (targetBtn) { setFocus(targetBtn); return; }
         } else if (code === KEY_CODES.LEFT) {
           e.preventDefault();
+          var catMgrBtnM2 = document.getElementById('movies-cat-manage-btn');
+          if (catMgrBtnM2 && catMgrBtnM2.offsetParent !== null) {
+            setFocus(catMgrBtnM2);
+            return;
+          }
           var catSearch = document.getElementById('movies-cat-search');
           if (catSearch) { setFocus(catSearch); return; }
         } else if (code === KEY_CODES.RIGHT) {
@@ -1396,12 +1707,37 @@
           if (searchBtn) { setFocus(searchBtn); return; }
         } else if (code === KEY_CODES.RIGHT) {
           e.preventDefault();
+          var catMgrBtnS = document.getElementById('series-cat-manage-btn');
+          if (catMgrBtnS && catMgrBtnS.offsetParent !== null) {
+            setFocus(catMgrBtnS);
+            return;
+          }
           var serInput = document.getElementById('series-search-input');
           if (serInput) { setFocus(serInput); return; }
         } else if (code === KEY_CODES.LEFT) {
           e.preventDefault();
           var railBtn = document.getElementById('nav-btn-series');
           if (railBtn) { setFocus(railBtn); return; }
+        }
+      }
+
+      if (_currentFocused.id === 'series-cat-manage-btn') {
+        if (code === KEY_CODES.LEFT) {
+          e.preventDefault();
+          var serCatSearch = document.getElementById('series-cat-search');
+          if (serCatSearch) { setFocus(serCatSearch); return; }
+        } else if (code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          var firstCatS = document.querySelector('#series-categories-list .category-item');
+          if (firstCatS) { setFocus(firstCatS); return; }
+        } else if (code === KEY_CODES.UP) {
+          e.preventDefault();
+          var searchBtnS = document.getElementById('header-search-btn') || document.getElementById('header-pref-btn');
+          if (searchBtnS) { setFocus(searchBtnS); return; }
+        } else if (code === KEY_CODES.RIGHT) {
+          e.preventDefault();
+          var serInputS = document.getElementById('series-search-input');
+          if (serInputS) { setFocus(serInputS); return; }
         }
       }
 
@@ -1421,6 +1757,11 @@
           if (targetBtn) { setFocus(targetBtn); return; }
         } else if (code === KEY_CODES.LEFT) {
           e.preventDefault();
+          var catMgrBtnS2 = document.getElementById('series-cat-manage-btn');
+          if (catMgrBtnS2 && catMgrBtnS2.offsetParent !== null) {
+            setFocus(catMgrBtnS2);
+            return;
+          }
           var catSearch = document.getElementById('series-cat-search');
           if (catSearch) { setFocus(catSearch); return; }
         } else if (code === KEY_CODES.RIGHT) {
@@ -1963,6 +2304,11 @@
 
   // Direct click on inputs focuses natively
   function handleClick(e) {
+    if (_suppressNextClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (document.body.classList.contains('player-fullscreen')) {
       var isModalOpen = !!document.querySelector('.modal-overlay.active');
       var isDrawerOpen = !!document.querySelector('.slide-drawer.open');
@@ -1996,6 +2342,8 @@
       if (_enterHoldTriggered) {
         _enterHoldTriggered = false;
         _enterFocusedElement = null;
+        _suppressNextClick = true;
+        setTimeout(function() { _suppressNextClick = false; }, 400);
         e.preventDefault();
         e.stopPropagation();
         return;
