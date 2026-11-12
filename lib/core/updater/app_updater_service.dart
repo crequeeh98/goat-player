@@ -29,7 +29,13 @@ class AppUpdateInfo {
 
 const String kBundledReleaseNotes = '''
 ### 🇩🇪 Änderungen & Optimierungen
-- **Kategorien-Manager Hotfix**:
+- **TV D-Pad & Dialog-Navigation (Hotfix v2.1.2)**:
+  - *Fokus-Trapping & Sofort-Fokus*: TV-Fernbedienungsfokus landet beim Öffnen des Update- und Changelog-Modals sofort zuverlässig auf dem Aktionsbutton.
+  - *D-Pad Tastensteuerung*: Links/Rechts schaltet zwischen Buttons („Jetzt aktualisieren“ / „Später“), Oben/Unten scrollt den Text flüssig.
+  - *Button-Layout & Skalierung*: Verhindert das Überlappen von Buttons in das Textfeld auf Fire TV / Android TV; fester Maßstab ohne Verzerrung.
+  - *Back-Taste Entkopplung*: Erster Druck auf Zurück schließt ausschließlich das Dialog-Modal; erst der nächste Druck öffnet den Beenden-Dialog.
+  - *Desktop Live TV*: Behebung einer Riverpod-Ausnahme beim Schließen des Live TV Screens.
+- **Kategorien-Manager (v2.1.1)**:
   - *Mobiles Wischen & Scrolling*: Action Bar (`Ausgeblendete verbergen/anzeigen`, `A-Z Zurücksetzen`, `Alle ein-/ausblenden`) auf Mobilgeräten horizontal flüssig scroll- und wischbar.
   - *Fokus-Glow Beseitigung*: Kein nachrückender lila Fokusrahmen auf Touch- und Desktop-Geräten nach dem Ausblenden von Kategorien.
   - *TV D-Pad Stabilität*: Schnelles und unterbrechungsfreies Zappen & Verschieben auf Fire TV / Android TV bleibt uneingeschränkt erhalten.
@@ -37,10 +43,15 @@ const String kBundledReleaseNotes = '''
   - *Automatischer Sprachfilter*: Zeigt auf deutschen Geräten exklusiv deutsche Release-Notes und auf englischen Geräten englische Texte.
   - *Rich Markdown Rendering*: Kompakte Bullets, `Code-Badges`, **Fettschrift** und *Kursivschrift* auf einen Blick ohne unnötiges Scrollen.
   - *Changelog jederzeit abrufbar*: Klick auf die Versions-Badge öffnet die Neuerungen; bei aktuellem Stand mit grünem Bestätigungshaken und reinem „Schließen“-Button.
-  - *Responsive Dialogmaße*: 620px breite TV-Darstellung und D-Pad Autofokus.
 
 ### 🇬🇧 Changes & Optimizations
-- **Category Manager Hotfix**:
+- **TV D-Pad & Dialog Navigation (Hotfix v2.1.2)**:
+  - *Focus Trapping & Immediate Focus*: TV remote focus reliably locks onto action buttons when opening update or changelog modals.
+  - *D-Pad Key Mapping*: Left/Right switches between buttons ("Update Now" / "Later"), Up/Down scrolls changelog smoothly.
+  - *Button Layout & Sizing*: Prevents buttons from overlapping the changelog container on Fire TV / Android TV; enforced 1:1 scale without zoom distortion.
+  - *Back Key Decoupling*: First back press closes only the modal; second back press brings up the app exit dialog.
+  - *Desktop Live TV*: Resolved unmounted Riverpod state error on live screen disposal.
+- **Category Manager (v2.1.1)**:
   - *Mobile Touch Scrolling*: Horizontally scrollable Action Bar (`Show/Hide Inactive`, `Reset A-Z`, `Bulk Toggle`) for smartphones.
   - *Focus Glow Cleared*: Removed lingering purple focus outline on mobile touch and desktop mouse interactions after hiding categories.
   - *TV D-Pad Navigation*: Preserved seamless auto-focus continuation on Android TV and Fire TV remotes.
@@ -48,7 +59,6 @@ const String kBundledReleaseNotes = '''
   - *Automated Language Filter*: Displays German notes on German systems and English notes on English systems without bilingual clutter.
   - *Rich Markdown Formatting*: Dense bullet points, `code tags`, **bold** and *italic* styling fitting on a single screen without scrolling.
   - *Changelog on Demand*: Clicking the version badge displays the release notes; shows verified checkmark with "Close" button when up-to-date.
-  - *Responsive TV Dialog*: 620px wide layout for television screens with D-Pad autofocus.
 ''';
 
 class AppUpdaterService {
@@ -148,7 +158,7 @@ class AppUpdaterService {
   /// with automatic fallback to [kBundledReleaseNotes] if offline or unreleased.
   Future<String> getCurrentVersionChangelog(String currentVer) async {
     final cleanVer = currentVer.split('+').first;
-    if (cleanVer == '2.1.1') {
+    if (cleanVer == '2.1.1' || cleanVer == '2.1.2') {
       return kBundledReleaseNotes;
     }
     try {

@@ -98,7 +98,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
       } catch (_) {}
 
       if (!mounted) return;
-      final activeVer = _appVersion.isNotEmpty ? _appVersion : '2.1.1';
+      final activeVer = _appVersion.isNotEmpty ? _appVersion : '2.1.2';
       final notes = await updater.getCurrentVersionChangelog(activeVer);
       final upToDateInfo = AppUpdateInfo(
         hasUpdate: false,

@@ -64,13 +64,13 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   void dispose() {
     _channelPlayDebounce?.cancel();
     _shortEpgFocusDebounce?.cancel();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    try {
       if (ref.read(activeDashboardTabProvider) == 0) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
         ref.read(activeCategoryFocusNodeProvider.notifier).set(null);
       }
       ref.read(tabCategoryFocusNodesProvider.notifier).setForTab(0, null);
-    });
+    } catch (_) {}
     _categoryScrollController.dispose();
     _channelScrollController.dispose();
     _firstCategoryNode.dispose();

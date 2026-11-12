@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/utils/platform_utils.dart';
 import '../../../core/widgets/tv_focusable.dart';
 import '../app_updater_service.dart';
@@ -90,12 +91,102 @@ class _UpdateDialogState extends State<UpdateDialog> {
   String? _errorMessage;
 
   final ScrollController _scrollController = ScrollController();
+  final FocusScopeNode _dialogScopeNode = FocusScopeNode(debugLabel: 'update_dialog_scope');
   final FocusNode _updateBtnFocusNode = FocusNode(debugLabel: 'update_dialog_update_btn');
   final FocusNode _laterBtnFocusNode = FocusNode(debugLabel: 'update_dialog_later_btn');
 
   @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleDialogHardwareKey);
+    FocusManager.instance.primaryFocus?.unfocus();
+    _forceFocusTarget();
+  }
+
+  void _forceFocusTarget() {
+    final target = widget.updateInfo.hasUpdate ? _updateBtnFocusNode : _laterBtnFocusNode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) target.requestFocus();
+    });
+    for (final ms in [40, 100, 200, 350]) {
+      Future.delayed(Duration(milliseconds: ms), () {
+        if (mounted) {
+          final primary = FocusManager.instance.primaryFocus;
+          if (primary != _updateBtnFocusNode && primary != _laterBtnFocusNode) {
+            target.requestFocus();
+          }
+        }
+      });
+    }
+  }
+
+  void _safePop() {
+    if (!mounted || _isDownloading) return;
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  bool _handleDialogHardwareKey(KeyEvent event) {
+    if (!mounted) return false;
+    if (event is! KeyDownEvent) return false;
+
+    final key = event.logicalKey;
+
+    // Allow Android TV / Fire TV remote Back button to be handled exclusively
+    // by Flutter's PopScope so that the exit dialog is not triggered prematurely.
+    if (key == LogicalKeyboardKey.goBack) {
+      return false;
+    }
+
+    // Dismiss modal on Escape (Desktop / Web)
+    if (key == LogicalKeyboardKey.escape) {
+      _safePop();
+      return true;
+    }
+
+    final target = widget.updateInfo.hasUpdate ? _updateBtnFocusNode : _laterBtnFocusNode;
+
+    final primary = FocusManager.instance.primaryFocus;
+    final isInsideDialog = primary != null &&
+        (primary == _updateBtnFocusNode || primary == _laterBtnFocusNode);
+
+    if (!isInsideDialog) {
+      target.requestFocus();
+      return true;
+    }
+
+    if (widget.updateInfo.hasUpdate && !_isDownloading) {
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        _laterBtnFocusNode.requestFocus();
+        return true;
+      } else if (key == LogicalKeyboardKey.arrowRight) {
+        _updateBtnFocusNode.requestFocus();
+        return true;
+      }
+    }
+
+    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.arrowDown) {
+      if (_scrollController.hasClients) {
+        final delta = key == LogicalKeyboardKey.arrowUp ? -120.0 : 120.0;
+        _scrollController.animateTo(
+          (_scrollController.offset + delta).clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+        );
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleDialogHardwareKey);
     _scrollController.dispose();
+    _dialogScopeNode.dispose();
     _updateBtnFocusNode.dispose();
     _laterBtnFocusNode.dispose();
     super.dispose();
@@ -150,6 +241,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
           _isDownloading = false;
           _errorMessage = friendlyMsg;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _updateBtnFocusNode.requestFocus();
+          }
+        });
       }
     }
   }
@@ -180,15 +276,47 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
     // Responsive dialog & changelog container sizing
     final double dialogWidth = GoatPlatform.isTv ? 620 : (GoatPlatform.isPhone ? double.infinity : 520);
-    final double maxChangelogHeight = GoatPlatform.isTv ? 340 : (GoatPlatform.isPhone ? 240 : 300);
+    final double maxChangelogHeight = GoatPlatform.isTv ? 240 : (GoatPlatform.isPhone ? 220 : 260);
 
-    return AlertDialog(
-      backgroundColor: const Color(0xFF161026),
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
-      ),
+    return FocusScope(
+      node: _dialogScopeNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        final key = event.logicalKey;
+
+        // Directional keys: keep focus trapped within dialog buttons
+        final isArrowKey = key == LogicalKeyboardKey.arrowDown ||
+            key == LogicalKeyboardKey.arrowUp ||
+            key == LogicalKeyboardKey.arrowLeft ||
+            key == LogicalKeyboardKey.arrowRight;
+
+        if (event is KeyDownEvent && isArrowKey) {
+          final primary = FocusManager.instance.primaryFocus;
+          final isInDialog = primary != null &&
+              (primary == _updateBtnFocusNode || primary == _laterBtnFocusNode);
+          if (!isInDialog) {
+            if (hasUpdate && !_isDownloading) {
+              _updateBtnFocusNode.requestFocus();
+            } else {
+              _laterBtnFocusNode.requestFocus();
+            }
+            return KeyEventResult.handled;
+          }
+        }
+
+        return KeyEventResult.ignored;
+      },
+      child: PopScope(
+        canPop: !_isDownloading,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF161026),
+          surfaceTintColor: Colors.transparent,
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: const Color(0xFFB388FF).withValues(alpha: 0.5), width: 1.5),
+          ),
       title: Row(
         children: [
           Container(
@@ -274,7 +402,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
             ],
             if (_isDownloading) ...[
               Row(
@@ -331,33 +458,80 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ],
         ),
       ),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
         if (hasUpdate) ...[
           if (!_isDownloading)
             TvFocusable(
               focusNode: _laterBtnFocusNode,
+              focusScale: 1.0,
               borderRadius: BorderRadius.circular(8),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: _safePop,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent) {
+                  if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                    _updateBtnFocusNode.requestFocus();
+                    return KeyEventResult.handled;
+                  }
+                  if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                      event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                    if (_scrollController.hasClients) {
+                      final delta = event.logicalKey == LogicalKeyboardKey.arrowUp ? -120.0 : 120.0;
+                      _scrollController.animateTo(
+                        (_scrollController.offset + delta).clamp(0.0, _scrollController.position.maxScrollExtent),
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                    return KeyEventResult.handled;
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   laterText,
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 12.5),
                 ),
               ),
             ),
           TvFocusable(
             focusNode: _updateBtnFocusNode,
             autofocus: GoatPlatform.isTv,
+            focusScale: 1.0,
             borderRadius: BorderRadius.circular(8),
             onPressed: _isDownloading ? null : _startUpdate,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                    event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  if (!_isDownloading) {
+                    _laterBtnFocusNode.requestFocus();
+                  }
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  if (_scrollController.hasClients) {
+                    final delta = event.logicalKey == LogicalKeyboardKey.arrowUp ? -120.0 : 120.0;
+                    _scrollController.animateTo(
+                      (_scrollController.offset + delta).clamp(0.0, _scrollController.position.maxScrollExtent),
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                  return KeyEventResult.handled;
+                }
+              }
+              return KeyEventResult.ignored;
+            },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFF7C3AED),
                 borderRadius: BorderRadius.circular(8),
@@ -374,13 +548,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   else
                     Icon(
                       _errorMessage != null ? Icons.refresh_rounded : Icons.download_rounded,
-                      size: 18,
+                      size: 16,
                       color: Colors.white,
                     ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Text(
                     _isDownloading ? downloadingText : updateNowText,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white),
                   ),
                 ],
               ),
@@ -390,23 +564,47 @@ class _UpdateDialogState extends State<UpdateDialog> {
           TvFocusable(
             focusNode: _laterBtnFocusNode,
             autofocus: GoatPlatform.isTv,
+            focusScale: 1.0,
             borderRadius: BorderRadius.circular(8),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _safePop,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  if (_scrollController.hasClients) {
+                    final delta = event.logicalKey == LogicalKeyboardKey.arrowUp ? -120.0 : 120.0;
+                    _scrollController.animateTo(
+                      (_scrollController.offset + delta).clamp(0.0, _scrollController.position.maxScrollExtent),
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                    event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  return KeyEventResult.handled;
+                }
+              }
+              return KeyEventResult.ignored;
+            },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFF7C3AED),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 closeText,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white),
               ),
             ),
           ),
         ],
       ],
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildMarkdownContent(String rawMarkdown, bool isGerman) {

@@ -76,6 +76,10 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
   bool _handleGlobalHardwareKey(KeyEvent event) {
     if ((event is! KeyDownEvent && event is! KeyUpEvent) || !mounted) return false;
 
+    // Never intercept or redirect focus if this TvRemoteScope is in the background
+    // (e.g. a modal DialogRoute or child screen is currently active above it).
+    if (ModalRoute.of(context)?.isCurrent != true) return false;
+
     final key = event.logicalKey;
 
     // Directional TV Keys: Auto-recover focus if focus is currently null or lost

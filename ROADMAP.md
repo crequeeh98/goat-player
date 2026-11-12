@@ -5,7 +5,7 @@ This document outlines the development history, architectural milestones, and pr
 ---
 
 ## 🏆 Current Releases
-- **Flutter Client**: `v2.1.1` (Hotfix: Modernized Markdown Update Dialog, Mobile Touch Category Bar, Focus Glow Clearance)
+- **Flutter Client**: `v2.1.2` (Hotfix: Fire TV D-Pad Focus Trapping, Button Sizing & Layout, Decoupled Back Navigation)
 - **Web Portal**: `v2.1.0` (Custom Lists, Category Management, Granular Scopes, Zero-Knowledge Sync)
 - **Smart TV (Tizen & webOS)**: `v2.0.5` (Pairing Maintenance Patch & Sharp 512px Samsung Launcher Icon)
 
@@ -25,6 +25,7 @@ This document outlines the development history, architectural milestones, and pr
 - [x] **Compact Localized Update Modal**: Single-screen rich Markdown release notes with automatic language filtering (DE/EN) and TV D-Pad autofocus.
 - [x] **On-Demand Changelog Viewer**: Version badge on Account screen clickable anytime; shows verified status with "Close" action when up-to-date.
 - [x] **Category Modal Polish (Hotfix v2.1.1)**: Horizontal scrolling action bar for mobile touch screens and auto-glow/focus suppression on desktop and touch devices.
+- [x] **TV D-Pad & Back Navigation Hotfix (v2.1.2)**: Focus trapping on modal mount, button cycling, zero zoom distortion, and PopScope back-key decoupling on Fire TV / Android TV.
 - [x] **Smart TV Maintenance (v2.0.5)**: 512×512 crisp Tizen icon, elevated toast z-index, Xtream credential retention during portal edits, and independent manifest-based updater.
 
 ### 2. Security & Hardening Suite (v2.0.4)

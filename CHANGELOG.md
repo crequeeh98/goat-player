@@ -4,6 +4,26 @@ All notable changes to the **GOATPlayer** project will be documented in this fil
 
 ---
 
+## [2.1.2] - 2026-11-12
+
+### 🇩🇪 Änderungen & Optimierungen
+- **TV D-Pad & Dialog-Navigation (Fire TV / Android TV)**:
+  - *Fokus-Trapping & Sofort-Fokus*: TV-Fernbedienungsfokus landet beim Öffnen des Update- und Changelog-Modals sofort zuverlässig auf dem Aktionsbutton.
+  - *D-Pad Tastensteuerung*: Links/Rechts wechselt direkt zwischen den Aktionsbuttons („Jetzt aktualisieren“ / „Später“), Oben/Unten scrollt den Changelog flüssig.
+  - *Button-Layout & Skalierung*: Verhindert das Überlappen von Buttons in das Textfeld auf Fire TV; fester Maßstab (`focusScale: 1.0`) ohne störenden Zoom.
+  - *Back-Taste Entkopplung*: Erster Druck auf die Zurück-Taste schließt ausschließlich das Dialog-Modal; erst der nächste Druck öffnet den Beenden-Dialog.
+  - *Desktop Live TV*: Sicheres synchrones Bereinigen von Riverpod-Providern beim Schließen des Live TV Screens.
+
+### 🇬🇧 Changes & Optimizations
+- **TV D-Pad & Dialog Navigation (Fire TV / Android TV)**:
+  - *Focus Trapping & Immediate Focus*: TV remote focus reliably locks onto action buttons when opening update or changelog modals.
+  - *D-Pad Key Mapping*: Left/Right switches between buttons ("Update Now" / "Later"), Up/Down scrolls changelog smoothly.
+  - *Button Layout & Sizing*: Prevents buttons from overlapping the changelog container on Fire TV / Android TV; enforced 1:1 scale (`focusScale: 1.0`) without zoom distortion.
+  - *Back Key Decoupling*: First back press closes only the modal; second back press brings up the app exit dialog.
+  - *Desktop Live TV*: Resolved unmounted Riverpod state error on live screen disposal.
+
+---
+
 ## [2.1.1] - 2026-11-12
 
 ### 🇩🇪 Änderungen & Optimierungen
