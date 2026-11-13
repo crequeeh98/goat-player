@@ -304,21 +304,6 @@ void main(List<String> args) {
       PaintingBinding.instance.imageCache.maximumSize = 100;
     }
 
-    if (GoatPlatform.isDesktop) {
-      await windowManager.ensureInitialized();
-      WindowOptions windowOptions = const WindowOptions(
-        size: Size(1280, 720),
-        center: true,
-        title: 'GOATPlayer',
-      );
-      windowManager.waitUntilReadyToShow(windowOptions, () async {
-        await windowManager.show();
-        await windowManager.focus();
-        await Future.delayed(const Duration(milliseconds: 150));
-        await windowManager.maximize();
-      });
-    }
-
     // Load SharedPreferences with bulletproof fallback for file:// TV runtimes
     SharedPreferences? prefs;
     try {
@@ -359,9 +344,47 @@ void main(List<String> args) {
       ),
     );
     print('[GOAT] runApp() invoked successfully.');
+
+    if (GoatPlatform.isDesktop) {
+      await _initDesktopWindow();
+    }
   }, (error, stack) {
     print('[GOAT] ZonedGuarded Unhandled Error: $error\n$stack');
   });
+}
+
+Future<void> _initDesktopWindow() async {
+  try {
+    await windowManager.ensureInitialized();
+    const windowOptions = WindowOptions(
+      size: Size(1280, 720),
+      center: true,
+      title: 'GOATPlayer',
+    );
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      try {
+        // Wait for the first Flutter frame so the window never opens blank,
+        // with a short timeout so a stalled driver never leaves it hidden.
+        await WidgetsBinding.instance.waitUntilFirstFrameRasterized.timeout(
+          const Duration(milliseconds: 500),
+          onTimeout: () {},
+        );
+        await windowManager.show();
+        await windowManager.maximize();
+        await windowManager.focus();
+      } catch (e) {
+        print('[GOAT] Desktop window show warning: $e');
+        try {
+          await windowManager.show();
+        } catch (_) {}
+      }
+    });
+  } catch (e) {
+    print('[GOAT] Desktop window init warning: $e');
+    try {
+      await windowManager.show();
+    } catch (_) {}
+  }
 }
 
 class TvDirectionalFocusAction extends Action<DirectionalFocusIntent> {

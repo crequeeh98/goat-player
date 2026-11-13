@@ -1027,7 +1027,7 @@
         : null;
 
     // State
-    let currentLang = 'en';
+    let currentLang = 'de';
     let activeDeviceId = '';
     let activePin = '';
     let activePlaylists = [];
@@ -2203,10 +2203,10 @@
 
     // Auto-init on page load
     window.addEventListener('DOMContentLoaded', async () => {
-      // 1. Language Init
+      // 1. Language Init (default DE on fresh visit)
       const savedLang = localStorage.getItem('goat_player_lang');
-      const browserLang = (navigator.language || navigator.userLanguage || 'en').startsWith('de') ? 'de' : 'en';
-      setLanguage(savedLang || browserLang);
+      const initialLang = (savedLang === 'en' || savedLang === 'de') ? savedLang : 'de';
+      setLanguage(initialLang);
 
       // 2. Setup Device ID Input Mask
       setupDeviceIdMask();
