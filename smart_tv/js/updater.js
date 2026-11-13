@@ -298,7 +298,7 @@
     // 5. Changelog Box with localized markdown
     var changelogBox = document.getElementById('update-changelog-box');
     if (changelogBox) {
-      var rawChangelog = changelog || (isUpToDateMode ? FALLBACK_CHANGELOG_2_1_1 : 'Performance improvements and bug fixes.');
+      var rawChangelog = changelog || (isUpToDateMode ? FALLBACK_CHANGELOG_2_1_3 : 'Performance improvements and bug fixes.');
       var localizedNotes = extractLocalizedChangelog(rawChangelog, isDe);
       changelogBox.innerHTML = renderMarkdownChangelogHtml(localizedNotes);
       changelogBox.scrollTop = 0;
@@ -644,7 +644,7 @@
     getVersion: getActiveVersion,
     getActiveVersion: getActiveVersion,
     APP_VERSION: APP_VERSION,
-    FALLBACK_CHANGELOG_2_1_1: FALLBACK_CHANGELOG_2_1_1
+    FALLBACK_CHANGELOG: FALLBACK_CHANGELOG_2_1_3
   };
 
   if (document.readyState === 'loading') {
