@@ -407,6 +407,10 @@
   }
 
   function init() {
+    var isTizen = !!(window.tizen || (navigator.userAgent && /Tizen/i.test(navigator.userAgent)));
+    if (isTizen && document.body) {
+      document.body.classList.add('platform-tizen');
+    }
     if (typeof window.registerTizenKeys === 'function') {
       window.registerTizenKeys();
     }

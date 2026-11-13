@@ -992,6 +992,30 @@ input.focusable.focused,
   transform: scale(1.05) !important;
 }
 
+/* Samsung Tizen Chromium: prevent <input> intrinsic min-width from pushing tune button over the divider */
+body.platform-tizen .column-categories {
+  overflow: hidden;
+}
+
+body.platform-tizen .col-search-row {
+  width: calc(100% - 28px);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+body.platform-tizen .col-search-row .col-search-box {
+  min-width: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+body.platform-tizen .col-search-row .col-search-input {
+  min-width: 0;
+  width: 100%;
+  padding-right: 12px;
+}
+
 .search-box-container {
   padding: 14px 20px;
   display: flex;
