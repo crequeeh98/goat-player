@@ -1,120 +1,42 @@
-# 🗺️ GOATPlayer Project Roadmap & Prioritized Backlog
+# 🗺️ GOATPlayer Roadmap
 
-This document outlines the development history, architectural milestones, and prioritized execution phases for **GOATPlayer**.
-
----
-
-## 🏆 Current Releases
-- **Flutter Client**: `v2.1.3` (Windows Direct-Maximized Frame-Sync Startup, German Default Locale)
-- **Web Portal**: `v2.1.3` (German Default Locale, Zero-Knowledge Sync)
-- **Smart TV (Tizen & webOS)**: `v2.1.3` (v2.1 UI Overhaul, Category Manager, Custom Lists, webOS 6.5 & Tizen Polish, German Default)
+Current Release: **`v2.1.3`** (Flutter Desktop/Mobile/Fire TV, Web Pairing Portal, Samsung Tizen & LG webOS Smart TV)
 
 ---
 
-## ✅ Completed Milestones
+## ⚡ Phase 1: Performance & Storage Optimizations
 
-### 1. Unified v2.1.3 Release & Smart TV Parity (v2.1.0 - v2.1.3)
-- [x] **Windows Startup & Default German (v2.1.3)**: Deferred window show/maximize until first rasterized frame (`waitUntilFirstFrameRasterized`) eliminating blank startup frames, plus German (`de`) default UI language across Flutter, Web Portal, and Smart TV.
-- [x] **Smart TV v2.1 UI Overhaul (v2.1.3)**: Ported custom lists, batched Category Manager, channel reordering (`▲/▼`), Hold-OK context menu, SVG vector icons (`TVIcons`), unified Markdown changelog viewer, webOS 6.5 navigation fixes, Tizen-scoped search bar width, and single Done checkmark to `smart_tv/`.
-- [x] **Eigene Listen (Custom Playlists)**: User-defined stream playlists partitioned across Live TV, Movies, and Series with recovery on provider stream ID shifts.
-- [x] **Category Manager & Custom Sorting**: Drag-and-drop & remote-driven category reordering, hide/unhide toggling, bulk reset, and auto NEW badge on newly added provider categories.
-- [x] **Granular Playlist Sync Scopes**: Independent toggles for Live TV, Movies, and Series sync per account.
-- [x] **Compact Localized Update Modal**: Single-screen rich Markdown release notes with automatic language filtering (DE/EN) and TV D-Pad autofocus.
-- [x] **On-Demand Changelog Viewer**: Version badge on Account screen clickable anytime; shows verified status with "Close" action when up-to-date.
-- [x] **Category Modal Polish (Hotfix v2.1.1)**: Horizontal scrolling action bar for mobile touch screens and auto-glow/focus suppression on desktop and touch devices.
-- [x] **TV D-Pad & Back Navigation Hotfix (v2.1.2)**: Focus trapping on modal mount, button cycling, zero zoom distortion, and PopScope back-key decoupling on Fire TV / Android TV.
-- [x] **Smart TV Maintenance (v2.0.5)**: 512×512 crisp Tizen icon, elevated toast z-index, Xtream credential retention during portal edits, and independent manifest-based updater.
+### Smart TV (`smart_tv/`)
+- [ ] **A1 — Category DOM Caching (`app.js`)**: Dirty-flag / cache rendered category DOM per tab (`_catsDirty.live/movie/series`) instead of rebuilding `listEl.innerHTML` and re-parsing `localStorage` preferences on every `switchTab()`.
+- [ ] **A2 — Fast Sorting (`api.js` / `app.js`)**: Replace repeated `localeCompare` + `.toLowerCase().trim()` inside `sortAlpha` (`smart_tv/js/api.js`) and `_sortVodList` (`smart_tv/js/app.js`) with precomputed sort keys and fast `<` / `>` comparisons (or cached `Intl.Collator`).
+- [ ] **A3 — Slim Snapshots for Lists (`app.js` / `storage.js`)**: Store slim stream metadata snapshots for Favorites & Custom Lists so opening top lists avoids fetching 20k+ full streams; eliminate unnecessary `_allAccount*Streams = null` cache invalidation thrashing.
+- [ ] **A4 — Lightweight CSS Rules (`css/style.css`)**: Replace `transition: all 0.15s ease` and heavy `box-shadow` focus glows with targeted, compositor-friendly CSS properties on low-power TV GPUs.
+- [ ] **B1 + B3 — IndexedDB SWR Cache & Manual Refresh**: IndexedDB Stale-While-Revalidate (SWR) cache for categories, streams, and search index paired with an explicit manual refresh button.
+- [ ] **B2 — EPG Short-TTL Cache & Paging**: In-memory EPG cache with 3–5 min TTL plus `AbortController` / throttled paging inside the channel menu.
 
-### 2. Security & Hardening Suite (v2.0.4)
-- [x] **Zero-Knowledge Remote Pairing**: AES-256-GCM encryption with PBKDF2 key derivation for cloud pairing between TVs and Web Portal.
-- [x] **At-Rest Database & Storage Encryption**: Secret credentials encrypted via AES-GCM (`enc:v1:`) in Drift SQLite and LocalStorage with automated zero-breakage migration.
-- [x] **Smart TV OTA Code Integrity**: SHA-256 cryptographic verification before running cached OTA update scripts.
-- [x] **Network Credential Masking**: Automated masking of passwords and server tokens in Dio error logs.
-- [x] **Android Backup Hardening**: OS-level backup disabled (`allowBackup="false"`) protecting against ADB dump vectors.
-- [x] **Manifest & Privilege Minimization**: Unused permissions removed from Tizen (`config.xml`) and webOS (`appinfo.json`).
-- [x] **Automated Session Cleanup**: Database trigger auto-purging expired pairing sessions older than 10 minutes.
-- [x] **1:1 Modal Localization**: Complete English and German localization for playlist refresh workflows.
-- [x] **Playback Dialog Modernization**: Sleek rounded Material icons for audio, subtitles, and done buttons.
-- [x] **Active Version Badge**: Real running version displayed across all platforms on the Account screen.
-
-### 2. Smart TV OTA Bootloader & RAM Optimizations (v2.0.3)
-- [x] **Dynamic Smart TV OTA Bootloader**: Instant in-app JavaScript engine updates without reinstallation or store approvals on Samsung Tizen & LG webOS.
-- [x] **Fail-Safe & Auto-Rollback**: Automatic crash recovery restoring factory files on boot failure.
-- [x] **TV RAM & Virtual DOM Recycling**: DOM node recycling capped at 30 items for smooth 60 FPS scrolling.
-
-### 3. Dual-Stack Core & Live TV Engine (v1.0 - v1.2)
-- [x] **Sub-Second Channel Zapping**: Instant stream switching on native Flutter (`media_kit` / `libmpv`) and Smart TV (`HTML5 Video` / `Hls.js`).
-- [x] **In-Stream Live EPG Drawer**: Translucent slide-out channel guide with active channel highlighting and schedule timeline.
-- [x] **Channel & Category Auto-Scroll**: Switching categories or tabs keeps active channel focused and in view.
-- [x] **SQLite WAL Mode & Multi-threading**: Zero UI stutter during 20,000+ channel playlist synchronization in Drift.
-- [x] **Dual-Stack M3U Parsers**: High-performance streaming parser for Flutter (`m3u_isolate_parser.dart`) and Smart TV (`m3u.js`).
-- [x] **Universal Tag Extraction**: `#EXTINF`, `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, and `#EXTM3U` EPG endpoints.
-
-### 2. Premium Cinema VOD Experience (Movies & Series)
-- [x] **Netflix-Style Series Drawer**: Slide-out episode navigation drawer with season chips and thumbnail previews.
-- [x] **Auto-Play Next Episode**: Smooth transition to subsequent episodes upon finishing, including cross-season rollovers.
-- [x] **Smart Continue Watching Rail**:
-  - Deduplicated series cards advancing to the next episode automatically.
-  - Accurate progress bars reflecting percentage watched.
-  - Safe removal of completed movies and series finales ($\ge 95\%$ watched).
-- [x] **Native Aspect Ratio Preservation**: Enforced native aspect ratio letterboxing (`contain`) across Samsung Tizen, LG webOS, and Flutter players (eliminating stretched video).
-- [x] **Comprehensive IPTV Duration Parsing**: Robust handling of irregular IPTV duration formats (`"98 min"`, `"1h 38m"`, `"01:30:00"`) and container `mvhd` header demuxing fallback.
-
-### 3. Remote Web Pairing Portal & Zero-Knowledge Cloud Sync
-- [x] **Zero-Typing Smart TV Setup**: QR code and 6-digit PIN pairing via [goat-player.vercel.app](https://goat-player.vercel.app).
-- [x] **Zero-Knowledge Client-Side Encryption**: AES-GCM 256-bit payload encryption where credentials and playlist URLs are encrypted on the browser and decrypted exclusively on the TV via paired PIN keys (Supabase server never sees raw credentials).
-- [x] **Bidirectional Playlist Management**: Add, edit, test, and remove Xtream and M3U playlists from phone/browser to TV in real time via Supabase Realtime.
-- [x] **Duplicate Prevention & Optimistic UX**: Realtime acknowledgment queue preventing double-card creation or orphaned records.
-- [x] **Smart M3U Breakdown**: Auto-parsing of raw provider URLs into server, username, password, and output format.
-- [x] **Live Disconnection Guard**: Heartbeat monitoring detecting when the user leaves pairing mode on the TV.
-
-### 4. Smart TV Web Application (Samsung Tizen & LG webOS)
-- [x] **Zero-Framework Vanilla JS Engine**: Sub-70ms focus response and 60 FPS scrolling on low-power TV chips (ARM Cortex-A53).
-- [x] **Samsung Tizen Packaging (.wgt)**: Production signed W3C widget builds via `tool/package_smart_tv_tizen.ps1`.
-- [x] **LG webOS Packaging (.ipk)**: Clean one-command packaging via `tool/package_smart_tv_webos.ps1`.
-- [x] **LG webOS Dock Tile Integration**: Seamless 16:9 full-bleed banner (`dockIcon.png` `408x230`), rounded 1:1 `largeIcon.png` (`130x130`), and `icon.png` (`80x80`).
-- [x] **Remote Red Button (🔴) Controls**: Instant search clearing and Continue Watching card removal with focus preservation on TV D-Pads.
-- [x] **Multi-Audio Track Switching**: Native audio track switching with provider codec and channel info (`TVContainerProber` / HTML5 AudioTracks).
-- [x] **Synced Subtitle Cue Rendering**: On-demand WebVTT/SRT cue fetching, caching, and synchronized screen overlay (`subtitles.js`).
-- [x] **Language Matching & Preferences**: Automatic selection of preferred audio and subtitle languages (Deutsch, English, Auto).
-- [x] **2D Spatial Navigation**: Natural 3-column 2D grid traversal in Preferences modal and boundary-aware left-exit navigation from VOD grids back to category menus.
-
-### 5. Flutter Android Ecosystem & TV Mode (v2.0)
-- [x] **Smart IPTV Dual-Drawer Overlays**: Dedicated Leanback overlay architecture (`tv_smart_iptv_overlays.dart`) featuring:
-  - Slide-out Group/Category Drawer on `ArrowLeft` / `Enter`.
-  - Channel list with live show name, time, and progress bar.
-  - Zapping OSD Infobar with resolution badge, audio codec, and next program preview.
-- [x] **Leanback Spatial Navigation (`TvFocusable` & `TvRemoteScope`)**:
-  - Boundary-aware D-Pad traversal with custom glowing indicators.
-  - Remote Back-key routing prioritizing Modals -> Drawers -> Player Exit -> Dashboard.
-  - On-screen TV keyboard support with dedicated focus navigation (`tv_text_field.dart`).
-- [x] **Mobile Phone & Tablet Mode**:
-  - Touch-optimized live TV screen with collapsible drawer (`mobile_live_view.dart`).
-  - Vertical swipe gestures for screen brightness (left side) and volume (right side) (`mobile_gesture_detector.dart`).
-  - Double-tap seek gestures and floating mini-player.
-  - High-resolution borderless 3D app icon (`res/mipmap-mdpi` through `mipmap-xxxhdpi`).
-- [x] **Amazon Fire TV & Projectivy Launcher Branding**:
-  - Seamless 16:9 3D banner (`@drawable/banner_3d` in `320x180` to `1280x720`) perfectly fitting Projectivy Launcher and Android TV Leanback slots.
-  - Television-specific rounded 1:1 3D mipmaps (`res/mipmap-television-*`) fitting Amazon Fire OS standard sideload cards without horizontal squishing.
-  - Clean borderless 3D splash logo (`drawable/splash_logo.png`).
+### Flutter (`lib/`)
+- [ ] **F1 — SQLite FTS5 Stream Search**: Upgrade `StreamDao.watchStreamsByQuery()` (`lib/core/database/daos/stream_dao.dart:43-53`) from `lower().like('%query%')` full-table scans to SQLite FTS5 full-text search.
+- [ ] **F2 — Paged Category Queries**: Add SQL `LIMIT`/`OFFSET` paging to `StreamDao.watchStreamsByCategory()` (`lib/core/database/daos/stream_dao.dart:17-22`) for ultra-large categories.
+- [ ] **F3 — Incremental Delta Upsert Sync**: Replace `replaceStreamsByType()` delete-all + re-insert (`lib/core/database/daos/stream_dao.dart:64-74`) with incremental delta upserts.
 
 ---
 
-## 🌟 Milestone v3: Cloud Ecosystem, Advanced Playback & iOS (Upcoming)
+## 🔄 Phase 2: Smart TV OTA Full-Parity (Zero Re-Install)
+- [ ] **Dynamic DOM & Manifest Bootloader**: Support dynamic JS DOM creation / `index.html` body swap and dynamic script loading from `manifest.json` inside `bootloader.js` / `updater.js` so new modals, buttons, and UI layouts ship via In-App OTA without reinstalling `.ipk`/`.wgt`.
+- [ ] **In-App Assets & Storage Headroom**: Deliver in-app logos/icons as SVG or cached data-URIs and add IndexedDB OTA bundle fallback beyond the ~5 MB `localStorage` limit.
+- *(Note: TV OS launcher icon, app title, OS-reported package version, and system privileges remain fixed at the `.ipk`/`.wgt` package layer.)*
 
-### Phase 1: Cloud & Playlist Enhancements
-- [ ] **Custom Cloud Playlist Sync**: Synchronize user-created "Favorites" and category visibility across devices via Supabase.
-- [ ] **EPG XMLTV Fallback Source**: Allow users to specify secondary external XMLTV EPG URLs for channels missing provider EPG data.
-- [ ] **Catch-Up / Archive Playback**: Support Xtream Codes catch-up streams with timeline-scrubbing EPG history.
+---
 
-### Phase 2: Player & Video Architecture
-- [ ] **Picture-in-Picture (PiP)**: Android Native PiP and Windows Floating Overlay for multitasking during Live TV.
-- [ ] **Dynamic Subtitle Offset / Delay Slider**: Real-time microsecond subtitle synchronization adjustment in the playback settings dialog.
-- [ ] **Auto Frame-Rate (AFR) Matching**: Switch TV display refresh rate (24Hz, 50Hz, 60Hz) to match stream FPS on Android TV and Fire TV devices.
+## ☁️ Phase 3: Cross-Device Cloud Sync & Backup
+- [ ] **Unified Cross-Device Sync Architecture**: Sync user state cleanly across Flutter (Windows, Android, Fire TV), Smart TV (Tizen, webOS), and Web Portal:
+  - Favorites & Continue Watching / Watchlist progress
+  - Playlists & Account configurations (zero-knowledge encrypted)
+  - Custom Lists, Category ordering, and hidden/visible visibility preferences
 
-### Phase 3: Apple Ecosystem & Packaging
-- [ ] **iOS & iPadOS Native Target**: Native iOS build with hardware acceleration via AVPlayer/VLCKit backend.
-- [ ] **Apple TV (tvOS) Evaluation**: Porting Flutter/Swift UI to tvOS with Siri Remote navigation.
+---
 
-### Phase 4: Smart TV OTA Full-Parity Optimizations
-- [ ] **Zero Re-Install Smart TV OTA**: Dynamic JS DOM creation / `index.html` body swap and dynamic script manifest loading, SVG/data-URI in-app logos, plus IndexedDB fallback (beyond ~5 MB `localStorage`) so every UI, feature, and in-app asset update deploys worldwide via In-App OTA on LG webOS & Samsung Tizen (only OS launcher icon, title, and system privileges remain `.ipk`/`.wgt`-bound).
+## 🧪 Phase 4: Future Exploration (If Viable / Permitted)
+- [ ] **Catch-Up / Archive Playback**: Xtream Codes catch-up stream support with EPG timeline scrubbing.
+- [ ] **Offline VOD Downloads**: Local movie/episode caching on supported Flutter targets (Android / Desktop).
+- [ ] **Multi-View Playback**: Simultaneous multi-stream layout where provider connection limits and hardware decoders allow.
