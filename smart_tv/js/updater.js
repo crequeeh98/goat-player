@@ -184,9 +184,7 @@
       if (isBullet) {
         var bulletContent = trimmed.replace(/^[-*•]\s+/, '');
         var rowClass = isSubBullet ? 'changelog-bullet-row changelog-subbullet-row' : 'changelog-bullet-row';
-        var dotChar = isSubBullet ? '›' : '•';
-        var dotStyle = isSubBullet ? 'color:#B388FF;font-weight:700;margin-right:6px;' : 'color:#9333EA;font-weight:800;margin-right:8px;';
-        html += '<div class="' + rowClass + '"><span class="changelog-bullet-dot" style="' + dotStyle + '">' + dotChar + '</span><span class="changelog-bullet-text">' + formatInlineMarkdown(bulletContent) + '</span></div>';
+        html += '<div class="' + rowClass + '"><span class="changelog-bullet-dot"></span><span class="changelog-bullet-text">' + formatInlineMarkdown(bulletContent) + '</span></div>';
         continue;
       }
 
@@ -367,10 +365,19 @@
     var nav = window.SpatialNav || window.TVSpatialNav;
     if (nav) {
       if (typeof nav.pushBackHandler === 'function') {
-        nav.pushBackHandler(function() {
-          closeUpdateModal();
-          return true;
-        });
+        if (!modal._updateBackHandler) {
+          modal._updateBackHandler = function() {
+            if (modal && modal.classList.contains('active')) {
+              closeUpdateModal();
+              return true;
+            }
+            return false;
+          };
+        }
+        if (typeof nav.removeBackHandler === 'function') {
+          nav.removeBackHandler(modal._updateBackHandler);
+        }
+        nav.pushBackHandler(modal._updateBackHandler);
       }
       var targetFocus = isUpToDateMode ? laterBtn : (confirmBtn || laterBtn);
       if (targetFocus && typeof nav.setFocus === 'function') {
@@ -411,7 +418,9 @@
     if (!modal) return;
 
     var nav = window.SpatialNav || window.TVSpatialNav;
-    if (nav && typeof nav.popBackHandler === 'function') {
+    if (nav && modal._updateBackHandler && typeof nav.removeBackHandler === 'function') {
+      nav.removeBackHandler(modal._updateBackHandler);
+    } else if (nav && typeof nav.popBackHandler === 'function') {
       nav.popBackHandler();
     }
 

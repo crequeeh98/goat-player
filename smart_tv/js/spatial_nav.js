@@ -10,6 +10,9 @@
   var _enterHoldTriggered = false;
   var _enterFocusedElement = null;
   var _suppressNextClick = false;
+  var _lastYellowActionAt = 0;
+  var _lastLongPressAt = 0;
+  var _isVirtualKeyboardVisible = false;
 
   var KEY_CODES = {
     LEFT: 37,
@@ -110,12 +113,21 @@
     return parent ? parent.querySelector('.search-clear-btn') : null;
   }
 
+  function isPreviewActive() {
+    var p = window._goatPlayer;
+    if (!p || !p.currentStream || p.playbackType !== 'live') return false;
+    var msg = document.getElementById('preview-placeholder-msg');
+    if (msg && window.getComputedStyle(msg).display !== 'none') return false;
+    return true;
+  }
+
   function getFocusableElements(container) {
     var root = container || document;
     var elements = root.querySelectorAll('.focusable, button:not([disabled]), input:not([disabled]), [tabindex="0"]');
     var result = [];
     for (var i = 0; i < elements.length; i++) {
       var el = elements[i];
+      if (el.id === 'preview-player-box' && !isPreviewActive()) continue;
       // Element must be visible and attached to the layout tree (offsetParent !== null)
       if (el.offsetParent !== null) {
         result.push(el);
@@ -356,6 +368,7 @@
   }
 
   function setFocus(el, skipScroll) {
+    if (el && el.id === 'preview-player-box' && !isPreviewActive()) return;
     if (!el) {
       document.body.classList.remove('preview-focused');
       if (_currentFocused) {
@@ -394,6 +407,10 @@
     if (!isInput(el)) {
       try {
         el.focus();
+      } catch(e){}
+    } else if (document.activeElement && document.activeElement !== el && typeof document.activeElement.blur === 'function') {
+      try {
+        document.activeElement.blur();
       } catch(e){}
     }
 
@@ -471,14 +488,28 @@
 
     if (isActivelyEditing) {
       if (isBackKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        var escaped = escapeFromSearchInput(document.activeElement || _currentFocused);
-        if (!escaped) {
+        var inActiveModal = document.activeElement && document.activeElement.closest && document.activeElement.closest('.modal-overlay.active');
+        if (_isVirtualKeyboardVisible) {
+          e.preventDefault();
+          e.stopPropagation();
+          _isVirtualKeyboardVisible = false;
           try { document.activeElement.blur(); } catch(err){}
+          return;
         }
-        return;
-      }
+        var escaped = escapeFromSearchInput(document.activeElement || _currentFocused);
+        if (escaped) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        try { document.activeElement.blur(); } catch(err){}
+        if (!inActiveModal) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        isActivelyEditing = false;
+      } else {
       if (code === KEY_CODES.ENTER) {
         e.preventDefault();
         e.stopPropagation();
@@ -502,11 +533,13 @@
       // When user is in an input and presses navigation arrows (DOWN, UP, LEFT, RIGHT),
       // blur the input and allow spatial navigation to immediately navigate away!
       if (code === KEY_CODES.DOWN || code === KEY_CODES.UP || code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT) {
+        _isVirtualKeyboardVisible = false;
         try { document.activeElement.blur(); } catch(err){}
         isActivelyEditing = false;
         // Fall through to spatial navigation below
       } else {
         return;
+      }
       }
     }
 
@@ -553,10 +586,11 @@
         return;
       }
 
-      if (_backCallbacks.length > 0) {
-        var callback = _backCallbacks[_backCallbacks.length - 1];
-        var handled = callback();
-        if (handled) return;
+      for (var b = _backCallbacks.length - 1; b >= 0; b--) {
+        var callback = _backCallbacks[b];
+        if (typeof callback === 'function' && callback()) {
+          return;
+        }
       }
       return;
     }
@@ -644,9 +678,18 @@
       }
     }
 
-    // If nothing currently focused, focus first candidate in active scope
-    if (!_currentFocused || _currentFocused.offsetParent === null) {
-      var scope = getActiveScope();
+    // If nothing currently focused or focus drifted outside an active modal, focus first candidate in active scope
+    var activeModalOverlay = document.querySelector('.modal-overlay.active');
+    if (!_currentFocused || _currentFocused.offsetParent === null || (activeModalOverlay && !activeModalOverlay.contains(_currentFocused))) {
+      var scope = activeModalOverlay || getActiveScope();
+      if (scope && scope.id === 'modal-category-manager') {
+        var mgrFallback = scope.querySelector('#cat-mgr-list .cat-mgr-item') ||
+                          document.getElementById('cat-mgr-toggle-hidden');
+        if (mgrFallback) {
+          setFocus(mgrFallback);
+          return;
+        }
+      }
       var candidates = getFocusableElements(scope);
       if (candidates.length > 0) {
         setFocus(candidates[0]);
@@ -657,8 +700,31 @@
     // Handle ENTER
     if (code === KEY_CODES.ENTER) {
       if (_enterHoldTriggered) {
+        if (e.repeat || (Date.now() - _lastLongPressAt < 450)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        // Recover cleanly if a previous keyup was dropped after modal/focus transition
+        _enterHoldTriggered = false;
+      }
+
+      // Category Manager Move Mode: short ENTER cleanly exits move mode
+      if (window._moveModeActive && _currentFocused && _currentFocused.closest && _currentFocused.closest('.cat-mgr-item')) {
         e.preventDefault();
         e.stopPropagation();
+        if (!e.repeat && (Date.now() - _lastLongPressAt >= 450)) {
+          if (_enterHoldTimer) {
+            clearTimeout(_enterHoldTimer);
+            _enterHoldTimer = null;
+          }
+          _enterFocusedElement = null;
+          _suppressNextClick = true;
+          setTimeout(function() { _suppressNextClick = false; }, 350);
+          if (typeof window.exitCategoryMoveMode === 'function') {
+            window.exitCategoryMoveMode();
+          }
+        }
         return;
       }
 
@@ -686,11 +752,12 @@
       var longPressAction = null;
 
       if (_currentFocused) {
-        var channelWrap = _currentFocused.closest('.channel-row-wrap, .channel-row');
-        var movieCard = _currentFocused.closest('.movie-card, .poster-card[data-type="movie"]') ||
-                        (_currentFocused.closest('#movies-grid-container') ? _currentFocused.closest('.poster-card') : null);
-        var seriesCard = _currentFocused.closest('.series-card, .poster-card[data-type="series"]') ||
-                         (_currentFocused.closest('#series-grid-container') ? _currentFocused.closest('.poster-card') : null);
+        var inFullscreen = document.body.classList.contains('player-fullscreen');
+        var channelWrap = !inFullscreen ? _currentFocused.closest('.channel-row-wrap') : null;
+        var movieCard = !inFullscreen ? (_currentFocused.closest('.movie-card, .poster-card[data-type="movie"]') ||
+                        (_currentFocused.closest('#movies-grid-container') ? _currentFocused.closest('.poster-card') : null)) : null;
+        var seriesCard = !inFullscreen ? (_currentFocused.closest('.series-card, .poster-card[data-type="series"]') ||
+                         (_currentFocused.closest('#series-grid-container') ? _currentFocused.closest('.poster-card') : null)) : null;
         var catItem = _currentFocused.closest('.category-item');
         var catMgrItem = _currentFocused.closest('.cat-mgr-item');
         var ctxListRow = _currentFocused.closest('.ctx-list-row, .ctx-custom-list-btn');
@@ -756,15 +823,20 @@
       if (longPressTarget && longPressAction) {
         e.preventDefault();
         e.stopPropagation();
-        if (!e.repeat) {
+        if (_enterHoldTriggered) return;
+        if (!e.repeat && (!_enterHoldTimer || _enterFocusedElement !== _currentFocused)) {
           _enterHoldTriggered = false;
           _enterFocusedElement = _currentFocused;
           if (_enterHoldTimer) clearTimeout(_enterHoldTimer);
           _enterHoldTimer = setTimeout(function() {
             _enterHoldTriggered = true;
+            _lastLongPressAt = Date.now();
             _enterHoldTimer = null;
+            _enterFocusedElement = null;
             longPressAction();
-          }, 500);
+            _suppressNextClick = true;
+            setTimeout(function() { _suppressNextClick = false; }, 500);
+          }, 550);
         }
         return;
       }
@@ -845,13 +917,17 @@
       // 1. Inside Category Manager Modal: Reorder / Options on focused category item
       var catMgrModal = document.getElementById('modal-category-manager');
       if (catMgrModal && catMgrModal.classList.contains('active')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.repeat) return;
+        var nowY1 = Date.now();
+        if (nowY1 - _lastYellowActionAt < 350) return;
+        _lastYellowActionAt = nowY1;
         var catMgrTarget = _currentFocused ? _currentFocused.closest('.cat-mgr-item') : null;
         if (catMgrTarget && typeof window.onCategoryManagerItemLongPress === 'function') {
-          e.preventDefault();
-          e.stopPropagation();
           window.onCategoryManagerItemLongPress(catMgrTarget);
-          return;
         }
+        return;
       }
 
       // 2. Focused on category item on dashboard: Open Category Manager for current tab
@@ -859,6 +935,10 @@
         if (typeof window.openCategoryManagerForCurrentTab === 'function') {
           e.preventDefault();
           e.stopPropagation();
+          if (e.repeat) return;
+          var nowY2 = Date.now();
+          if (nowY2 - _lastYellowActionAt < 350) return;
+          _lastYellowActionAt = nowY2;
           window.openCategoryManagerForCurrentTab();
           return;
         }
@@ -879,9 +959,9 @@
         }
       }
 
-      // 4. Focused on channel row: toggle favorite
-      if (_currentFocused) {
-        var channelWrap = _currentFocused.closest('.channel-row-wrap, .channel-row');
+      // 4. Focused on channel row in dashboard: toggle favorite
+      if (_currentFocused && !document.body.classList.contains('player-fullscreen')) {
+        var channelWrap = _currentFocused.closest('.channel-row-wrap');
         if (channelWrap) {
           e.preventDefault();
           e.stopPropagation();
@@ -951,8 +1031,8 @@
 
     // Navigation overrides for smooth columns and panels
     if (_currentFocused) {
-      // Category Manager Move Mode: UP / DOWN moves category in list
-      if (window._moveModeActive && _currentFocused.closest('.cat-mgr-item')) {
+      // Category Manager Move Mode: UP / DOWN moves category in list, lock LEFT / RIGHT
+      if (window._moveModeActive && document.getElementById('modal-category-manager') && document.getElementById('modal-category-manager').classList.contains('active')) {
         if (code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
           e.preventDefault();
           e.stopPropagation();
@@ -960,6 +1040,61 @@
             window.moveCategoryInManager(code === KEY_CODES.UP ? -1 : 1);
           }
           return;
+        }
+        if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+
+      // Category Manager Toolbar & List Navigation
+      if (_currentFocused.classList.contains('cat-mgr-btn')) {
+        if (code === KEY_CODES.DOWN) {
+          e.preventDefault();
+          e.stopPropagation();
+          var mgrList = document.getElementById('cat-mgr-list');
+          if (mgrList) mgrList.scrollTop = 0;
+          var firstMgrItem = document.querySelector('#cat-mgr-list .cat-mgr-item');
+          if (firstMgrItem) setFocus(firstMgrItem);
+          return;
+        } else if (code === KEY_CODES.UP) {
+          e.preventDefault();
+          e.stopPropagation();
+          var closeMgrBtn = document.getElementById('cat-mgr-close-btn');
+          if (closeMgrBtn) setFocus(closeMgrBtn);
+          return;
+        }
+      }
+
+      if (_currentFocused.classList.contains('cat-mgr-item')) {
+        if (code === KEY_CODES.LEFT || code === KEY_CODES.RIGHT) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        } else if (code === KEY_CODES.UP) {
+          var prevMgr = _currentFocused.previousElementSibling;
+          if (!prevMgr || !prevMgr.classList.contains('cat-mgr-item')) {
+            e.preventDefault();
+            e.stopPropagation();
+            var toggleHiddenToolbarBtn = document.getElementById('cat-mgr-toggle-hidden');
+            if (toggleHiddenToolbarBtn) setFocus(toggleHiddenToolbarBtn);
+            return;
+          }
+        } else if (code === KEY_CODES.DOWN) {
+          var nextMgr = _currentFocused.nextElementSibling;
+          if (!nextMgr || !nextMgr.classList.contains('cat-mgr-item')) {
+            if (window.TVApp && typeof window.TVApp.loadMoreCategoryManagerItems === 'function') {
+              window.TVApp.loadMoreCategoryManagerItems();
+            }
+            nextMgr = _currentFocused.nextElementSibling;
+            e.preventDefault();
+            e.stopPropagation();
+            if (nextMgr && nextMgr.classList.contains('cat-mgr-item')) {
+              setFocus(nextMgr);
+            }
+            return;
+          }
         }
       }
 
@@ -1087,10 +1222,20 @@
             }
           } else if (_currentFocused === clBox) {
             if (code === KEY_CODES.DOWN) {
+              e.preventDefault(); e.stopPropagation();
+              if (clBox.scrollHeight > clBox.clientHeight + 4 && (clBox.scrollTop + clBox.clientHeight) < (clBox.scrollHeight - 8)) {
+                clBox.scrollTop += 120;
+                return;
+              }
               var targetDown = hasConfirm ? cfBtn : ltBtn;
-              if (targetDown) { e.preventDefault(); e.stopPropagation(); setFocus(targetDown); return; }
-            } else if (code === KEY_CODES.UP && clBtn) {
-              e.preventDefault(); e.stopPropagation(); setFocus(clBtn); return;
+              if (targetDown) { setFocus(targetDown); return; }
+            } else if (code === KEY_CODES.UP) {
+              e.preventDefault(); e.stopPropagation();
+              if (clBox.scrollTop > 8) {
+                clBox.scrollTop = Math.max(0, clBox.scrollTop - 120);
+                return;
+              }
+              if (clBtn) { setFocus(clBtn); return; }
             }
           } else if (_currentFocused === clBtn) {
             if (code === KEY_CODES.DOWN) {
@@ -2012,8 +2157,7 @@
           }
         } else if (code === KEY_CODES.RIGHT) {
           e.preventDefault();
-          var isPlaying = window._goatPlayer && window._goatPlayer.currentStream && (window._goatPlayer.isPlaying || window._goatPlayer.playbackType === 'live');
-          if (isPlaying) {
+          if (isPreviewActive()) {
             var preview = document.getElementById('preview-player-box');
             if (preview) {
               setFocus(preview);
@@ -2297,9 +2441,12 @@
       if (!isModalOpen && !isDrawerOpen && !isChannelMenuOpen && !isCatMenuOpen && !isEpgOverlayOpen) return;
     }
     var target = e.target ? e.target.closest('.focusable') : null;
-    if (target && target !== _currentFocused) {
-      setFocus(target, true);
+    if (!target || target === _currentFocused) return;
+    var activeModals = document.querySelectorAll('.modal-overlay.active');
+    if (activeModals.length > 0 && !activeModals[activeModals.length - 1].contains(target)) {
+      return;
     }
+    setFocus(target, true);
   }
 
   // Direct click on inputs focuses natively
@@ -2358,25 +2505,32 @@
 
   // Automatically blur input and restore D-pad navigation when webOS virtual keyboard is dismissed
   function handleKeyboardStateChange(e) {
-    if (e && e.detail && !e.detail.visibility) {
+    _isVirtualKeyboardVisible = !!(e && e.detail && e.detail.visibility);
+    if (!_isVirtualKeyboardVisible) {
       if (document.activeElement && isInput(document.activeElement)) {
         try { document.activeElement.blur(); } catch(err){}
       }
     }
   }
 
-  function destroy() {
-    window.removeEventListener('keydown', handleKeyDown, true);
-    window.removeEventListener('keyup', handleKeyUp, true);
-    document.removeEventListener('mouseover', handleMouseOver, true);
-    document.removeEventListener('click', handleClick, true);
-    document.removeEventListener('keyboardStateChange', handleKeyboardStateChange);
+  function handleWindowBlur() {
+    _isVirtualKeyboardVisible = false;
     if (_enterHoldTimer) {
       clearTimeout(_enterHoldTimer);
       _enterHoldTimer = null;
     }
     _enterHoldTriggered = false;
     _enterFocusedElement = null;
+  }
+
+  function destroy() {
+    window.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('keyup', handleKeyUp, true);
+    window.removeEventListener('blur', handleWindowBlur);
+    document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('click', handleClick, true);
+    document.removeEventListener('keyboardStateChange', handleKeyboardStateChange);
+    handleWindowBlur();
     _currentFocused = null;
     _backCallbacks = [];
     var focusedEls = document.querySelectorAll('.focused');
@@ -2389,6 +2543,7 @@
   document.addEventListener('click', handleClick, true);
   window.addEventListener('keyup', handleKeyUp, true);
   window.addEventListener('keydown', handleKeyDown, true);
+  window.addEventListener('blur', handleWindowBlur);
   document.addEventListener('keyboardStateChange', handleKeyboardStateChange);
 
   window.SpatialNav = {
@@ -2403,7 +2558,13 @@
       return null;
     },
     pushBackHandler: function(cb) {
-      _backCallbacks.push(cb);
+      if (typeof cb === 'function' && _backCallbacks.indexOf(cb) === -1) {
+        _backCallbacks.push(cb);
+      }
+    },
+    removeBackHandler: function(cb) {
+      var idx = _backCallbacks.indexOf(cb);
+      if (idx !== -1) _backCallbacks.splice(idx, 1);
     },
     popBackHandler: function() {
       return _backCallbacks.pop();

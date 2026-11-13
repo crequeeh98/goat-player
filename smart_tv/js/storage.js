@@ -543,15 +543,17 @@
         }
       });
 
-      regular.sort(function(a, b) {
-        var na = (a.category_name || a.name || '').toLowerCase();
-        var nb = (b.category_name || b.name || '').toLowerCase();
-        return na.localeCompare(nb);
+      var keyed = regular.map(function(c) {
+        return {
+          id: String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id)),
+          name: (c.category_name || c.name || '').toLowerCase()
+        };
+      });
+      keyed.sort(function(a, b) {
+        return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
       });
 
-      var regIds = regular.map(function(c) {
-        return String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
-      });
+      var regIds = keyed.map(function(k) { return k.id; });
 
       if (favs.indexOf('favorites') === -1) favs.unshift('favorites');
       prefs.order = favs.concat(custom).concat(regIds);
@@ -620,8 +622,17 @@
           var id = String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
           if (id === 'favorites') return;
           if (prefs.order.indexOf(id) === -1) {
-            prefs.order.push(id);
-            if (id.indexOf('custom_list:') !== 0) {
+            if (id.indexOf('custom_list:') === 0) {
+              var insertIdx = 0;
+              while (
+                insertIdx < prefs.order.length &&
+                (prefs.order[insertIdx] === 'favorites' || String(prefs.order[insertIdx]).indexOf('custom_list:') === 0)
+              ) {
+                insertIdx++;
+              }
+              prefs.order.splice(insertIdx, 0, id);
+            } else {
+              prefs.order.push(id);
               if (prefs.newIds.indexOf(id) === -1) {
                 prefs.newIds.push(id);
               }
@@ -629,6 +640,23 @@
             hasNew = true;
           }
         });
+        // Keep default tier order (favorites -> custom_list:* -> regular) unless user sorted manually
+        if (!prefs.hasManualSort) {
+          var normalizedOrder = [];
+          var customOrder = [];
+          var regOrder = [];
+          prefs.order.forEach(function(id) {
+            var sId = String(id);
+            if (sId === 'favorites') normalizedOrder.push(sId);
+            else if (sId.indexOf('custom_list:') === 0) customOrder.push(sId);
+            else regOrder.push(sId);
+          });
+          var merged = normalizedOrder.concat(customOrder).concat(regOrder);
+          if (merged.length === prefs.order.length && merged.some(function(id, i) { return id !== prefs.order[i]; })) {
+            prefs.order = merged;
+            hasNew = true;
+          }
+        }
         if (hasNew) {
           this.saveCategoryPrefs(accId, type, prefs);
         }
@@ -673,6 +701,21 @@
       };
       lists.push(newList);
       setItem('goat_custom_lists_' + accId + '_' + t, JSON.stringify(lists));
+      try {
+        var prefs = this.getCategoryPrefs(accId, t);
+        if (Array.isArray(prefs.order) && prefs.order.length > 0) {
+          var newCatId = 'custom_list:' + newList.id;
+          var existingIdx = prefs.order.indexOf(newCatId);
+          if (existingIdx !== -1) prefs.order.splice(existingIdx, 1);
+          var insertIdx = 0;
+          if (prefs.order[0] === 'favorites') insertIdx = 1;
+          while (insertIdx < prefs.order.length && String(prefs.order[insertIdx]).indexOf('custom_list:') === 0) {
+            insertIdx++;
+          }
+          prefs.order.splice(insertIdx, 0, newCatId);
+          this.saveCategoryPrefs(accId, t, prefs);
+        }
+      } catch (e) {}
       return newList;
     },
 

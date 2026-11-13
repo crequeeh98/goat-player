@@ -22,7 +22,6 @@
     this.listEl.className = 'channel-items-container';
     this.listEl.style.display = 'flex';
     this.listEl.style.flexDirection = 'column';
-    this.listEl.style.gap = '6px';
     this.container.appendChild(this.listEl);
 
     this.emptyMsg = document.createElement('div');
@@ -52,10 +51,10 @@
       : (isDe ? 'In dieser Kategorie wurden keine Sender gefunden.' : 'No channels found in this category.');
 
     this.emptyMsg.innerHTML = 
-      '<div class="vod-empty-state" style="padding: 60px 16px;">' +
-        '<div class="vod-empty-icon-wrap" style="width: 76px; height: 76px; margin-bottom: 18px;">' + icon + '</div>' +
-        '<div class="vod-empty-title" style="font-size: 20px;">' + title + '</div>' +
-        '<div class="vod-empty-subtitle" style="font-size: 14px;">' + sub + '</div>' +
+      '<div class="vod-empty-state">' +
+        '<div class="vod-empty-icon-wrap">' + icon + '</div>' +
+        '<div class="vod-empty-title">' + title + '</div>' +
+        '<div class="vod-empty-subtitle">' + sub + '</div>' +
       '</div>';
   };
 

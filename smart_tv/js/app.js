@@ -359,12 +359,16 @@
       _moveModeActive = false;
       _moveModeCategoryId = null;
       window._moveModeActive = false;
-      if (_activeCategoryManagerType === 'live') {
-        renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
-      } else if (_activeCategoryManagerType === 'movie') {
-        renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
-      } else if (_activeCategoryManagerType === 'series') {
-        renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
+      _catMgrCooldownUntil = Date.now() + 450;
+      if (_catMgrDirty) {
+        _catMgrDirty = false;
+        if (_activeCategoryManagerType === 'live') {
+          renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
+        } else if (_activeCategoryManagerType === 'movie') {
+          renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
+        } else if (_activeCategoryManagerType === 'series') {
+          renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
+        }
       }
     }
     if (modalEl.id === 'modal-master-search') {
@@ -556,9 +560,9 @@
         var tvIcon = (window.TVIcons && window.TVIcons.tv) ? window.TVIcons.tv : '';
         var swapVertIcon = (window.TVIcons && window.TVIcons.swapVert) ? window.TVIcons.swapVert : '↕';
 
-        var rightIndicator = isMoving
-          ? '<span class="channel-move-indicator" style="color: #F59E0B; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;">' + swapVertIcon + '</span>'
-          : '<button class="fav-btn ' + (isFav ? 'active' : '') + '" tabindex="-1" title="Favorite">' + (isFav ? starIcon : starOutlineIcon) + '</button>';
+        var rightIndicator =
+          '<button class="fav-btn ' + (isFav ? 'active' : '') + '" tabindex="-1" title="Favorite">' + (isFav ? starIcon : starOutlineIcon) + '</button>' +
+          '<span class="channel-move-indicator" style="color: #F59E0B;">' + swapVertIcon + '</span>';
 
         rowEl.innerHTML = 
           '<div class="channel-row ' + (isPlaying ? 'active-playing' : '') + moveClass + ' focusable" style="height:100%; width:100%;" data-stream-id="' + escapeHtml(String(stream.stream_id)) + '">' +
@@ -891,7 +895,7 @@
       if (acc.type === 'm3u') {
         var chCount = acc.channelCount ? (acc.channelCount + ' ' + (window.TVI18n ? window.TVI18n.t('unit_channels') : 'Channels')) : 'M3U';
         badgeHtml = '<div class="account-expiry-badge active">' +
-          '<span class="expiry-value" style="color: var(--accent-light); display: inline-flex; align-items: center; gap: 6px;">' + playlistIcon + ' ' + chCount + '</span>' +
+          '<span class="expiry-value" style="color: var(--accent-light); display: inline-flex; align-items: center;">' + playlistIcon + '<span style="margin-left: 8px;">' + chCount + '</span></span>' +
         '</div>';
       } else {
         var expText = '--';
@@ -1650,7 +1654,10 @@
       if (!_liveCategories || _liveCategories.length === 0) {
         loadLiveTv();
       } else {
-        renderLiveCategories(_liveCategories, false, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
+        var liveCatListEl = document.getElementById('live-categories-list');
+        if (liveCatListEl) liveCatListEl.scrollTop = 0;
+        renderLiveCategories(_liveCategories, false, null);
+        if (liveCatListEl) liveCatListEl.scrollTop = 0;
         var cur = window.SpatialNav ? window.SpatialNav.getCurrent() : null;
         var isOnRail = cur && cur.classList.contains('nav-rail-btn');
         if (!isOnRail && window.SpatialNav) {
@@ -1688,12 +1695,10 @@
         if (!_movieCategories || _movieCategories.length === 0) {
           loadMovies(false);
         } else {
-          renderMovieCategories(_movieCategories, false, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
-          if (_movieStreams && _movieStreams.length > 0) {
-            renderMovieGrid(false);
-          } else if (_selectedMovieCategory) {
-            fetchCategoryMovies();
-          }
+          var movCatListEl = document.getElementById('movies-categories-list');
+          if (movCatListEl) movCatListEl.scrollTop = 0;
+          renderMovieCategories(_movieCategories, false, null);
+          if (movCatListEl) movCatListEl.scrollTop = 0;
           var curM = window.SpatialNav ? window.SpatialNav.getCurrent() : null;
           var isOnRailM = curM && curM.classList.contains('nav-rail-btn');
           if (!isOnRailM && window.SpatialNav) {
@@ -1708,12 +1713,10 @@
         if (!_seriesCategories || _seriesCategories.length === 0) {
           loadSeries(false);
         } else {
-          renderSeriesCategories(_seriesCategories, false, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
-          if (_seriesList && _seriesList.length > 0) {
-            renderSeriesGrid(false);
-          } else if (_selectedSeriesCategory) {
-            fetchCategorySeries();
-          }
+          var serCatListEl = document.getElementById('series-categories-list');
+          if (serCatListEl) serCatListEl.scrollTop = 0;
+          renderSeriesCategories(_seriesCategories, false, null);
+          if (serCatListEl) serCatListEl.scrollTop = 0;
           var curS = window.SpatialNav ? window.SpatialNav.getCurrent() : null;
           var isOnRailS = curS && curS.classList.contains('nav-rail-btn');
           if (!isOnRailS && window.SpatialNav) {
@@ -1859,16 +1862,18 @@
           '</div>';
         el.onclick = function() { selectLiveCategory({ category_id: 'favorites', category_name: favText }, el); };
       } else if (cat.isCustom) {
+        var listBadgeTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_list')) || 'LIST');
         el.innerHTML = 
           '<div class="category-left">' +
             '<span class="category-icon" style="color:#B388FF;">' + listIcon + '</span>' +
             '<span class="category-name-text" style="color:#C4B5FD; font-weight:600;">' + escapeHtml(cat.category_name) + '</span>' +
-            '<span class="badge-cat-list">LISTE</span>' +
+            '<span class="badge-cat-list">' + listBadgeTxt + '</span>' +
           '</div>';
         el.onclick = function() { selectLiveCustomList(cat.customList, el); };
       } else {
         var isNew = prefs.newIds.indexOf(catId) >= 0;
-        var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+        var newBadgeTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_new')) || 'NEW');
+        var badgeHtml = isNew ? '<span class="badge-cat-new">' + newBadgeTxt + '</span>' : '';
         el.innerHTML = 
           '<div class="category-left">' +
             '<span class="category-icon">' + tvIcon + '</span>' +
@@ -1894,20 +1899,14 @@
     var isSearchFocused = (document.activeElement === catSearchInput) ||
                           (window.SpatialNav && window.SpatialNav.getCurrent() === catSearchInput);
 
-    var favIds = (_activeAccount && window.TVStorage) ? window.TVStorage.getFavorites(_activeAccount.id, 'live') : [];
-
-    if (!targetEl) {
-      var favEl = listEl.querySelector('.category-item[data-category-id="favorites"]');
-      if (favIds && favIds.length > 0 && favEl) {
-        targetEl = favEl;
-      } else if (listEl.firstElementChild) {
-        targetEl = listEl.firstElementChild;
-      }
+    if (!targetEl && listEl.firstElementChild) {
+      targetEl = listEl.firstElementChild;
     }
 
     if (targetEl) {
       if (!isSearchFocused && !keepFocusOnSearch) {
         targetEl.click();
+        if (!activeCategoryId) listEl.scrollTop = 0;
         var cur = window.SpatialNav ? window.SpatialNav.getCurrent() : null;
         var isOnRail = cur && cur.classList.contains('nav-rail-btn');
         if (!isOnRail && window.SpatialNav) {
@@ -2211,7 +2210,6 @@
         }
       }
 
-      var descHtml = item.description ? ('<div class="epg-item-desc">' + escapeHtml(item.description) + '</div>') : '';
       var liveBadgeHtml = isPlaying ? '<span class="epg-live-badge">LIVE</span>' : '';
       var progressHtml = isPlaying ? ('<div class="epg-progress-line"><div class="epg-progress-active" style="width:' + progressPercent + '%;"></div></div>') : '';
 
@@ -2225,7 +2223,6 @@
             '<span class="epg-item-title">' + escapeHtml(item.title || 'Program') + '</span>' +
             liveBadgeHtml +
           '</div>' +
-          descHtml +
           progressHtml +
         '</div>';
 
@@ -2921,16 +2918,18 @@
           '</div>';
         el.onclick = function() { selectMovieCategory({ category_id: 'favorites', category_name: watchText }, el); };
       } else if (cat.isCustom) {
+        var mListBadgeTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_list')) || 'LIST');
         el.innerHTML = 
           '<div class="category-left">' +
             '<span class="category-icon" style="color:#B388FF;">' + playlistIcon + '</span>' +
             '<span class="category-name-text" style="color:#C4B5FD; font-weight:600;">' + escapeHtml(cat.category_name) + '</span>' +
-            '<span class="badge-cat-list">LISTE</span>' +
+            '<span class="badge-cat-list">' + mListBadgeTxt + '</span>' +
           '</div>';
         el.onclick = function() { selectMovieCustomList(cat.customList, el); };
       } else {
         var isNew = prefs.newIds.indexOf(catId) >= 0;
-        var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+        var mNewBadgeTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_new')) || 'NEW');
+        var badgeHtml = isNew ? '<span class="badge-cat-new">' + mNewBadgeTxt + '</span>' : '';
         el.innerHTML = 
           '<div class="category-left">' +
             '<span class="category-icon">' + filmIcon + '</span>' +
@@ -2956,23 +2955,14 @@
     var isSearchFocused = (document.activeElement === catSearchInput) ||
                           (window.SpatialNav && window.SpatialNav.getCurrent() === catSearchInput);
 
-    var watchIds = (_activeAccount && window.TVStorage) ? window.TVStorage.getFavorites(_activeAccount.id, 'movie') : [];
-
-    if (!targetEl) {
-      var watchEl = listEl.querySelector('.category-item[data-category-id="favorites"]');
-      if (watchIds && watchIds.length > 0 && watchEl) {
-        targetEl = watchEl;
-      } else if (listEl.children.length > 1) {
-        // Auto-select first real movie category instead of empty watchlist!
-        targetEl = listEl.children[1];
-      } else if (listEl.firstElementChild) {
-        targetEl = listEl.firstElementChild;
-      }
+    if (!targetEl && listEl.firstElementChild) {
+      targetEl = listEl.firstElementChild;
     }
 
     if (targetEl) {
       if (!isSearchFocused && !keepFocusOnSearch) {
         targetEl.click();
+        if (!activeCategoryId) listEl.scrollTop = 0;
         if (!isPreload && _currentTab === 'movies') {
           var cur = window.SpatialNav ? window.SpatialNav.getCurrent() : null;
           var isOnRail = cur && cur.classList.contains('nav-rail-btn');
@@ -4311,16 +4301,18 @@
           '</div>';
         el.onclick = function() { selectSeriesCategory({ category_id: 'favorites', category_name: watchText }, el); };
       } else if (cat.isCustom) {
+        var sListBadgeTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_list')) || 'LIST');
         el.innerHTML = 
           '<div class="category-left">' +
             '<span class="category-icon" style="color:#B388FF;">' + playlistIcon + '</span>' +
             '<span class="category-name-text" style="color:#C4B5FD; font-weight:600;">' + escapeHtml(cat.category_name) + '</span>' +
-            '<span class="badge-cat-list">LISTE</span>' +
+            '<span class="badge-cat-list">' + sListBadgeTxt + '</span>' +
           '</div>';
         el.onclick = function() { selectSeriesCustomList(cat.customList, el); };
       } else {
         var isNew = prefs.newIds.indexOf(catId) >= 0;
-        var badgeHtml = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
+        var sNewBadgeTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_new')) || 'NEW');
+        var badgeHtml = isNew ? '<span class="badge-cat-new">' + sNewBadgeTxt + '</span>' : '';
         el.innerHTML = 
           '<div class="category-left">' +
             '<span class="category-icon">' + seriesIcon + '</span>' +
@@ -4346,23 +4338,14 @@
     var isSearchFocused = (document.activeElement === catSearchInput) ||
                           (window.SpatialNav && window.SpatialNav.getCurrent() === catSearchInput);
 
-    var watchIds = (_activeAccount && window.TVStorage) ? window.TVStorage.getFavorites(_activeAccount.id, 'series') : [];
-
-    if (!targetEl) {
-      var watchEl = listEl.querySelector('.category-item[data-category-id="favorites"]');
-      if (watchIds && watchIds.length > 0 && watchEl) {
-        targetEl = watchEl;
-      } else if (listEl.children.length > 1) {
-        // Auto-select first real series category instead of empty watchlist!
-        targetEl = listEl.children[1];
-      } else if (listEl.firstElementChild) {
-        targetEl = listEl.firstElementChild;
-      }
+    if (!targetEl && listEl.firstElementChild) {
+      targetEl = listEl.firstElementChild;
     }
 
     if (targetEl) {
       if (!isSearchFocused && !keepFocusOnSearch) {
         targetEl.click();
+        if (!activeCategoryId) listEl.scrollTop = 0;
         if (!isPreload && _currentTab === 'series') {
           var cur = window.SpatialNav ? window.SpatialNav.getCurrent() : null;
           var isOnRail = cur && cur.classList.contains('nav-rail-btn');
@@ -4683,6 +4666,7 @@
           if (plotEl) plotEl.textContent = window.TVI18n ? window.TVI18n.t('failed_load_details') : 'Failed to load series details.';
           return;
         }
+        data._seriesId = String(series.series_id);
         _currentSeriesDetails = data;
         window._currentSeriesDetails = data;
         if (data.info && plotEl) {
@@ -4823,7 +4807,7 @@
           '</div>' +
           '<div class="episode-right-actions">' +
             completedBadgeHtml +
-            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none; display:inline-flex; align-items:center; gap:6px;">' + playSvg + ' <span>' + escapeHtml(playLabel) + '</span></button>' +
+            '<button class="btn-primary" style="padding:8px 18px; font-size:18px; pointer-events:none; display:inline-flex; align-items:center;">' + playSvg + '<span style="margin-left:8px;">' + escapeHtml(playLabel) + '</span></button>' +
           '</div>' +
         '</div>' +
         progressBarHtml;
@@ -5299,7 +5283,7 @@
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + escapeHtml(playText) + '</span></button>';
+          '<button class="btn-primary" style="padding:10px 20px; font-size:18px; display:inline-flex; align-items:center;">' + playIcon + '<span style="margin-left:8px;">' + escapeHtml(playText) + '</span></button>';
         item.onclick = function() {
           closeModal(document.getElementById('modal-master-search'));
           switchTab('live');
@@ -5389,7 +5373,7 @@
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + escapeHtml(playMovieText) + '</span></button>';
+          '<button class="btn-primary" style="padding:10px 20px; font-size:18px; display:inline-flex; align-items:center;">' + playIcon + '<span style="margin-left:8px;">' + escapeHtml(playMovieText) + '</span></button>';
         row.onclick = function() {
           closeModal(document.getElementById('modal-master-search'));
           openMovieDetail(m);
@@ -5443,7 +5427,7 @@
               '</div>' +
             '</div>' +
           '</div>' +
-          '<button class="btn-primary" style="padding:8px 18px; font-size:14px; display:inline-flex; align-items:center; gap:6px;">' + playIcon + ' <span>' + escapeHtml(episodesText) + '</span></button>';
+          '<button class="btn-primary" style="padding:10px 20px; font-size:18px; display:inline-flex; align-items:center;">' + playIcon + '<span style="margin-left:8px;">' + escapeHtml(episodesText) + '</span></button>';
         row.onclick = function() {
           closeModal(document.getElementById('modal-master-search'));
           openSeriesDetail(s);
@@ -5488,7 +5472,7 @@
         msgEl.style.padding = '14px 16px';
         msgEl.style.textAlign = 'center';
         msgEl.style.color = 'rgba(255,255,255,0.45)';
-        msgEl.style.fontSize = '0.95rem';
+        msgEl.style.fontSize = '20px';
         if (_player && _player._tracksLoading) {
           msgEl.textContent = window.TVI18n ? (window.TVI18n.t('loading_tracks') || 'Loading audio tracks...') : 'Loading audio tracks...';
         } else {
@@ -5658,7 +5642,7 @@
         msgEl.style.padding = '14px 16px';
         msgEl.style.textAlign = 'center';
         msgEl.style.color = 'rgba(255,255,255,0.45)';
-        msgEl.style.fontSize = '0.95rem';
+        msgEl.style.fontSize = '20px';
         if (_player && _player._tracksLoading) {
           msgEl.textContent = window.TVI18n ? (window.TVI18n.t('loading_tracks') || 'Loading subtitle tracks...') : 'Loading subtitle tracks...';
         } else {
@@ -5683,6 +5667,13 @@
         closeModal(modal);
       };
     }
+  }
+
+  function matchesSeriesDetails(details, seriesId) {
+    if (!details || !details.episodes || !seriesId) return false;
+    var target = String(seriesId);
+    if (details._seriesId && String(details._seriesId) === target) return true;
+    return Boolean(details.info && details.info.series_id && String(details.info.series_id) === target);
   }
 
   function playNextEpisodeForCurrentSeries() {
@@ -5754,12 +5745,13 @@
     }
 
     var cachedDetails = _currentSeriesDetails || window._currentSeriesDetails;
-    if (cachedDetails && cachedDetails.episodes) {
+    if (matchesSeriesDetails(cachedDetails, seriesId)) {
       proceedWithDetails(cachedDetails);
     } else {
       var activeAcc = _activeAccount || (window.TVStorage ? window.TVStorage.getActiveAccount() : null);
       if (activeAcc && seriesId) {
         window.TVApi.getSeriesInfo(activeAcc, seriesId).then(function(details) {
+          if (details) details._seriesId = String(seriesId);
           _currentSeriesDetails = details;
           window._currentSeriesDetails = details;
           proceedWithDetails(details);
@@ -5776,7 +5768,13 @@
     if (!drawer) return;
 
     var curVodMeta = _player ? _player.currentVodMeta : null;
-    var seriesName = (curVodMeta && curVodMeta.seriesName) || (_currentSeriesData && _currentSeriesData.name) || (_currentSeriesDetails && _currentSeriesDetails.info && _currentSeriesDetails.info.name) || 'Series';
+    var targetSeriesId = (curVodMeta && curVodMeta.seriesId) || (_currentSeriesData && (_currentSeriesData.series_id || _currentSeriesData.id));
+    var cachedDetails = _currentSeriesDetails || window._currentSeriesDetails;
+    var hasMatchingCache = matchesSeriesDetails(cachedDetails, targetSeriesId);
+    var seriesName = (curVodMeta && curVodMeta.seriesName)
+      || (hasMatchingCache && cachedDetails.info && cachedDetails.info.name)
+      || (_currentSeriesData && String(_currentSeriesData.series_id || _currentSeriesData.id) === String(targetSeriesId) && _currentSeriesData.name)
+      || 'Series';
     if (nameEl) {
       nameEl.textContent = seriesName;
     }
@@ -5830,19 +5828,22 @@
       }, 80);
     }
 
-    var cachedDetails = _currentSeriesDetails || window._currentSeriesDetails;
-    if (cachedDetails && cachedDetails.episodes) {
+    if (hasMatchingCache) {
       populateDrawer(cachedDetails);
     } else {
-      var seriesId = (curVodMeta && curVodMeta.seriesId) || (_currentSeriesData && (_currentSeriesData.series_id || _currentSeriesData.id));
       var activeAcc = _activeAccount || (window.TVStorage ? window.TVStorage.getActiveAccount() : null);
-      if (seriesId && activeAcc) {
+      if (targetSeriesId && activeAcc) {
         if (listEl) {
           listEl.innerHTML = '<div class="col-placeholder">' + (window.TVI18n ? window.TVI18n.t('loading_seasons_episodes') : 'Loading seasons & episodes...') + '</div>';
         }
-        window.TVApi.getSeriesInfo(activeAcc, seriesId).then(function(sInfo) {
+        window.TVApi.getSeriesInfo(activeAcc, targetSeriesId).then(function(sInfo) {
+          if (sInfo) sInfo._seriesId = String(targetSeriesId);
           _currentSeriesDetails = sInfo;
           window._currentSeriesDetails = sInfo;
+          if (!curVodMeta || !curVodMeta.seriesName) {
+            seriesName = (sInfo && sInfo.info && sInfo.info.name) || seriesName;
+            if (nameEl) nameEl.textContent = seriesName;
+          }
           populateDrawer(sInfo);
         }).catch(function() {
           if (listEl) listEl.innerHTML = '<div class="col-placeholder">' + (window.TVI18n ? window.TVI18n.t('no_episodes_available') : 'No episodes available.') + '</div>';
@@ -5910,7 +5911,7 @@
           '</div>' +
           '<div class="episode-right-actions">' +
             completedBadgeHtml +
-            '<button class="btn-primary" style="padding:6px 14px; font-size:13px; pointer-events:none; display:inline-flex; align-items:center; gap:6px;">' + playSvg + ' <span>' + escapeHtml(playLabel) + '</span></button>' +
+            '<button class="btn-primary" style="padding:8px 18px; font-size:18px; pointer-events:none; display:inline-flex; align-items:center;">' + playSvg + '<span style="margin-left:8px;">' + escapeHtml(playLabel) + '</span></button>' +
           '</div>' +
         '</div>' +
         progressBarHtml;
@@ -5953,7 +5954,7 @@
 
           var meta = {
             streamId: sId,
-            seriesId: (_currentSeriesData && (_currentSeriesData.series_id || _currentSeriesData.id)) || (_currentSeriesDetails && _currentSeriesDetails.info && _currentSeriesDetails.info.series_id) || (curVodMeta && curVodMeta.seriesId),
+            seriesId: (curVodMeta && curVodMeta.seriesId) || (_currentSeriesDetails && (_currentSeriesDetails._seriesId || (_currentSeriesDetails.info && _currentSeriesDetails.info.series_id))) || (_currentSeriesData && (_currentSeriesData.series_id || _currentSeriesData.id)),
             type: 'series',
             title: epTitle,
             nextEpisodeTitle: nextTitleCand,
@@ -5966,7 +5967,7 @@
             seriesName: seriesName,
             season: parseInt(sNum, 10) || 1,
             episode: parseInt(epNum, 10) || (epIdx + 1),
-            posterUrl: (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '',
+            posterUrl: (curVodMeta && curVodMeta.posterUrl) || (_currentSeriesDetails && _currentSeriesDetails.info && _currentSeriesDetails.info.cover) || (_currentSeriesData && (_currentSeriesData.cover || _currentSeriesData.poster)) || '',
             isFinale: isLastSeason && (epIdx === eps.length - 1),
             duration: epDurForDrawer,
             startPosition: startPos
@@ -6328,18 +6329,6 @@
         if (topModal.id === 'login-modal' && window.TVSync) {
           window.TVSync.stopPolling();
         }
-        if (topModal.id === 'modal-category-manager') {
-          _moveModeActive = false;
-          _moveModeCategoryId = null;
-          window._moveModeActive = false;
-          if (_activeCategoryManagerType === 'live') {
-            renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
-          } else if (_activeCategoryManagerType === 'movie') {
-            renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
-          } else if (_activeCategoryManagerType === 'series') {
-            renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
-          }
-        }
         return true;
       }
 
@@ -6405,7 +6394,6 @@
       { id: 'delete-account-close-btn', modal: 'delete-account-modal' },
       { id: 'delete-account-cancel-btn', modal: 'delete-account-modal' },
       { id: 'cat-mgr-close-btn', modal: 'modal-category-manager' },
-      { id: 'cat-mgr-done-btn', modal: 'modal-category-manager' },
       { id: 'ctx-close-btn', modal: 'modal-stream-context' },
       { id: 'create-list-close-btn', modal: 'modal-create-list' },
       { id: 'create-list-cancel-btn', modal: 'modal-create-list' },
@@ -6427,17 +6415,6 @@
           if (item.modal === 'login-modal' && window.TVSync) {
             window.TVSync.stopPolling();
           }
-          if (item.modal === 'modal-category-manager') {
-            if (_activeCategoryManagerType === 'live') {
-              renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
-            } else if (_activeCategoryManagerType === 'movie') {
-              renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
-            } else if (_activeCategoryManagerType === 'series') {
-              renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
-            }
-            _moveModeActive = false;
-            _moveModeCategoryId = null;
-          }
         };
       }
     });
@@ -6447,6 +6424,7 @@
     if (toggleHiddenBtn) {
       toggleHiddenBtn.onclick = function() {
         _showHiddenCategories = !_showHiddenCategories;
+        if (_moveModeActive) exitCategoryMoveMode();
         renderCategoryManagerList();
       };
     }
@@ -6455,18 +6433,15 @@
     if (unhideAllBtn) {
       unhideAllBtn.onclick = function() {
         if (_activeAccount && window.TVStorage) {
-          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-          var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType);
-          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-          var customCats = customLists.map(function(cl) {
-            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
-          });
-          var allCats = [favCat].concat(customCats).concat(rawCats);
+          var allCats = getAllCategoriesForManager(_activeCategoryManagerType);
           var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
+          var hiddenMap = {};
+          (prefs.hidden || []).forEach(function(id) { hiddenMap[id] = true; });
           var allVisible = allCats.length > 0 && allCats.every(function(c) {
-            var id = String(c.category_id || c.categoryId);
-            return prefs.hidden.indexOf(id) === -1;
+            return !hiddenMap[String(c.category_id || c.categoryId)];
           });
+          _catMgrDirty = true;
+          if (_moveModeActive) exitCategoryMoveMode();
           if (allVisible) {
             prefs.hidden = allCats.map(function(c) { return String(c.category_id || c.categoryId); });
             window.TVStorage.saveCategoryPrefs(_activeAccount.id, _activeCategoryManagerType, prefs);
@@ -6485,14 +6460,10 @@
     if (resetAzBtn) {
       resetAzBtn.onclick = function() {
         if (_activeAccount && window.TVStorage) {
-          var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-          var customLists = window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType);
-          var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-          var customCats = customLists.map(function(cl) {
-            return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
-          });
-          var allCats = [favCat].concat(customCats).concat(rawCats);
+          var allCats = getAllCategoriesForManager(_activeCategoryManagerType);
           window.TVStorage.resetCategorySortOrder(_activeAccount.id, _activeCategoryManagerType, allCats);
+          _catMgrDirty = true;
+          if (_moveModeActive) exitCategoryMoveMode();
           renderCategoryManagerList();
           showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'A-Z Sortierung wiederhergestellt' : 'A-Z sort restored', 'check');
         }
@@ -6512,7 +6483,7 @@
     if (ctxCreateListBtn) {
       ctxCreateListBtn.onclick = function() {
         if (Date.now() < _ignoreContextClicksUntil) return;
-        openCreateOrRenameListModal('create');
+        openCreateOrRenameListModal('create', null, _activeContextType);
       };
     }
 
@@ -6522,26 +6493,45 @@
         var input = document.getElementById('create-list-input');
         var name = (input ? input.value : '').trim();
         if (!name) return;
-        var listType = (_activeCustomList && _activeCustomList.type) || _activeCategoryManagerType || _activeContextType || 'live';
+        var ctxModal = document.getElementById('modal-stream-context');
+        var catMgrModal = document.getElementById('modal-category-manager');
+        var listType = _activeCreateListType ||
+                       (_activeCustomList && _activeCustomList.type) ||
+                       ((ctxModal && ctxModal.classList.contains('active')) ? _activeContextType : _activeCategoryManagerType) ||
+                       'live';
+        var targetCustomId = null;
         if (_createListMode === 'rename' && _activeCustomList) {
+          targetCustomId = _activeCustomList.id;
           window.TVStorage.renameCustomList(_activeAccount.id, _activeCustomList.id, name, listType);
           closeModal(document.getElementById('modal-create-list'));
           showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Liste "' + name + '" umbenannt' : 'List "' + name + '" renamed', 'check');
         } else {
           var newList = window.TVStorage.createCustomList(_activeAccount.id, name, listType);
-          if (newList && _activeContextStream) {
-            window.TVStorage.addStreamToCustomList(_activeAccount.id, newList.id, _activeContextStream);
+          if (newList) {
+            targetCustomId = newList.id;
+            if (ctxModal && ctxModal.classList.contains('active') && _activeContextStream) {
+              window.TVStorage.addStreamToCustomList(_activeAccount.id, newList.id, _activeContextStream);
+            }
           }
           closeModal(document.getElementById('modal-create-list'));
           showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Liste "' + name + '" erstellt' : 'List "' + name + '" created', 'check');
         }
-        var catMgrModal = document.getElementById('modal-category-manager');
-        if (catMgrModal && catMgrModal.classList.contains('active')) {
-          renderCategoryManagerList();
+        if (ctxModal && ctxModal.classList.contains('active')) {
+          renderContextCustomLists();
+          var ctxRow = targetCustomId ? document.querySelector('#ctx-custom-lists-container .ctx-list-row[data-list-id="' + targetCustomId + '"]') : null;
+          var ctxFallback = ctxRow || document.getElementById('ctx-create-list-btn');
+          if (ctxFallback && window.SpatialNav) window.SpatialNav.setFocus(ctxFallback);
         }
-        if (listType === 'live') renderLiveCategories(_liveCategories, true, _activeCustomList ? 'custom_list:' + _activeCustomList.id : null);
-        else if (listType === 'movie') renderMovieCategories(_movieCategories, true, _activeCustomList ? 'custom_list:' + _activeCustomList.id : null);
-        else if (listType === 'series') renderSeriesCategories(_seriesCategories, true, _activeCustomList ? 'custom_list:' + _activeCustomList.id : null);
+        if (catMgrModal && catMgrModal.classList.contains('active')) {
+          _catMgrDirty = true;
+          renderCategoryManagerList();
+          var mgrRow = targetCustomId ? document.querySelector('#cat-mgr-list .cat-mgr-item[data-custom-id="' + targetCustomId + '"]') : null;
+          var mgrFallback = mgrRow || document.querySelector('#cat-mgr-list .cat-mgr-item') || document.getElementById('cat-mgr-toggle-hidden');
+          if (mgrFallback && window.SpatialNav) window.SpatialNav.setFocus(mgrFallback);
+        }
+        if (listType === 'live') renderLiveCategories(_liveCategories, true, _selectedLiveCategory ? _selectedLiveCategory.category_id : null);
+        else if (listType === 'movie') renderMovieCategories(_movieCategories, true, _selectedMovieCategory ? _selectedMovieCategory.category_id : null);
+        else if (listType === 'series') renderSeriesCategories(_seriesCategories, true, _selectedSeriesCategory ? _selectedSeriesCategory.category_id : null);
       };
     }
 
@@ -6551,11 +6541,40 @@
       optListMoveBtn.onclick = function() {
         var cl = _activeCustomList;
         closeModal(document.getElementById('modal-custom-list-options'));
-        if (cl) {
-          openCategoryManager(_activeCategoryManagerType);
+        if (!cl) return;
+        var moveCatId = 'custom_list:' + cl.id;
+        var catMgrModal = document.getElementById('modal-category-manager');
+        if (catMgrModal && catMgrModal.classList.contains('active')) {
+          var prevId = _moveModeCategoryId;
           _moveModeActive = true;
-          _moveModeCategoryId = 'custom_list:' + cl.id;
-          renderCategoryManagerList();
+          _moveModeCategoryId = moveCatId;
+          window._moveModeActive = true;
+          updateCatMgrToolbarState();
+          if (prevId && prevId !== moveCatId) {
+            var prevEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + prevId + '"]');
+            if (prevEl) patchCatMgrRow(prevEl, !!_catMgrHiddenSet[prevId], false);
+          }
+          var listEl = document.getElementById('cat-mgr-list');
+          if (listEl) {
+            for (var i = 0; i < _catMgrDisplayedList.length; i++) {
+              if (String(_catMgrDisplayedList[i].category_id || _catMgrDisplayedList[i].categoryId) === moveCatId) {
+                while (_catMgrRenderedCount <= i && appendCatMgrBatch()) {}
+                break;
+              }
+            }
+            var targetEl = listEl.querySelector('.cat-mgr-item[data-cat-id="' + moveCatId + '"]');
+            if (targetEl) {
+              patchCatMgrRow(targetEl, !!_catMgrHiddenSet[moveCatId], true);
+              if (window.SpatialNav) window.SpatialNav.setFocus(targetEl);
+            }
+          }
+        } else {
+          var ctxModal = document.getElementById('modal-stream-context');
+          if (ctxModal && ctxModal.classList.contains('active')) {
+            closeModal(ctxModal);
+          }
+          _catMgrCooldownUntil = 0;
+          openCategoryManager(cl.type || _activeContextType || _activeCategoryManagerType, moveCatId);
         }
       };
     }
@@ -6566,7 +6585,7 @@
         var cl = _activeCustomList;
         closeModal(document.getElementById('modal-custom-list-options'));
         if (cl) {
-          openCreateOrRenameListModal('rename', cl);
+          openCreateOrRenameListModal('rename', cl, cl.type);
         }
       };
     }
@@ -6593,19 +6612,36 @@
     if (deleteListConfirmBtn) {
       deleteListConfirmBtn.onclick = function() {
         if (_activeCustomList && _activeAccount) {
+          var deletedId = _activeCustomList.id;
           var name = _activeCustomList.name || '';
           var listType = (_activeCustomList && _activeCustomList.type) || _activeCategoryManagerType || _activeContextType || 'live';
-          window.TVStorage.deleteCustomList(_activeAccount.id, _activeCustomList.id, listType);
+          window.TVStorage.deleteCustomList(_activeAccount.id, deletedId, listType);
           _activeCustomList = null;
           closeModal(document.getElementById('modal-delete-list'));
           showToast((window.TVI18n && window.TVI18n.getLanguage() === 'de') ? 'Liste "' + name + '" gelöscht' : 'List "' + name + '" deleted', 'trash');
+          var ctxModal = document.getElementById('modal-stream-context');
+          if (ctxModal && ctxModal.classList.contains('active')) {
+            renderContextCustomLists();
+            var ctxFocus = document.querySelector('#ctx-custom-lists-container .ctx-list-row') || document.getElementById('ctx-create-list-btn');
+            if (ctxFocus && window.SpatialNav) window.SpatialNav.setFocus(ctxFocus);
+          }
           var catMgrModal = document.getElementById('modal-category-manager');
           if (catMgrModal && catMgrModal.classList.contains('active')) {
+            _catMgrDirty = true;
             renderCategoryManagerList();
+            var mgrFocus = document.querySelector('#cat-mgr-list .cat-mgr-item') || document.getElementById('cat-mgr-toggle-hidden');
+            if (mgrFocus && window.SpatialNav) window.SpatialNav.setFocus(mgrFocus);
           }
-          if (listType === 'live') renderLiveCategories(_liveCategories, true);
-          else if (listType === 'movie') renderMovieCategories(_movieCategories, true);
-          else if (listType === 'series') renderSeriesCategories(_seriesCategories, true);
+          if (listType === 'live') {
+            var liveFallbackId = (_selectedLiveCategory && _selectedLiveCategory.category_id === 'custom_list:' + deletedId) ? 'favorites' : null;
+            renderLiveCategories(_liveCategories, true, liveFallbackId);
+          } else if (listType === 'movie') {
+            var movFallbackId = (_selectedMovieCategory && _selectedMovieCategory.category_id === 'custom_list:' + deletedId) ? 'favorites' : null;
+            renderMovieCategories(_movieCategories, true, movFallbackId);
+          } else if (listType === 'series') {
+            var serFallbackId = (_selectedSeriesCategory && _selectedSeriesCategory.category_id === 'custom_list:' + deletedId) ? 'favorites' : null;
+            renderSeriesCategories(_seriesCategories, true, serFallbackId);
+          }
         }
       };
     }
@@ -6627,16 +6663,6 @@
         };
       }
     });
-
-    // Accounts Version Badge changelog modal
-    var verBadge = document.getElementById('accounts-version-badge');
-    if (verBadge) {
-      verBadge.onclick = function() {
-        if (window.TVUpdater && window.TVUpdater.openChangelogModal) {
-          window.TVUpdater.openChangelogModal();
-        }
-      };
-    }
 
     var doneBtnInit = document.getElementById('remote-done-btn');
     if (doneBtnInit) {
@@ -7249,17 +7275,223 @@
   var _showHiddenCategories = false;
   var _moveModeActive = false;
   var _moveModeCategoryId = null;
+  var _catMgrDirty = false;
+  var _catMgrCooldownUntil = 0;
+  var _catMgrMoveToggleLockUntil = 0;
+  var _catMgrDisplayedList = [];
+  var _catMgrHiddenSet = {};
+  var _catMgrNewSet = {};
+  var _catMgrTotalCount = 0;
+  var _catMgrHiddenCount = 0;
+  var _catMgrRenderedCount = 0;
+  var _catMgrBatchSize = 50;
+  var _catMgrScrollBound = false;
 
-  function openCategoryManager(type) {
+  function getAllCategoriesForManager(type) {
+    var rawCats = (type === 'live' ? _liveCategories : (type === 'movie' ? _movieCategories : _seriesCategories)) || [];
+    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, type) : [];
+    var favLabel = (type === 'live'
+      ? ((window.TVI18n && window.TVI18n.t('favorites')) || 'Favorites')
+      : ((window.TVI18n && window.TVI18n.t('watchlist')) || 'Watchlist'));
+    var favCat = { category_id: 'favorites', category_name: favLabel, isFav: true };
+    var customCats = customLists.map(function(cl) {
+      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true, customList: cl };
+    });
+    return [favCat].concat(customCats).concat(rawCats);
+  }
+
+  function updateCatMgrToolbarState() {
+    var toggleHiddenText = document.getElementById('cat-mgr-toggle-hidden-text');
+    var toggleHiddenBtn = document.getElementById('cat-mgr-toggle-hidden');
+    if (toggleHiddenText) {
+      if (_showHiddenCategories) {
+        toggleHiddenText.textContent = (window.TVI18n && window.TVI18n.t('hide_hidden_categories')) || 'Ausgeblendete verbergen';
+      } else {
+        var tmpl = (window.TVI18n && window.TVI18n.t('show_hidden_count')) || 'Ausgeblendete anzeigen ({count})';
+        toggleHiddenText.textContent = tmpl.replace('{count}', _catMgrHiddenCount);
+      }
+    }
+    if (toggleHiddenBtn) {
+      toggleHiddenBtn.classList.toggle('active', _showHiddenCategories);
+    }
+
+    var unhideBtn = document.getElementById('cat-mgr-unhide-all');
+    var unhideText = document.getElementById('cat-mgr-unhide-all-text');
+    if (unhideBtn) {
+      var allVis = _catMgrTotalCount > 0 && _catMgrHiddenCount === 0;
+      var unhideLabel = allVis ? ((window.TVI18n && window.TVI18n.t('hide_all')) || 'Alle ausblenden') : ((window.TVI18n && window.TVI18n.t('show_all')) || 'Alle einblenden');
+      if (unhideText) unhideText.textContent = unhideLabel;
+      else unhideBtn.textContent = unhideLabel;
+    }
+
+    var moveBadge = document.getElementById('cat-mgr-move-badge');
+    if (moveBadge) {
+      moveBadge.style.display = _moveModeActive ? 'inline-flex' : 'none';
+    }
+    window._moveModeActive = _moveModeActive;
+  }
+
+  function patchCatMgrRow(itemEl, isHidden, isMoving) {
+    if (!itemEl) return;
+    itemEl.classList.toggle('move-active', !!isMoving);
+    itemEl.classList.toggle('is-hidden', !!isHidden);
+
+    var cb = itemEl.querySelector('.cat-mgr-checkbox');
+    if (cb) {
+      cb.classList.toggle('checked', !isHidden);
+      cb.innerHTML = !isHidden ? ((window.TVIcons && window.TVIcons.checkboxChecked) || '') : ((window.TVIcons && window.TVIcons.checkboxEmpty) || '');
+    }
+
+    var nameEl = itemEl.querySelector('.cat-mgr-name');
+    if (nameEl) nameEl.classList.toggle('dimmed', !!isHidden);
+
+    var pill = itemEl.querySelector('.cat-mgr-move-pill');
+    if (pill) {
+      pill.classList.toggle('active', !!isMoving);
+      pill.textContent = isMoving
+        ? ((window.TVI18n && window.TVI18n.t('done_btn')) || 'Done')
+        : ((window.TVI18n && window.TVI18n.t('move_btn')) || 'Move');
+    }
+
+    var handle = itemEl.querySelector('.cat-mgr-handle');
+    if (handle) {
+      handle.innerHTML = isMoving ? ((window.TVIcons && window.TVIcons.swapVert) || '') : ((window.TVIcons && window.TVIcons.dragHandle) || '');
+    }
+  }
+
+  function showCatMgrEmptyMessage(listEl) {
+    var emptyEl = document.createElement('div');
+    emptyEl.className = 'cat-mgr-empty';
+    emptyEl.style.cssText = 'padding: 36px; text-align: center; color: rgba(255,255,255,0.65); font-size: 22px; line-height: 1.5;';
+    emptyEl.textContent = (window.TVI18n && window.TVI18n.t('all_categories_hidden')) || 'Alle Kategorien sind ausgeblendet. Klicke oben auf "Ausgeblendete anzeigen", um sie wieder einzublenden.';
+    listEl.appendChild(emptyEl);
+  }
+
+  function createCatMgrRowEl(cat) {
+    var catId = String(cat.category_id || cat.categoryId);
+    var isHidden = !!_catMgrHiddenSet[catId];
+    var isNew = !!_catMgrNewSet[catId];
+    var isMoving = _moveModeActive && (_moveModeCategoryId === catId);
+
+    var itemEl = document.createElement('div');
+    itemEl.className = 'cat-mgr-item focusable' + (isMoving ? ' move-active' : '') + (isHidden ? ' is-hidden' : '');
+    itemEl.setAttribute('data-cat-id', catId);
+    if (cat.isCustom) {
+      itemEl.setAttribute('data-is-custom', 'true');
+      itemEl.setAttribute('data-custom-id', cat.customList ? cat.customList.id : catId.replace('custom_list:', ''));
+    }
+
+    var handleSvg = isMoving ? ((window.TVIcons && window.TVIcons.swapVert) || '') : ((window.TVIcons && window.TVIcons.dragHandle) || '');
+    var newTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_new')) || 'NEW');
+    var listTxt = escapeHtml((window.TVI18n && window.TVI18n.t('badge_list')) || 'LIST');
+    var badgeNew = isNew ? '<span class="badge-cat-new">' + newTxt + '</span>' : '';
+    var customBadge = cat.isCustom ? '<span class="badge-cat-new badge-custom-list">' + listTxt + '</span>' : '';
+    var checkSvg = !isHidden ? ((window.TVIcons && window.TVIcons.checkboxChecked) || '') : ((window.TVIcons && window.TVIcons.checkboxEmpty) || '');
+
+    var typeIcon = cat.isFav ? ('<span class="cat-mgr-type-icon is-fav">' + ((window.TVIcons && window.TVIcons.starFilled) || '') + '</span>') :
+                   (cat.isCustom ? ('<span class="cat-mgr-type-icon is-custom">' + ((window.TVIcons && window.TVIcons.playlist) || '') + '</span>') :
+                   ('<span class="cat-mgr-type-icon">' + (_activeCategoryManagerType === 'live' ? ((window.TVIcons && window.TVIcons.tv) || '') : (_activeCategoryManagerType === 'movie' ? ((window.TVIcons && window.TVIcons.film) || '') : ((window.TVIcons && window.TVIcons.series) || ''))) + '</span>'));
+
+    var doneTxt = escapeHtml((window.TVI18n && window.TVI18n.t('done_btn')) || 'Done');
+    var moveTxt = escapeHtml((window.TVI18n && window.TVI18n.t('move_btn')) || 'Move');
+    var movePill = isMoving ? '<span class="cat-mgr-move-pill active">' + doneTxt + '</span>' : '<span class="cat-mgr-move-pill">' + moveTxt + '</span>';
+
+    itemEl.innerHTML =
+      '<div class="cat-mgr-item-left">' +
+        '<div class="cat-mgr-checkbox' + (!isHidden ? ' checked' : '') + '">' + checkSvg + '</div>' +
+        typeIcon +
+        '<span class="cat-mgr-name' + (isHidden ? ' dimmed' : '') + '">' + escapeHtml(cat.category_name || cat.name || '') + '</span>' +
+        customBadge +
+        badgeNew +
+      '</div>' +
+      '<div class="cat-mgr-item-right">' +
+        movePill +
+        '<span class="cat-mgr-handle">' + handleSvg + '</span>' +
+      '</div>';
+
+    itemEl.onclick = function() {
+      var listEl = document.getElementById('cat-mgr-list');
+      if (_moveModeActive) {
+        exitCategoryMoveMode();
+        if (window.SpatialNav) window.SpatialNav.setFocus(itemEl);
+        return;
+      }
+      var currentlyHidden = !!_catMgrHiddenSet[catId];
+      var nextHidden = !currentlyHidden;
+      window.TVStorage.setCategoryVisibility(_activeAccount.id, _activeCategoryManagerType, catId, currentlyHidden);
+      _catMgrDirty = true;
+      if (nextHidden) {
+        _catMgrHiddenSet[catId] = true;
+        _catMgrHiddenCount++;
+      } else {
+        delete _catMgrHiddenSet[catId];
+        _catMgrHiddenCount = Math.max(0, _catMgrHiddenCount - 1);
+      }
+      updateCatMgrToolbarState();
+
+      if (_showHiddenCategories) {
+        patchCatMgrRow(itemEl, nextHidden, false);
+        if (window.SpatialNav) window.SpatialNav.setFocus(itemEl);
+      } else if (nextHidden && listEl) {
+        var nextSib = itemEl.nextElementSibling;
+        var prevSib = itemEl.previousElementSibling;
+        if (itemEl.parentNode) itemEl.parentNode.removeChild(itemEl);
+        _catMgrRenderedCount = Math.max(0, _catMgrRenderedCount - 1);
+        for (var i = 0; i < _catMgrDisplayedList.length; i++) {
+          if (String(_catMgrDisplayedList[i].category_id || _catMgrDisplayedList[i].categoryId) === catId) {
+            _catMgrDisplayedList.splice(i, 1);
+            break;
+          }
+        }
+        if (!nextSib && _catMgrRenderedCount < _catMgrDisplayedList.length) {
+          appendCatMgrBatch(10);
+          nextSib = prevSib ? prevSib.nextElementSibling : listEl.querySelector('.cat-mgr-item');
+        }
+        if (_catMgrDisplayedList.length === 0) {
+          showCatMgrEmptyMessage(listEl);
+          var toggleBtn = document.getElementById('cat-mgr-toggle-hidden');
+          if (toggleBtn && window.SpatialNav) window.SpatialNav.setFocus(toggleBtn);
+        } else {
+          var itemToFocus = nextSib || prevSib || listEl.querySelector('.cat-mgr-item') || document.getElementById('cat-mgr-toggle-hidden');
+          if (itemToFocus && window.SpatialNav) window.SpatialNav.setFocus(itemToFocus);
+        }
+      }
+    };
+
+    return itemEl;
+  }
+
+  function appendCatMgrBatch(count) {
+    var listEl = document.getElementById('cat-mgr-list');
+    if (!listEl || _catMgrRenderedCount >= _catMgrDisplayedList.length) return false;
+    var batchSize = count || _catMgrBatchSize;
+    var end = Math.min(_catMgrDisplayedList.length, _catMgrRenderedCount + batchSize);
+    var frag = document.createDocumentFragment();
+    for (var i = _catMgrRenderedCount; i < end; i++) {
+      frag.appendChild(createCatMgrRowEl(_catMgrDisplayedList[i]));
+    }
+    listEl.appendChild(frag);
+    _catMgrRenderedCount = end;
+    return true;
+  }
+
+  function loadMoreCategoryManagerItems() {
+    return appendCatMgrBatch(_catMgrBatchSize);
+  }
+
+  function openCategoryManager(type, initialMoveCatId) {
+    var modal = document.getElementById('modal-category-manager');
+    if (!modal) return;
+    if (modal.classList.contains('active') || Date.now() < _catMgrCooldownUntil) return;
+
     _activeCategoryManagerType = type || _currentTab || 'live';
     if (_activeCategoryManagerType === 'movies') _activeCategoryManagerType = 'movie';
     _showHiddenCategories = false;
-    _moveModeActive = false;
-    _moveModeCategoryId = null;
-    window._moveModeActive = false;
-
-    var modal = document.getElementById('modal-category-manager');
-    if (!modal) return;
+    _moveModeActive = !!initialMoveCatId;
+    _moveModeCategoryId = initialMoveCatId || null;
+    _catMgrDirty = false;
+    _catMgrCooldownUntil = Date.now() + 450;
+    window._moveModeActive = _moveModeActive;
 
     var titleEl = document.getElementById('cat-mgr-title');
     var tipEl = document.getElementById('cat-mgr-tip-text');
@@ -7276,230 +7508,209 @@
     }
 
     renderCategoryManagerList();
-    openModal(modal);
 
-    var firstFocus = document.querySelector('#cat-mgr-list .cat-mgr-item') || document.getElementById('cat-mgr-toggle-hidden');
-    if (firstFocus && window.SpatialNav) {
-      window.SpatialNav.setFocus(firstFocus);
+    var listEl = document.getElementById('cat-mgr-list');
+    if (listEl) listEl.scrollTop = 0;
+
+    var targetFocus = null;
+    if (initialMoveCatId && listEl) {
+      for (var i = 0; i < _catMgrDisplayedList.length; i++) {
+        if (String(_catMgrDisplayedList[i].category_id || _catMgrDisplayedList[i].categoryId) === initialMoveCatId) {
+          while (_catMgrRenderedCount <= i && appendCatMgrBatch()) {}
+          break;
+        }
+      }
+      targetFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + initialMoveCatId + '"]');
     }
+    var firstFocus = targetFocus || document.querySelector('#cat-mgr-list .cat-mgr-item') || document.getElementById('cat-mgr-toggle-hidden');
+    openModal(modal, firstFocus);
   }
 
   function renderCategoryManagerList() {
     var listEl = document.getElementById('cat-mgr-list');
     if (!listEl) return;
+    if (!_catMgrScrollBound) {
+      _catMgrScrollBound = true;
+      listEl.addEventListener('scroll', function() {
+        if (listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 240) {
+          loadMoreCategoryManagerItems();
+        }
+      }, { passive: true });
+    }
     listEl.innerHTML = '';
 
-    var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
-    var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-    var customCats = customLists.map(function(cl) {
-      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true, customList: cl };
-    });
-    var allCats = [favCat].concat(customCats).concat(rawCats);
+    var allCats = getAllCategoriesForManager(_activeCategoryManagerType);
     var prefs = (_activeAccount && window.TVStorage) ? window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType) : { order: [], hidden: [], newIds: [] };
 
     // Fast O(1) lookups
     var orderSet = {};
     (prefs.order || []).forEach(function(id) { orderSet[id] = true; });
-    var hiddenSet = {};
-    (prefs.hidden || []).forEach(function(id) { hiddenSet[id] = true; });
+    _catMgrHiddenSet = {};
+    (prefs.hidden || []).forEach(function(id) { _catMgrHiddenSet[id] = true; });
+    _catMgrNewSet = {};
+    (prefs.newIds || []).forEach(function(id) { _catMgrNewSet[id] = true; });
 
     // Order categories according to prefs.order
     var catMap = {};
     allCats.forEach(function(c) {
-      var id = String(c.category_id || c.categoryId);
-      catMap[id] = c;
+      catMap[String(c.category_id || c.categoryId)] = c;
     });
 
     var orderedList = [];
-    var favIdx = prefs.order.indexOf('favorites');
+    var favIdx = (prefs.order || []).indexOf('favorites');
     if (favIdx === -1) {
       if (catMap['favorites']) orderedList.push(catMap['favorites']);
     } else if (favIdx === prefs.order.length - 1 && prefs.order.length > 1 && !prefs.hasManualSort) {
       if (catMap['favorites']) orderedList.push(catMap['favorites']);
     }
 
-    prefs.order.forEach(function(id) {
+    (prefs.order || []).forEach(function(id) {
       if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
       if (catMap[id]) orderedList.push(catMap[id]);
     });
     allCats.forEach(function(c) {
       var id = String(c.category_id || c.categoryId);
       if (id === 'favorites' && orderedList.length > 0 && orderedList[0].category_id === 'favorites') return;
-      if (!orderSet[id]) orderedList.push(c);
+      if (!orderSet[id]) {
+        if (id.indexOf('custom_list:') === 0) {
+          var insertIdx = 0;
+          while (insertIdx < orderedList.length) {
+            var oid = String(orderedList[insertIdx].category_id || orderedList[insertIdx].categoryId);
+            if (oid !== 'favorites' && oid.indexOf('custom_list:') !== 0) break;
+            insertIdx++;
+          }
+          orderedList.splice(insertIdx, 0, c);
+        } else {
+          orderedList.push(c);
+        }
+      }
     });
+    if (!prefs.hasManualSort) {
+      var tierFav = [];
+      var tierCustom = [];
+      var tierReg = [];
+      orderedList.forEach(function(c) {
+        var cid = String(c.category_id || c.categoryId);
+        if (cid === 'favorites') tierFav.push(c);
+        else if (cid.indexOf('custom_list:') === 0) tierCustom.push(c);
+        else tierReg.push(c);
+      });
+      orderedList = tierFav.concat(tierCustom).concat(tierReg);
+    }
 
-    // Hidden categories count
+    _catMgrTotalCount = orderedList.length;
     var hiddenCount = 0;
-    orderedList.forEach(function(c) {
-      var id = String(c.category_id || c.categoryId);
-      if (hiddenSet[id]) hiddenCount++;
-    });
-
-    // Update Toolbar buttons
-    var toggleHiddenText = document.getElementById('cat-mgr-toggle-hidden-text');
-    var toggleHiddenBtn = document.getElementById('cat-mgr-toggle-hidden');
-    if (toggleHiddenText) {
-      if (_showHiddenCategories) {
-        toggleHiddenText.textContent = (window.TVI18n && window.TVI18n.t('hide_hidden_categories')) || 'Ausgeblendete verbergen';
-      } else {
-        var tmpl = (window.TVI18n && window.TVI18n.t('show_hidden_count')) || 'Ausgeblendete anzeigen ({count})';
-        toggleHiddenText.textContent = tmpl.replace('{count}', hiddenCount);
+    var displayedList = [];
+    for (var i = 0; i < orderedList.length; i++) {
+      var c = orderedList[i];
+      var cid = String(c.category_id || c.categoryId);
+      var isH = !!_catMgrHiddenSet[cid];
+      if (isH) hiddenCount++;
+      if (_showHiddenCategories || !isH) {
+        displayedList.push(c);
       }
     }
-    if (toggleHiddenBtn) {
-      toggleHiddenBtn.classList.toggle('active', _showHiddenCategories);
-    }
+    _catMgrHiddenCount = hiddenCount;
+    _catMgrDisplayedList = displayedList;
+    _catMgrRenderedCount = 0;
 
-    var unhideBtn = document.getElementById('cat-mgr-unhide-all');
-    var unhideText = document.getElementById('cat-mgr-unhide-all-text');
-    if (unhideBtn) {
-      var allVis = orderedList.length > 0 && orderedList.every(function(c) {
-        var id = String(c.category_id || c.categoryId);
-        return prefs.hidden.indexOf(id) === -1;
-      });
-      var unhideLabel = allVis ? ((window.TVI18n && window.TVI18n.t('hide_all')) || 'Alle ausblenden') : ((window.TVI18n && window.TVI18n.t('show_all')) || 'Alle einblenden');
-      if (unhideText) unhideText.textContent = unhideLabel;
-      else unhideBtn.textContent = unhideLabel;
-    }
-
-    var moveBadge = document.getElementById('cat-mgr-move-badge');
-    if (moveBadge) {
-      moveBadge.style.display = _moveModeActive ? 'inline-flex' : 'none';
-    }
-    window._moveModeActive = _moveModeActive;
-
-    // Filter list if hidden categories should not be shown
-    var displayedList = orderedList.filter(function(c) {
-      if (_showHiddenCategories) return true;
-      var id = String(c.category_id || c.categoryId);
-      return prefs.hidden.indexOf(id) === -1;
-    });
+    updateCatMgrToolbarState();
 
     if (displayedList.length === 0) {
-      var emptyEl = document.createElement('div');
-      emptyEl.className = 'cat-mgr-empty';
-      emptyEl.style.cssText = 'padding: 30px; text-align: center; color: rgba(255,255,255,0.5); font-size: 15px;';
-      emptyEl.textContent = (window.TVI18n && window.TVI18n.t('all_categories_hidden')) || 'Alle Kategorien sind ausgeblendet. Klicke oben auf "Ausgeblendete anzeigen", um sie wieder einzublenden.';
-      listEl.appendChild(emptyEl);
+      showCatMgrEmptyMessage(listEl);
       return;
     }
 
-    var frag = document.createDocumentFragment();
-
-    displayedList.forEach(function(cat, idx) {
-      var catId = String(cat.category_id || cat.categoryId);
-      var isHidden = prefs.hidden.indexOf(catId) >= 0;
-      var isNew = prefs.newIds.indexOf(catId) >= 0;
-      var isMoving = _moveModeActive && (_moveModeCategoryId === catId);
-
-      var itemEl = document.createElement('div');
-      itemEl.className = 'cat-mgr-item focusable' + (isMoving ? ' move-active' : '') + (isHidden ? ' is-hidden' : '');
-      itemEl.setAttribute('data-cat-id', catId);
-      itemEl.setAttribute('data-index', String(idx));
-      if (cat.isCustom) {
-        itemEl.setAttribute('data-is-custom', 'true');
-        itemEl.setAttribute('data-custom-id', cat.customList ? cat.customList.id : catId.replace('custom_list:', ''));
-      }
-
-      var handleSvg = isMoving ? ((window.TVIcons && window.TVIcons.swapVert) || '') : ((window.TVIcons && window.TVIcons.dragHandle) || '');
-      var badgeNew = isNew ? '<span class="badge-cat-new">NEU</span>' : '';
-      var customBadge = cat.isCustom ? '<span class="badge-cat-new badge-custom-list">LISTE</span>' : '';
-      var checkSvg = !isHidden ? ((window.TVIcons && window.TVIcons.checkboxChecked) || '') : ((window.TVIcons && window.TVIcons.checkboxEmpty) || '');
-
-      var typeIcon = cat.isFav ? ('<span class="cat-mgr-type-icon is-fav">' + ((window.TVIcons && window.TVIcons.starFilled) || '') + '</span>') :
-                     (cat.isCustom ? ('<span class="cat-mgr-type-icon is-custom">' + ((window.TVIcons && window.TVIcons.playlist) || '') + '</span>') :
-                     ('<span class="cat-mgr-type-icon">' + (_activeCategoryManagerType === 'live' ? ((window.TVIcons && window.TVIcons.tv) || '') : (_activeCategoryManagerType === 'movie' ? ((window.TVIcons && window.TVIcons.film) || '') : ((window.TVIcons && window.TVIcons.series) || ''))) + '</span>'));
-
-      var movePill = isMoving ? '<span class="cat-mgr-move-pill active">Fertig</span>' : '<span class="cat-mgr-move-pill">Verschieben</span>';
-
-      itemEl.innerHTML = 
-        '<div class="cat-mgr-item-left">' +
-          '<div class="cat-mgr-checkbox' + (!isHidden ? ' checked' : '') + '">' + checkSvg + '</div>' +
-          typeIcon +
-          '<span class="cat-mgr-name' + (isHidden ? ' dimmed' : '') + '">' + escapeHtml(cat.category_name || cat.name || '') + '</span>' +
-          customBadge +
-          badgeNew +
-        '</div>' +
-        '<div class="cat-mgr-item-right">' +
-          movePill +
-          '<span class="cat-mgr-handle">' + handleSvg + '</span>' +
-        '</div>';
-
-      itemEl.onclick = function() {
-        if (_moveModeActive) {
-          exitCategoryMoveMode();
-          var reFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + catId + '"]');
-          if (reFocus && window.SpatialNav) window.SpatialNav.setFocus(reFocus);
-        } else {
-          window.TVStorage.setCategoryVisibility(_activeAccount.id, _activeCategoryManagerType, catId, isHidden);
-          renderCategoryManagerList();
-          var itemToFocus = listEl.querySelector('.cat-mgr-item[data-cat-id="' + catId + '"]');
-          if (!itemToFocus && !_showHiddenCategories) {
-            var allItems = listEl.querySelectorAll('.cat-mgr-item');
-            var targetIdx = Math.min(idx, allItems.length - 1);
-            if (targetIdx >= 0) itemToFocus = allItems[targetIdx];
-            else itemToFocus = document.getElementById('cat-mgr-toggle-hidden');
-          }
-          if (itemToFocus && window.SpatialNav) window.SpatialNav.setFocus(itemToFocus);
-        }
-      };
-
-      frag.appendChild(itemEl);
-    });
-
-    listEl.appendChild(frag);
+    appendCatMgrBatch(_catMgrBatchSize);
   }
 
   function moveCategoryInManager(dir) {
     if (!_moveModeActive || !_moveModeCategoryId) return false;
-    var rawCats = (_activeCategoryManagerType === 'live' ? _liveCategories : (_activeCategoryManagerType === 'movie' ? _movieCategories : _seriesCategories)) || [];
-    var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
-    var favCat = { category_id: 'favorites', category_name: (_activeCategoryManagerType === 'live' ? 'Favoriten' : 'Watchlist'), isFav: true };
-    var customCats = customLists.map(function(cl) {
-      return { category_id: 'custom_list:' + cl.id, category_name: cl.name, isCustom: true };
-    });
-    var allCats = [favCat].concat(customCats).concat(rawCats);
-    var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
+    var listEl = document.getElementById('cat-mgr-list');
+    if (!listEl || _catMgrDisplayedList.length < 2) return false;
 
-    var currentOrder = prefs.order.slice();
-    allCats.forEach(function(c) {
-      var id = String(c.category_id || c.categoryId);
-      if (currentOrder.indexOf(id) === -1) currentOrder.push(id);
-    });
+    var visIdx = -1;
+    for (var i = 0; i < _catMgrDisplayedList.length; i++) {
+      if (String(_catMgrDisplayedList[i].category_id || _catMgrDisplayedList[i].categoryId) === _moveModeCategoryId) {
+        visIdx = i;
+        break;
+      }
+    }
+    if (visIdx === -1) return false;
+    var targetVisIdx = visIdx + dir;
+    if (targetVisIdx < 0 || targetVisIdx >= _catMgrDisplayedList.length) return false;
+
+    while (_catMgrRenderedCount <= targetVisIdx && appendCatMgrBatch()) {}
+
+    var targetCatId = String(_catMgrDisplayedList[targetVisIdx].category_id || _catMgrDisplayedList[targetVisIdx].categoryId);
+
+    var allCats = getAllCategoriesForManager(_activeCategoryManagerType);
+    var prefs = window.TVStorage.getCategoryPrefs(_activeAccount.id, _activeCategoryManagerType);
+    var currentOrder = (prefs.order || []).slice();
+    var orderMap = {};
+    for (var o = 0; o < currentOrder.length; o++) orderMap[currentOrder[o]] = true;
+    for (var a = 0; a < allCats.length; a++) {
+      var aid = String(allCats[a].category_id || allCats[a].categoryId);
+      if (!orderMap[aid]) {
+        currentOrder.push(aid);
+        orderMap[aid] = true;
+      }
+    }
 
     var fromIdx = currentOrder.indexOf(_moveModeCategoryId);
-    if (fromIdx === -1) return false;
-    var toIdx = fromIdx + dir;
-    if (toIdx < 0 || toIdx >= currentOrder.length) return false;
+    var toIdx = currentOrder.indexOf(targetCatId);
+    if (fromIdx === -1 || toIdx === -1) return false;
 
-    var temp = currentOrder[fromIdx];
+    var tmpOrd = currentOrder[fromIdx];
     currentOrder[fromIdx] = currentOrder[toIdx];
-    currentOrder[toIdx] = temp;
+    currentOrder[toIdx] = tmpOrd;
 
     window.TVStorage.reorderCategories(_activeAccount.id, _activeCategoryManagerType, currentOrder);
-    renderCategoryManagerList();
+    _catMgrDirty = true;
 
-    var movingEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + _moveModeCategoryId + '"]');
-    if (movingEl && window.SpatialNav) {
-      window.SpatialNav.setFocus(movingEl);
+    var tmpVis = _catMgrDisplayedList[visIdx];
+    _catMgrDisplayedList[visIdx] = _catMgrDisplayedList[targetVisIdx];
+    _catMgrDisplayedList[targetVisIdx] = tmpVis;
+
+    var movingEl = listEl.querySelector('.cat-mgr-item[data-cat-id="' + _moveModeCategoryId + '"]');
+    var targetEl = listEl.querySelector('.cat-mgr-item[data-cat-id="' + targetCatId + '"]');
+    if (movingEl && targetEl) {
+      if (dir < 0) {
+        listEl.insertBefore(movingEl, targetEl);
+      } else {
+        listEl.insertBefore(targetEl, movingEl);
+      }
+      movingEl.scrollIntoView({ block: 'nearest' });
+      if (window.SpatialNav) {
+        window.SpatialNav.setFocus(movingEl);
+      }
     }
     return true;
   }
 
   function exitCategoryMoveMode() {
+    var prevId = _moveModeCategoryId;
     _moveModeActive = false;
     _moveModeCategoryId = null;
     window._moveModeActive = false;
-    renderCategoryManagerList();
+    updateCatMgrToolbarState();
+
+    if (prevId) {
+      var prevEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + prevId + '"]');
+      if (prevEl) patchCatMgrRow(prevEl, !!_catMgrHiddenSet[prevId], false);
+    }
   }
 
   function onCategoryManagerItemLongPress(itemEl) {
     if (!itemEl) return;
+    var now = Date.now();
+    if (now < _catMgrMoveToggleLockUntil) return;
+    _catMgrMoveToggleLockUntil = now + 300;
+
     var isCustom = itemEl.getAttribute('data-is-custom') === 'true';
     var catId = itemEl.getAttribute('data-cat-id');
 
-    if (isCustom) {
+    if (isCustom && !_moveModeActive) {
       var customLists = (_activeAccount && window.TVStorage) ? window.TVStorage.getCustomLists(_activeAccount.id, _activeCategoryManagerType) : [];
       var customId = itemEl.getAttribute('data-custom-id') || catId.replace('custom_list:', '');
       var found = customLists.find(function(cl) { return String(cl.id) === String(customId); });
@@ -7511,13 +7722,20 @@
 
     if (_moveModeActive && _moveModeCategoryId === catId) {
       exitCategoryMoveMode();
+      if (window.SpatialNav) window.SpatialNav.setFocus(itemEl);
     } else {
+      var prevId = _moveModeCategoryId;
       _moveModeActive = true;
       _moveModeCategoryId = catId;
       window._moveModeActive = true;
-      renderCategoryManagerList();
-      var movingEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + catId + '"]');
-      if (movingEl && window.SpatialNav) window.SpatialNav.setFocus(movingEl);
+      updateCatMgrToolbarState();
+
+      if (prevId && prevId !== catId) {
+        var prevEl = document.querySelector('#cat-mgr-list .cat-mgr-item[data-cat-id="' + prevId + '"]');
+        if (prevEl) patchCatMgrRow(prevEl, !!_catMgrHiddenSet[prevId], false);
+      }
+      patchCatMgrRow(itemEl, !!_catMgrHiddenSet[catId], true);
+      if (window.SpatialNav) window.SpatialNav.setFocus(itemEl);
     }
   }
 
@@ -7528,10 +7746,11 @@
   var _activeContextType = 'live';
   var _activeCustomList = null;
   var _createListMode = 'create';
+  var _activeCreateListType = null;
   var _ignoreContextClicksUntil = 0;
 
   function showStreamContextMenu(stream, type) {
-    if (!stream) return;
+    if (!stream || document.body.classList.contains('player-fullscreen')) return;
     _ignoreContextClicksUntil = Date.now() + 450;
     _activeContextStream = stream;
     _activeContextType = type || 'live';
@@ -7591,6 +7810,7 @@
     }
 
     var isFav = window.TVStorage.isFavorite(_activeAccount.id, streamId, _activeContextType);
+    if (favBtn) favBtn.classList.toggle('fav-active', !!isFav);
     if (favIcon) favIcon.innerHTML = isFav ? ((window.TVIcons && window.TVIcons.starFilled) || '') : ((window.TVIcons && window.TVIcons.starOutline) || '');
     if (favLabel) {
       var favKey = isFav ? 'remove_from_favorites' : 'add_to_favorites';
@@ -7600,10 +7820,13 @@
     favBtn.onclick = function() {
       if (Date.now() < _ignoreContextClicksUntil) return;
       var res = window.TVStorage.toggleFavorite(_activeAccount.id, streamId, _activeContextType);
+      favBtn.classList.toggle('fav-active', !!res);
       favIcon.innerHTML = res ? ((window.TVIcons && window.TVIcons.starFilled) || '') : ((window.TVIcons && window.TVIcons.starOutline) || '');
       var newKey = res ? 'remove_from_favorites' : 'add_to_favorites';
       favLabel.textContent = (window.TVI18n && window.TVI18n.t(newKey)) || (res ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen');
-      showToast(res ? 'Zu Favoriten hinzugefügt' : 'Aus Favoriten entfernt', res ? 'star' : 'trash');
+      var toastKey = res ? (_activeContextType === 'live' ? 'fav_added' : 'in_watchlist') : (_activeContextType === 'live' ? 'fav_removed' : 'removed');
+      var toastFallback = res ? 'Added to Favorites' : 'Removed from Favorites';
+      showToast((window.TVI18n && window.TVI18n.t(toastKey)) || toastFallback, res ? 'star' : 'trash');
 
       if (_activeContextType === 'live' && _selectedLiveCategory && _selectedLiveCategory.category_id === 'favorites') {
         selectLiveCategory(_selectedLiveCategory);
@@ -7615,32 +7838,30 @@
     };
 
     renderContextCustomLists();
-    openModal(modal);
-
     var initialFocus = inReorderableCategory ? moveBtn : favBtn;
-    if (initialFocus && window.SpatialNav) {
-      window.SpatialNav.setFocus(initialFocus);
-    }
+    openModal(modal, initialFocus);
   }
 
   function showStreamContextMenuForCard(cardEl, type) {
-    if (!cardEl) return;
+    if (!cardEl || document.body.classList.contains('player-fullscreen')) return;
     var stream = null;
     if (type === 'movie' || type === 'movies') {
       var id = cardEl.getAttribute('data-stream-id') || cardEl.getAttribute('data-id');
       stream = (_movieStreams || []).find(function(m) { return String(m.stream_id) === String(id); }) ||
+               (_movieFilteredList || []).find(function(m) { return String(m.stream_id) === String(id); }) ||
                (_allAccountVodStreams || []).find(function(m) { return String(m.stream_id) === String(id); });
       if (!stream) {
-        var title = (cardEl.querySelector('.poster-title') || {}).textContent || '';
+        var title = (cardEl.querySelector('.poster-card-title, .poster-title') || {}).textContent || '';
         stream = { stream_id: id, name: title, stream_icon: (cardEl.querySelector('img') || {}).src || '' };
       }
       showStreamContextMenu(stream, 'movie');
     } else if (type === 'series') {
       var sId = cardEl.getAttribute('data-series-id') || cardEl.getAttribute('data-id');
       stream = (_seriesList || []).find(function(s) { return String(s.series_id) === String(sId); }) ||
+               (_seriesFilteredList || []).find(function(s) { return String(s.series_id) === String(sId); }) ||
                (_allAccountSeriesStreams || []).find(function(s) { return String(s.series_id) === String(sId); });
       if (!stream) {
-        var sTitle = (cardEl.querySelector('.poster-title') || {}).textContent || '';
+        var sTitle = (cardEl.querySelector('.poster-card-title, .poster-title') || {}).textContent || '';
         stream = { series_id: sId, name: sTitle, cover: (cardEl.querySelector('img') || {}).src || '' };
       }
       showStreamContextMenu(stream, 'series');
@@ -7657,7 +7878,7 @@
 
     if (customLists.length === 0) {
       var emptyMsg = document.createElement('div');
-      emptyMsg.style.cssText = 'font-size:13px; color:rgba(255,255,255,0.4); padding:8px 0;';
+      emptyMsg.style.cssText = 'font-size:21px; color:rgba(255,255,255,0.55); padding:12px 6px; line-height:1.45;';
       emptyMsg.textContent = (window.TVI18n && window.TVI18n.t('no_custom_lists')) || 'Keine eigenen Listen vorhanden.';
       box.appendChild(emptyMsg);
       return;
@@ -7667,16 +7888,18 @@
       var inList = window.TVStorage.isStreamInCustomList(_activeAccount.id, cl.id, streamId);
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'ctx-action-btn focusable ctx-list-row';
+      btn.className = 'ctx-action-btn focusable ctx-list-row' + (inList ? ' in-list' : '');
       btn.setAttribute('data-list-id', cl.id);
 
+      var playlistSvg = (window.TVIcons && window.TVIcons.playlist) || '';
       var checkSvg = inList ? ((window.TVIcons && window.TVIcons.checkboxChecked) || '') : ((window.TVIcons && window.TVIcons.checkboxEmpty) || '');
       var inListText = inList ? ((window.TVI18n && window.TVI18n.t('in_list')) || 'In Liste') : ((window.TVI18n && window.TVI18n.t('add')) || 'Hinzufügen');
 
-      btn.innerHTML = 
-        '<span class="btn-icon">' + checkSvg + '</span>' +
-        '<span style="flex:1; text-align:left;">' + escapeHtml(cl.name) + '</span>' +
-        '<span style="font-size:12px; color:rgba(255,255,255,0.4);">' + inListText + '</span>';
+      btn.innerHTML =
+        '<span class="btn-icon" style="color:' + (inList ? '#B388FF' : 'rgba(255,255,255,0.65)') + ';">' + playlistSvg + '</span>' +
+        '<span style="flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(cl.name) + '</span>' +
+        '<span style="font-size:20px; color:rgba(255,255,255,0.58); margin-right:10px;">' + escapeHtml(inListText) + '</span>' +
+        '<span class="btn-icon" style="color:' + (inList ? '#B388FF' : 'rgba(255,255,255,0.35)') + ';">' + checkSvg + '</span>';
 
       btn.onclick = function() {
         if (Date.now() < _ignoreContextClicksUntil) return;
@@ -7722,16 +7945,15 @@
     if (!modal) return;
 
     var titleEl = document.getElementById('custom-list-options-title');
-    if (titleEl) titleEl.textContent = cl.name || 'Listen-Optionen';
+    if (titleEl) titleEl.textContent = cl.name || ((window.TVI18n && window.TVI18n.t('list_options')) || 'Listen-Optionen');
 
-    openModal(modal);
-    var firstBtn = document.getElementById('opt-list-move-btn');
-    if (firstBtn && window.SpatialNav) window.SpatialNav.setFocus(firstBtn);
+    openModal(modal, document.getElementById('opt-list-move-btn'));
   }
 
-  function openCreateOrRenameListModal(mode, cl) {
+  function openCreateOrRenameListModal(mode, cl, listType) {
     _createListMode = mode || 'create';
     _activeCustomList = cl || null;
+    _activeCreateListType = listType || (cl && cl.type) || null;
 
     var modal = document.getElementById('modal-create-list');
     if (!modal) return;
@@ -7794,7 +8016,7 @@
       if (typeof _virtualList.refreshMovingState === 'function') {
         _virtualList.refreshMovingState(streamId);
       }
-      _virtualList.scrollToIndex(toIdx);
+      _virtualList.focusIndex(toIdx);
     }
 
     // Persist new order
@@ -7845,6 +8067,7 @@
     closeModal: closeModal,
     loadNextMovieBatch: loadNextMovieBatch,
     loadNextSeriesBatch: loadNextSeriesBatch,
+    loadMoreCategoryManagerItems: loadMoreCategoryManagerItems,
     hasMoreMovies: function() { return _movieLoadedCount < _movieFilteredList.length; },
     hasMoreSeries: function() { return _seriesLoadedCount < _seriesFilteredList.length; }
   };
