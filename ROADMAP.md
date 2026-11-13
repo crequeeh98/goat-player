@@ -115,3 +115,6 @@ This document outlines the development history, architectural milestones, and pr
 ### Phase 3: Apple Ecosystem & Packaging
 - [ ] **iOS & iPadOS Native Target**: Native iOS build with hardware acceleration via AVPlayer/VLCKit backend.
 - [ ] **Apple TV (tvOS) Evaluation**: Porting Flutter/Swift UI to tvOS with Siri Remote navigation.
+
+### Phase 4: Smart TV OTA Full-Parity Optimizations
+- [ ] **Zero Re-Install Smart TV OTA**: Dynamic JS DOM creation / `index.html` body swap and dynamic script manifest loading, SVG/data-URI in-app logos, plus IndexedDB fallback (beyond ~5 MB `localStorage`) so every UI, feature, and in-app asset update deploys worldwide via In-App OTA on LG webOS & Samsung Tizen (only OS launcher icon, title, and system privileges remain `.ipk`/`.wgt`-bound).
