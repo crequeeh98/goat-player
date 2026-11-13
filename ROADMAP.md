@@ -20,6 +20,7 @@ Current Release: **`v2.1.3`** (Flutter Desktop/Mobile/Fire TV, Web Pairing Porta
 - [ ] **F1 — SQLite FTS5 Stream Search**: Upgrade `StreamDao.watchStreamsByQuery()` (`lib/core/database/daos/stream_dao.dart:43-53`) from `lower().like('%query%')` full-table scans to SQLite FTS5 full-text search.
 - [ ] **F2 — Paged Category Queries**: Add SQL `LIMIT`/`OFFSET` paging to `StreamDao.watchStreamsByCategory()` (`lib/core/database/daos/stream_dao.dart:17-22`) for ultra-large categories.
 - [ ] **F3 — Incremental Delta Upsert Sync**: Replace `replaceStreamsByType()` delete-all + re-insert (`lib/core/database/daos/stream_dao.dart:64-74`) with incremental delta upserts.
+- [ ] **F4 — Category Sync Cooldown**: Add an in-memory 10-minute cooldown for category-click syncs (`syncLiveStreams` / `VodSyncHelper.syncCategoryStreams`), always bypassing when DB count for that category is 0 or during manual `PlaylistSyncModal` / `force: true` syncs.
 - [ ] **Quickfix — Account Expiration Date Badge (`account_list_screen.dart` / DB)**: Persist & display Xtream `expDate` directly on account cards (parity with Smart TV).
 - [ ] **Quickfix — Device-Side Connectivity & Auth Validation (`add_account_screen.dart` / `remote_sync_service.dart`)**: Check server reachability + Xtream auth / M3U validity (connection/auth only, no categories/streams) on manual Add, manual Edit (only when URL or username/password changed), Portal `add`, and Portal `edit` (only when URL or username/password changed).
 
