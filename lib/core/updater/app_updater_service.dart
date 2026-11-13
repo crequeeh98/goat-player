@@ -29,36 +29,22 @@ class AppUpdateInfo {
 
 const String kBundledReleaseNotes = '''
 ### 🇩🇪 Änderungen & Optimierungen
-- **TV D-Pad & Dialog-Navigation (Hotfix v2.1.2)**:
-  - *Fokus-Trapping & Sofort-Fokus*: TV-Fernbedienungsfokus landet beim Öffnen des Update- und Changelog-Modals sofort zuverlässig auf dem Aktionsbutton.
-  - *D-Pad Tastensteuerung*: Links/Rechts schaltet zwischen Buttons („Jetzt aktualisieren“ / „Später“), Oben/Unten scrollt den Text flüssig.
-  - *Button-Layout & Skalierung*: Verhindert das Überlappen von Buttons in das Textfeld auf Fire TV / Android TV; fester Maßstab ohne Verzerrung.
-  - *Back-Taste Entkopplung*: Erster Druck auf Zurück schließt ausschließlich das Dialog-Modal; erst der nächste Druck öffnet den Beenden-Dialog.
-  - *Desktop Live TV*: Behebung einer Riverpod-Ausnahme beim Schließen des Live TV Screens.
-- **Kategorien-Manager (v2.1.1)**:
-  - *Mobiles Wischen & Scrolling*: Action Bar (`Ausgeblendete verbergen/anzeigen`, `A-Z Zurücksetzen`, `Alle ein-/ausblenden`) auf Mobilgeräten horizontal flüssig scroll- und wischbar.
-  - *Fokus-Glow Beseitigung*: Kein nachrückender lila Fokusrahmen auf Touch- und Desktop-Geräten nach dem Ausblenden von Kategorien.
-  - *TV D-Pad Stabilität*: Schnelles und unterbrechungsfreies Zappen & Verschieben auf Fire TV / Android TV bleibt uneingeschränkt erhalten.
-- **Modernisiertes Update-Modal & Changelog-Viewer**:
-  - *Automatischer Sprachfilter*: Zeigt auf deutschen Geräten exklusiv deutsche Release-Notes und auf englischen Geräten englische Texte.
-  - *Rich Markdown Rendering*: Kompakte Bullets, `Code-Badges`, **Fettschrift** und *Kursivschrift* auf einen Blick ohne unnötiges Scrollen.
-  - *Changelog jederzeit abrufbar*: Klick auf die Versions-Badge öffnet die Neuerungen; bei aktuellem Stand mit grünem Bestätigungshaken und reinem „Schließen“-Button.
+- **Flutter & Web-Portal (v2.1.3)**:
+  - *Windows Start-Fix*: Startet direkt maximiert nach dem ersten gerenderten Frame (`waitUntilFirstFrameRasterized`) ohne weißes Zwischenfenster.
+  - *Deutsch als Standard*: Frische Installationen in Flutter und Web-Portal nutzen automatisch Deutsch (gespeicherte Auswahl bleibt unberührt).
+  - *TV D-Pad & Update-Dialog (v2.1.2)*: Sofort-Fokus, flüssiges D-Pad-Scrolling, saubere Button-Größen und entkoppelte Zurück-Taste auf Fire TV / Android TV.
+- **Smart TV – Tizen & webOS (v2.1.3)**:
+  - *v2.1 UI Overhaul & webOS 6.5*: Vektor-Icons (`TVIcons`), kompaktes Account-/Login-Modal, Kategorien-Manager, Eigene Listen, Sender-Sortierung und selektiver Sync.
+  - *Plattform-Feinschliff*: Deutsch als Standard, saubere Suchfeld-Breite neben dem Tune-Button auf Tizen und einzelner Haken auf „Fertig“.
 
 ### 🇬🇧 Changes & Optimizations
-- **TV D-Pad & Dialog Navigation (Hotfix v2.1.2)**:
-  - *Focus Trapping & Immediate Focus*: TV remote focus reliably locks onto action buttons when opening update or changelog modals.
-  - *D-Pad Key Mapping*: Left/Right switches between buttons ("Update Now" / "Later"), Up/Down scrolls changelog smoothly.
-  - *Button Layout & Sizing*: Prevents buttons from overlapping the changelog container on Fire TV / Android TV; enforced 1:1 scale without zoom distortion.
-  - *Back Key Decoupling*: First back press closes only the modal; second back press brings up the app exit dialog.
-  - *Desktop Live TV*: Resolved unmounted Riverpod state error on live screen disposal.
-- **Category Manager (v2.1.1)**:
-  - *Mobile Touch Scrolling*: Horizontally scrollable Action Bar (`Show/Hide Inactive`, `Reset A-Z`, `Bulk Toggle`) for smartphones.
-  - *Focus Glow Cleared*: Removed lingering purple focus outline on mobile touch and desktop mouse interactions after hiding categories.
-  - *TV D-Pad Navigation*: Preserved seamless auto-focus continuation on Android TV and Fire TV remotes.
-- **Modernized Update Dialog & Changelog Viewer**:
-  - *Automated Language Filter*: Displays German notes on German systems and English notes on English systems without bilingual clutter.
-  - *Rich Markdown Formatting*: Dense bullet points, `code tags`, **bold** and *italic* styling fitting on a single screen without scrolling.
-  - *Changelog on Demand*: Clicking the version badge displays the release notes; shows verified checkmark with "Close" button when up-to-date.
+- **Flutter & Web Portal (v2.1.3)**:
+  - *Windows Startup Fix*: Opens maximized immediately after first frame rasterization (`waitUntilFirstFrameRasterized`) without white-screen flash.
+  - *German Default Language*: Fresh installs across Flutter and Web Portal default to German (existing saved preferences remain intact).
+  - *TV D-Pad & Update Dialog (v2.1.2)*: Immediate autofocus, smooth D-Pad scrolling, clean button sizing, and decoupled Back navigation on Fire TV / Android TV.
+- **Smart TV – Tizen & webOS (v2.1.3)**:
+  - *v2.1 UI Overhaul & webOS 6.5*: Vector icons (`TVIcons`), compact account/login modal, Category Manager, Custom Lists, channel reordering, and selective sync scopes.
+  - *Platform Polish*: German default UI language, constrained category search width next to tune button on Tizen, and single checkmark on Done button.
 ''';
 
 class AppUpdaterService {
@@ -158,7 +144,7 @@ class AppUpdaterService {
   /// with automatic fallback to [kBundledReleaseNotes] if offline or unreleased.
   Future<String> getCurrentVersionChangelog(String currentVer) async {
     final cleanVer = currentVer.split('+').first;
-    if (cleanVer == '2.1.1' || cleanVer == '2.1.2') {
+    if (cleanVer == '2.1.1' || cleanVer == '2.1.2' || cleanVer == '2.1.3') {
       return kBundledReleaseNotes;
     }
     try {

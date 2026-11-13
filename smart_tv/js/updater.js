@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var APP_VERSION = '2.1.2';
+  var APP_VERSION = '2.1.3';
   var CURRENT_VERSION = (window.TVBootloader && window.TVBootloader.getBaseVersion)
     ? window.TVBootloader.getBaseVersion()
     : APP_VERSION;
@@ -13,42 +13,24 @@
   var _cachedReleaseNotes = null;
   var _isUpdating = false;
 
-  var FALLBACK_CHANGELOG_2_1_1 = [
-    '### 🇩🇪 Änderungen & Neuerungen (v2.1.1)',
-    '- **Komplette Smart TV UI/UX Modernisierung**:',
-    '  - *Harmonisierte TV-Typografie*: Einheitliche 10-Foot Schriftgrößen ohne unpassende Sprünge auf 1080p und 4K TVs.',
-    '  - *Scharfe Vektor-Icons*: Alle veralteten Emojis durch gestochen scharfe Vektor-SVGs (`window.TVIcons`) ersetzt.',
-    '  - *Kompakteres Account- & Login-Design*: 1-Spalten-Layout passt perfekt ohne Scrollen auf jeden Smart TV.',
-    '  - *1:1 Flutter Update-Dialog*: Reines Markdown-Changelog mit Sprachfilter, Status-Pill und Schließen-Button.',
-    '- **Kategorien-Manager (Live, Filme & Serien)**:',
-    '  - *Ausgeblendete verbergen/anzeigen*: Ein-/Ausblenden ungenutzter Kategorien mit D-Pad OK.',
-    '  - *Kategorien verschieben*: Mit gelber Taste oder OK gedrückt halten Reihenfolge interaktiv anpassen.',
-    '  - *Schnell-Aktionen*: `A-Z Zurücksetzen` und `Alle ein-/ausblenden`.',
-    '- **Eigene Listen & Sender-Sortierung**:',
-    '  - *Custom Lists*: Beliebig viele eigene Listen erstellen, umbenennen und löschen.',
-    '  - *Sender-Verschiebemodus*: Sender in Favoriten und eigenen Listen direkt per D-Pad (▲/▼) neu anordnen.',
-    '  - *Stream-Kontextmenü*: OK auf einem Sender oder Poster gedrückt halten für Schnell-Aktionen.',
-    '- **Selektive Synchronisation**:',
-    '  - Granulare Auswahl der Bereiche (Live TV, Filme, Serien) pro Konto beim Hinzufügen und Bearbeiten.',
+  var FALLBACK_CHANGELOG_2_1_3 = [
+    '### 🇩🇪 Änderungen & Neuerungen (v2.1.3)',
+    '- **Smart TV UI/UX Overhaul & webOS 6.5 Kompatibilität**:',
+    '  - *Moderne 10-Foot Oberfläche*: Scharfe SVG-Vektor-Icons (`window.TVIcons`), kompaktes 1-Spalten Account-/Login-Layout und D-Pad-optimierter Markdown-Changelog.',
+    '  - *Tizen & Finish*: Deutsch als Standardsprache bei Neuinstallation, sauberes Suchfeld-Layout vor dem Tune-Button auf Samsung Tizen und einzelner Haken im „Fertig“-Button.',
+    '- **Kategorien-Manager & Eigene Listen**:',
+    '  - *Kategorien*: Ein-/Ausblenden per OK, Sortieren via Gelb/OK-Halten sowie `A-Z Zurücksetzen` und `Alle ein-/ausblenden`.',
+    '  - *Custom Lists & Sender-Sortierung*: Eigene Listen (Live, Filme, Serien), Sender-Verschiebemodus (▲/▼), Kontextmenü per OK-Halten und selektive Sync-Bereiche.',
     '',
     '---',
     '',
-    '### 🇬🇧 Changes & Improvements (v2.1.1)',
-    '- **Complete Smart TV UI/UX Modernization**:',
-    '  - *Harmonized TV Typography*: Crisp 10-foot scale tailored for 1080p and 4K displays.',
-    '  - *Sharp Vector Icons*: Replaced all legacy emojis with crisp SVG vector icons (`window.TVIcons`).',
-    '  - *Compact Account & Login Layout*: 1-column layout fitting seamlessly on screen without scrolling.',
-    '  - *1:1 Flutter Update Dialog*: Rich Markdown changelog with language filter, status pill and close button.',
-    '- **Category Manager (Live, Movies & Series)**:',
-    '  - *Show/Hide Inactive*: Toggle category visibility with D-Pad OK.',
-    '  - *Reorder Categories*: Hold OK or press Yellow key to interactively move categories.',
-    '  - *Quick Actions*: `Reset A-Z` and `Show/Hide All`.',
-    '- **Custom Lists & Channel Reordering**:',
-    '  - *Custom Lists*: Create, rename, and manage custom playlists for Live TV, Movies, and Series.',
-    '  - *Interactive Channel Move Mode*: Reorder channels in Favorites and Custom Lists via D-Pad (▲/▼).',
-    '  - *Stream Context Menu*: Hold OK on any channel or poster to open quick actions.',
-    '- **Selective Synchronization**:',
-    '  - Granular playlist sync scopes (Live TV, Movies, Series) when adding or editing accounts.'
+    '### 🇬🇧 Changes & Improvements (v2.1.3)',
+    '- **Smart TV UI/UX Overhaul & webOS 6.5 Compatibility**:',
+    '  - *Modern 10-Foot Interface*: Crisp SVG vector icons (`window.TVIcons`), compact 1-column account/login layout, and D-Pad-ready Markdown changelog viewer.',
+    '  - *Tizen & Polish*: German default UI language on fresh installs, constrained category search width next to the tune button on Samsung Tizen, and single checkmark on the Done button.',
+    '- **Category Manager & Custom Lists**:',
+    '  - *Categories*: Toggle visibility with OK, reorder via Yellow/Hold-OK, plus `Reset A-Z` and `Show/Hide All`.',
+    '  - *Custom Lists & Channel Reordering*: Personal playlists (Live, Movies, Series), channel move mode (▲/▼), Hold-OK context menu, and selective sync scopes.'
   ].join('\n');
 
   function getActiveVersion() {
@@ -400,7 +382,7 @@
     }
 
     // Instant Mode B display using cached release notes or embedded fallback
-    var notesToUse = _cachedReleaseNotes || FALLBACK_CHANGELOG_2_1_1;
+    var notesToUse = _cachedReleaseNotes || FALLBACK_CHANGELOG_2_1_3;
     showUpdateModal(activeVer, activeVer, notesToUse, true);
 
     // If we haven't fetched from GitHub yet, check in background

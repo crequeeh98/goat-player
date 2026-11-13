@@ -5,20 +5,17 @@ This document outlines the development history, architectural milestones, and pr
 ---
 
 ## 🏆 Current Releases
-- **Flutter Client**: `v2.1.2` (Hotfix: Fire TV D-Pad Focus Trapping, Button Sizing & Layout, Decoupled Back Navigation)
-- **Web Portal**: `v2.1.0` (Custom Lists, Category Management, Granular Scopes, Zero-Knowledge Sync)
-- **Smart TV (Tizen & webOS)**: `v2.0.5` (Pairing Maintenance Patch & Sharp 512px Samsung Launcher Icon)
-
----
-
-## 🚀 Active Feature Branch: `feat/v2.1-smart-tv-overhaul`
-- [ ] **Smart TV UI Overhaul (v2.1)**: Porting custom playlist drawers, category reordering modal, and spatial navigation focus graphs to the zero-framework Smart TV web app.
+- **Flutter Client**: `v2.1.3` (Windows Direct-Maximized Frame-Sync Startup, German Default Locale)
+- **Web Portal**: `v2.1.3` (German Default Locale, Zero-Knowledge Sync)
+- **Smart TV (Tizen & webOS)**: `v2.1.3` (v2.1 UI Overhaul, Category Manager, Custom Lists, webOS 6.5 & Tizen Polish, German Default)
 
 ---
 
 ## ✅ Completed Milestones
 
-### 1. Custom Playlists, Category Manager & Modernized Changelog (v2.1.0 - v2.1.1)
+### 1. Unified v2.1.3 Release & Smart TV Parity (v2.1.0 - v2.1.3)
+- [x] **Windows Startup & Default German (v2.1.3)**: Deferred window show/maximize until first rasterized frame (`waitUntilFirstFrameRasterized`) eliminating blank startup frames, plus German (`de`) default UI language across Flutter, Web Portal, and Smart TV.
+- [x] **Smart TV v2.1 UI Overhaul (v2.1.3)**: Ported custom lists, batched Category Manager, channel reordering (`▲/▼`), Hold-OK context menu, SVG vector icons (`TVIcons`), unified Markdown changelog viewer, webOS 6.5 navigation fixes, Tizen-scoped search bar width, and single Done checkmark to `smart_tv/`.
 - [x] **Eigene Listen (Custom Playlists)**: User-defined stream playlists partitioned across Live TV, Movies, and Series with recovery on provider stream ID shifts.
 - [x] **Category Manager & Custom Sorting**: Drag-and-drop & remote-driven category reordering, hide/unhide toggling, bulk reset, and auto NEW badge on newly added provider categories.
 - [x] **Granular Playlist Sync Scopes**: Independent toggles for Live TV, Movies, and Series sync per account.

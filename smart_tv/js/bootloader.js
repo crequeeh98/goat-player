@@ -2,8 +2,8 @@
 (function() {
   'use strict';
 
-  var BASE_VERSION = '2.1.2';
-  var EMBEDDED_VERSION = '2.1.2';
+  var BASE_VERSION = '2.1.3';
+  var EMBEDDED_VERSION = '2.1.3';
   var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
   var CRASH_CANARY_KEY = 'goat_ota_boot_in_progress';
 

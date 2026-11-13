@@ -4,6 +4,28 @@ All notable changes to the **GOATPlayer** project will be documented in this fil
 
 ---
 
+## [2.1.3] - 2026-11-13
+
+### 🇩🇪 Änderungen & Optimierungen
+- **Flutter & Web-Portal (`fix/windows-startup-window`)**:
+  - *Windows Startup*: Fenster öffnet erst nach dem ersten gerenderten Frame (`waitUntilFirstFrameRasterized` in `lib/main.dart`) direkt maximiert; entferntes Vorab-`Show()` in `windows/runner/flutter_window.cpp` verhindert White-Screen-Flash.
+  - *Standard-Sprache Deutsch*: Frische Installationen starten in Flutter (`locale_controller.dart`) und im Web-Portal (`portal/index.html`, `index.html`) auf Deutsch (gespeicherte Sprache bleibt erhalten).
+- **Smart TV – Samsung Tizen & LG webOS (`feat/v2.1-smart-tv-overhaul`)**:
+  - *v2.1 UI Overhaul & webOS 6.5*: Harmonisierte 10-Foot-Typografie, Vektor-Icons (`TVIcons`), kompaktes Account-/Login-Layout, vereinheitlichter Markdown-Changelog-Viewer sowie D-Pad-/Back-Key-Stabilisierung.
+  - *Kategorien-Manager & Custom Lists*: Kategorien ein-/ausblenden, per D-Pad/Gelb umsortieren, `A-Z Zurücksetzen`; eigene Listen (Live, Filme, Serien), Sender-Verschiebemodus (▲/▼), Langdruck-Kontextmenü und selektive Sync-Bereiche.
+  - *Plattform-Feinschliff*: Standard-Sprache Deutsch bei Erststart; Tizen-Suchfeld (`body.platform-tizen`) ragt vor dem Tune-Button nicht mehr in die Kanalliste; doppelter Haken auf dem grünen „Fertig“-Button entfernt.
+
+### 🇬🇧 Changes & Optimizations
+- **Flutter & Web Portal (`fix/windows-startup-window`)**:
+  - *Windows Startup*: Shows and maximizes window only after first rasterized frame (`waitUntilFirstFrameRasterized` in `lib/main.dart`), removing premature `Show()` in `windows/runner/flutter_window.cpp` to eliminate blank white-screen startup.
+  - *German Default Language*: Fresh installs across Flutter (`locale_controller.dart`) and Web Pairing Portal (`portal/index.html`, `index.html`) default to German without overriding saved preferences.
+- **Smart TV – Samsung Tizen & LG webOS (`feat/v2.1-smart-tv-overhaul`)**:
+  - *v2.1 UI Overhaul & webOS 6.5*: Harmonized 10-foot typography, SVG vector icons (`TVIcons`), compact account/login layout, unified Markdown changelog viewer, and hardened spatial/back-key navigation.
+  - *Category Manager & Custom Lists*: Category hide/reorder/reset A-Z, Custom Lists (Live, Movies, Series), channel move mode (▲/▼), Hold-OK context menu, and selective sync scopes.
+  - *Platform Polish*: German default UI language on fresh installs; Tizen-only search width guard next to the tune button (`body.platform-tizen`); removed duplicate text checkmark on the Done button.
+
+---
+
 ## [2.1.2] - 2026-11-12
 
 ### 🇩🇪 Änderungen & Optimierungen
