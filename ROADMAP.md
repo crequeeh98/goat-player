@@ -11,13 +11,15 @@ Current Release: **`v2.1.3`** (Flutter Desktop/Mobile/Fire TV, Web Pairing Porta
 - [ ] **A2 — Fast Sorting (`api.js` / `app.js`)**: Replace repeated `localeCompare` + `.toLowerCase().trim()` inside `sortAlpha` (`smart_tv/js/api.js`) and `_sortVodList` (`smart_tv/js/app.js`) with precomputed sort keys and fast `<` / `>` comparisons (or cached `Intl.Collator`).
 - [ ] **A3 — Slim Snapshots for Lists (`app.js` / `storage.js`)**: Store slim stream metadata snapshots for Favorites & Custom Lists so opening top lists avoids fetching 20k+ full streams; eliminate unnecessary `_allAccount*Streams = null` cache invalidation thrashing.
 - [ ] **A4 — Lightweight CSS Rules (`css/style.css`)**: Replace `transition: all 0.15s ease` and heavy `box-shadow` focus glows with targeted, compositor-friendly CSS properties on low-power TV GPUs.
-- [ ] **B1 + B3 — IndexedDB SWR Cache & Manual Refresh**: IndexedDB Stale-While-Revalidate (SWR) cache for categories, streams, and search index paired with an explicit manual refresh button.
-- [ ] **B2 — EPG Short-TTL Cache & Paging**: In-memory EPG cache with 3–5 min TTL plus `AbortController` / throttled paging inside the channel menu.
+- [ ] **B1 + B3 — IndexedDB SWR Cache & Manual Sync Modal**: IndexedDB Stale-While-Revalidate (SWR) cache for categories, streams, and search index paired with a manual Sync & Cache modal / refresh control (parity with Flutter `PlaylistSyncModal`).
+- [ ] **B2 — EPG Short-TTL Cache, Paging & Dashboard EPG Timeline**: In-memory EPG cache with 3–5 min TTL + `AbortController` / throttled paging in the channel menu, plus live-channel current program & progress timeline directly on dashboard channel rows (parity with Flutter).
+- [ ] **Quickfix — Portal Upload `expDate` Check (`app.js`)**: Ensure newly synced portal accounts show their actual expiration date immediately instead of falling back to "Unlimited" on first render (`undefined` vs `null` / eager `getAccountInfo`).
 
 ### Flutter (`lib/`)
 - [ ] **F1 — SQLite FTS5 Stream Search**: Upgrade `StreamDao.watchStreamsByQuery()` (`lib/core/database/daos/stream_dao.dart:43-53`) from `lower().like('%query%')` full-table scans to SQLite FTS5 full-text search.
 - [ ] **F2 — Paged Category Queries**: Add SQL `LIMIT`/`OFFSET` paging to `StreamDao.watchStreamsByCategory()` (`lib/core/database/daos/stream_dao.dart:17-22`) for ultra-large categories.
 - [ ] **F3 — Incremental Delta Upsert Sync**: Replace `replaceStreamsByType()` delete-all + re-insert (`lib/core/database/daos/stream_dao.dart:64-74`) with incremental delta upserts.
+- [ ] **Quickfix — Account Expiration Date Badge (`account_list_screen.dart` / DB)**: Persist & display Xtream `expDate` (and optionally M3U channel count) directly on account cards (parity with Smart TV).
 
 ---
 
