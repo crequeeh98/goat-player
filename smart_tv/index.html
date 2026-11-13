@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="spatial-navigation" content="disabled">
   <title>GOATPlayer TV</title>
-  <link rel="stylesheet" href="css/style.css?v=1.3.4">
+  <link rel="stylesheet" href="css/style.css?v=2.1.2">
 </head>
 <body>
 
@@ -66,7 +66,9 @@
           <span id="infobar-channel-num" class="infobar-num">1</span>
           <img id="infobar-channel-logo" class="infobar-logo" src="" alt="" style="display:none;" />
           <span id="infobar-channel-name" class="infobar-name">Channel Name</span>
-          <span id="infobar-fav-icon" class="infobar-fav" style="display:none;">★</span>
+          <span id="infobar-fav-icon" class="infobar-fav" style="display:none;">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
         </div>
 
         <!-- Center: Current and Next Programme Lines -->
@@ -101,7 +103,9 @@
       <!-- Header -->
       <div class="channel-menu-header">
         <div class="channel-menu-group-badge">
-          <span class="channel-group-icon">📺</span>
+          <span class="channel-group-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          </span>
           <span id="channel-menu-category-name">Channel Group</span>
         </div>
         <div class="channel-menu-page-info">
@@ -175,9 +179,9 @@
         <div class="accounts-brand">
           <img src="assets/logo.png" class="brand-logo-large" alt="GOATPlayer" />
           <h1 class="accounts-title" data-i18n="accounts_title">GOATPlayer TV</h1>
-          <span class="accounts-version-badge" id="accounts-version-badge">v2.0.5</span>
+          <button id="accounts-version-badge" type="button" class="accounts-version-badge focusable" title="Changelog & Updates" data-nav-right="#accounts-add-btn">v2.1.2</button>
         </div>
-        <button id="accounts-add-btn" class="btn-primary-large focusable" data-i18n="add_account">
+        <button id="accounts-add-btn" class="btn-primary-large focusable" data-i18n="add_account" data-nav-left="#accounts-version-badge">
           + Add Account
         </button>
       </div>
@@ -235,7 +239,7 @@
         <!-- Language Switcher -->
         <button id="header-lang-btn" class="header-icon-btn focusable" title="Language">
           <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-          <span id="header-lang-label">EN</span>
+          <span id="header-lang-label">DE</span>
         </button>
 
         <!-- Switch Account -->
@@ -279,10 +283,14 @@
         <div id="page-live" class="dashboard-page active">
           <!-- Column 1 (Left 22%): Categories -->
           <div id="live-col-categories" class="column-categories interactive">
-            <div class="search-box-container">
-              <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-              <input type="text" id="live-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." />
-              <button type="button" id="live-cat-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+            <div class="col-search-row">
+              <div class="col-search-box">
+                <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <input type="text" id="live-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." data-nav-right="#live-cat-manage-btn" />
+              </div>
+              <button type="button" id="live-cat-manage-btn" class="cat-manage-btn focusable" title="Manage Categories" data-nav-left="#live-cat-search">
+                <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              </button>
             </div>
             <div id="live-categories-list" class="col-list-scroll">
               <div class="col-placeholder" data-i18n="loading_categories">Loading categories...</div>
@@ -337,10 +345,14 @@
         <div id="page-movies" class="dashboard-page">
           <!-- Left: Categories -->
           <div class="column-categories interactive">
-            <div class="search-box-container">
-              <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-              <input type="text" id="movies-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." />
-              <button type="button" id="movies-cat-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+            <div class="col-search-row">
+              <div class="col-search-box">
+                <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <input type="text" id="movies-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." data-nav-right="#movies-cat-manage-btn" />
+              </div>
+              <button type="button" id="movies-cat-manage-btn" class="cat-manage-btn focusable" title="Manage Categories" data-nav-left="#movies-cat-search">
+                <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              </button>
             </div>
             <div id="movies-categories-list" class="col-list-scroll">
               <div class="col-placeholder" data-i18n="loading_categories">Loading categories...</div>
@@ -353,7 +365,6 @@
               <div class="vod-search-wrapper">
                 <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                 <input type="text" id="movies-search-input" class="vod-search-input focusable" data-i18n-ph="search_movies" placeholder="Search movies..." />
-                <button type="button" id="movies-search-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
               </div>
               <div class="vod-sort-group">
                 <span class="sort-label" data-i18n="sort">Sort:</span>
@@ -402,10 +413,14 @@
         <div id="page-series" class="dashboard-page">
           <!-- Left: Categories -->
           <div class="column-categories interactive">
-            <div class="search-box-container">
-              <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-              <input type="text" id="series-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." />
-              <button type="button" id="series-cat-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
+            <div class="col-search-row">
+              <div class="col-search-box">
+                <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <input type="text" id="series-cat-search" class="col-search-input focusable" data-i18n-ph="search_categories" placeholder="Search categories..." data-nav-right="#series-cat-manage-btn" />
+              </div>
+              <button type="button" id="series-cat-manage-btn" class="cat-manage-btn focusable" title="Manage Categories" data-nav-left="#series-cat-search">
+                <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              </button>
             </div>
             <div id="series-categories-list" class="col-list-scroll">
               <div class="col-placeholder" data-i18n="loading_categories">Loading categories...</div>
@@ -418,7 +433,6 @@
               <div class="vod-search-wrapper">
                 <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                 <input type="text" id="series-search-input" class="vod-search-input focusable" data-i18n-ph="search_series" placeholder="Search series..." />
-                <button type="button" id="series-search-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
               </div>
               <div class="vod-sort-group">
                 <span class="sort-label" data-i18n="sort">Sort:</span>
@@ -487,7 +501,7 @@
       </div>
 
       <!-- Segmented Tab Selector -->
-      <div class="tab-segmented-bar">
+      <div id="login-mode-tabs" class="tab-segmented-bar">
         <button id="tab-btn-manual" class="tab-segment active focusable" data-nav-right="#tab-btn-remote" data-nav-down="#type-btn-xtream" data-nav-up="#modal-close-btn">
           <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/><line x1="10" y1="16" x2="14" y2="16"/></svg></span>
           <span data-i18n="manual_setup">Manual Setup</span>
@@ -503,9 +517,11 @@
         <!-- Playlist Type Selector (Xtream Codes vs M3U) -->
         <div class="type-segmented-bar">
           <button type="button" id="type-btn-xtream" class="type-segment active focusable" data-type="xtream" data-nav-up="#tab-btn-manual" data-nav-down="#login-playlist-name" data-nav-right="#type-btn-m3u">
+            <span class="type-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
             <span data-i18n="xtream_codes">Xtream Codes</span>
           </button>
           <button type="button" id="type-btn-m3u" class="type-segment focusable" data-type="m3u" data-nav-up="#tab-btn-manual" data-nav-down="#login-playlist-name" data-nav-left="#type-btn-xtream">
+            <span class="type-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
             <span data-i18n="m3u_playlist">M3U Playlist URL</span>
           </button>
         </div>
@@ -539,15 +555,34 @@
             <label class="form-label" for="login-password"><span data-i18n="password">Password</span> <span class="label-required">*</span></label>
             <div class="input-wrapper">
               <span class="input-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
-              <input id="login-password" class="form-input focusable" type="password" placeholder="Password" data-i18n-ph="placeholder_password" required autocomplete="off" data-nav-up="#login-username" data-nav-down="#login-submit-btn" />
+              <input id="login-password" class="form-input focusable" type="password" placeholder="Password" data-i18n-ph="placeholder_password" required autocomplete="off" data-nav-up="#login-username" data-nav-down="#login-scope-live" />
+            </div>
+          </div>
+
+          <!-- Selective Sync Scopes -->
+          <div class="form-group" id="login-sync-scopes-group">
+            <label class="form-label"><span data-i18n="sync_content">Inhalte synchronisieren</span></label>
+            <div class="scope-chips-row">
+              <button type="button" id="login-scope-live" class="scope-chip active focusable" data-scope="live" data-nav-up="#login-password" data-nav-down="#login-submit-btn" data-nav-right="#login-scope-movies">
+                <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                <span data-i18n="live_tv">Live TV</span>
+              </button>
+              <button type="button" id="login-scope-movies" class="scope-chip active focusable" data-scope="movies" data-nav-up="#login-password" data-nav-down="#login-submit-btn" data-nav-left="#login-scope-live" data-nav-right="#login-scope-series">
+                <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+                <span data-i18n="movies">Movies</span>
+              </button>
+              <button type="button" id="login-scope-series" class="scope-chip active focusable" data-scope="series" data-nav-up="#login-password" data-nav-down="#login-submit-btn" data-nav-left="#login-scope-movies">
+                <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                <span data-i18n="series">Series</span>
+              </button>
             </div>
           </div>
 
           <div id="login-status" class="login-status-msg"></div>
 
           <div class="modal-actions">
-            <button id="login-cancel-btn" type="button" class="btn-secondary focusable" data-i18n="cancel" data-nav-up="#login-password" data-nav-right="#login-submit-btn">Cancel</button>
-            <button id="login-submit-btn" type="submit" class="btn-primary focusable" data-nav-up="#login-password" data-nav-left="#login-cancel-btn">
+            <button id="login-cancel-btn" type="button" class="btn-secondary focusable" data-i18n="cancel" data-nav-up="#login-scope-live" data-nav-right="#login-submit-btn">Cancel</button>
+            <button id="login-submit-btn" type="submit" class="btn-primary focusable" data-nav-up="#login-scope-live" data-nav-left="#login-cancel-btn">
               <span data-i18n="connect">Connect Playlist</span>
             </button>
           </div>
@@ -598,12 +633,14 @@
             </div>
           </div>
 
-          <div class="modal-actions" style="margin-top: 24px; display: flex; gap: 14px; justify-content: center;">
+          <div class="modal-actions" style="margin-top: 24px; justify-content: center;">
             <button id="remote-done-btn" type="button" class="btn-primary focusable" style="display: none; min-width: 160px;" data-nav-right="#remote-refresh-btn" data-nav-up="#tab-btn-remote">
-              <span data-i18n="done">✓ Done</span>
+              <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="done">Done</span>
             </button>
             <button id="remote-refresh-btn" type="button" class="btn-secondary focusable" data-nav-left="#remote-done-btn" data-nav-up="#tab-btn-remote">
-              <span data-i18n="new_code">🔄 New Code</span>
+              <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span data-i18n="new_code">New Code</span>
             </button>
           </div>
         </div>
@@ -634,12 +671,12 @@
 
         <div class="detail-actions">
           <button id="movie-play-btn" class="btn-primary focusable">
-            <span class="btn-icon">▶</span>
+            <span class="btn-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
             <span data-i18n="play_movie">Play Movie</span>
           </button>
           <button id="movie-fav-btn" class="btn-secondary focusable">
-            <span class="btn-icon">★</span>
-            <span data-i18n="watchlist">Watchlist</span>
+            <span id="movie-fav-icon" class="btn-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+            <span id="movie-fav-label" data-i18n="watchlist">Watchlist</span>
           </button>
         </div>
       </div>
@@ -663,8 +700,8 @@
           <p id="series-detail-plot" class="detail-plot">Series plot description...</p>
           <div class="detail-actions" style="margin-top: 14px;">
             <button id="series-fav-btn" class="btn-secondary focusable">
-              <span class="btn-icon">★</span>
-              <span data-i18n="watchlist">Watchlist</span>
+              <span id="series-fav-icon" class="btn-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+              <span id="series-fav-label" data-i18n="watchlist">Watchlist</span>
             </button>
           </div>
         </div>
@@ -682,7 +719,6 @@
         <div class="search-input-wrapper">
           <span class="search-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input type="text" id="master-search-input" class="search-modal-input focusable" data-i18n-ph="master_search_placeholder" placeholder="Search across all Live TV, Movies & Series..." />
-          <button type="button" id="master-search-clear-btn" class="search-clear-btn" style="display:none;" title="Clear">✕</button>
         </div>
         <button id="master-search-close-btn" class="modal-close-btn focusable">✕</button>
       </div>
@@ -690,15 +726,18 @@
       <div class="tab-segmented-bar" style="margin: 16px 0;">
         <button id="search-tab-live" class="tab-segment active focusable" data-type="live">
           <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
-          <span data-i18n="live_tv">Live TV</span> (<span id="search-count-live">0</span>)
+          <span data-i18n="live_tv">Live TV</span>
+          <span class="search-tab-count">(<span id="search-count-live">0</span>)</span>
         </button>
         <button id="search-tab-movies" class="tab-segment focusable" data-type="movies">
           <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></span>
-          <span data-i18n="movies">Movies</span> (<span id="search-count-movies">0</span>)
+          <span data-i18n="movies">Movies</span>
+          <span class="search-tab-count">(<span id="search-count-movies">0</span>)</span>
         </button>
         <button id="search-tab-series" class="tab-segment focusable" data-type="series">
           <span class="tab-icon"><svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
-          <span data-i18n="series">Series</span> (<span id="search-count-series">0</span>)
+          <span data-i18n="series">Series</span>
+          <span class="search-tab-count">(<span id="search-count-series">0</span>)</span>
         </button>
       </div>
 
@@ -757,11 +796,15 @@
 
       <div class="lang-options-list">
         <button id="lang-opt-en" class="lang-option-btn focusable">
-          <span class="lang-check" id="check-en">✓</span>
+          <span class="lang-check" id="check-en">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
           <span class="lang-text" data-i18n="english">English</span>
         </button>
         <button id="lang-opt-de" class="lang-option-btn focusable">
-          <span class="lang-check" id="check-de">✓</span>
+          <span class="lang-check" id="check-de">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
           <span class="lang-text" data-i18n="german">Deutsch</span>
         </button>
       </div>
@@ -774,7 +817,7 @@
       <div class="modal-header">
         <h2 class="modal-title" data-i18n="exit_confirm_title">Exit GOATPlayer TV</h2>
       </div>
-      <p style="color: var(--text-dim); line-height: 1.6; font-size: 18px; margin: 18px 0 30px 0;" data-i18n="exit_confirm_msg">
+      <p style="color: var(--text-dim); line-height: 1.6; font-size: 21px; margin: 18px 0 30px 0;" data-i18n="exit_confirm_msg">
         Are you sure you want to close GOATPlayer TV?
       </p>
       <div class="modal-actions">
@@ -791,7 +834,7 @@
         <h2 class="modal-title" data-i18n="delete">Delete Account</h2>
         <button id="delete-account-close-btn" class="modal-close-btn focusable" title="Close">✕</button>
       </div>
-      <p id="delete-account-msg" style="color: var(--text-dim); line-height: 1.6; font-size: 20px; margin: 20px 0 32px 0;">
+      <p id="delete-account-msg" style="color: var(--text-dim); line-height: 1.6; font-size: 21px; margin: 20px 0 32px 0;">
         Are you sure you want to delete this account?
       </p>
       <div class="modal-actions">
@@ -823,7 +866,9 @@
     <!-- Autoplay Unmute Interactive Banner -->
     <div id="player-unmute-banner" class="player-unmute-banner" style="display:none;">
       <button id="player-unmute-btn" class="player-unmute-btn focusable" title="Unmute Audio">
-        <span class="unmute-icon">🔇</span>
+        <span class="unmute-icon">
+          <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        </span>
         <span class="unmute-text" data-i18n="unmute_prompt">Audio muted - Press OK to unmute</span>
       </button>
     </div>
@@ -833,7 +878,7 @@
   <div id="player-hud-vod" class="player-hud interactive">
     <div class="vod-hud-top">
       <div class="vod-hud-title-col">
-        <div style="display: flex; align-items: center; gap: 14px;">
+        <div class="vod-hud-title-row">
           <span id="vod-hud-badge" class="badge-pill" style="display:none;"></span>
           <div id="vod-hud-title" class="vod-title">Video Title</div>
         </div>
@@ -941,15 +986,23 @@
   <div id="modal-update" class="modal-overlay interactive">
     <div class="modal-card modal-card-update">
       <div class="modal-header">
-        <h2 class="modal-title" data-i18n="update_available">Update Available</h2>
+        <div class="modal-header-left">
+          <span id="update-badge-icon" class="update-badge-icon">
+            <svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="15 10 12 13 9 10"/><line x1="12" y1="7" x2="12" y2="13"/></svg>
+          </span>
+          <div>
+            <h2 id="update-modal-title" class="modal-title" data-i18n="update_available">Update Available</h2>
+            <div class="update-version-row">
+              <span id="update-version-badge" class="update-version-badge">v2.1.2</span>
+            </div>
+          </div>
+        </div>
         <button id="update-close-btn" class="modal-close-btn focusable" title="Close" data-nav-down="#update-confirm-btn">✕</button>
       </div>
       <div class="modal-body-update">
-        <div class="update-version-row">
-          <span id="update-version-badge" class="update-version-badge"></span>
-        </div>
-        <p class="update-desc" data-i18n="update_desc">A new version of GOATPlayer TV is ready to install.</p>
-        <div id="update-changelog-box" class="update-changelog-box"></div>
+        <p id="update-desc" class="update-desc" data-i18n="update_desc">A new version of GOATPlayer TV is ready to install.</p>
+        <div id="update-whats-new-label" class="update-whats-new-label" data-i18n="whats_new">What's new:</div>
+        <div id="update-changelog-box" class="update-changelog-box focusable" tabindex="0" data-nav-down="#update-confirm-btn"></div>
         <div id="update-progress-row" class="update-progress-row" style="display:none;">
           <div class="update-progress-track">
             <div id="update-progress-fill" class="update-progress-fill" style="width: 0%;"></div>
@@ -957,13 +1010,194 @@
           <span id="update-progress-text" class="update-progress-text">0%</span>
         </div>
         <div class="update-actions-row">
-          <button id="update-confirm-btn" class="btn-primary focusable" data-nav-right="#update-later-btn" data-nav-up="#update-close-btn">
+          <button id="update-confirm-btn" class="btn-primary focusable" data-nav-right="#update-later-btn" data-nav-up="#update-changelog-box">
             <span id="update-confirm-text" data-i18n="update_now">Update Now</span>
           </button>
-          <button id="update-later-btn" class="btn-secondary focusable" data-nav-left="#update-confirm-btn" data-nav-up="#update-close-btn">
-            <span data-i18n="update_later">Later</span>
+          <button id="update-later-btn" class="btn-secondary focusable" data-nav-left="#update-confirm-btn" data-nav-up="#update-changelog-box">
+            <span id="update-later-text" data-i18n="update_later">Later</span>
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CATEGORY MANAGER -->
+  <div id="modal-category-manager" class="modal-overlay interactive">
+    <div class="modal-card modal-card-cat-mgr">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span class="cat-mgr-header-icon">
+            <svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          </span>
+          <h2 id="cat-mgr-title" class="modal-title" data-i18n="manage_categories">Manage Categories</h2>
+        </div>
+        <div id="cat-mgr-move-badge" class="cat-mgr-move-badge" style="display:none;">
+          <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 10 12 5 17 10"/><polyline points="7 14 12 19 17 14"/></svg>
+          <span data-i18n="move_mode_active">Verschiebemodus aktiv (▲/▼)</span>
+        </div>
+        <button id="cat-mgr-close-btn" type="button" class="modal-close-btn focusable" title="Close" data-nav-left="#cat-mgr-unhide-all" data-nav-down="#cat-mgr-unhide-all">✕</button>
+      </div>
+
+      <div class="cat-mgr-toolbar">
+        <button type="button" id="cat-mgr-toggle-hidden" class="cat-mgr-btn focusable" data-nav-right="#cat-mgr-reset-az">
+          <span id="cat-mgr-toggle-hidden-icon" class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
+          <span id="cat-mgr-toggle-hidden-text" data-i18n="show_hidden_count">Show Hidden (0)</span>
+        </button>
+
+        <button type="button" id="cat-mgr-reset-az" class="cat-mgr-btn focusable" data-nav-left="#cat-mgr-toggle-hidden" data-nav-right="#cat-mgr-unhide-all">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h4l-4 8h4"/><path d="M14 6l3 8 3-8"/><line x1="15" y1="11" x2="19" y2="11"/><line x1="10" y1="4" x2="10" y2="16"/><polyline points="7 13 10 16 13 13"/></svg>
+          </span>
+          <span data-i18n="reset_az">Reset A-Z</span>
+        </button>
+
+        <button type="button" id="cat-mgr-unhide-all" class="cat-mgr-btn focusable" data-nav-left="#cat-mgr-reset-az" data-nav-right="#cat-mgr-close-btn">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
+          <span id="cat-mgr-unhide-all-text" data-i18n="show_all">Show All</span>
+        </button>
+      </div>
+
+      <div class="cat-mgr-tip-banner">
+        <span class="tip-icon">
+          <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </span>
+        <span id="cat-mgr-tip-text" data-i18n="cat_mgr_tip">Tipp: OK = Ein-/Ausblenden • GELB oder OK halten = Verschieben / Liste bearbeiten</span>
+      </div>
+
+      <div id="cat-mgr-list" class="cat-mgr-list-scroll"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: STREAM CONTEXT MENU -->
+  <div id="modal-stream-context" class="modal-overlay interactive">
+    <div class="modal-card modal-card-stream-context">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <img id="ctx-stream-icon" class="ctx-stream-icon" src="" alt="" style="display:none;" />
+          <span id="ctx-header-svg" class="ctx-header-svg">
+            <svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/><line x1="18" y1="15" x2="18" y2="21"/><line x1="15" y1="18" x2="21" y2="18"/></svg>
+          </span>
+          <h2 id="ctx-stream-title" class="modal-title">Stream Name</h2>
+        </div>
+        <button id="ctx-close-btn" type="button" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+
+      <div class="ctx-menu-actions">
+        <!-- Reorder in List (visible only when in Favorites or Custom List) -->
+        <button type="button" id="ctx-move-btn" class="ctx-action-btn ctx-move-btn focusable" style="display:none;" data-nav-down="#ctx-fav-btn">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 10 12 5 17 10"/><polyline points="7 14 12 19 17 14"/></svg>
+          </span>
+          <span data-i18n="reorder_move">Reihenfolge verschieben (▲/▼)</span>
+        </button>
+
+        <!-- Toggle Favorite -->
+        <button type="button" id="ctx-fav-btn" class="ctx-action-btn focusable">
+          <span id="ctx-fav-icon" class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
+          <span id="ctx-fav-label" data-i18n="add_to_favorites">Add to Favorites</span>
+        </button>
+
+        <div class="ctx-section-divider"></div>
+        <div class="ctx-section-title" id="ctx-lists-heading" data-i18n="custom_lists">EIGENE LISTEN</div>
+
+        <!-- Custom lists container (scrollable list of custom lists) -->
+        <div id="ctx-custom-lists-container" class="ctx-custom-lists-box"></div>
+
+        <div class="ctx-section-divider"></div>
+
+        <!-- Create New List -->
+        <button type="button" id="ctx-create-list-btn" class="ctx-action-btn ctx-create-btn focusable">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+          <span data-i18n="create_new_list">+ Neue Liste erstellen</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE / RENAME CUSTOM LIST -->
+  <div id="modal-create-list" class="modal-overlay interactive">
+    <div class="modal-card modal-card-create-list">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span class="create-list-header-icon">
+            <svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/><line x1="18" y1="15" x2="18" y2="21"/><line x1="15" y1="18" x2="21" y2="18"/></svg>
+          </span>
+          <h2 id="create-list-title" class="modal-title" data-i18n="create_new_list">Neue Liste erstellen</h2>
+        </div>
+        <button id="create-list-close-btn" type="button" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+
+      <div class="form-group" style="margin-top: 10px;">
+        <label id="create-list-label" class="form-label" for="create-list-input" data-i18n="list_name_label">Name der Liste</label>
+        <div class="input-wrapper">
+          <span class="input-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </span>
+          <input id="create-list-input" class="form-input focusable" type="text" placeholder="Listenname..." data-i18n-ph="list_name_placeholder" autocomplete="off" data-nav-down="#create-list-submit-btn" />
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 18px;">
+        <button id="create-list-cancel-btn" type="button" class="btn-secondary focusable" data-i18n="cancel" data-nav-up="#create-list-input" data-nav-right="#create-list-submit-btn">Cancel</button>
+        <button id="create-list-submit-btn" type="button" class="btn-primary focusable" data-i18n="save" data-nav-up="#create-list-input" data-nav-left="#create-list-cancel-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CUSTOM LIST OPTIONS (Long press / Yellow key menu) -->
+  <div id="modal-custom-list-options" class="modal-overlay interactive">
+    <div class="modal-card modal-card-list-options">
+      <div class="modal-header">
+        <h2 id="custom-list-options-title" class="modal-title" data-i18n="list_options">Listen-Optionen</h2>
+        <button id="custom-list-options-close-btn" type="button" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+      <div class="list-options-menu">
+        <button type="button" id="opt-list-move-btn" class="ctx-action-btn focusable" data-nav-down="#opt-list-rename-btn">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 10 12 5 17 10"/><polyline points="7 14 12 19 17 14"/></svg>
+          </span>
+          <span data-i18n="reorder_move">Reihenfolge verschieben (▲/▼)</span>
+        </button>
+        <button type="button" id="opt-list-rename-btn" class="ctx-action-btn focusable" data-nav-up="#opt-list-move-btn" data-nav-down="#opt-list-delete-btn">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </span>
+          <span data-i18n="rename_list">Liste umbenennen</span>
+        </button>
+        <button type="button" id="opt-list-delete-btn" class="ctx-action-btn ctx-delete-btn focusable" data-nav-up="#opt-list-rename-btn" data-nav-down="#opt-list-cancel-btn">
+          <span class="btn-icon">
+            <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </span>
+          <span data-i18n="delete_list">Liste löschen</span>
+        </button>
+        <button type="button" id="opt-list-cancel-btn" class="ctx-action-btn focusable" data-nav-up="#opt-list-delete-btn">
+          <span data-i18n="cancel">Abbrechen</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DELETE CUSTOM LIST CONFIRMATION -->
+  <div id="modal-delete-list" class="modal-overlay interactive">
+    <div class="modal-card modal-card-delete-list">
+      <div class="modal-header">
+        <h2 id="delete-list-title" class="modal-title" data-i18n="delete_list">Delete List</h2>
+        <button id="delete-list-close-btn" type="button" class="modal-close-btn focusable" title="Close">✕</button>
+      </div>
+      <p id="delete-list-desc" class="modal-desc" data-i18n="delete_list_confirm">
+        Möchtest du diese Liste wirklich löschen? Die enthaltenen Sender bleiben in der Gesamtauswahl erhalten.
+      </p>
+      <div class="modal-actions">
+        <button id="delete-list-cancel-btn" type="button" class="btn-secondary focusable" data-i18n="cancel" data-nav-right="#delete-list-confirm-btn" data-nav-up="#delete-list-close-btn">Cancel</button>
+        <button id="delete-list-confirm-btn" type="button" class="btn-danger focusable" data-i18n="delete" data-nav-left="#delete-list-cancel-btn" data-nav-up="#delete-list-close-btn">Delete</button>
       </div>
     </div>
   </div>
@@ -972,6 +1206,6 @@
   <script src="js/hls.min.js"></script>
   <script src="js/qrcode.min.js"></script>
   <!-- Dynamic OTA Bootloader (Samsung Tizen & LG webOS) -->
-  <script src="js/bootloader.js?v=2.0.4"></script>
+  <script src="js/bootloader.js?v=2.1.2"></script>
 </body>
 </html>

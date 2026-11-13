@@ -22,7 +22,6 @@
     this.listEl.className = 'channel-items-container';
     this.listEl.style.display = 'flex';
     this.listEl.style.flexDirection = 'column';
-    this.listEl.style.gap = '6px';
     this.container.appendChild(this.listEl);
 
     this.emptyMsg = document.createElement('div');
@@ -52,10 +51,10 @@
       : (isDe ? 'In dieser Kategorie wurden keine Sender gefunden.' : 'No channels found in this category.');
 
     this.emptyMsg.innerHTML = 
-      '<div class="vod-empty-state" style="padding: 60px 16px;">' +
-        '<div class="vod-empty-icon-wrap" style="width: 76px; height: 76px; margin-bottom: 18px;">' + icon + '</div>' +
-        '<div class="vod-empty-title" style="font-size: 20px;">' + title + '</div>' +
-        '<div class="vod-empty-subtitle" style="font-size: 14px;">' + sub + '</div>' +
+      '<div class="vod-empty-state">' +
+        '<div class="vod-empty-icon-wrap">' + icon + '</div>' +
+        '<div class="vod-empty-title">' + title + '</div>' +
+        '<div class="vod-empty-subtitle">' + sub + '</div>' +
       '</div>';
   };
 
@@ -90,6 +89,11 @@
       row.setAttribute('data-index', i);
 
       this.renderRow(row, item, i, i === this.selectedIndex);
+
+      if (window._movingLiveStreamId && item && String(item.stream_id) === String(window._movingLiveStreamId)) {
+        var channelRowEl = row.querySelector('.channel-row') || row;
+        channelRowEl.classList.add('move-active');
+      }
 
       (function(idx, el) {
         el.addEventListener('click', function() {
@@ -165,6 +169,21 @@
       if (this.items[i] && String(this.items[i].stream_id) === String(activeStreamId)) {
         var rowEl = this.listEl.querySelector('.channel-row-wrap[data-index="' + i + '"] .channel-row');
         if (rowEl) rowEl.classList.add('active-playing');
+        break;
+      }
+    }
+  };
+
+  ChannelList.prototype.refreshMovingState = function(movingStreamId) {
+    var rows = this.listEl.querySelectorAll('.channel-row');
+    rows.forEach(function(r) {
+      r.classList.remove('move-active');
+    });
+    if (!movingStreamId) return;
+    for (var i = 0; i < this.loadedCount; i++) {
+      if (this.items[i] && String(this.items[i].stream_id) === String(movingStreamId)) {
+        var rowEl = this.listEl.querySelector('.channel-row-wrap[data-index="' + i + '"] .channel-row');
+        if (rowEl) rowEl.classList.add('move-active');
         break;
       }
     }

@@ -192,6 +192,7 @@
   window.TVStorage = {
     parseDurationSecs: parseDurationSecs,
     extractDurationFromInfo: extractDurationFromInfo,
+
     // Accounts Management
     getAccounts: function() {
       try {
@@ -203,6 +204,9 @@
         var decrypted = accounts.map(function(acc) {
           if (!acc) return acc;
           var clone = Object.assign({}, acc);
+          clone.syncLiveTv = clone.syncLiveTv !== false;
+          clone.syncMovies = clone.syncMovies !== false;
+          clone.syncSeries = clone.syncSeries !== false;
           if (clone.password) {
             if (clone.password.indexOf(VAULT_PREFIX) === 0) {
               clone.password = decryptSecret(clone.password);
@@ -236,9 +240,13 @@
         return [];
       }
     },
+
     saveAccount: function(acc) {
       var accounts = this.getAccounts();
       if (!acc.id) acc.id = 'acc_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      acc.syncLiveTv = acc.syncLiveTv !== false;
+      acc.syncMovies = acc.syncMovies !== false;
+      acc.syncSeries = acc.syncSeries !== false;
       if (acc.username && String(acc.username).trim().length > 0 && acc.serverUrl && acc.serverUrl.indexOf('.m3u') === -1) {
         delete acc.type;
       }
@@ -260,6 +268,7 @@
       setItem('goat_accounts', JSON.stringify(encryptedList));
       return accounts[idx >= 0 ? idx : accounts.length - 1];
     },
+
     updateAccountInfo: function(id, info) {
       if (!id || !info) return null;
       var strId = String(id);
@@ -286,6 +295,30 @@
       }
       return null;
     },
+
+    updateSyncScopes: function(id, scopes) {
+      if (!id || !scopes) return null;
+      var strId = String(id);
+      var accounts = this.getAccounts();
+      var acc = accounts.find(function(a) { return String(a.id) === strId; });
+      if (acc) {
+        if (scopes.syncLiveTv !== undefined) acc.syncLiveTv = !!scopes.syncLiveTv;
+        if (scopes.syncMovies !== undefined) acc.syncMovies = !!scopes.syncMovies;
+        if (scopes.syncSeries !== undefined) acc.syncSeries = !!scopes.syncSeries;
+
+        var encryptedList = accounts.map(function(a) {
+          var c = Object.assign({}, a);
+          if (c.password) {
+            c.password = encryptSecret(c.password);
+          }
+          return c;
+        });
+        setItem('goat_accounts', JSON.stringify(encryptedList));
+        return acc;
+      }
+      return null;
+    },
+
     deleteAccount: function(id) {
       if (!id) return;
       var strId = String(id);
@@ -301,11 +334,21 @@
       if (this.getActiveAccountId() && String(this.getActiveAccountId()) === strId) {
         this.setActiveAccountId(null);
       }
-      removeItem('goat_favs_' + strId + '_live');
-      removeItem('goat_favs_' + strId + '_movie');
-      removeItem('goat_favs_' + strId + '_series');
+
+      var self = this;
+      ['live', 'movie', 'series'].forEach(function(t) {
+        var lists = self.getCustomLists ? self.getCustomLists(strId, t) : [];
+        lists.forEach(function(l) {
+          if (l && l.id) removeItem('goat_custom_items_' + strId + '_' + l.id);
+        });
+        removeItem('goat_custom_lists_' + strId + '_' + t);
+        removeItem('goat_cat_prefs_' + strId + '_' + t);
+        removeItem('goat_favs_' + strId + '_' + t);
+      });
       removeItem('goat_m3u_' + strId);
+      delete _memStore['goat_m3u_' + strId];
     },
+
     saveM3uData: function(accId, data) {
       if (!accId || !data) return;
       var strId = String(accId);
@@ -313,6 +356,7 @@
       setItem('goat_m3u_' + strId, jsonStr);
       _memStore['goat_m3u_' + strId] = jsonStr;
     },
+
     getM3uData: function(accId) {
       if (!accId) return null;
       var strId = String(accId);
@@ -323,9 +367,18 @@
         return null;
       }
     },
+
+    deleteM3uData: function(accId) {
+      if (!accId) return;
+      var strId = String(accId);
+      removeItem('goat_m3u_' + strId);
+      delete _memStore['goat_m3u_' + strId];
+    },
+
     getActiveAccountId: function() {
       return getItem('goat_active_account_id');
     },
+
     setActiveAccountId: function(id) {
       if (id) {
         setItem('goat_active_account_id', String(id));
@@ -333,6 +386,7 @@
         removeItem('goat_active_account_id');
       }
     },
+
     getActiveAccount: function() {
       var id = this.getActiveAccountId();
       var accounts = this.getAccounts();
@@ -355,11 +409,13 @@
         return [];
       }
     },
+
     isFavorite: function(accId, streamId, type) {
       if (!accId || !streamId) return false;
       var favs = this.getFavorites(accId, type);
       return favs.indexOf(String(streamId)) >= 0;
     },
+
     toggleFavorite: function(accId, streamId, type) {
       if (!accId || !streamId) return false;
       var t = type || 'live';
@@ -374,14 +430,428 @@
       return favs.indexOf(String(streamId)) >= 0;
     },
 
+    reorderFavorites: function(accId, type, orderedIds) {
+      if (!accId || !Array.isArray(orderedIds)) return [];
+      var t = type || 'live';
+      var clean = orderedIds.map(String);
+      setItem('goat_favs_' + accId + '_' + t, JSON.stringify(clean));
+      return clean;
+    },
+
+    // Category Preferences & Ordering (type: 'live' | 'movie' | 'series')
+    getCategoryPrefs: function(accId, type) {
+      if (!accId) return { order: [], hidden: [], newIds: [], hasManualSort: false };
+      var t = type || 'live';
+      try {
+        var raw = getItem('goat_cat_prefs_' + accId + '_' + t);
+        if (!raw) return { order: [], hidden: [], newIds: [], hasManualSort: false };
+        var p = JSON.parse(raw);
+        return {
+          order: Array.isArray(p.order) ? p.order.map(String) : [],
+          hidden: Array.isArray(p.hidden) ? p.hidden.map(String) : [],
+          newIds: Array.isArray(p.newIds) ? p.newIds.map(String) : [],
+          hasManualSort: !!p.hasManualSort
+        };
+      } catch(e) {
+        return { order: [], hidden: [], newIds: [], hasManualSort: false };
+      }
+    },
+
+    saveCategoryPrefs: function(accId, type, prefs) {
+      if (!accId) return;
+      var t = type || 'live';
+      var data = {
+        order: (prefs && Array.isArray(prefs.order)) ? prefs.order.map(String) : [],
+        hidden: (prefs && Array.isArray(prefs.hidden)) ? prefs.hidden.map(String) : [],
+        newIds: (prefs && Array.isArray(prefs.newIds)) ? prefs.newIds.map(String) : [],
+        hasManualSort: (prefs && !!prefs.hasManualSort)
+      };
+      setItem('goat_cat_prefs_' + accId + '_' + t, JSON.stringify(data));
+    },
+
+    markCategoryViewed: function(accId, type, categoryId) {
+      if (!accId || categoryId === undefined || categoryId === null) return;
+      var prefs = this.getCategoryPrefs(accId, type);
+      var strId = String(categoryId);
+      var idx = prefs.newIds.indexOf(strId);
+      if (idx >= 0) {
+        prefs.newIds.splice(idx, 1);
+        this.saveCategoryPrefs(accId, type, prefs);
+      }
+    },
+
+    setCategoryVisibility: function(accId, type, categoryId, isVisible) {
+      if (!accId || categoryId === undefined || categoryId === null) return;
+      var strCat = String(categoryId);
+      var prefs = this.getCategoryPrefs(accId, type);
+      var idx = prefs.hidden.indexOf(strCat);
+      if (isVisible) {
+        if (idx >= 0) prefs.hidden.splice(idx, 1);
+      } else {
+        if (idx < 0) prefs.hidden.push(strCat);
+      }
+      this.saveCategoryPrefs(accId, type, prefs);
+    },
+
+    setAllCategoriesVisibility: function(accId, type, allCategoryIds, isVisible) {
+      if (!accId) return;
+      var prefs = this.getCategoryPrefs(accId, type);
+      if (isVisible) {
+        if (Array.isArray(allCategoryIds) && allCategoryIds.length > 0) {
+          var removeMap = {};
+          allCategoryIds.forEach(function(id) { removeMap[String(id)] = true; });
+          prefs.hidden = prefs.hidden.filter(function(h) { return !removeMap[h]; });
+        } else {
+          prefs.hidden = [];
+        }
+      } else {
+        if (Array.isArray(allCategoryIds)) {
+          allCategoryIds.forEach(function(id) {
+            var strId = String(id);
+            if (prefs.hidden.indexOf(strId) === -1) {
+              prefs.hidden.push(strId);
+            }
+          });
+        }
+      }
+      this.saveCategoryPrefs(accId, type, prefs);
+    },
+
+    reorderCategories: function(accId, type, newOrder) {
+      if (!accId || !Array.isArray(newOrder)) return;
+      var prefs = this.getCategoryPrefs(accId, type);
+      prefs.order = newOrder.map(String);
+      prefs.hasManualSort = true;
+      this.saveCategoryPrefs(accId, type, prefs);
+    },
+
+    resetCategorySortOrder: function(accId, type, categories) {
+      if (!accId || !Array.isArray(categories)) return;
+      var prefs = this.getCategoryPrefs(accId, type);
+      var favs = [];
+      var custom = [];
+      var regular = [];
+
+      categories.forEach(function(c) {
+        var id = String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
+        if (id === 'favorites') {
+          favs.push(id);
+        } else if (id.indexOf('custom_list:') === 0) {
+          custom.push(id);
+        } else {
+          regular.push(c);
+        }
+      });
+
+      var keyed = regular.map(function(c) {
+        return {
+          id: String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id)),
+          name: (c.category_name || c.name || '').toLowerCase()
+        };
+      });
+      keyed.sort(function(a, b) {
+        return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
+      });
+
+      var regIds = keyed.map(function(k) { return k.id; });
+
+      if (favs.indexOf('favorites') === -1) favs.unshift('favorites');
+      prefs.order = favs.concat(custom).concat(regIds);
+      prefs.hasManualSort = false;
+      this.saveCategoryPrefs(accId, type, prefs);
+    },
+
+    unhideAllCategories: function(accId, type) {
+      if (!accId) return;
+      var prefs = this.getCategoryPrefs(accId, type);
+      prefs.hidden = [];
+      this.saveCategoryPrefs(accId, type, prefs);
+    },
+
+    syncCategoriesWithPrefs: function(accId, type, categories, includeHidden) {
+      if (!accId || !Array.isArray(categories)) return categories || [];
+      var prefs = this.getCategoryPrefs(accId, type);
+      var catIdMap = {};
+      categories.forEach(function(c) {
+        var id = String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
+        catIdMap[id] = c;
+      });
+
+      var isFirstInit = prefs.order.length === 0;
+      if (isFirstInit) {
+        var favCats = [];
+        var customCats = [];
+        var regularCats = [];
+        categories.forEach(function(c) {
+          var id = String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
+          if (id === 'favorites') {
+            favCats.push(id);
+          } else if (id.indexOf('custom_list:') === 0) {
+            customCats.push(id);
+          } else {
+            regularCats.push(c);
+          }
+        });
+        regularCats.sort(function(a, b) {
+          var na = (a.category_name || a.name || '').toLowerCase();
+          var nb = (b.category_name || b.name || '').toLowerCase();
+          return na.localeCompare(nb);
+        });
+        var sortedIds = regularCats.map(function(c) {
+          return String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
+        });
+        if (favCats.indexOf('favorites') === -1) favCats.unshift('favorites');
+        prefs.order = favCats.concat(customCats).concat(sortedIds);
+        prefs.newIds = [];
+        this.saveCategoryPrefs(accId, type, prefs);
+      } else {
+        var hasNew = false;
+        // Ensure favorites is placed at index 0 if not present or if pushed to bottom by previous bug
+        var favIdx = prefs.order.indexOf('favorites');
+        if (catIdMap['favorites']) {
+          if (favIdx === -1) {
+            prefs.order.unshift('favorites');
+            hasNew = true;
+          } else if (favIdx === prefs.order.length - 1 && prefs.order.length > 1 && !prefs.hasManualSort) {
+            prefs.order.splice(favIdx, 1);
+            prefs.order.unshift('favorites');
+            hasNew = true;
+          }
+        }
+        categories.forEach(function(c) {
+          var id = String(c.category_id !== undefined ? c.category_id : (c.categoryId !== undefined ? c.categoryId : c.id));
+          if (id === 'favorites') return;
+          if (prefs.order.indexOf(id) === -1) {
+            if (id.indexOf('custom_list:') === 0) {
+              var insertIdx = 0;
+              while (
+                insertIdx < prefs.order.length &&
+                (prefs.order[insertIdx] === 'favorites' || String(prefs.order[insertIdx]).indexOf('custom_list:') === 0)
+              ) {
+                insertIdx++;
+              }
+              prefs.order.splice(insertIdx, 0, id);
+            } else {
+              prefs.order.push(id);
+              if (prefs.newIds.indexOf(id) === -1) {
+                prefs.newIds.push(id);
+              }
+            }
+            hasNew = true;
+          }
+        });
+        // Keep default tier order (favorites -> custom_list:* -> regular) unless user sorted manually
+        if (!prefs.hasManualSort) {
+          var normalizedOrder = [];
+          var customOrder = [];
+          var regOrder = [];
+          prefs.order.forEach(function(id) {
+            var sId = String(id);
+            if (sId === 'favorites') normalizedOrder.push(sId);
+            else if (sId.indexOf('custom_list:') === 0) customOrder.push(sId);
+            else regOrder.push(sId);
+          });
+          var merged = normalizedOrder.concat(customOrder).concat(regOrder);
+          if (merged.length === prefs.order.length && merged.some(function(id, i) { return id !== prefs.order[i]; })) {
+            prefs.order = merged;
+            hasNew = true;
+          }
+        }
+        if (hasNew) {
+          this.saveCategoryPrefs(accId, type, prefs);
+        }
+      }
+
+      var result = [];
+      prefs.order.forEach(function(id) {
+        if (catIdMap[id]) {
+          var isHidden = prefs.hidden.indexOf(id) >= 0;
+          if (includeHidden || !isHidden) {
+            var clone = Object.assign({}, catIdMap[id]);
+            clone.isHidden = isHidden;
+            clone.isNew = prefs.newIds.indexOf(id) >= 0;
+            result.push(clone);
+          }
+        }
+      });
+      return result;
+    },
+
+    // Custom Lists (type: 'live' | 'movie' | 'series')
+    getCustomLists: function(accId, type) {
+      if (!accId) return [];
+      var t = type || 'live';
+      try {
+        var raw = getItem('goat_custom_lists_' + accId + '_' + t);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) {
+        return [];
+      }
+    },
+
+    createCustomList: function(accId, name, type) {
+      if (!accId || !name) return null;
+      var t = type || 'live';
+      var lists = this.getCustomLists(accId, t);
+      var newList = {
+        id: 'cl_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        name: name.trim(),
+        type: t,
+        createdAt: Date.now()
+      };
+      lists.push(newList);
+      setItem('goat_custom_lists_' + accId + '_' + t, JSON.stringify(lists));
+      try {
+        var prefs = this.getCategoryPrefs(accId, t);
+        if (Array.isArray(prefs.order) && prefs.order.length > 0) {
+          var newCatId = 'custom_list:' + newList.id;
+          var existingIdx = prefs.order.indexOf(newCatId);
+          if (existingIdx !== -1) prefs.order.splice(existingIdx, 1);
+          var insertIdx = 0;
+          if (prefs.order[0] === 'favorites') insertIdx = 1;
+          while (insertIdx < prefs.order.length && String(prefs.order[insertIdx]).indexOf('custom_list:') === 0) {
+            insertIdx++;
+          }
+          prefs.order.splice(insertIdx, 0, newCatId);
+          this.saveCategoryPrefs(accId, t, prefs);
+        }
+      } catch (e) {}
+      return newList;
+    },
+
+    deleteCustomList: function(accId, listId, type) {
+      if (!accId || !listId) return;
+      var types = type ? [type] : ['live', 'movie', 'series'];
+      var self = this;
+      var strListId = String(listId);
+
+      types.forEach(function(t) {
+        var lists = self.getCustomLists(accId, t);
+        var initialLen = lists.length;
+        lists = lists.filter(function(l) { return String(l.id) !== strListId; });
+        if (lists.length !== initialLen) {
+          setItem('goat_custom_lists_' + accId + '_' + t, JSON.stringify(lists));
+        }
+
+        // Clean up category prefs
+        try {
+          var catPrefKey = 'custom_list:' + strListId;
+          var prefs = self.getCategoryPrefs(accId, t);
+          var orderIdx = prefs.order.indexOf(catPrefKey);
+          if (orderIdx >= 0) prefs.order.splice(orderIdx, 1);
+          var hiddenIdx = prefs.hidden.indexOf(catPrefKey);
+          if (hiddenIdx >= 0) prefs.hidden.splice(hiddenIdx, 1);
+          var newIdx = prefs.newIds.indexOf(catPrefKey);
+          if (newIdx >= 0) prefs.newIds.splice(newIdx, 1);
+          self.saveCategoryPrefs(accId, t, prefs);
+        } catch (e) {}
+      });
+
+      removeItem('goat_custom_items_' + accId + '_' + strListId);
+    },
+
+    renameCustomList: function(accId, listId, newName, type) {
+      if (!accId || !listId || !newName) return;
+      var types = type ? [type] : ['live', 'movie', 'series'];
+      var self = this;
+      var strListId = String(listId);
+      var trimmed = newName.trim();
+
+      types.forEach(function(t) {
+        var lists = self.getCustomLists(accId, t);
+        var item = lists.find(function(l) { return String(l.id) === strListId; });
+        if (item) {
+          item.name = trimmed;
+          setItem('goat_custom_lists_' + accId + '_' + t, JSON.stringify(lists));
+        }
+      });
+    },
+
+    getCustomListItems: function(accId, listId) {
+      if (!accId || !listId) return [];
+      try {
+        var raw = getItem('goat_custom_items_' + accId + '_' + listId);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) {
+        return [];
+      }
+    },
+
+    isStreamInCustomList: function(accId, listId, streamId) {
+      if (!accId || !listId || !streamId) return false;
+      var items = this.getCustomListItems(accId, listId);
+      var strId = String(streamId);
+      return items.some(function(it) { return String(it.streamId) === strId; });
+    },
+
+    addStreamToCustomList: function(accId, listId, stream) {
+      if (!accId || !listId || !stream) return false;
+      var items = this.getCustomListItems(accId, listId);
+      var streamId = String(stream.stream_id || stream.streamId || stream.series_id || stream.seriesId);
+      if (!streamId) return false;
+      var exists = items.some(function(it) { return String(it.streamId) === streamId; });
+      if (exists) return false;
+
+      var streamName = stream.name || stream.title || ('Stream ' + streamId);
+      var streamIcon = stream.stream_icon || stream.streamIcon || stream.cover || '';
+      items.push({
+        streamId: streamId,
+        streamName: streamName,
+        streamIcon: streamIcon,
+        addedAt: Date.now()
+      });
+      setItem('goat_custom_items_' + accId + '_' + listId, JSON.stringify(items));
+      return true;
+    },
+
+    removeStreamFromCustomList: function(accId, listId, streamId) {
+      if (!accId || !listId || !streamId) return false;
+      var items = this.getCustomListItems(accId, listId);
+      var strId = String(streamId);
+      var initLen = items.length;
+      items = items.filter(function(it) { return String(it.streamId) !== strId; });
+      if (items.length !== initLen) {
+        setItem('goat_custom_items_' + accId + '_' + listId, JSON.stringify(items));
+        return true;
+      }
+      return false;
+    },
+
+    reorderCustomListItems: function(accId, listId, orderedStreamIds) {
+      if (!accId || !listId || !Array.isArray(orderedStreamIds)) return false;
+      var items = this.getCustomListItems(accId, listId);
+      var itemMap = {};
+      items.forEach(function(it) {
+        itemMap[String(it.streamId)] = it;
+      });
+      var reordered = [];
+      var added = {};
+      orderedStreamIds.forEach(function(sid) {
+        var strSid = String(sid);
+        if (itemMap[strSid] && !added[strSid]) {
+          reordered.push(itemMap[strSid]);
+          added[strSid] = true;
+        }
+      });
+      items.forEach(function(it) {
+        var strSid = String(it.streamId);
+        if (!added[strSid]) {
+          reordered.push(it);
+        }
+      });
+      setItem('goat_custom_items_' + accId + '_' + listId, JSON.stringify(reordered));
+      return true;
+    },
+
     // Playback Settings & Preferences
     getPreferences: function() {
       return {
         audioLanguage: getItem('goat_pref_audio') || 'original',
         subtitleLanguage: getItem('goat_pref_sub') || 'off',
-        uiLanguage: getItem('goat_pref_ui_lang') || 'en'
+        uiLanguage: getItem('goat_pref_ui_lang') || 'de'
       };
     },
+
     setPreference: function(key, val) {
       if (key === 'audio' || key === 'audioLanguage') setItem('goat_pref_audio', val);
       if (key === 'subtitle' || key === 'subtitleLanguage') setItem('goat_pref_sub', val);
@@ -393,6 +863,7 @@
       if (!mediaId) return null;
       return getItem('goat_pref_media_audio_' + mediaId);
     },
+
     setMediaAudioChoice: function(mediaId, choice) {
       if (!mediaId) return;
       if (choice) {
@@ -401,10 +872,12 @@
         removeItem('goat_pref_media_audio_' + mediaId);
       }
     },
+
     getMediaSubtitleChoice: function(mediaId) {
       if (!mediaId) return null;
       return getItem('goat_pref_media_sub_' + mediaId);
     },
+
     setMediaSubtitleChoice: function(mediaId, choice) {
       if (!mediaId) return;
       if (choice) {
@@ -437,6 +910,7 @@
         return null;
       }
     },
+
     saveProgress: function(accId, streamIdOrData, pos, dur) {
       if (!accId) return;
       var item;
@@ -497,6 +971,7 @@
       setItem('goat_cw_' + accId, JSON.stringify(list));
       return item;
     },
+
     markCompleted: function(accId, streamId) {
       if (!accId || !streamId) return;
       var existing = this.getProgress(accId, streamId);
@@ -507,6 +982,7 @@
         this.saveProgress(accId, existing);
       }
     },
+
     getContinueWatching: function(accId, type) {
       if (!accId) return [];
       var rawList = getItem('goat_cw_' + accId);
@@ -598,6 +1074,7 @@
 
       return [];
     },
+
     deleteProgress: function(accId, streamId) {
       if (!accId || !streamId) return;
       removeItem('goat_prog_' + accId + '_' + streamId);
