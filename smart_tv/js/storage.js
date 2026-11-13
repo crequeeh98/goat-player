@@ -848,7 +848,7 @@
       return {
         audioLanguage: getItem('goat_pref_audio') || 'original',
         subtitleLanguage: getItem('goat_pref_sub') || 'off',
-        uiLanguage: getItem('goat_pref_ui_lang') || 'en'
+        uiLanguage: getItem('goat_pref_ui_lang') || 'de'
       };
     },
 

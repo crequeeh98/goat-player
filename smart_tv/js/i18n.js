@@ -437,22 +437,29 @@
     }
   };
 
-  var _currentLang = 'en';
+  var _currentLang = 'de';
 
   function initLang() {
-    var stored = localStorage.getItem('goat_pref_ui_lang');
+    var stored = null;
+    try {
+      stored = localStorage.getItem('goat_pref_ui_lang');
+    } catch (e) {}
     if (stored === 'de' || stored === 'en') {
       _currentLang = stored;
     } else {
-      var navLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
-      _currentLang = (navLang.indexOf('de') === 0) ? 'de' : 'en';
+      _currentLang = 'de';
     }
   }
 
   function setLanguage(lang) {
     if (lang !== 'de' && lang !== 'en') return;
     _currentLang = lang;
-    localStorage.setItem('goat_pref_ui_lang', lang);
+    try {
+      localStorage.setItem('goat_pref_ui_lang', lang);
+    } catch (e) {}
+    if (window.TVStorage && typeof window.TVStorage.setPreference === 'function') {
+      window.TVStorage.setPreference('uiLanguage', lang);
+    }
     applyTranslations();
     try {
       if (typeof window !== 'undefined' && window.dispatchEvent) {
