@@ -19,7 +19,7 @@ class LocaleController extends Notifier<Locale> {
     if (savedLocale != null) {
       return Locale(savedLocale);
     }
-    return const Locale('en');
+    return const Locale('de');
   }
 
   Future<void> setLocale(String languageCode) async {
