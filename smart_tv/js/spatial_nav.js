@@ -2054,7 +2054,7 @@
       }
 
       // 0b. From Sidebar Navigation Rail -> pressing RIGHT moves to active Category, UP/DOWN navigates rail with circular wrap
-      if (_currentFocused.classList.contains('nav-rail-btn')) {
+      if (_currentFocused.classList.contains('nav-rail-btn') || _currentFocused.id === 'sidebar-version-badge') {
         if (code === KEY_CODES.RIGHT) {
           var activePage = document.querySelector('.dashboard-page.active');
           var activeCat = activePage ? (activePage.querySelector('.category-item.active') || activePage.querySelector('.category-item')) : null;
@@ -2063,34 +2063,19 @@
             setFocus(activeCat);
             return;
           }
-        } else if (code === KEY_CODES.UP) {
+        } else if (code === KEY_CODES.UP || code === KEY_CODES.DOWN) {
           e.preventDefault();
           var railBtns = [
             document.getElementById('nav-btn-live'),
             document.getElementById('nav-btn-movies'),
-            document.getElementById('nav-btn-series')
+            document.getElementById('nav-btn-series'),
+            document.getElementById('sidebar-version-badge')
           ].filter(function(b) { return b && b.offsetParent !== null; });
           var idx = railBtns.indexOf(_currentFocused);
-          if (idx <= 0) {
-            setFocus(railBtns[railBtns.length - 1]);
+          if (code === KEY_CODES.UP) {
+            setFocus(idx <= 0 ? railBtns[railBtns.length - 1] : railBtns[idx - 1]);
           } else {
-            setFocus(railBtns[idx - 1]);
-          }
-          return;
-        } else if (code === KEY_CODES.DOWN) {
-          e.preventDefault();
-          var railBtns = [
-            document.getElementById('nav-btn-live'),
-            document.getElementById('nav-btn-movies'),
-            document.getElementById('nav-btn-series')
-          ].filter(function(b) { return b && b.offsetParent !== null; });
-          var idx = railBtns.indexOf(_currentFocused);
-          if (idx >= railBtns.length - 1) {
-            setFocus(railBtns[0]);
-          } else if (idx >= 0) {
-            setFocus(railBtns[idx + 1]);
-          } else {
-            setFocus(railBtns[0]);
+            setFocus((idx < 0 || idx >= railBtns.length - 1) ? railBtns[0] : railBtns[idx + 1]);
           }
           return;
         }

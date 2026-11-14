@@ -807,6 +807,18 @@
       .catch(handleUpdateFailure);
   }
 
+  function syncVersionBadges() {
+    var activeVer = getActiveVersion();
+    var isOta = !!(window.TVBootloader && typeof window.TVBootloader.getBootMode === 'function' && window.TVBootloader.getBootMode() === 'ota');
+    var label = activeVer ? ('v' + String(activeVer).replace(/^v/, '')) : '';
+    var accBadge = document.getElementById('accounts-version-badge');
+    if (accBadge && label) accBadge.textContent = label;
+    var sideBadge = document.getElementById('sidebar-version-badge');
+    var sideText = document.getElementById('sidebar-version-text');
+    if (sideText && label) sideText.textContent = label;
+    if (sideBadge) sideBadge.classList.toggle('is-ota', isOta);
+  }
+
   function init() {
     var closeBtn = document.getElementById('update-close-btn');
     var laterBtn = document.getElementById('update-later-btn');
@@ -816,11 +828,16 @@
     if (laterBtn) laterBtn.addEventListener('click', closeUpdateModal);
     if (confirmBtn) confirmBtn.addEventListener('click', startOtaUpdate);
 
-    var verBadge = document.getElementById('accounts-version-badge');
-    if (verBadge) {
-      verBadge.addEventListener('click', function() {
-        openChangelogModal();
-      });
+    syncVersionBadges();
+
+    var versionBtnIds = ['accounts-version-badge', 'sidebar-version-badge'];
+    for (var i = 0; i < versionBtnIds.length; i++) {
+      var btn = document.getElementById(versionBtnIds[i]);
+      if (btn) {
+        btn.addEventListener('click', function() {
+          openChangelogModal();
+        });
+      }
     }
 
     setTimeout(function() {
@@ -834,6 +851,7 @@
     startOtaUpdate: startOtaUpdate,
     openChangelogModal: openChangelogModal,
     showUpdateModal: showUpdateModal,
+    syncVersionBadges: syncVersionBadges,
     extractLocalizedChangelog: extractLocalizedChangelog,
     renderMarkdownChangelogHtml: renderMarkdownChangelogHtml,
     getVersion: getActiveVersion,

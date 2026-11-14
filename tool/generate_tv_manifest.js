@@ -67,11 +67,14 @@ function syncVersionStrings(version) {
   const configXmlUpdated = configXmlRaw.replace(/(<widget[\s\S]*?\bversion=")[^"]+(")/, `$1${version}$2`);
   if (configXmlUpdated !== configXmlRaw) fs.writeFileSync(CONFIG_XML_PATH, configXmlUpdated, 'utf8');
 
-  // 3. smart_tv/index.html (?v=...)
+  // 3. smart_tv/index.html (?v=... & visible version badges)
   const indexRaw = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
   const indexUpdated = indexRaw
     .replace(/href="css\/style\.css(?:\?v=[^"]*)?"/g, `href="css/style.css?v=${version}"`)
-    .replace(/src="js\/bootloader\.js(?:\?v=[^"]*)?"/g, `src="js/bootloader.js?v=${version}"`);
+    .replace(/src="js\/bootloader\.js(?:\?v=[^"]*)?"/g, `src="js/bootloader.js?v=${version}"`)
+    .replace(/(id="accounts-version-badge"[^>]*>)v[^<]+(<\/button>)/g, `$1v${version}$2`)
+    .replace(/(id="sidebar-version-text"[^>]*>)v[^<]+(<\/span>)/g, `$1v${version}$2`)
+    .replace(/(id="update-version-badge"[^>]*>)v[^<]+(<\/span>)/g, `$1v${version}$2`);
   if (indexUpdated !== indexRaw) fs.writeFileSync(INDEX_HTML_PATH, indexUpdated, 'utf8');
 
   // 4. smart_tv/js/updater.js (var APP_VERSION = '...')

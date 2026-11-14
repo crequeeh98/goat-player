@@ -441,6 +441,9 @@
       window.registerTizenKeys();
     }
     if (window.TVI18n) window.TVI18n.applyTranslations();
+    if (window.TVUpdater && typeof window.TVUpdater.syncVersionBadges === 'function') {
+      window.TVUpdater.syncVersionBadges();
+    }
     initClock();
     initPlayer();
     initVirtualList();
@@ -1185,13 +1188,8 @@
   }
 
   function renderAccountsList() {
-    var verBadge = document.getElementById('accounts-version-badge');
-    if (verBadge) {
-      var activeVer = window.__GOAT_TV_VERSION__ ||
-        (window.TVBootloader && typeof window.TVBootloader.getActiveVersion === 'function' ? window.TVBootloader.getActiveVersion() : null) ||
-        (window.TVUpdater && typeof window.TVUpdater.getActiveVersion === 'function' ? window.TVUpdater.getActiveVersion() : null) ||
-        (window.TVUpdater && typeof window.TVUpdater.getVersion === 'function' ? window.TVUpdater.getVersion() : null);
-      if (activeVer) verBadge.textContent = 'v' + activeVer;
+    if (window.TVUpdater && typeof window.TVUpdater.syncVersionBadges === 'function') {
+      window.TVUpdater.syncVersionBadges();
     }
     var accounts = window.TVStorage.getAccounts();
     var gridEl = document.getElementById('accounts-grid');
