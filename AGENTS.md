@@ -176,3 +176,15 @@ ares-install -d <DEVICE_NAME> "D:\Projects\iptv-player\build\smart_tv_out\com.go
 - When running as an installed widget (`file://` protocol), some Tizen TVs disable `window.localStorage` or throw `SecurityError`.
 - `smart_tv/js/storage.js` wraps all storage access with an automatic in-memory fallback store (`_memStore`).
 - Always use `window.TVStorage` API methods (`saveProgress`, `getProgress`, `getContinueWatching`, `toggleFavorite`, `isFavorite`). Never call raw `localStorage` directly in TV views.
+
+### 6. Smart TV OTA v2 Releases & Re-Install Exceptions
+Once the base `v2.1.3+` package is installed on Samsung Tizen or LG webOS, virtually all normal updates (UI, HTML/CSS, new JS modules, bugfixes, Phase 3 sync, in-app assets) ship via **In-App OTA** without reinstalling `.ipk`/`.wgt`.
+
+- **Mandatory Release Checklist Before Tagging (`v2.1.4+`)**:
+  1. Run `node tool/generate_tv_manifest.js` (automatically invoked by `package_smart_tv_webos.ps1` / `package_smart_tv_tizen.ps1`).
+  2. Verify `smart_tv/manifest.json` (SHA-256 hashes, `files`, `version`, `tag`) and embedded `FACTORY_HASHES` in `smart_tv/js/bootloader.js` are committed **before** pushing the GitHub release tag (`vX.Y.Z`) and publishing the GitHub Release (`TVUpdater` reads `releases/latest` → `raw.githubusercontent.com/<repo>/<tag>/smart_tv/manifest.json`, with `main` fallback).
+  3. Re-install via `.ipk`/`.wgt` on TVs is **only** required in **3 rare cases**:
+     1. **TV OS Wrapper Changes** *(rare — only on rebrands/permission changes)*: Launcher home icon, OS app name, OS-reported package version, or platform privileges in `smart_tv/config.xml` / `smart_tv/appinfo.json`.
+     2. **Bootloader Protocol Break** *(extremely rare — near-never)*: If a future release bumps `minBootloaderProtocol` above `2` or requires pre-OTA changes inside `bootloader.js` itself.
+     3. **TV Dev-Mode / Cert Expiry** *(device maintenance, months/years)*: Only if TV Developer Mode session/timer expires or a Tizen Test signing certificate needs renewal.
+  - Note for Samsung Tizen CLI upgrades: raw `sdb install` only pushes the `.wgt`; `tz.exe install` performs uninstall + install (wiping local TV app storage) unless deployed via IDE/compatible package update.
