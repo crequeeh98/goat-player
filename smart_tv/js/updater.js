@@ -2,7 +2,7 @@
 (function() {
   'use strict';
 
-  var APP_VERSION = '2.1.3';
+  var APP_VERSION = '2.1.4';
   var CURRENT_VERSION = (window.TVBootloader && window.TVBootloader.getBaseVersion)
     ? window.TVBootloader.getBaseVersion()
     : APP_VERSION;
@@ -13,23 +13,17 @@
   var _isUpdating = false;
 
   var FALLBACK_CHANGELOG = [
-    '### 🇩🇪 Änderungen & Neuerungen (v2.1.3)',
-    '- **Smart TV UI/UX Overhaul & webOS 6.5 Kompatibilität**:',
-    '  - *Moderne 10-Foot Oberfläche*: Scharfe SVG-Vektor-Icons (`window.TVIcons`), kompaktes 1-Spalten Account-/Login-Layout und D-Pad-optimierter Markdown-Changelog.',
-    '  - *Tizen & Finish*: Deutsch als Standardsprache bei Neuinstallation, sauberes Suchfeld-Layout vor dem Tune-Button auf Samsung Tizen und einzelner Haken im „Fertig“-Button.',
-    '- **Kategorien-Manager & Eigene Listen**:',
-    '  - *Kategorien*: Ein-/Ausblenden per OK, Sortieren via Gelb/OK-Halten sowie `A-Z Zurücksetzen` und `Alle ein-/ausblenden`.',
-    '  - *Custom Lists & Sender-Sortierung*: Eigene Listen (Live, Filme, Serien), Sender-Verschiebemodus (▲/▼), Kontextmenü per OK-Halten und selektive Sync-Bereiche.',
+    '### 🇩🇪 Änderungen & Neuerungen (v2.1.4)',
+    '- **Performance & Storage**: Batch-Rendering, schnelleres Sortieren, IndexedDB-SWR-Cache, manuelles Sync-Modal und schlanke Listen-Snapshots.',
+    '- **EPG & Auth**: Live-EPG Minuten-Ticker (`noch XX min`), sofortiges `expDate` und direkte Verbindungs-/Auth-Prüfung.',
+    '- **Smart TV OTA v2**: Volle In-App-Updates (HTML, CSS, neue JS-Module & Assets) via `IndexedDB` mit Rollback und `v2.1.4`-Sidebar-Badge unten links.',
     '',
     '---',
     '',
-    '### 🇬🇧 Changes & Improvements (v2.1.3)',
-    '- **Smart TV UI/UX Overhaul & webOS 6.5 Compatibility**:',
-    '  - *Modern 10-Foot Interface*: Crisp SVG vector icons (`window.TVIcons`), compact 1-column account/login layout, and D-Pad-ready Markdown changelog viewer.',
-    '  - *Tizen & Polish*: German default UI language on fresh installs, constrained category search width next to the tune button on Samsung Tizen, and single checkmark on the Done button.',
-    '- **Category Manager & Custom Lists**:',
-    '  - *Categories*: Toggle visibility with OK, reorder via Yellow/Hold-OK, plus `Reset A-Z` and `Show/Hide All`.',
-    '  - *Custom Lists & Channel Reordering*: Personal playlists (Live, Movies, Series), channel move mode (▲/▼), Hold-OK context menu, and selective sync scopes.'
+    '### 🇬🇧 Changes & Improvements (v2.1.4)',
+    '- **Performance & Storage**: Batched rendering, faster sorting, IndexedDB SWR cache, manual sync modal, and slim list snapshots.',
+    '- **EPG & Auth**: Live EPG minute ticker (`XX min left`), instant `expDate`, and device-side connectivity/auth checks.',
+    '- **Smart TV OTA v2**: Full in-app updates (HTML, CSS, new JS modules & assets) via `IndexedDB` with rollback and bottom-left `v2.1.4` sidebar badge.'
   ].join('\n');
 
   function getActiveVersion() {

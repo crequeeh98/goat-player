@@ -2,8 +2,8 @@
 (function() {
   'use strict';
 
-  var BASE_VERSION = '2.1.3';
-  var EMBEDDED_VERSION = '2.1.3';
+  var BASE_VERSION = '2.1.4';
+  var EMBEDDED_VERSION = '2.1.4';
   var OTA_PROTOCOL = 2;
   var LEGACY_OTA_KEY = 'goat_tv_ota_bundle';
   var LS_FALLBACK_META_KEY = 'goat_tv_ota_v2_meta';
@@ -35,7 +35,7 @@
 
   /* __FACTORY_HASHES_START__ */
   var FACTORY_HASHES = {
-      "index.html": "ca68ac87f9fcb5f6a909bdfc6a138e035185e7a860d0cfad000c7ab5142b0602",
+      "index.html": "c98fb36b98d51dbf7e7430a731caa54dc00bd82abbf2ff4bb44b40561ed432d1",
       "style.css": "d7cfa4a625eb89a09d749ae6375261cabe10c1c03bd6e2ed2350aa53df265b07",
       "hls.min.js": "64425220c46f2a1ed9725fb7f263e88d40c4179d62bd8f6de3e76789085cba87",
       "qrcode.min.js": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36",
@@ -50,7 +50,7 @@
       "diagnostics.js": "196ce420664d6c9ba5bf89527b0590cd2a1606356797d672442ce580753889a8",
       "subtitles.js": "c4c2d0933ab91211d1920afebc68bb86208c7ff0386b734b11c191eb275f774d",
       "player.js": "ed30dff468c62ff974653fd45ff376adc3d7d1c03125d73eec00d2655bc34af4",
-      "updater.js": "8629e12f7c214f0b0d5badf1b872b4e7d83a1ab42443a76c80ba862903ddd7b9",
+      "updater.js": "b3df0e6226c90fb9b94dcd8f7cb3491771f7a2f63db898e265affd35602408cb",
       "app.js": "264d201bb2f50b78afb4d1f2e6d8fd45763dac4fd86e6f5504ae454a707c623d",
       "assets/dockIcon.png": "c79649292a6d2d663e0637db0865fd02ddff55095365c33593b451bf1c0c4ba8",
       "assets/head.png": "5edbed44598d653a3a554f55ae04d0a64d79439987645fb14b5d1ba318da5996",

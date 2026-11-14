@@ -4,6 +4,20 @@ All notable changes to the **GOATPlayer** project will be documented in this fil
 
 ---
 
+## [2.1.4] - 2026-11-14
+
+### 🇩🇪 Änderungen & Optimierungen
+- **Performance & Storage**: Smart TV Batch-Rendering, schnelleres Sortieren, IndexedDB-SWR-Cache, manuelles Sync-Modal & schlanke Snapshots; Flutter SQLite FTS5-Suche, Category-Paging, Delta-Upserts & 10-Minuten-Sync-Cooldown.
+- **EPG & Playlists**: Live-EPG Minuten-Ticker (`noch XX min`), Android-TV-Viewport-Short-EPG, sofortiges `expDate` und direkte Verbindungs-/Auth-Prüfung beim Hinzufügen/Ändern (inkl. Portal).
+- **Smart TV OTA v2**: Volle In-App-Updates für HTML, CSS, neue JS-Module & Assets via `IndexedDB` mit Delta-Skip, Dual-Slot-Rollback und `v2.1.4`-Sidebar-Badge unten links.
+
+### 🇬🇧 Changes & Optimizations
+- **Performance & Storage**: Smart TV batched rendering, faster sorting, IndexedDB SWR cache, manual sync modal & slim snapshots; Flutter SQLite FTS5 search, paged category queries, delta upserts & 10-minute sync cooldown.
+- **EPG & Playlists**: Live EPG minute ticker (`XX min left`), Android TV viewport short-EPG, instant `expDate`, and device-side connectivity/auth checks on add/edit (incl. Portal).
+- **Smart TV OTA v2**: Full in-app updates for HTML, CSS, new JS modules & assets via `IndexedDB` with delta skipping, dual-slot rollback, and bottom-left `v2.1.4` sidebar badge.
+
+---
+
 ## [2.1.3] - 2026-11-13
 
 ### 🇩🇪 Änderungen & Optimierungen

@@ -1,21 +1,19 @@
-## 🐐 GOATPlayer v2.1.3
+## 🐐 GOATPlayer v2.1.4
 
-### 🇩🇪 Änderungen & Neuerungen (v2.1.3)
-- **Flutter & Web-Portal (`fix/windows-startup-window`)**:
-  - *Windows Start-Fix*: App startet direkt maximiert nach dem ersten gerenderten Frame (`waitUntilFirstFrameRasterized` + entferntes Vorab-Show in `flutter_window.cpp`) ohne kleines Fenster oder White-Screen.
-  - *Deutsch als Standard*: Frische Installationen in Flutter und Web-Portal starten standardmäßig auf Deutsch; bestehende Sprach-Einstellungen bleiben erhalten.
-  - *TV D-Pad & Navigation (v2.1.2 Basis)*: Fokus-Trapping im Update-/Changelog-Dialog, 1:1 Skalierung, entkoppelte Back-Taste und sauberes Desktop-Live-Cleanup.
-- **Smart TV – Samsung Tizen & LG webOS (`feat/v2.1-smart-tv-overhaul`)**:
-  - *v2.1 UI/UX Overhaul & webOS 6.5*: Überarbeitete 10-Foot-Oberfläche, scharfe SVG-Vektor-Icons (`window.TVIcons`), kompaktes Account-/Login-Modal und vereinheitlichter Markdown-Changelog.
-  - *Kategorien-Manager & Eigene Listen*: Kategorien ausblenden/verschieben, `A-Z Zurücksetzen`, Custom Lists (Live, Filme, Serien), Sender-Verschiebemodus (▲/▼), OK-Halten-Kontextmenü und selektive Sync-Bereiche.
-  - *Plattform-Feinschliff*: Deutsch als Standard auf Smart TV, Tizen-Suchfeld (`body.platform-tizen`) drückt Tune-Button nicht mehr über die Trennlinie, und doppelter Haken auf „Fertig“ entfernt.
+### 🇩🇪 Änderungen & Neuerungen (v2.1.4)
+- **Performance & Storage**:
+  - *Smart TV*: Batch-Rendering & schnelleres Sortieren für große Listen, IndexedDB-SWR-Cache, manuelles Sync-Modal und schlanke Listen-Snapshots.
+  - *Flutter*: SQLite-FTS5-Suche, seitenweise Kategorie-Abfragen, inkrementelle Delta-Syncs und 10-Minuten-Kategorie-Cooldown.
+- **EPG, Playlists & Auth**:
+  - Live-EPG mit Minuten-Ticker (`noch XX min`), Android-TV-Viewport-EPG, sofortiges Ablaufdatum (`expDate`) und direkte Auth-/Verbindungsprüfung bei Add/Edit & Portal-Upload.
+- **Smart TV OTA v2**:
+  - Volle In-App-Updates für HTML, CSS, neue JS-Module & Assets via `IndexedDB` mit Delta-Skip, Dual-Slot-Rollback und `v2.1.4`-Badge unten links.
 
-### 🇬🇧 Changes & Improvements (v2.1.3)
-- **Flutter & Web Portal (`fix/windows-startup-window`)**:
-  - *Windows Startup Fix*: Launches directly maximized after the first rasterized frame (`waitUntilFirstFrameRasterized`, removed premature native `Show()`) without small-window flash or blank frame.
-  - *German Default Language*: Fresh installs across Flutter and the Web Pairing Portal default to German while preserving existing user preferences.
-  - *TV D-Pad & Navigation (v2.1.2 base)*: Modal focus trapping, 1:1 button scale, decoupled Back key handling, and clean desktop Live TV provider disposal.
-- **Smart TV – Samsung Tizen & LG webOS (`feat/v2.1-smart-tv-overhaul`)**:
-  - *v2.1 UI/UX Overhaul & webOS 6.5*: Harmonized 10-foot UI, crisp SVG vector icons (`window.TVIcons`), compact account/login layout, and unified Markdown changelog viewer.
-  - *Category Manager & Custom Lists*: Hide/reorder categories, `Reset A-Z`, Custom Lists (Live, Movies, Series), channel move mode (▲/▼), Hold-OK context menu, and selective sync scopes.
-  - *Platform Polish*: German default language on Smart TV, Tizen-only category search width constraint next to the tune button (`body.platform-tizen`), and single checkmark on Done button.
+### 🇬🇧 Changes & Improvements (v2.1.4)
+- **Performance & Storage**:
+  - *Smart TV*: Batched rendering & faster sorting for large lists, IndexedDB SWR cache, manual sync modal, and slim list snapshots.
+  - *Flutter*: SQLite FTS5 search, paged category queries, incremental delta syncs, and 10-minute category cooldown.
+- **EPG, Playlists & Auth**:
+  - Live EPG minute ticker (`XX min left`), Android TV viewport short-EPG, instant `expDate` badge, and device-side auth validation on account add/edit & portal sync.
+- **Smart TV OTA v2**:
+  - Full in-app updates for HTML, CSS, new JS modules & assets via `IndexedDB` with delta skipping, dual-slot rollback, and bottom-left `v2.1.4` badge.

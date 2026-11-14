@@ -1,6 +1,6 @@
 # 🗺️ GOATPlayer Roadmap
 
-Current Release: **`v2.1.3`** (Flutter Desktop/Mobile/Fire TV, Web Pairing Portal, Samsung Tizen & LG webOS Smart TV)
+Current Release: **`v2.1.4`** (Flutter Desktop/Mobile/Fire TV, Web Pairing Portal, Samsung Tizen & LG webOS Smart TV)
 
 ---
 

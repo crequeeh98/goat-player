@@ -28,23 +28,23 @@ class AppUpdateInfo {
 }
 
 const String kBundledReleaseNotes = '''
-### 🇩🇪 Änderungen & Optimierungen
-- **Flutter & Web-Portal (v2.1.3)**:
-  - *Windows Start-Fix*: Startet direkt maximiert nach dem ersten gerenderten Frame (`waitUntilFirstFrameRasterized`) ohne weißes Zwischenfenster.
-  - *Deutsch als Standard*: Frische Installationen in Flutter und Web-Portal nutzen automatisch Deutsch (gespeicherte Auswahl bleibt unberührt).
-  - *TV D-Pad & Update-Dialog (v2.1.2)*: Sofort-Fokus, flüssiges D-Pad-Scrolling, saubere Button-Größen und entkoppelte Zurück-Taste auf Fire TV / Android TV.
-- **Smart TV – Tizen & webOS (v2.1.3)**:
-  - *v2.1 UI Overhaul & webOS 6.5*: Vektor-Icons (`TVIcons`), kompaktes Account-/Login-Modal, Kategorien-Manager, Eigene Listen, Sender-Sortierung und selektiver Sync.
-  - *Plattform-Feinschliff*: Deutsch als Standard, saubere Suchfeld-Breite neben dem Tune-Button auf Tizen und einzelner Haken auf „Fertig“.
+### 🇩🇪 Änderungen & Neuerungen (v2.1.4)
+- **Performance & Storage**:
+  - *Smart TV*: Batch-Rendering & schnelleres Sortieren für große Listen, IndexedDB-SWR-Cache, manuelles Sync-Modal und schlanke Listen-Snapshots.
+  - *Flutter*: SQLite-FTS5-Suche, seitenweise Kategorie-Abfragen, inkrementelle Delta-Syncs und 10-Minuten-Kategorie-Cooldown.
+- **EPG, Playlists & Auth**:
+  - Live-EPG mit Minuten-Ticker (`noch XX min`), Android-TV-Viewport-EPG, sofortiges Ablaufdatum (`expDate`) und direkte Auth-/Verbindungsprüfung bei Add/Edit & Portal-Upload.
+- **Smart TV OTA v2**:
+  - Volle In-App-Updates für HTML, CSS, neue JS-Module & Assets via `IndexedDB` mit Delta-Skip, Dual-Slot-Rollback und `v2.1.4`-Badge unten links.
 
-### 🇬🇧 Changes & Optimizations
-- **Flutter & Web Portal (v2.1.3)**:
-  - *Windows Startup Fix*: Opens maximized immediately after first frame rasterization (`waitUntilFirstFrameRasterized`) without white-screen flash.
-  - *German Default Language*: Fresh installs across Flutter and Web Portal default to German (existing saved preferences remain intact).
-  - *TV D-Pad & Update Dialog (v2.1.2)*: Immediate autofocus, smooth D-Pad scrolling, clean button sizing, and decoupled Back navigation on Fire TV / Android TV.
-- **Smart TV – Tizen & webOS (v2.1.3)**:
-  - *v2.1 UI Overhaul & webOS 6.5*: Vector icons (`TVIcons`), compact account/login modal, Category Manager, Custom Lists, channel reordering, and selective sync scopes.
-  - *Platform Polish*: German default UI language, constrained category search width next to tune button on Tizen, and single checkmark on Done button.
+### 🇬🇧 Changes & Improvements (v2.1.4)
+- **Performance & Storage**:
+  - *Smart TV*: Batched rendering & faster sorting for large lists, IndexedDB SWR cache, manual sync modal, and slim list snapshots.
+  - *Flutter*: SQLite FTS5 search, paged category queries, incremental delta syncs, and 10-minute category cooldown.
+- **EPG, Playlists & Auth**:
+  - Live EPG minute ticker (`XX min left`), Android TV viewport short-EPG, instant `expDate` badge, and device-side auth validation on account add/edit & portal sync.
+- **Smart TV OTA v2**:
+  - Full in-app updates for HTML, CSS, new JS modules & assets via `IndexedDB` with delta skipping, dual-slot rollback, and bottom-left `v2.1.4` badge.
 ''';
 
 class AppUpdaterService {
@@ -144,7 +144,7 @@ class AppUpdaterService {
   /// with automatic fallback to [kBundledReleaseNotes] if offline or unreleased.
   Future<String> getCurrentVersionChangelog(String currentVer) async {
     final cleanVer = currentVer.split('+').first;
-    if (cleanVer == '2.1.1' || cleanVer == '2.1.2' || cleanVer == '2.1.3') {
+    if (cleanVer == '2.1.1' || cleanVer == '2.1.2' || cleanVer == '2.1.3' || cleanVer == '2.1.4') {
       return kBundledReleaseNotes;
     }
     try {
