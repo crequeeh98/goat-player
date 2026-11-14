@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
@@ -52,18 +53,31 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   String? _streamIdToFocus;
   Timer? _channelPlayDebounce;
   Timer? _shortEpgFocusDebounce;
+  Timer? _viewportEpgDebounce;
+  Timer? _epgMinuteTicker;
   String? _movingStreamId;
   List<StreamItem>? _localStreams;
   String? _localStreamsCategoryId;
+  List<StreamItem> _latestDisplayStreams = const [];
+  String? _lastViewportEpgKey;
 
   String? _lastScrolledStreamId;
   String? _lastScrolledCategoryId;
+  int _lastScrolledStreamCount = -1;
+  bool _userManuallyScrolledChannels = false;
   String? _lastCategoryRailScrolledId;
+
+  double get _channelItemExtent => GoatPlatform.isTv ? 48.0 : 66.0;
 
   @override
   void dispose() {
     _channelPlayDebounce?.cancel();
     _shortEpgFocusDebounce?.cancel();
+    _viewportEpgDebounce?.cancel();
+    _epgMinuteTicker?.cancel();
+    if (GoatPlatform.isTv) {
+      _channelScrollController.removeListener(_onChannelScroll);
+    }
     try {
       if (ref.read(activeDashboardTabProvider) == 0) {
         ref.read(activeScreenSearchFocusNodeProvider.notifier).set(null);
@@ -384,6 +398,16 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
   @override
   void initState() {
     super.initState();
+    _channelScrollController.addListener(_onChannelScroll);
+    _epgMinuteTicker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final currentMap = ref.read(currentProgramsMapProvider).asData?.value;
+      if (currentMap != null && currentMap.values.any((p) => !p.stopTime.isAfter(now))) {
+        ref.invalidate(currentProgramsMapProvider);
+      }
+      setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final targetNode = _topVisibleCategoryNode ?? _firstCategoryNode;
@@ -407,13 +431,58 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     }
   }
 
+  void _onChannelScroll() {
+    if (!mounted) return;
+    _scheduleViewportShortEpg();
+  }
+
+  void _scheduleViewportShortEpg() {
+    if (!mounted) return;
+    _viewportEpgDebounce?.cancel();
+    _viewportEpgDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      final streams = _latestDisplayStreams;
+      if (streams.isEmpty || !_channelScrollController.hasClients) return;
+
+      final position = _channelScrollController.position;
+      final offset = position.pixels;
+      final viewportDimension = position.hasViewportDimension ? position.viewportDimension : 600.0;
+      final itemHeight = _channelItemExtent;
+
+      final startIndex = (offset / itemHeight).floor().clamp(0, streams.length - 1);
+      final endIndex = ((offset + viewportDimension) / itemHeight).ceil().clamp(0, streams.length - 1);
+
+      final currentPrograms = ref.read(currentProgramsMapProvider).asData?.value ?? const <String, EpgProgram>{};
+      final missing = <({String streamId, String epgChannelId})>[];
+
+      for (var i = startIndex; i <= endIndex; i++) {
+        final stream = streams[i];
+        final epgId = (stream.epgChannelId != null && stream.epgChannelId!.isNotEmpty)
+            ? stream.epgChannelId!
+            : stream.streamId;
+        if (currentPrograms[epgId] == null) {
+          missing.add((streamId: stream.streamId, epgChannelId: epgId));
+        }
+      }
+
+      if (missing.isNotEmpty) {
+        ref.read(epgControllerProvider).ensureShortEpgForVisibleChannels(missing);
+      }
+    });
+  }
+
   void _selectCategory(String catId) {
     setState(() {
       _selectedCategory = catId;
       _movingStreamId = null;
       _localStreams = null;
       _localStreamsCategoryId = null;
+      _latestDisplayStreams = const [];
+      _lastViewportEpgKey = null;
       _lastScrolledStreamId = null;
+      _lastScrolledCategoryId = null;
+      _lastScrolledStreamCount = -1;
+      _userManuallyScrolledChannels = false;
       _lastFocusedChannelNode = null;
       _channelFocusNodes.clear();
     });
@@ -429,28 +498,46 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
     }
   }
 
-  void _scrollToActiveChannel(List<StreamItem> streams, String? activeId) {
+  void _scrollToActiveChannel(
+    List<StreamItem> streams,
+    String? activeId, {
+    bool categoryChanged = false,
+  }) {
     if (activeId == null || streams.isEmpty) return;
     final index = streams.indexWhere((s) => s.streamId == activeId);
-    if (index >= 0) {
+    if (index < 0) return;
+
+    final targetCategory = _selectedCategory;
+    final targetCount = streams.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_channelScrollController.hasClients) return;
+      if (_selectedCategory != targetCategory) return;
+      final position = _channelScrollController.position;
+      if (!position.hasViewportDimension || !position.hasContentDimensions) return;
+
+      final itemHeight = _channelItemExtent;
+      final viewportHeight = position.viewportDimension;
+      final maxScroll = position.maxScrollExtent;
+      if (targetCount * itemHeight > viewportHeight + itemHeight && maxScroll <= 0) {
+        return;
+      }
+
       _lastScrolledStreamId = activeId;
-      _lastScrolledCategoryId = _selectedCategory;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_channelScrollController.hasClients) return;
-        final itemHeight = GoatPlatform.isTv ? 48.0 : 64.0;
-        final viewportHeight = _channelScrollController.position.hasViewportDimension
-            ? _channelScrollController.position.viewportDimension
-            : 600.0;
-        final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
-        final maxScroll = _channelScrollController.position.maxScrollExtent;
-        final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+      _lastScrolledCategoryId = targetCategory;
+      _lastScrolledStreamCount = targetCount;
+
+      final targetOffset = (index * itemHeight) - (viewportHeight / 2) + (itemHeight / 2);
+      final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+      if (categoryChanged || (clampedOffset - position.pixels).abs() > viewportHeight) {
+        _channelScrollController.jumpTo(clampedOffset);
+      } else {
         _channelScrollController.animateTo(
           clampedOffset,
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic,
         );
-      });
-    }
+      }
+    });
   }
 
   void _scrollToActiveCategory(List<Category> categories, String? activeCatId) {
@@ -644,12 +731,16 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
 
     ref.listen<String?>(selectedLiveCategoryProvider, (prev, next) {
       if (next != null && next != _selectedCategory) {
+        final hasActiveChannel = (ref.read(playbackControllerProvider)?.streamId ?? ref.read(selectedLiveStreamProvider)?.streamId) != null;
         setState(() {
           _selectedCategory = next;
           _lastScrolledStreamId = null;
+          _lastScrolledCategoryId = null;
+          _lastScrolledStreamCount = -1;
+          _userManuallyScrolledChannels = false;
           _lastFocusedChannelNode = null;
           _channelFocusNodes.clear();
-          _focusFirstChannelOnNextBuild = true;
+          _focusFirstChannelOnNextBuild = !hasActiveChannel;
         });
       }
     });
@@ -1063,7 +1154,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                             },
                           );
                         },
-                        loading: () => const Center(child: CircularProgressIndicator()),
+                        loading: () => _buildChannelsLoadingView(l10n),
                         error: (err, stack) => Center(child: Text('Error: $err')),
                       ),
                     ),
@@ -1095,17 +1186,12 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         final isSyncing = ref.watch(syncingCategoriesProvider).contains(_selectedCategory);
                         final hasSynced = _syncedCategories.contains(_selectedCategory);
                         if (streams.isEmpty) {
+                          if (GoatPlatform.isTv) {
+                            _latestDisplayStreams = const [];
+                            _lastViewportEpgKey = null;
+                          }
                           if (isSyncing || (!hasSynced && _selectedCategory != 'favorites')) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const CircularProgressIndicator(color: Color(0xFF7C3AED)),
-                                  const SizedBox(height: 16),
-                                  Text(l10n.loadingChannels, style: const TextStyle(color: Colors.white70)),
-                                ],
-                              ),
-                            );
+                            return _buildChannelsLoadingView(l10n);
                           }
                           return Center(
                             child: Column(
@@ -1120,8 +1206,17 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         }
 
                         final activeStreamId = activePlayback?.streamId ?? ref.watch(selectedLiveStreamProvider)?.streamId;
-                        if (activeStreamId != null && (activeStreamId != _lastScrolledStreamId || _selectedCategory != _lastScrolledCategoryId)) {
-                          _scrollToActiveChannel(streams, activeStreamId);
+                        final categoryChanged = _selectedCategory != _lastScrolledCategoryId;
+                        final activeChanged = activeStreamId != _lastScrolledStreamId;
+                        final listResizedBeforeUserScroll =
+                            !_userManuallyScrolledChannels && streams.length != _lastScrolledStreamCount;
+                        if (activeStreamId != null &&
+                            (categoryChanged || activeChanged || listResizedBeforeUserScroll)) {
+                          _scrollToActiveChannel(
+                            streams,
+                            activeStreamId,
+                            categoryChanged: categoryChanged,
+                          );
                         }
 
                         final favoriteIds = ref.watch(favoriteStreamIdsProvider('live')).value ?? const <String>{};
@@ -1141,6 +1236,15 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         }
 
                         final displayStreams = isReorderable ? _localStreams! : streams;
+                        _latestDisplayStreams = displayStreams;
+                        final viewportEpgKey =
+                            '${_selectedCategory}_${displayStreams.length}_${displayStreams.firstOrNull?.streamId}';
+                        if (_lastViewportEpgKey != viewportEpgKey) {
+                          _lastViewportEpgKey = viewportEpgKey;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) _scheduleViewportShortEpg();
+                          });
+                        }
 
                         Widget buildChannelItem(int index) {
                           final stream = displayStreams[index];
@@ -1159,12 +1263,19 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                               : stream.streamId;
                           final currentProg = currentPrograms[epgId];
                           double? showProgress;
+                          String? epgRemainingLabel;
                           if (currentProg != null) {
                             final now = DateTime.now();
                             final totalSecs = currentProg.stopTime.difference(currentProg.startTime).inSeconds;
                             final elapsedSecs = now.difference(currentProg.startTime).inSeconds;
                             if (totalSecs > 0) {
                               showProgress = (elapsedSecs / totalSecs).clamp(0.0, 1.0);
+                            }
+                            final leftSecs = currentProg.stopTime.difference(now).inSeconds;
+                            if (leftSecs > 0) {
+                              final remMins = (leftSecs / 60).ceil().clamp(1, 999);
+                              final isDe = Localizations.localeOf(context).languageCode == 'de';
+                              epgRemainingLabel = isDe ? 'noch $remMins min' : '$remMins min left';
                             }
                           }
 
@@ -1330,14 +1441,32 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                                           ),
                                           if (currentProg != null && currentProg.title.isNotEmpty) ...[
                                             SizedBox(height: GoatPlatform.isTv ? 1 : 2),
-                                            Text(
-                                              currentProg.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: isCurrentPlaying ? const Color(0xFFD8B4FE) : Colors.white60,
-                                                fontSize: GoatPlatform.isTv ? 9.5 : 11.5,
-                                              ),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    currentProg.title,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: isCurrentPlaying ? const Color(0xFFD8B4FE) : Colors.white60,
+                                                      fontSize: GoatPlatform.isTv ? 9.5 : 11.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (epgRemainingLabel != null) ...[
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    epgRemainingLabel,
+                                                    maxLines: 1,
+                                                    style: TextStyle(
+                                                      color: isCurrentPlaying ? Colors.white70 : Colors.white38,
+                                                      fontSize: GoatPlatform.isTv ? 8.5 : 10.5,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                             if (showProgress != null) ...[
                                               SizedBox(height: GoatPlatform.isTv ? 2 : 3),
@@ -1417,11 +1546,21 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                           channelWidget = ListView.builder(
                             controller: _channelScrollController,
                             cacheExtent: GoatPlatform.isTv ? 400.0 : 500.0,
-                            itemExtent: GoatPlatform.isTv ? 48.0 : 66.0,
+                            itemExtent: _channelItemExtent,
                             itemCount: displayStreams.length,
                             itemBuilder: (context, index) => buildChannelItem(index),
                           );
                         }
+
+                        channelWidget = NotificationListener<UserScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification.direction != ScrollDirection.idle) {
+                              _userManuallyScrolledChannels = true;
+                            }
+                            return false;
+                          },
+                          child: channelWidget,
+                        );
 
                         if (GoatPlatform.isTv) {
                           final isDe = Localizations.localeOf(context).languageCode == 'de';
@@ -1490,7 +1629,7 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
                         }
                         return channelWidget;
                       },
-                      loading: () => const Center(child: CircularProgressIndicator()),
+                      loading: () => _buildChannelsLoadingView(l10n),
                       error: (err, stack) => Center(child: Text('${AppLocalizations.of(context)!.error}$err')),
                     ),
             ),
@@ -1619,6 +1758,19 @@ class _DesktopLiveScreenState extends ConsumerState<DesktopLiveScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelsLoadingView(AppLocalizations l10n) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF7C3AED)),
+          const SizedBox(height: 16),
+          Text(l10n.loadingChannels, style: const TextStyle(color: Colors.white70)),
         ],
       ),
     );

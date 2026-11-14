@@ -11,6 +11,7 @@ import '../dashboard/dashboard_state.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_text_field.dart';
 import '../../core/utils/platform_utils.dart';
+import '../../core/utils/vod_sync_helper.dart';
 import '../../main.dart';
 import '../common/category_manager_modal.dart';
 import '../common/stream_context_menu_modal.dart';
@@ -226,7 +227,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     });
     Future.microtask(() {
       ref.read(vodControllerProvider).syncVodCategories();
-      ref.read(vodControllerProvider).syncAllVodStreams();
+      // On TV, skip background full-library VOD sync at startup to keep live playback smooth;
+      // categories load on-demand and search triggers lazy full sync when used.
+      if (!GoatPlatform.isTv) {
+        ref.read(vodControllerProvider).syncAllVodStreams();
+      }
     });
   }
 
@@ -268,6 +273,20 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
     });
 
     final l10n = AppLocalizations.of(context)!;
+    final isDe = l10n.localeName == 'de';
+    final moviesLoadingIndicator = Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF7C3AED)),
+          const SizedBox(height: 16),
+          Text(
+            isDe ? 'Filme werden geladen...' : 'Loading movies...',
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -336,6 +355,11 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                     if (streams.isEmpty) {
                       _currentStreamIds = const [];
                       _currentFirstPosterNode = null;
+                      final syncingKeys = ref.watch(syncingVodCategoriesProvider);
+                      final isSyncing = (!hasSearch &&
+                              _selectedCategory != null &&
+                              syncingKeys.contains('movie_${_selectedCategory!}')) ||
+                          (hasSearch && syncingKeys.contains('all_movie'));
                       return CustomScrollView(
                         controller: _movieScrollController,
                         slivers: [
@@ -370,16 +394,18 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                                 }
                                 return KeyEventResult.ignored;
                               },
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.search_off, size: 64, color: Colors.white24),
-                                    const SizedBox(height: 16),
-                                    Text(AppLocalizations.of(context)!.noMoviesFound, style: const TextStyle(color: Colors.white54)),
-                                  ],
-                                ),
-                              ),
+                              child: isSyncing
+                                  ? moviesLoadingIndicator
+                                  : Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                                          const SizedBox(height: 16),
+                                          Text(AppLocalizations.of(context)!.noMoviesFound, style: const TextStyle(color: Colors.white54)),
+                                        ],
+                                      ),
+                                    ),
                             ),
                           ),
                         ],
@@ -569,9 +595,9 @@ class _MoviesGridScreenState extends ConsumerState<MoviesGridScreen> {
                             firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
                           ),
                         ),
-                      const SliverFillRemaining(
+                      SliverFillRemaining(
                         hasScrollBody: false,
-                        child: Center(child: CircularProgressIndicator()),
+                        child: moviesLoadingIndicator,
                       ),
                     ],
                   ),

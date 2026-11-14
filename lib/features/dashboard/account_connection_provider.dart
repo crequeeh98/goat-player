@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/database/daos/account_dao.dart';
 import '../../main.dart';
 
 class AccountConnectionInfo {
@@ -60,15 +61,22 @@ class AccountConnectionNotifier extends Notifier<AccountConnectionInfo> {
       final userInfo = authData['user_info'];
       if (userInfo != null && userInfo is Map) {
         final activeStr = userInfo['active_cons']?.toString() ?? '0';
-        final maxStr = userInfo['max_connections']?.toString() ?? '1';
         final active = int.tryParse(activeStr) ?? 0;
-        var max = int.tryParse(maxStr) ?? 1;
+        final meta = AccountDao.parseXtreamUserInfo(userInfo);
+        var max = meta.maxConnections ?? 1;
         if (max < 1) max = 1;
 
         state = AccountConnectionInfo(
           active: active,
           max: max,
           isLoading: false,
+        );
+
+        await ref.read(accountDaoProvider).updateAccountMetadata(
+          account.id,
+          expDate: meta.expDate,
+          maxConnections: max,
+          isTrial: meta.isTrial,
         );
       }
     } catch (e) {

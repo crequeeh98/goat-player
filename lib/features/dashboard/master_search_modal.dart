@@ -13,6 +13,7 @@ import '../../main.dart';
 import '../../core/player/playback_controller.dart';
 import '../../core/utils/channel_name_cleaner.dart';
 import '../../core/utils/platform_utils.dart';
+import '../../core/utils/vod_sync_helper.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_text_field.dart';
 
@@ -204,49 +205,72 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
   Widget _buildResultsList(dynamic provider, String type, int tabIndex) {
     final asyncValue = ref.watch(provider) as AsyncValue<List<StreamItem>>;
     final isDe = Localizations.localeOf(context).languageCode == 'de';
+    final isSyncing = type == 'live'
+        ? ref.watch(syncingCategoriesProvider).contains(LiveTvController.allLiveSyncKey)
+        : ref.watch(syncingVodCategoriesProvider).contains('all_$type');
+    final loadingText = switch (type) {
+      'live' => AppLocalizations.of(context)!.loadingChannels,
+      'movie' => isDe ? 'Filme werden geladen...' : 'Loading movies...',
+      _ => isDe ? 'Serien werden geladen...' : 'Loading series...',
+    };
+    final loadingIndicator = Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF7C3AED)),
+          const SizedBox(height: 16),
+          Text(loadingText, style: const TextStyle(color: Colors.white70)),
+        ],
+      ),
+    );
+    Widget wrapPlaceholderFocus(Widget child) => Focus(
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.arrowRight && _tabController.index < 2) {
+                _tabController.animateTo(_tabController.index + 1);
+                return KeyEventResult.handled;
+              } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft && _tabController.index > 0) {
+                _tabController.animateTo(_tabController.index - 1);
+                return KeyEventResult.handled;
+              } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                _searchFocusNode.requestFocus();
+                return KeyEventResult.handled;
+              } else if (event.logicalKey == LogicalKeyboardKey.escape ||
+                  event.logicalKey == LogicalKeyboardKey.goBack) {
+                _handleBack();
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: child,
+        );
     return asyncValue.when(
       data: (streams) {
         if (streams.isEmpty) {
-          return Focus(
-            autofocus: true,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent) {
-                if (event.logicalKey == LogicalKeyboardKey.arrowRight && _tabController.index < 2) {
-                  _tabController.animateTo(_tabController.index + 1);
-                  return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft && _tabController.index > 0) {
-                  _tabController.animateTo(_tabController.index - 1);
-                  return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  _searchFocusNode.requestFocus();
-                  return KeyEventResult.handled;
-                } else if (event.logicalKey == LogicalKeyboardKey.escape ||
-                    event.logicalKey == LogicalKeyboardKey.goBack) {
-                  _handleBack();
-                  return KeyEventResult.handled;
-                }
-              }
-              return KeyEventResult.ignored;
-            },
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.search_off, size: 54, color: Colors.white24),
-                  const SizedBox(height: 12),
-                  Text(AppLocalizations.of(context)!.noResultsFound, style: const TextStyle(color: Colors.white54, fontSize: 15)),
-                  if (GoatPlatform.isTv) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _tabController.index == 0
-                          ? (isDe ? 'Pfeil Rechts drücken für Filme & Serien' : 'Press Right Arrow for Movies & Series')
-                          : (isDe ? 'Pfeiltasten Links / Rechts wechseln Tabs' : 'Use Left / Right Arrows to switch tabs'),
-                      style: const TextStyle(color: Color(0xFFB388FF), fontSize: 13, fontWeight: FontWeight.bold),
+          return wrapPlaceholderFocus(
+            isSyncing
+                ? loadingIndicator
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.search_off, size: 54, color: Colors.white24),
+                        const SizedBox(height: 12),
+                        Text(AppLocalizations.of(context)!.noResultsFound, style: const TextStyle(color: Colors.white54, fontSize: 15)),
+                        if (GoatPlatform.isTv) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _tabController.index == 0
+                                ? (isDe ? 'Pfeil Rechts drücken für Filme & Serien' : 'Press Right Arrow for Movies & Series')
+                                : (isDe ? 'Pfeiltasten Links / Rechts wechseln Tabs' : 'Use Left / Right Arrows to switch tabs'),
+                            style: const TextStyle(color: Color(0xFFB388FF), fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ],
-              ),
-            ),
+                  ),
           );
         }
         
@@ -327,7 +351,7 @@ class _MasterSearchModalState extends ConsumerState<MasterSearchModal> with Sing
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => wrapPlaceholderFocus(loadingIndicator),
       error: (e, st) => Center(child: Text('${AppLocalizations.of(context)!.error}$e')),
     );
   }

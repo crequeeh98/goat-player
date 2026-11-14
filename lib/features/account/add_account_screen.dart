@@ -10,6 +10,8 @@ import '../../main.dart';
 import '../../core/utils/m3u_isolate_parser.dart';
 import '../../core/utils/title_sanitizer.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/daos/account_dao.dart';
+import '../../core/network/xtream_client.dart';
 import '../../core/remote_sync/remote_sync_service.dart';
 import '../../core/settings/locale_controller.dart';
 import '../../core/utils/platform_utils.dart';
@@ -48,6 +50,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   Timer? _countdownTimer;
   Duration _remainingTime = Duration.zero;
   bool _playlistReceived = false;
+  String? _remoteSyncErrorMessage;
   bool _isClosingSession = false;
   late final RemoteSyncService _syncService;
 
@@ -173,6 +176,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _isLoadingSession = true;
       _sessionError = null;
       _playlistReceived = false;
+      _remoteSyncErrorMessage = null;
     });
 
     try {
@@ -184,7 +188,26 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _remoteSubscription = _syncService.listenForRemoteEvents(session.deviceId).listen(
         (event) {
           if (!mounted) return;
-          setState(() => _playlistReceived = true);
+          if (event.type == RemoteSyncEventType.error) {
+            setState(() {
+              _playlistReceived = false;
+              _remoteSyncErrorMessage = event.message;
+            });
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(event.message),
+                backgroundColor: Colors.redAccent,
+                duration: const Duration(seconds: 5),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+          setState(() {
+            _remoteSyncErrorMessage = null;
+            _playlistReceived = true;
+          });
 
           final l10n = AppLocalizations.of(context)!;
           final isDe = l10n.localeName == 'de';
@@ -266,12 +289,56 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    var effectiveType = _playlistType;
 
     try {
       final dao = ref.read(accountDaoProvider);
+      final isDe = AppLocalizations.of(context)!.localeName == 'de';
 
-      if (_playlistType == PlaylistType.m3u) {
-        final m3uUrl = _serverUrlController.text.trim();
+      // Auto-detect Xtream credentials embedded in an M3U URL pasted into the M3U tab
+      String server = _serverUrlController.text.trim();
+      String user = _usernameController.text.trim();
+      String pass = _passwordController.text.trim();
+      if (effectiveType == PlaylistType.m3u) {
+        final parsedXtream = XtreamClient.tryParseXtreamFromM3uUrl(server);
+        if (parsedXtream != null) {
+          effectiveType = PlaylistType.xtream;
+          server = parsedXtream.serverUrl;
+          user = parsedXtream.username;
+          pass = parsedXtream.password;
+        }
+      }
+
+      if (effectiveType == PlaylistType.m3u) {
+        final m3uUrl = server;
+        final uri = Uri.tryParse(m3uUrl);
+        if (uri == null || !uri.hasScheme || uri.host.isEmpty || (uri.scheme != 'http' && uri.scheme != 'https')) {
+          throw const FormatException('Invalid URL');
+        }
+        String playlistName = _playlistNameController.text.trim();
+        if (playlistName.isEmpty) {
+          playlistName = uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => 'M3U Playlist');
+          playlistName = playlistName.replaceAll(RegExp(r'\.(m3u8?)$', caseSensitive: false), '').toUpperCase();
+        }
+
+        if (widget.accountToEdit != null && widget.accountToEdit!.serverUrl.trim() == m3uUrl) {
+          await dao.updateAccount(
+            widget.accountToEdit!.copyWith(
+              playlistName: drift.Value(playlistName),
+            ),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isDe ? 'Playlist aktualisiert' : 'Playlist updated'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pop(context);
+          }
+          return;
+        }
+
         final dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 30),
@@ -284,13 +351,6 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         final items = await M3uIsolateParser.parseContent(content);
         if (items.isEmpty) {
           throw Exception('No playable channels found in M3U');
-        }
-
-        String playlistName = _playlistNameController.text.trim();
-        if (playlistName.isEmpty) {
-          final uri = Uri.tryParse(m3uUrl);
-          playlistName = uri?.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => 'M3U Playlist') ?? 'M3U Playlist';
-          playlistName = playlistName.replaceAll(RegExp(r'\.(m3u8?)$', caseSensitive: false), '').toUpperCase();
         }
 
         int accountId;
@@ -362,17 +422,51 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           );
         }
       } else {
-        if (widget.accountToEdit != null) {
-          final oldAcc = widget.accountToEdit!;
-          final credentialsChanged = oldAcc.serverUrl != _serverUrlController.text.trim() ||
-              oldAcc.username != _usernameController.text.trim() ||
-              oldAcc.password != _passwordController.text.trim();
+        final rawName = _playlistNameController.text.trim();
+        final playlistName = rawName.isEmpty ? null : rawName;
+
+        final oldAcc = widget.accountToEdit;
+        final credentialsChanged = oldAcc == null ||
+            oldAcc.serverUrl != server ||
+            oldAcc.username != user ||
+            oldAcc.password != pass;
+
+        ({int expDate, int? maxConnections, bool isTrial})? meta;
+        if (credentialsChanged) {
+          final client = XtreamClient(
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 12),
+                receiveTimeout: const Duration(seconds: 15),
+              ),
+            ),
+            baseUrl: server,
+            username: user,
+            password: pass,
+          );
+          final authData = await client.authenticate();
+          final userInfo = authData['user_info'];
+          final isAuthOk = userInfo is Map && (userInfo['auth'] == 1 || userInfo['auth'] == '1');
+          if (!isAuthOk) {
+            throw Exception(
+              isDe
+                  ? 'Anmeldung fehlgeschlagen: Zugangsdaten ungültig oder Konto inaktiv.'
+                  : 'Authentication failed: Invalid credentials or inactive account.',
+            );
+          }
+          meta = AccountDao.parseXtreamUserInfo(userInfo);
+        }
+
+        if (oldAcc != null) {
           await dao.updateAccount(
             oldAcc.copyWith(
-              playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
-              serverUrl: _serverUrlController.text.trim(),
-              username: _usernameController.text.trim(),
-              password: _passwordController.text.trim(),
+              playlistName: drift.Value(playlistName),
+              serverUrl: server,
+              username: user,
+              password: pass,
+              expDate: drift.Value(meta != null ? meta.expDate : oldAcc.expDate),
+              maxConnections: drift.Value(meta != null ? meta.maxConnections : oldAcc.maxConnections),
+              isTrial: meta != null ? meta.isTrial : oldAcc.isTrial,
               syncLiveTv: _syncLiveTv,
               syncMovies: _syncMovies,
               syncSeries: _syncSeries,
@@ -410,10 +504,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         } else {
           await dao.insertAccount(
             AccountsCompanion.insert(
-              playlistName: drift.Value(_playlistNameController.text.trim().isEmpty ? null : _playlistNameController.text.trim()),
-              serverUrl: _serverUrlController.text.trim(),
-              username: _usernameController.text.trim(),
-              password: _passwordController.text.trim(),
+              playlistName: drift.Value(playlistName),
+              serverUrl: server,
+              username: user,
+              password: pass,
+              expDate: drift.Value(meta!.expDate),
+              maxConnections: drift.Value(meta.maxConnections),
+              isTrial: drift.Value(meta.isTrial),
               syncLiveTv: drift.Value(_syncLiveTv),
               syncMovies: drift.Value(_syncMovies),
               syncSeries: drift.Value(_syncSeries),
@@ -421,17 +518,31 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           );
         }
       }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (mounted) {
+        final isDe = Localizations.localeOf(context).languageCode == 'de';
+        final friendlyMsg = XtreamClient.formatUserFriendlyError(
+          e,
+          isDe: isDe,
+          isM3u: effectiveType == PlaylistType.m3u,
+        );
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(context)!.error}$e')),
+          SnackBar(
+            content: Text(friendlyMsg),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
-    }
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-      Navigator.pop(context);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -876,6 +987,30 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             contentPadding: GoatPlatform.isTv ? const EdgeInsets.fromLTRB(10, 5, 10, 5) : null,
             keyboardType: TextInputType.url,
             textInputAction: _playlistType == PlaylistType.xtream ? TextInputAction.next : TextInputAction.done,
+            onChanged: (val) {
+              if (_playlistType != PlaylistType.m3u) return;
+              final parsed = XtreamClient.tryParseXtreamFromM3uUrl(val);
+              if (parsed == null) return;
+              setState(() {
+                _playlistType = PlaylistType.xtream;
+                _serverUrlController.text = parsed.serverUrl;
+                _usernameController.text = parsed.username;
+                _passwordController.text = parsed.password;
+              });
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isDe
+                        ? 'Xtream-Zugangsdaten aus M3U-Link erkannt'
+                        : 'Xtream credentials detected from M3U link',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
             onSubmitted: (_) => _playlistType == PlaylistType.xtream
                 ? _userFocusNode.requestFocus()
                 : _submitFocusNode.requestFocus(),
@@ -1307,6 +1442,32 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           ],
         ),
         const SizedBox(height: 8),
+
+        if (_remoteSyncErrorMessage != null && !_playlistReceived) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 16, color: Colors.redAccent),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    _remoteSyncErrorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
 
         if (GoatPlatform.isTv) ...[
           if (!_playlistReceived)

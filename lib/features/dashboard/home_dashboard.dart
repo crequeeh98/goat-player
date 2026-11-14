@@ -315,6 +315,12 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
       }
     });
 
+    ref.listen<bool>(isLiveFullWidthProvider, (prev, next) {
+      if (prev == true && next == false) {
+        TvRemoteScope.markBackHandled();
+      }
+    });
+
     final isLiveFullWidth = ref.watch(isLiveFullWidthProvider);
     final hideChrome = (isLiveFullWidth && _selectedIndex == 0) || _isSearchOpen;
     final isCompact = MediaQuery.sizeOf(context).width < 600;
@@ -361,6 +367,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
       // Priority 0: If window is in OS fullscreen, restore windowed/full-width mode
       if (isFullscreen(context)) {
+        TvRemoteScope.markBackHandled();
         if (GoatPlatform.isTv && ref.read(liveFullscreenBackInterceptorProvider)?.call() == true) {
           return;
         }
@@ -372,6 +379,7 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
       // Priority 1: If Live TV is in full-width mode, close TV submenus/EPG first, else restore 3-column view
       if (ref.read(isLiveFullWidthProvider)) {
+        TvRemoteScope.markBackHandled();
         if (GoatPlatform.isTv && ref.read(liveFullscreenBackInterceptorProvider)?.call() == true) {
           return;
         }
@@ -381,12 +389,14 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> {
 
       // Priority 2: Close active master search modal if open
       if (_isSearchOpen) {
+        TvRemoteScope.markBackHandled();
         _closeSearch();
         return;
       }
 
       // Priority 3: Root Level Exit Confirmation (TV / Mobile only)
       if (!GoatPlatform.isDesktop) {
+        if (TvRemoteScope.wasBackRecentlyHandled(750)) return;
         final shouldExit = await TvRemoteScope.showTvExitDialog(context);
         if (shouldExit && context.mounted) {
           await TvRemoteScope.performExit();

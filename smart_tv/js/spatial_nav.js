@@ -121,13 +121,47 @@
     return true;
   }
 
+  var LARGE_SCROLL_IDS = {
+    'live-categories-list': true,
+    'movies-categories-list': true,
+    'series-categories-list': true,
+    'channels-virtual-container': true,
+    'movies-grid-container': true,
+    'series-grid-container': true,
+    'cat-mgr-list': true
+  };
+
   function getFocusableElements(container) {
     var root = container || document;
     var elements = root.querySelectorAll('.focusable, button:not([disabled]), input:not([disabled]), [tabindex="0"]');
+    var total = elements.length;
+    var pruneOffscreen = total > 60;
+    var scrollBounds = pruneOffscreen ? {} : null;
     var result = [];
-    for (var i = 0; i < elements.length; i++) {
+    for (var i = 0; i < total; i++) {
       var el = elements[i];
       if (el.id === 'preview-player-box' && !isPreviewActive()) continue;
+      if (pruneOffscreen && el !== _currentFocused) {
+        var rowItem = el;
+        var scroller = el.parentElement;
+        if (scroller && scroller.classList && scroller.classList.contains('channel-row-wrap')) {
+          rowItem = scroller;
+          scroller = scroller.parentElement;
+        }
+        if (scroller && scroller.id && LARGE_SCROLL_IDS[scroller.id]) {
+          var bounds = scrollBounds[scroller.id];
+          if (!bounds) {
+            bounds = scrollBounds[scroller.id] = {
+              top: scroller.scrollTop - 220,
+              bottom: scroller.scrollTop + (scroller.clientHeight || 800) + 220
+            };
+          }
+          var top = rowItem.offsetTop;
+          if (top + 120 < bounds.top || top > bounds.bottom) {
+            continue;
+          }
+        }
+      }
       // Element must be visible and attached to the layout tree (offsetParent !== null)
       if (el.offsetParent !== null) {
         result.push(el);
@@ -2035,7 +2069,7 @@
             document.getElementById('nav-btn-live'),
             document.getElementById('nav-btn-movies'),
             document.getElementById('nav-btn-series')
-          ].filter(Boolean);
+          ].filter(function(b) { return b && b.offsetParent !== null; });
           var idx = railBtns.indexOf(_currentFocused);
           if (idx <= 0) {
             setFocus(railBtns[railBtns.length - 1]);
@@ -2049,7 +2083,7 @@
             document.getElementById('nav-btn-live'),
             document.getElementById('nav-btn-movies'),
             document.getElementById('nav-btn-series')
-          ].filter(Boolean);
+          ].filter(function(b) { return b && b.offsetParent !== null; });
           var idx = railBtns.indexOf(_currentFocused);
           if (idx >= railBtns.length - 1) {
             setFocus(railBtns[0]);
@@ -2085,6 +2119,15 @@
           var next = _currentFocused.nextElementSibling;
           while (next && (!next.classList.contains('category-item') || next.offsetParent === null)) {
             next = next.nextElementSibling;
+          }
+          if (!next && window.TVApp && typeof window.TVApp.loadMoreCategoriesFor === 'function') {
+            var catParent = _currentFocused.parentElement;
+            if (catParent && window.TVApp.loadMoreCategoriesFor(catParent.id)) {
+              next = _currentFocused.nextElementSibling;
+              while (next && (!next.classList.contains('category-item') || next.offsetParent === null)) {
+                next = next.nextElementSibling;
+              }
+            }
           }
           if (next) {
             setFocus(next);

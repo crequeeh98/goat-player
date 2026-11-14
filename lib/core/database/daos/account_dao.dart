@@ -57,6 +57,40 @@ class AccountDao extends DatabaseAccessor<AppDatabase> with _$AccountDaoMixin {
     );
   }
 
+  /// Updates Xtream account metadata (`expDate`: null = unfetched, 0 = unlimited, >0 = unix sec).
+  Future<void> updateAccountMetadata(
+    int accountId, {
+    int? expDate,
+    int? maxConnections,
+    bool? isTrial,
+  }) {
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(
+        expDate: expDate != null ? Value(expDate) : const Value.absent(),
+        maxConnections: maxConnections != null ? Value(maxConnections) : const Value.absent(),
+        isTrial: isTrial != null ? Value(isTrial) : const Value.absent(),
+      ),
+    );
+  }
+
+  /// Parses Xtream `user_info` into normalized `(expDate, maxConnections, isTrial)`.
+  /// `expDate`: `0` when unlimited/null/empty, `> 0` for unix timestamp in seconds.
+  static ({int expDate, int? maxConnections, bool isTrial}) parseXtreamUserInfo(Map userInfo) {
+    final rawExp = userInfo['exp_date']?.toString().trim() ?? '';
+    final parsedExp = (rawExp.isEmpty || rawExp.toLowerCase() == 'null')
+        ? 0
+        : (int.tryParse(rawExp) ?? double.tryParse(rawExp)?.toInt() ?? 0);
+    final rawMax = userInfo['max_connections']?.toString().trim();
+    final parsedMax = rawMax != null ? int.tryParse(rawMax) : null;
+    final rawTrial = userInfo['is_trial'];
+    final isTrial = rawTrial == true || rawTrial == 1 || rawTrial?.toString() == '1';
+    return (
+      expDate: parsedExp < 0 ? 0 : parsedExp,
+      maxConnections: parsedMax,
+      isTrial: isTrial,
+    );
+  }
+
   Future<int> deleteAccount(Account account) => delete(accounts).delete(account);
   
   Future<Account?> getAccountById(int id) async {

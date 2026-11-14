@@ -23,6 +23,7 @@ final epgControllerProvider = Provider<EpgController>((ref) {
 class EpgController {
   final Ref _ref;
   bool _isSyncing = false;
+  int _viewportBatchGen = 0;
   final Map<String, DateTime> _shortEpgFetchedAt = {};
   final Set<String> _shortEpgInFlight = {};
 
@@ -46,32 +47,27 @@ class EpgController {
     }
   }
 
-  /// Punkt 1: Lädt für Flutter TV (Fire TV / Android TV) on-demand die nächsten ~10 Sendungen
-  /// eines Kanals über get_short_epg (TTL: 15 Minuten pro Kanal).
-  Future<void> ensureShortEpg({
+  Future<({String channelId, List<EpgProgramsCompanion> companions})?> _fetchShortEpgForChannel(
+    Account account,
+    dynamic client, {
     required String streamId,
     String? epgChannelId,
     bool force = false,
   }) async {
-    final account = _ref.read(activeAccountProvider);
-    final client = _ref.read(xtreamClientProvider);
-    if (account == null || client == null) return;
-    if (account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
-
     final cacheKey = '${account.id}_$streamId';
-    if (_shortEpgInFlight.contains(cacheKey)) return;
+    if (_shortEpgInFlight.contains(cacheKey)) return null;
 
     final now = DateTime.now();
     final lastFetched = _shortEpgFetchedAt[cacheKey];
     if (!force && lastFetched != null && now.difference(lastFetched) < const Duration(minutes: 15)) {
-      return;
+      return null;
     }
 
     _shortEpgInFlight.add(cacheKey);
     try {
       final listings = await client.getShortEpg(streamId, limit: 10);
       _shortEpgFetchedAt[cacheKey] = DateTime.now();
-      if (listings.isEmpty) return;
+      if (listings.isEmpty) return null;
 
       final targetChannelId = (epgChannelId != null && epgChannelId.trim().isNotEmpty)
           ? epgChannelId.trim()
@@ -100,15 +96,102 @@ class EpgController {
         );
       }
 
-      if (companions.isNotEmpty) {
-        final dao = _ref.read(epgDaoProvider);
-        await dao.replaceProgramsForChannel(account.id, targetChannelId, companions);
-      }
+      if (companions.isEmpty) return null;
+      return (channelId: targetChannelId, companions: companions);
     } catch (e) {
       debugPrint('Short EPG error for stream $streamId: $e');
+      return null;
     } finally {
       _shortEpgInFlight.remove(cacheKey);
     }
+  }
+
+  /// Punkt 1: Lädt für Flutter TV / Desktop on-demand die nächsten ~10 Sendungen
+  /// eines Kanals über get_short_epg (TTL: 15 Minuten pro Kanal).
+  Future<void> ensureShortEpg({
+    required String streamId,
+    String? epgChannelId,
+    bool force = false,
+  }) async {
+    final account = _ref.read(activeAccountProvider);
+    final client = _ref.read(xtreamClientProvider);
+    if (account == null || client == null) return;
+    if (account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+
+    final fetched = await _fetchShortEpgForChannel(
+      account,
+      client,
+      streamId: streamId,
+      epgChannelId: epgChannelId,
+      force: force,
+    );
+    if (fetched != null) {
+      final dao = _ref.read(epgDaoProvider);
+      await dao.replaceProgramsForChannel(account.id, fetched.channelId, fetched.companions);
+    }
+  }
+
+  /// Loads short EPG in batches of up to 2 concurrent requests for visible channels (max 15)
+  /// and flushes DB writes in max 2 combined transactions to avoid UI rebuild storms.
+  Future<void> ensureShortEpgForVisibleChannels(
+    List<({String streamId, String epgChannelId})> channels,
+  ) async {
+    final account = _ref.read(activeAccountProvider);
+    final client = _ref.read(xtreamClientProvider);
+    if (account == null || client == null) return;
+    if (account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
+    if (channels.isEmpty) return;
+
+    final gen = ++_viewportBatchGen;
+    final now = DateTime.now();
+    final queue = <({String streamId, String epgChannelId})>[];
+    for (final ch in channels) {
+      if (queue.length >= 15) break;
+      final cacheKey = '${account.id}_${ch.streamId}';
+      if (_shortEpgInFlight.contains(cacheKey)) continue;
+      final lastFetched = _shortEpgFetchedAt[cacheKey];
+      if (lastFetched != null && now.difference(lastFetched) < const Duration(minutes: 15)) {
+        continue;
+      }
+      queue.add(ch);
+    }
+    if (queue.isEmpty) return;
+
+    final dao = _ref.read(epgDaoProvider);
+    final pendingWrites = <String, List<EpgProgramsCompanion>>{};
+    var didInitialFlush = false;
+    var cursor = 0;
+
+    Future<void> flushPending() async {
+      if (pendingWrites.isEmpty) return;
+      final batchToWrite = Map<String, List<EpgProgramsCompanion>>.from(pendingWrites);
+      pendingWrites.clear();
+      await dao.replaceProgramsForChannels(account.id, batchToWrite);
+    }
+
+    Future<void> worker() async {
+      while (cursor < queue.length) {
+        if (gen != _viewportBatchGen) return;
+        final item = queue[cursor++];
+        final fetched = await _fetchShortEpgForChannel(
+          account,
+          client,
+          streamId: item.streamId,
+          epgChannelId: item.epgChannelId,
+        );
+        if (fetched != null) {
+          pendingWrites[fetched.channelId] = fetched.companions;
+          if (!didInitialFlush && pendingWrites.length >= 4) {
+            didInitialFlush = true;
+            await flushPending();
+          }
+        }
+      }
+    }
+
+    final workerCount = queue.length < 2 ? queue.length : 2;
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+    await flushPending();
   }
 
   static String _decodeBase64OrPlain(String? raw) {

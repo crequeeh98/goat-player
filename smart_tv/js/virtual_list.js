@@ -114,6 +114,25 @@
     this.loadedCount = end;
   };
 
+  ChannelList.prototype.scrollToIndex = function(index) {
+    if (index < 0 || !this.items || index >= this.items.length) return;
+    this.selectedIndex = index;
+    while (index >= this.loadedCount && this.loadedCount < this.items.length) {
+      this.loadNextBatch();
+    }
+    if (index >= this.loadedCount - 5 && this.loadedCount < this.items.length) {
+      this.loadNextBatch();
+    }
+    var targetEl = this.listEl.querySelector('.channel-row-wrap[data-index="' + index + '"]');
+    var container = this.container;
+    if (targetEl && container) {
+      var viewHeight = container.clientHeight || 500;
+      var rowTop = targetEl.offsetTop;
+      var rowHeight = targetEl.offsetHeight || 64;
+      container.scrollTop = Math.max(0, rowTop - (viewHeight / 2) + (rowHeight / 2));
+    }
+  };
+
   ChannelList.prototype.focusIndex = function(index) {
     if (index < 0 || !this.items || index >= this.items.length) return;
     this.selectedIndex = index;

@@ -111,15 +111,31 @@ class EpgDao extends DatabaseAccessor<AppDatabase> with _$EpgDaoMixin {
     int accountId,
     String channelId,
     List<EpgProgramsCompanion> programs,
+  ) {
+    return replaceProgramsForChannels(accountId, {channelId: programs});
+  }
+
+  Future<void> replaceProgramsForChannels(
+    int accountId,
+    Map<String, List<EpgProgramsCompanion>> channelPrograms,
   ) async {
+    if (channelPrograms.isEmpty) return;
+    final channelIds = channelPrograms.keys.toList();
+    final allPrograms = <EpgProgramsCompanion>[
+      for (final list in channelPrograms.values) ...list,
+    ];
     await transaction(() async {
       await (delete(epgPrograms)
-            ..where((p) => p.accountId.equals(accountId) & p.channelId.equals(channelId)))
+            ..where((p) => p.accountId.equals(accountId) & p.channelId.isIn(channelIds)))
           .go();
-      if (programs.isNotEmpty) {
-        await batch((b) {
-          b.insertAll(epgPrograms, programs, mode: InsertMode.insertOrReplace);
-        });
+      if (allPrograms.isNotEmpty) {
+        const chunkSize = 500;
+        for (var i = 0; i < allPrograms.length; i += chunkSize) {
+          final end = (i + chunkSize < allPrograms.length) ? i + chunkSize : allPrograms.length;
+          await batch((b) {
+            b.insertAll(epgPrograms, allPrograms.sublist(i, end), mode: InsertMode.insertOrReplace);
+          });
+        }
       }
     });
   }

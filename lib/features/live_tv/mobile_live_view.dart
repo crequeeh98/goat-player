@@ -248,6 +248,27 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
   String _channelSearchQuery = '';
   bool _isSearching = false;
   List<StreamItem>? _localStreams;
+  Timer? _epgMinuteTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _epgMinuteTicker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final currentMap = ref.read(currentProgramsMapProvider).asData?.value;
+      if (currentMap != null && currentMap.values.any((p) => !p.stopTime.isAfter(now))) {
+        ref.invalidate(currentProgramsMapProvider);
+      }
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _epgMinuteTicker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -327,13 +348,20 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                 final currentProgram = epgChannelId != null ? currentPrograms[epgChannelId] : null;
                 String? currentShowTitle;
                 double? showProgress;
-                
+                String? epgRemainingLabel;
+
                 if (currentProgram != null) {
                   currentShowTitle = currentProgram.title;
-                  final totalMinutes = currentProgram.stopTime.difference(currentProgram.startTime).inMinutes;
-                  final elapsedMinutes = now.difference(currentProgram.startTime).inMinutes;
-                  if (totalMinutes > 0) {
-                    showProgress = (elapsedMinutes / totalMinutes).clamp(0.0, 1.0);
+                  final totalSecs = currentProgram.stopTime.difference(currentProgram.startTime).inSeconds;
+                  final elapsedSecs = now.difference(currentProgram.startTime).inSeconds;
+                  if (totalSecs > 0) {
+                    showProgress = (elapsedSecs / totalSecs).clamp(0.0, 1.0);
+                  }
+                  final leftSecs = currentProgram.stopTime.difference(now).inSeconds;
+                  if (leftSecs > 0) {
+                    final remMins = (leftSecs / 60).ceil().clamp(1, 999);
+                    final isDe = Localizations.localeOf(context).languageCode == 'de';
+                    epgRemainingLabel = isDe ? 'noch $remMins min' : '$remMins min left';
                   }
                 }
 
@@ -359,11 +387,29 @@ class _MobileLiveChannelsScreenState extends ConsumerState<MobileLiveChannelsScr
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(height: 1),
-                            Text(
-                              currentShowTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: Colors.white70),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    currentShowTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                  ),
+                                ),
+                                if (epgRemainingLabel != null) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    epgRemainingLabel,
+                                    maxLines: 1,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white38,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             if (showProgress != null) ...[
                               const SizedBox(height: 3),

@@ -1039,6 +1039,8 @@
     let isDeviceConnected = false;
     let pollDeviceInterval = null;
     let pendingAddActionId = null;
+    let pendingSyncAction = null;
+    const handledErrorActionIds = new Set();
 
     const ICONS = {
       tv: `<svg class="svg-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>`,
@@ -1099,8 +1101,11 @@
         invalidPin: "Invalid Device ID or PIN. Please check your screen.",
         pinExpired: "PIN has expired. Please refresh the PIN on your TV.",
         enterBoth: "Please enter both Device ID and 6-digit PIN.",
-        playlistSentSuccess: "Playlist sent! GOATPlayer is now syncing.",
-        playlistUpdatedSuccess: "Playlist updated on GOATPlayer!",
+        playlistSentSuccess: "Playlist sent! Verifying on GOATPlayer...",
+        playlistUpdatedSuccess: "Changes sent! Verifying on GOATPlayer...",
+        playlistVerifiedSuccess: "Playlist connected & saved on GOATPlayer!",
+        playlistUpdateVerifiedSuccess: "Playlist verified & updated!",
+        syncRejectedPrefix: "Rejected by GOATPlayer: ",
         playlistDeletedSuccess: "Playlist removed from GOATPlayer.",
         disconnected: "Disconnected",
         disconnectedTitle: "TV Disconnected",
@@ -1152,8 +1157,11 @@
         invalidPin: "Ungültige Geräte-ID oder PIN. Bitte überprüfe deinen Bildschirm.",
         pinExpired: "PIN ist abgelaufen. Bitte auf dem TV auf Aktualisieren tippen.",
         enterBoth: "Bitte gib sowohl die Geräte-ID als auch den 6-stelligen PIN ein.",
-        playlistSentSuccess: "Playlist gesendet! GOATPlayer lädt deine Sender.",
-        playlistUpdatedSuccess: "Playlist auf dem Gerät aktualisiert!",
+        playlistSentSuccess: "Playlist gesendet! Wird auf dem Gerät geprüft...",
+        playlistUpdatedSuccess: "Änderung gesendet! Wird auf dem Gerät geprüft...",
+        playlistVerifiedSuccess: "Playlist verbunden & auf GOATPlayer gespeichert!",
+        playlistUpdateVerifiedSuccess: "Playlist geprüft & aktualisiert!",
+        syncRejectedPrefix: "Vom Gerät abgelehnt: ",
         playlistDeletedSuccess: "Playlist von GOATPlayer entfernt.",
         disconnected: "Getrennt",
         disconnectedTitle: "TV getrennt",
@@ -1673,6 +1681,42 @@
       }, 2500);
     }
 
+    function handleSyncActionFeedback(record) {
+      if (!record) return;
+      const sa = record.sync_action;
+      if (sa && typeof sa === 'object' && sa.action === 'error') {
+        const errId = String(sa.action_id || sa.timestamp || '');
+        if (!errId || !handledErrorActionIds.has(errId)) {
+          if (errId) handledErrorActionIds.add(errId);
+          pendingAddActionId = null;
+          pendingSyncAction = null;
+          const msg = sa.error_message || 'Invalid URL or credentials';
+          showToast(t('syncRejectedPrefix') + msg);
+          if (Array.isArray(record.playlists)) {
+            activePlaylists = deduplicatePlaylists(record.playlists);
+            renderPlaylists();
+          }
+          // Clear stale error sync_action so subsequent actions stay clean
+          if (activeDeviceId && supabaseClient) {
+            supabaseClient.from('remote_devices').update({
+              sync_action: null,
+              updated_at: new Date().toISOString()
+            }).eq('device_id', activeDeviceId).then(() => {}).catch(() => {});
+          }
+        }
+        return;
+      }
+
+      if (!sa) {
+        if (pendingAddActionId) pendingAddActionId = null;
+        if (pendingSyncAction) {
+          const mode = pendingSyncAction.mode;
+          pendingSyncAction = null;
+          showToast(mode === 'edit' ? t('playlistUpdateVerifiedSuccess') : t('playlistVerifiedSuccess'));
+        }
+      }
+    }
+
     async function checkDeviceStatus(deviceId) {
       if (!activeDeviceId || activeDeviceId !== deviceId) {
         if (pollDeviceInterval) {
@@ -1690,10 +1734,7 @@
 
         if (error || !data) return;
 
-        // If an add action was sent and TV has acknowledged it, clear pending flag
-        if (pendingAddActionId && !data.sync_action) {
-          pendingAddActionId = null;
-        }
+        handleSyncActionFeedback(data);
 
         const isExpired = data.pin_expires_at && new Date(data.pin_expires_at) < new Date();
         const pinChanged = Boolean(activePin && data.pin && String(data.pin).trim() !== String(activePin).trim());
@@ -1734,10 +1775,7 @@
         }, async (payload) => {
           const newRecord = payload.new;
           if (newRecord) {
-            // Check if pending add action was completed/cleared by TV
-            if (pendingAddActionId && !newRecord.sync_action) {
-              pendingAddActionId = null;
-            }
+            handleSyncActionFeedback(newRecord);
 
             const isExpired = newRecord.pin_expires_at && new Date(newRecord.pin_expires_at) < new Date();
             const pinChanged = Boolean(activePin && newRecord.pin && String(newRecord.pin).trim() !== String(activePin).trim());
@@ -1776,6 +1814,8 @@
       activePin = '';
       activePlaylists = [];
       pendingAddActionId = null;
+      pendingSyncAction = null;
+      handledErrorActionIds.clear();
       pendingDeletedIds.clear();
       isDeviceConnected = false;
       closePlaylistModal();
@@ -1973,6 +2013,7 @@
 
           const actionId = `add_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
           pendingAddActionId = actionId;
+          pendingSyncAction = { actionId, mode: 'add' };
 
           const plainAction = {
             action_id: actionId,
@@ -1994,18 +2035,22 @@
               updated_at: new Date().toISOString()
             }).eq('device_id', activeDeviceId);
 
-            if (res && res.error) {
-              console.warn('Sync action error:', res.error);
-              showToast('Error: ' + res.error.message);
-              if (btn) btn.disabled = false;
-              return;
-            }
-          } catch (colErr) {
-            console.error('Failed to dispatch add action:', colErr);
-            showToast('Error: ' + colErr.message);
+          if (res && res.error) {
+            pendingSyncAction = null;
+            pendingAddActionId = null;
+            console.warn('Sync action error:', res.error);
+            showToast('Error: ' + res.error.message);
             if (btn) btn.disabled = false;
             return;
           }
+        } catch (colErr) {
+          pendingSyncAction = null;
+          pendingAddActionId = null;
+          console.error('Failed to dispatch add action:', colErr);
+          showToast('Error: ' + colErr.message);
+          if (btn) btn.disabled = false;
+          return;
+        }
 
           showToast(t('playlistSentSuccess'));
         } else if (currentModalMode === 'edit') {
@@ -2016,16 +2061,8 @@
           const oldServer = pl ? pl.server_url : (serverUrl || undefined);
           const oldUser = pl ? pl.username : (username || undefined);
 
-          if (pl) {
-            if (playlistName) pl.playlist_name = playlistName;
-            if (serverUrl) pl.server_url = serverUrl;
-            if (username) pl.username = username;
-            if (password) pl.password = password;
-            if (playlistType) pl.type = playlistType;
-          }
-          renderPlaylists();
-
           const actionId = `edit_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+          pendingSyncAction = { actionId, mode: 'edit' };
           const plainEditAction = {
             action_id: actionId,
             action: 'edit',
@@ -2048,6 +2085,7 @@
 
           const res = await supabaseClient.from('remote_devices').update(updatePayload).eq('device_id', activeDeviceId);
           if (res && res.error) {
+            pendingSyncAction = null;
             console.error('Edit sync error:', res.error);
             showToast('Error: ' + res.error.message);
           } else {

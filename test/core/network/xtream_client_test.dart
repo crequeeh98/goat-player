@@ -88,5 +88,58 @@ void main() {
         expect(errString, contains('password=***'));
       }
     });
+
+    test('tryParseXtreamFromM3uUrl extracts Xtream credentials from M3U URLs', () {
+      final fromQuery = XtreamClient.tryParseXtreamFromM3uUrl(
+        'http://demo.tv:8080/get.php?username=alice&password=secret123&type=m3u_plus',
+      );
+      expect(fromQuery, isNotNull);
+      expect(fromQuery!.serverUrl, equals('http://demo.tv:8080'));
+      expect(fromQuery.username, equals('alice'));
+      expect(fromQuery.password, equals('secret123'));
+
+      final fromPath = XtreamClient.tryParseXtreamFromM3uUrl(
+        'https://iptv.example.com/live/bob/pw99/42.ts',
+      );
+      expect(fromPath, isNotNull);
+      expect(fromPath!.serverUrl, equals('https://iptv.example.com'));
+      expect(fromPath.username, equals('bob'));
+      expect(fromPath.password, equals('pw99'));
+
+      final plainM3u = XtreamClient.tryParseXtreamFromM3uUrl(
+        'https://example.org/playlists/channels.m3u8',
+      );
+      expect(plainM3u, isNull);
+    });
+
+    test('formatUserFriendlyError hides raw DioException dumps and reports concise status', () {
+      final req = RequestOptions(path: 'http://panel.test:8080/player_api.php');
+      final err401 = DioException(
+        requestOptions: req,
+        response: Response(requestOptions: req, statusCode: 401),
+        type: DioExceptionType.badResponse,
+      );
+      final msgDe = XtreamClient.formatUserFriendlyError(err401, isDe: true);
+      expect(msgDe, contains('Zugriff verweigert'));
+      expect(msgDe, isNot(contains('DioException [')));
+      expect(msgDe, isNot(contains('RequestOptions')));
+
+      final err404 = DioException(
+        requestOptions: req,
+        response: Response(requestOptions: req, statusCode: 404),
+        type: DioExceptionType.badResponse,
+      );
+      final msg404 = XtreamClient.formatUserFriendlyError(err404, isDe: false, isM3u: true);
+      expect(msg404, contains('404'));
+      expect(msg404, isNot(contains('DioException [')));
+
+      final m3uErr = XtreamClient.formatUserFriendlyError(
+        Exception('Failed to authenticate: Invalid M3U playlist format'),
+        isDe: false,
+        isM3u: true,
+      );
+      expect(m3uErr, contains('Invalid M3U playlist'));
+      expect(m3uErr, isNot(contains('Exception:')));
+    });
   });
 }

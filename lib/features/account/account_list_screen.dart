@@ -1,7 +1,11 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:goat_player/l10n/app_localizations.dart';
+import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'add_account_screen.dart';
 import '../dashboard/home_dashboard.dart';
@@ -11,9 +15,9 @@ import '../live_tv/live_tv_controller.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_remote_scope.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/daos/account_dao.dart';
+import '../../core/network/xtream_client.dart';
 import '../../core/utils/platform_utils.dart';
-import 'dart:io';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/updater/app_updater_service.dart';
 import '../../core/updater/widgets/update_dialog.dart';
 
@@ -31,6 +35,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
   bool _didAutoLogin = false;
   String _appVersion = '';
   bool _isCheckingChangelog = false;
+  final Set<int> _fetchedExpAccountIds = {};
 
   @override
   void initState() {
@@ -146,6 +151,113 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
         setState(() => _isNavigating = false);
       }
     });
+  }
+
+  void _fetchAccountExpirationIfNeeded(Account account) {
+    final isM3u = account.username.isEmpty || account.serverUrl.contains('.m3u');
+    if (isM3u || account.expDate != null) return;
+    if (!_fetchedExpAccountIds.add(account.id)) return;
+
+    Future(() async {
+      try {
+        final client = XtreamClient(
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 10),
+            ),
+          ),
+          baseUrl: account.serverUrl,
+          username: account.username,
+          password: account.password,
+        );
+        final authData = await client.authenticate();
+        final userInfo = authData['user_info'];
+        if (userInfo is Map && mounted) {
+          final meta = AccountDao.parseXtreamUserInfo(userInfo);
+          await ref.read(accountDaoProvider).updateAccountMetadata(
+            account.id,
+            expDate: meta.expDate,
+            maxConnections: meta.maxConnections,
+            isTrial: meta.isTrial,
+          );
+        }
+      } catch (_) {
+        // Keep one-time guard so unreachable servers are not re-polled on every rebuild.
+      }
+    });
+  }
+
+  Widget _buildExpirationBadge(Account account, AppLocalizations l10n) {
+    final isDe = l10n.localeName == 'de';
+    final expDate = account.expDate;
+
+    late final String text;
+    late final Color fgColor;
+    late final Color bgColor;
+    late final Color borderColor;
+    late final IconData icon;
+
+    if (expDate == null) {
+      text = isDe ? 'Läuft ab: --' : 'Expires: --';
+      fgColor = Colors.white54;
+      bgColor = Colors.white.withValues(alpha: 0.06);
+      borderColor = Colors.white.withValues(alpha: 0.12);
+      icon = Icons.schedule_rounded;
+    } else if (expDate == 0) {
+      text = isDe ? 'Läuft ab: Unbegrenzt' : 'Expires: Unlimited';
+      fgColor = const Color(0xFF34D399);
+      bgColor = const Color(0xFF10B981).withValues(alpha: 0.15);
+      borderColor = const Color(0xFF10B981).withValues(alpha: 0.35);
+      icon = Icons.all_inclusive_rounded;
+    } else {
+      final dt = DateTime.fromMillisecondsSinceEpoch(expDate * 1000);
+      final dateStr = isDe
+          ? DateFormat('dd.MM.yyyy').format(dt)
+          : DateFormat('MMM d, yyyy', 'en_US').format(dt);
+      final isExpired = expDate * 1000 < DateTime.now().millisecondsSinceEpoch;
+      if (isExpired) {
+        text = isDe ? 'Abgelaufen ($dateStr)' : 'Expired ($dateStr)';
+        fgColor = Colors.redAccent;
+        bgColor = Colors.redAccent.withValues(alpha: 0.15);
+        borderColor = Colors.redAccent.withValues(alpha: 0.45);
+        icon = Icons.error_outline_rounded;
+      } else {
+        text = isDe ? 'Läuft ab: $dateStr' : 'Expires: $dateStr';
+        fgColor = const Color(0xFFC4B5FD);
+        bgColor = const Color(0xFF7C3AED).withValues(alpha: 0.16);
+        borderColor = const Color(0xFF7C3AED).withValues(alpha: 0.35);
+        icon = Icons.event_available_rounded;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: borderColor, width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: fgColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: fgColor,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmDelete(BuildContext context, Account account) async {
@@ -512,7 +624,7 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                 ),
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 440,
-                  mainAxisExtent: 88,
+                  mainAxisExtent: 112,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
@@ -582,6 +694,9 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
     final displayName = (account.playlistName != null && account.playlistName!.trim().isNotEmpty)
         ? account.playlistName!.trim()
         : (isM3u ? 'M3U Playlist' : account.username);
+    if (!isM3u && account.expDate == null) {
+      _fetchAccountExpirationIfNeeded(account);
+    }
 
     void selectAccount() async {
       final freshAccount = await ref.read(accountDaoProvider).getAccountById(account.id) ?? account;
@@ -685,6 +800,10 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                               ),
                             ],
                           ),
+                          if (!isM3u) ...[
+                            const SizedBox(height: 4),
+                            _buildExpirationBadge(account, l10n),
+                          ],
                         ],
                       ),
                     ),
@@ -812,6 +931,10 @@ class _AccountListScreenState extends ConsumerState<AccountListScreen> {
                       ),
                     ],
                   ),
+                  if (!isM3u) ...[
+                    const SizedBox(height: 5),
+                    _buildExpirationBadge(account, l10n),
+                  ],
                 ],
               ),
             ),

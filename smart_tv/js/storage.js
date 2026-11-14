@@ -1,6 +1,7 @@
 // Storage Manager with in-memory fallback for file:// Smart TV sandboxes
 (function() {
   var _memStore = {};
+  var _m3uParsedCache = {};
   var _hasNativeStorage = false;
 
   try {
@@ -120,6 +121,166 @@
   window.parseDurationSecs = parseDurationSecs;
   window.extractDurationFromInfo = extractDurationFromInfo;
 
+  // IndexedDB SWR Cache (B1) with automatic no-op fallback on file:// sandboxes
+  var IDB_NAME = 'goat_tv_cache_v1';
+  var IDB_STORE = 'kv';
+  var _idbPromise = null;
+  var _idbUnavailable = false;
+
+  function getIdbFactory() {
+    try {
+      if (typeof window !== 'undefined' && window.indexedDB) return window.indexedDB;
+      if (typeof indexedDB !== 'undefined') return indexedDB;
+    } catch (_) {}
+    return null;
+  }
+
+  function openIdb() {
+    if (_idbUnavailable) return Promise.resolve(null);
+    if (_idbPromise) return _idbPromise;
+
+    var factory = getIdbFactory();
+    if (!factory) {
+      _idbUnavailable = true;
+      return Promise.resolve(null);
+    }
+
+    _idbPromise = new Promise(function(resolve) {
+      try {
+        var req = factory.open(IDB_NAME, 1);
+        req.onupgradeneeded = function(e) {
+          try {
+            var db = e.target.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) {
+              db.createObjectStore(IDB_STORE);
+            }
+          } catch (_) {}
+        };
+        req.onsuccess = function(e) {
+          var db = e.target.result;
+          try {
+            db.onversionchange = function() {
+              try { db.close(); } catch (_) {}
+              _idbPromise = null;
+            };
+            db.onclose = function() {
+              _idbPromise = null;
+            };
+          } catch (_) {}
+          resolve(db);
+        };
+        req.onerror = function() {
+          _idbUnavailable = true;
+          _idbPromise = null;
+          resolve(null);
+        };
+        req.onblocked = function() {
+          resolve(null);
+        };
+      } catch (_) {
+        _idbUnavailable = true;
+        _idbPromise = null;
+        resolve(null);
+      }
+    });
+    return _idbPromise;
+  }
+
+  var TVIdbCache = {
+    get: function(key) {
+      if (!key) return Promise.resolve(null);
+      return openIdb().then(function(db) {
+        if (!db) return null;
+        return new Promise(function(resolve) {
+          try {
+            var tx = db.transaction(IDB_STORE, 'readonly');
+            var store = tx.objectStore(IDB_STORE);
+            var req = store.get(String(key));
+            req.onsuccess = function() {
+              var val = req.result;
+              if (val && val.data !== undefined) {
+                resolve(val);
+              } else {
+                resolve(null);
+              }
+            };
+            req.onerror = function() { resolve(null); };
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      }).catch(function() { return null; });
+    },
+
+    set: function(key, data) {
+      if (!key) return Promise.resolve();
+      return openIdb().then(function(db) {
+        if (!db) return;
+        return new Promise(function(resolve) {
+          try {
+            var tx = db.transaction(IDB_STORE, 'readwrite');
+            var store = tx.objectStore(IDB_STORE);
+            var req = store.put({ data: data, updatedAt: Date.now() }, String(key));
+            req.onsuccess = function() { resolve(); };
+            req.onerror = function() { resolve(); };
+            tx.onabort = function() { resolve(); };
+          } catch (_) {
+            resolve();
+          }
+        });
+      }).catch(function() {});
+    },
+
+    del: function(key) {
+      if (!key) return Promise.resolve();
+      return openIdb().then(function(db) {
+        if (!db) return;
+        return new Promise(function(resolve) {
+          try {
+            var tx = db.transaction(IDB_STORE, 'readwrite');
+            var store = tx.objectStore(IDB_STORE);
+            var req = store.delete(String(key));
+            req.onsuccess = function() { resolve(); };
+            req.onerror = function() { resolve(); };
+          } catch (_) {
+            resolve();
+          }
+        });
+      }).catch(function() {});
+    },
+
+    clearPrefix: function(prefix) {
+      return openIdb().then(function(db) {
+        if (!db) return;
+        return new Promise(function(resolve) {
+          try {
+            var tx = db.transaction(IDB_STORE, 'readwrite');
+            var store = tx.objectStore(IDB_STORE);
+            var req = store.openCursor();
+            req.onsuccess = function(e) {
+              var cursor = e.target.result;
+              if (!cursor) { resolve(); return; }
+              if (!prefix || String(cursor.key).indexOf(prefix) === 0) {
+                try { cursor.delete(); } catch (_) {}
+              }
+              cursor.continue();
+            };
+            req.onerror = function() { resolve(); };
+          } catch (_) {
+            resolve();
+          }
+        });
+      }).catch(function() {});
+    },
+
+    clearAccount: function(accId) {
+      if (!accId) return Promise.resolve();
+      return this.clearPrefix(String(accId) + '_');
+    }
+  };
+
+  window.TVIdbCache = TVIdbCache;
+
   // Device-bound At-Rest Encryption Vault (SEC-04)
   var VAULT_PREFIX = 'enc:v1:';
 
@@ -190,6 +351,7 @@
   }
 
   window.TVStorage = {
+    idb: TVIdbCache,
     parseDurationSecs: parseDurationSecs,
     extractDurationFromInfo: extractDurationFromInfo,
 
@@ -344,14 +506,20 @@
         removeItem('goat_custom_lists_' + strId + '_' + t);
         removeItem('goat_cat_prefs_' + strId + '_' + t);
         removeItem('goat_favs_' + strId + '_' + t);
+        removeItem('goat_snap_' + strId + '_' + t);
       });
       removeItem('goat_m3u_' + strId);
       delete _memStore['goat_m3u_' + strId];
+      delete _m3uParsedCache[strId];
+      if (this.idb && typeof this.idb.clearAccount === 'function') {
+        this.idb.clearAccount(strId);
+      }
     },
 
     saveM3uData: function(accId, data) {
       if (!accId || !data) return;
       var strId = String(accId);
+      _m3uParsedCache[strId] = data;
       var jsonStr = JSON.stringify(data);
       setItem('goat_m3u_' + strId, jsonStr);
       _memStore['goat_m3u_' + strId] = jsonStr;
@@ -360,9 +528,12 @@
     getM3uData: function(accId) {
       if (!accId) return null;
       var strId = String(accId);
+      if (_m3uParsedCache[strId]) return _m3uParsedCache[strId];
       try {
         var raw = getItem('goat_m3u_' + strId);
-        return raw ? JSON.parse(raw) : null;
+        var parsed = raw ? JSON.parse(raw) : null;
+        if (parsed) _m3uParsedCache[strId] = parsed;
+        return parsed;
       } catch(e) {
         return null;
       }
@@ -371,6 +542,7 @@
     deleteM3uData: function(accId) {
       if (!accId) return;
       var strId = String(accId);
+      delete _m3uParsedCache[strId];
       removeItem('goat_m3u_' + strId);
       delete _memStore['goat_m3u_' + strId];
     },
@@ -416,18 +588,147 @@
       return favs.indexOf(String(streamId)) >= 0;
     },
 
-    toggleFavorite: function(accId, streamId, type) {
+    toggleFavorite: function(accId, streamId, type, streamObj) {
       if (!accId || !streamId) return false;
       var t = type || 'live';
       var favs = this.getFavorites(accId, t);
-      var idx = favs.indexOf(String(streamId));
+      var strId = String(streamId);
+      var idx = favs.indexOf(strId);
+      var isNowFav;
       if (idx >= 0) {
         favs.splice(idx, 1);
+        isNowFav = false;
       } else {
-        favs.push(String(streamId));
+        favs.push(strId);
+        isNowFav = true;
       }
       setItem('goat_favs_' + accId + '_' + t, JSON.stringify(favs));
-      return favs.indexOf(String(streamId)) >= 0;
+      if (isNowFav && streamObj && typeof streamObj === 'object') {
+        this.saveStreamSnapshot(accId, t, streamObj);
+      } else if (!isNowFav) {
+        this.removeStreamSnapshot(accId, t, strId);
+      }
+      return isNowFav;
+    },
+
+    // Slim Stream Snapshots (A3) for 0ms Favorites & Custom List hydration
+    getStreamSnapshots: function(accId, type) {
+      if (!accId) return {};
+      var t = type || 'live';
+      try {
+        var raw = getItem('goat_snap_' + accId + '_' + t);
+        if (!raw) return {};
+        var parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+      } catch(e) {
+        return {};
+      }
+    },
+
+    saveStreamSnapshot: function(accId, type, streamObj) {
+      if (!accId || !streamObj || typeof streamObj !== 'object') return;
+      var t = type || 'live';
+      var rawId = streamObj.stream_id !== undefined ? streamObj.stream_id
+        : (streamObj.series_id !== undefined ? streamObj.series_id
+        : (streamObj.streamId !== undefined ? streamObj.streamId : streamObj.seriesId));
+      if (rawId === undefined || rawId === null || rawId === '') return;
+      var strId = String(rawId);
+      var snaps = this.getStreamSnapshots(accId, t);
+      snaps[strId] = {
+        stream_id: streamObj.stream_id !== undefined ? streamObj.stream_id : (t !== 'series' ? rawId : undefined),
+        series_id: streamObj.series_id !== undefined ? streamObj.series_id : (t === 'series' ? rawId : undefined),
+        name: streamObj.name || streamObj.title || '',
+        stream_icon: streamObj.stream_icon || streamObj.streamIcon || '',
+        cover: streamObj.cover || '',
+        category_id: streamObj.category_id !== undefined ? streamObj.category_id : '',
+        added: streamObj.added || '',
+        last_modified: streamObj.last_modified || '',
+        rating: streamObj.rating !== undefined ? streamObj.rating : '',
+        container_extension: streamObj.container_extension || ''
+      };
+      setItem('goat_snap_' + accId + '_' + t, JSON.stringify(snaps));
+    },
+
+    saveStreamSnapshotsBatch: function(accId, type, items) {
+      if (!accId || !Array.isArray(items) || items.length === 0) return;
+      var t = type || 'live';
+      var snaps = this.getStreamSnapshots(accId, t);
+      var changed = false;
+      for (var i = 0; i < items.length; i++) {
+        var streamObj = items[i];
+        if (!streamObj || typeof streamObj !== 'object') continue;
+        var rawId = streamObj.stream_id !== undefined ? streamObj.stream_id
+          : (streamObj.series_id !== undefined ? streamObj.series_id
+          : (streamObj.streamId !== undefined ? streamObj.streamId : streamObj.seriesId));
+        if (rawId === undefined || rawId === null || rawId === '') continue;
+        var strId = String(rawId);
+        snaps[strId] = {
+          stream_id: streamObj.stream_id !== undefined ? streamObj.stream_id : (t !== 'series' ? rawId : undefined),
+          series_id: streamObj.series_id !== undefined ? streamObj.series_id : (t === 'series' ? rawId : undefined),
+          name: streamObj.name || streamObj.title || '',
+          stream_icon: streamObj.stream_icon || streamObj.streamIcon || '',
+          cover: streamObj.cover || '',
+          category_id: streamObj.category_id !== undefined ? streamObj.category_id : '',
+          added: streamObj.added || '',
+          last_modified: streamObj.last_modified || '',
+          rating: streamObj.rating !== undefined ? streamObj.rating : '',
+          container_extension: streamObj.container_extension || ''
+        };
+        changed = true;
+      }
+      if (changed) setItem('goat_snap_' + accId + '_' + t, JSON.stringify(snaps));
+    },
+
+    removeStreamSnapshot: function(accId, type, streamId) {
+      if (!accId || streamId === undefined || streamId === null || streamId === '') return;
+      var t = type || 'live';
+      var strId = String(streamId);
+      var favs = this.getFavorites(accId, t);
+      if (favs.indexOf(strId) >= 0) return;
+
+      var lists = this.getCustomLists(accId, t);
+      for (var i = 0; i < lists.length; i++) {
+        if (lists[i] && lists[i].id && this.isStreamInCustomList(accId, lists[i].id, strId)) {
+          return;
+        }
+      }
+
+      var snaps = this.getStreamSnapshots(accId, t);
+      if (snaps.hasOwnProperty(strId)) {
+        delete snaps[strId];
+        setItem('goat_snap_' + accId + '_' + t, JSON.stringify(snaps));
+      }
+    },
+
+    getFavoriteStreamsResolved: function(accId, type) {
+      if (!accId) return [];
+      var t = type || 'live';
+      var favs = this.getFavorites(accId, t);
+      if (favs.length === 0) return [];
+      var snaps = this.getStreamSnapshots(accId, t);
+      var resolved = [];
+      for (var i = 0; i < favs.length; i++) {
+        var s = snaps[String(favs[i])];
+        if (!s) return null;
+        resolved.push(s);
+      }
+      return resolved;
+    },
+
+    getCustomListStreamsResolved: function(accId, type, listId) {
+      if (!accId || !listId) return [];
+      var t = type || 'live';
+      var items = this.getCustomListItems(accId, listId);
+      if (items.length === 0) return [];
+      var snaps = this.getStreamSnapshots(accId, t);
+      var resolved = [];
+      for (var i = 0; i < items.length; i++) {
+        var sid = String(items[i].streamId);
+        var s = snaps[sid];
+        if (!s) return null;
+        resolved.push(s);
+      }
+      return resolved;
     },
 
     reorderFavorites: function(accId, type, orderedIds) {
@@ -784,13 +1085,41 @@
       return items.some(function(it) { return String(it.streamId) === strId; });
     },
 
-    addStreamToCustomList: function(accId, listId, stream) {
+    _resolveCustomListType: function(accId, listId) {
+      var types = ['live', 'movie', 'series'];
+      var strListId = String(listId);
+      for (var i = 0; i < types.length; i++) {
+        var lists = this.getCustomLists(accId, types[i]);
+        for (var j = 0; j < lists.length; j++) {
+          if (lists[j] && String(lists[j].id) === strListId) {
+            return types[i];
+          }
+        }
+      }
+      return 'live';
+    },
+
+    addStreamToCustomList: function(accId, typeOrListId, listIdOrStream, maybeStream) {
+      var type, listId, stream;
+      if (typeof listIdOrStream === 'string' && maybeStream && typeof maybeStream === 'object') {
+        type = typeOrListId;
+        listId = listIdOrStream;
+        stream = maybeStream;
+      } else {
+        listId = typeOrListId;
+        stream = listIdOrStream;
+        type = null;
+      }
       if (!accId || !listId || !stream) return false;
       var items = this.getCustomListItems(accId, listId);
       var streamId = String(stream.stream_id || stream.streamId || stream.series_id || stream.seriesId);
       if (!streamId) return false;
+      var resolvedType = type || this._resolveCustomListType(accId, listId);
       var exists = items.some(function(it) { return String(it.streamId) === streamId; });
-      if (exists) return false;
+      if (exists) {
+        this.saveStreamSnapshot(accId, resolvedType, stream);
+        return false;
+      }
 
       var streamName = stream.name || stream.title || ('Stream ' + streamId);
       var streamIcon = stream.stream_icon || stream.streamIcon || stream.cover || '';
@@ -801,10 +1130,21 @@
         addedAt: Date.now()
       });
       setItem('goat_custom_items_' + accId + '_' + listId, JSON.stringify(items));
+      this.saveStreamSnapshot(accId, resolvedType, stream);
       return true;
     },
 
-    removeStreamFromCustomList: function(accId, listId, streamId) {
+    removeStreamFromCustomList: function(accId, typeOrListId, listIdOrStreamId, maybeStreamId) {
+      var type, listId, streamId;
+      if (maybeStreamId !== undefined) {
+        type = typeOrListId;
+        listId = listIdOrStreamId;
+        streamId = maybeStreamId;
+      } else {
+        listId = typeOrListId;
+        streamId = listIdOrStreamId;
+        type = null;
+      }
       if (!accId || !listId || !streamId) return false;
       var items = this.getCustomListItems(accId, listId);
       var strId = String(streamId);
@@ -812,6 +1152,8 @@
       items = items.filter(function(it) { return String(it.streamId) !== strId; });
       if (items.length !== initLen) {
         setItem('goat_custom_items_' + accId + '_' + listId, JSON.stringify(items));
+        var resolvedType = type || this._resolveCustomListType(accId, listId);
+        this.removeStreamSnapshot(accId, resolvedType, strId);
         return true;
       }
       return false;

@@ -230,6 +230,12 @@
           <span class="label" data-i18n="search">Search</span>
         </button>
 
+        <!-- Playlist & EPG Sync -->
+        <button id="header-sync-btn" class="header-icon-btn focusable" title="Playlist & EPG Sync">
+          <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+          <span class="label" data-i18n="sync">Sync</span>
+        </button>
+
         <!-- Audio & Subtitle Preferences -->
         <button id="header-pref-btn" class="header-icon-btn focusable" title="Playback Preferences">
           <span class="icon"><svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
@@ -1198,6 +1204,118 @@
       <div class="modal-actions">
         <button id="delete-list-cancel-btn" type="button" class="btn-secondary focusable" data-i18n="cancel" data-nav-right="#delete-list-confirm-btn" data-nav-up="#delete-list-close-btn">Cancel</button>
         <button id="delete-list-confirm-btn" type="button" class="btn-danger focusable" data-i18n="delete" data-nav-left="#delete-list-cancel-btn" data-nav-up="#delete-list-close-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PLAYLIST & EPG SYNC -->
+  <div id="modal-playlist-sync" class="modal-overlay interactive">
+    <div class="modal-card modal-card-sync">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="modal-header-icon sync-header-icon">
+            <svg class="tv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </span>
+          <h2 class="modal-title" data-i18n="sync_modal_title">Playlist &amp; EPG Sync</h2>
+        </div>
+        <button id="sync-modal-close-btn" type="button" class="modal-close-btn focusable" title="Close" data-nav-down="#sync-toggle-live">✕</button>
+      </div>
+      <div class="sync-modal-divider"></div>
+
+      <div id="sync-scopes-section" class="sync-scopes-section">
+        <div class="sync-section-label" data-i18n="sync_content">Inhalte synchronisieren</div>
+        <div class="scope-chips-row sync-scope-chips-row">
+          <button id="sync-toggle-live" type="button" class="scope-chip active focusable" data-scope="live">
+            <span class="scope-chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
+            <span class="scope-chip-label" data-i18n="live_tv">Live TV</span>
+            <span class="scope-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          </button>
+          <button id="sync-toggle-movies" type="button" class="scope-chip active focusable" data-scope="movies">
+            <span class="scope-chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></span>
+            <span class="scope-chip-label" data-i18n="movies">Movies</span>
+            <span class="scope-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          </button>
+          <button id="sync-toggle-series" type="button" class="scope-chip active focusable" data-scope="series">
+            <span class="scope-chip-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>
+            <span class="scope-chip-label" data-i18n="series">Series</span>
+            <span class="scope-chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          </button>
+        </div>
+      </div>
+
+      <div id="sync-rows-list" class="sync-rows-list">
+        <div id="sync-row-live" class="sync-item-row">
+          <div class="sync-item-icon sync-icon-live">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          </div>
+          <div class="sync-item-info">
+            <div class="sync-item-title" data-i18n="live_tv">Live TV</div>
+            <div id="sync-status-live" class="sync-item-status" data-i18n="never_synced">Not cached yet</div>
+          </div>
+          <div class="sync-item-actions">
+            <button id="sync-btn-live" type="button" class="btn-secondary sync-row-btn focusable">
+              <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span data-i18n="sync_now">Sync Now</span>
+            </button>
+          </div>
+        </div>
+        <div id="sync-row-movies" class="sync-item-row">
+          <div class="sync-item-icon sync-icon-movies">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+          </div>
+          <div class="sync-item-info">
+            <div class="sync-item-title" data-i18n="movies">Movies</div>
+            <div id="sync-status-movies" class="sync-item-status" data-i18n="never_synced">Not cached yet</div>
+          </div>
+          <div class="sync-item-actions">
+            <button id="sync-btn-movies" type="button" class="btn-secondary sync-row-btn focusable">
+              <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span data-i18n="sync_now">Sync Now</span>
+            </button>
+          </div>
+        </div>
+        <div id="sync-row-series" class="sync-item-row">
+          <div class="sync-item-icon sync-icon-series">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          </div>
+          <div class="sync-item-info">
+            <div class="sync-item-title" data-i18n="series">Series</div>
+            <div id="sync-status-series" class="sync-item-status" data-i18n="never_synced">Not cached yet</div>
+          </div>
+          <div class="sync-item-actions">
+            <button id="sync-btn-series" type="button" class="btn-secondary sync-row-btn focusable">
+              <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span data-i18n="sync_now">Sync Now</span>
+            </button>
+          </div>
+        </div>
+        <div id="sync-row-epg" class="sync-item-row">
+          <div class="sync-item-icon sync-icon-epg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+          </div>
+          <div class="sync-item-info">
+            <div class="sync-item-title" data-i18n="epg_guide">EPG Guide</div>
+            <div id="sync-status-epg" class="sync-item-status" data-i18n="never_synced">Not cached yet</div>
+          </div>
+          <div class="sync-item-actions">
+            <button id="sync-btn-epg" type="button" class="btn-secondary sync-row-btn focusable">
+              <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span data-i18n="sync_now">Sync Now</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sync-modal-divider"></div>
+      <div class="modal-actions sync-modal-actions">
+        <button id="sync-btn-clear-cache" type="button" class="btn-secondary sync-footer-btn focusable">
+          <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span data-i18n="clear_cache">Clear Cache</span>
+        </button>
+        <button id="sync-btn-all" type="button" class="btn-primary sync-footer-btn-primary focusable">
+          <svg class="tv-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          <span data-i18n="sync_all">Sync All</span>
+        </button>
       </div>
     </div>
   </div>

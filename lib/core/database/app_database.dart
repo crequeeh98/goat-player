@@ -42,12 +42,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? connection.openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
+          await _ensureStreamsFts();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -91,6 +92,14 @@ class AppDatabase extends _$AppDatabase {
           if (from < 10) {
             await m.addColumn(favorites, favorites.sortOrder);
           }
+          if (from < 12) {
+            await customStatement(
+              'DELETE FROM streams WHERE id NOT IN (SELECT MIN(id) FROM streams GROUP BY account_id, stream_type, category_id, stream_id);',
+            );
+          }
+          if (from < 11) {
+            await _ensureStreamsFts(rebuild: true);
+          }
         },
         beforeOpen: (details) async {
           try {
@@ -112,6 +121,62 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('CREATE INDEX IF NOT EXISTS idx_cat_pref_lookup ON category_preferences(account_id, type, is_hidden);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_lists ON custom_lists(account_id, type);');
           await customStatement('CREATE INDEX IF NOT EXISTS idx_custom_list_items ON custom_list_items(list_id);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_acc_type_cat ON streams(account_id, stream_type, category_id);');
+          await customStatement('CREATE INDEX IF NOT EXISTS idx_streams_acc_type_stream ON streams(account_id, stream_type, stream_id);');
         },
       );
+
+  Future<void> dropStreamsFtsTriggers() async {
+    await customStatement('DROP TRIGGER IF EXISTS streams_fts_ai;');
+    await customStatement('DROP TRIGGER IF EXISTS streams_fts_ad;');
+    await customStatement('DROP TRIGGER IF EXISTS streams_fts_au;');
+  }
+
+  Future<void> installStreamsFtsTriggers() async {
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS streams_fts_ai AFTER INSERT ON streams BEGIN
+        INSERT INTO streams_fts(rowid, name) VALUES (new.id, new.name);
+      END;
+    ''');
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS streams_fts_ad AFTER DELETE ON streams BEGIN
+        INSERT INTO streams_fts(streams_fts, rowid, name) VALUES ('delete', old.id, old.name);
+      END;
+    ''');
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS streams_fts_au AFTER UPDATE OF name ON streams BEGIN
+        INSERT INTO streams_fts(streams_fts, rowid, name) VALUES ('delete', old.id, old.name);
+        INSERT INTO streams_fts(rowid, name) VALUES (new.id, new.name);
+      END;
+    ''');
+  }
+
+  Future<bool> rebuildStreamsFts() async {
+    try {
+      await customStatement("INSERT INTO streams_fts(streams_fts) VALUES('rebuild');");
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _ensureStreamsFts({bool rebuild = false}) async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_streams_acc_type_cat ON streams(account_id, stream_type, category_id);',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_streams_acc_type_stream ON streams(account_id, stream_type, stream_id);',
+    );
+    try {
+      await customStatement(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS streams_fts USING fts5(name, content='streams', content_rowid='id', tokenize='unicode61 remove_diacritics 2');",
+      );
+      await installStreamsFtsTriggers();
+      if (rebuild) {
+        await rebuildStreamsFts();
+      }
+    } catch (e) {
+      debugPrint('FTS5 setup fallback: $e');
+    }
+  }
 }

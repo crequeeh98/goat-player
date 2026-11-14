@@ -10,6 +10,7 @@ import '../dashboard/dashboard_state.dart';
 import '../../core/widgets/tv_focusable.dart';
 import '../../core/widgets/tv_text_field.dart';
 import '../../core/utils/platform_utils.dart';
+import '../../core/utils/vod_sync_helper.dart';
 import '../../main.dart';
 import '../common/category_manager_modal.dart';
 import '../common/stream_context_menu_modal.dart';
@@ -221,7 +222,11 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
     });
     Future.microtask(() {
       ref.read(seriesControllerProvider).syncSeriesCategories();
-      ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      // On TV, skip background full-library series sync at startup to keep live playback smooth;
+      // categories load on-demand and search triggers lazy full sync when used.
+      if (!GoatPlatform.isTv) {
+        ref.read(seriesControllerProvider).syncAllSeriesStreams();
+      }
     });
   }
 
@@ -263,6 +268,20 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
     });
 
     final l10n = AppLocalizations.of(context)!;
+    final isDe = l10n.localeName == 'de';
+    final seriesLoadingIndicator = Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF7C3AED)),
+          const SizedBox(height: 16),
+          Text(
+            isDe ? 'Serien werden geladen...' : 'Loading series...',
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -331,6 +350,11 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                     if (streams.isEmpty) {
                       _currentStreamIds = const [];
                       _currentFirstPosterNode = null;
+                      final syncingKeys = ref.watch(syncingVodCategoriesProvider);
+                      final isSyncing = (!hasSearch &&
+                              _selectedCategory != null &&
+                              syncingKeys.contains('series_${_selectedCategory!}')) ||
+                          (hasSearch && syncingKeys.contains('all_series'));
                       return CustomScrollView(
                         controller: _seriesScrollController,
                         slivers: [
@@ -365,16 +389,18 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                                 }
                                 return KeyEventResult.ignored;
                               },
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.search_off, size: 64, color: Colors.white24),
-                                    const SizedBox(height: 16),
-                                    Text(AppLocalizations.of(context)!.noSeriesFound, style: const TextStyle(color: Colors.white54)),
-                                  ],
-                                ),
-                              ),
+                              child: isSyncing
+                                  ? seriesLoadingIndicator
+                                  : Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                                          const SizedBox(height: 16),
+                                          Text(AppLocalizations.of(context)!.noSeriesFound, style: const TextStyle(color: Colors.white54)),
+                                        ],
+                                      ),
+                                    ),
                             ),
                           ),
                         ],
@@ -548,9 +574,9 @@ class _SeriesGridScreenState extends ConsumerState<SeriesGridScreen> {
                             firstItemFocusNode: GoatPlatform.isTv ? _firstRailItemNode : null,
                           ),
                         ),
-                      const SliverFillRemaining(
+                      SliverFillRemaining(
                         hasScrollBody: false,
-                        child: Center(child: CircularProgressIndicator()),
+                        child: seriesLoadingIndicator,
                       ),
                     ],
                   ),

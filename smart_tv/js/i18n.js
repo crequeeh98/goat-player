@@ -216,7 +216,21 @@
       removed: 'Removed',
       hide_hidden_categories: 'Hide Inactive',
       in_list: 'In List',
-      add: 'Add'
+      add: 'Add',
+      sync: 'Refresh',
+      sync_modal_title: 'Playlist & EPG Sync',
+      sync_now: 'Refresh',
+      sync_all: 'Sync All',
+      clear_cache: 'Clear Cache',
+      epg_guide: 'EPG Guide',
+      syncing: 'Syncing...',
+      sync_done: 'Synced',
+      sync_failed: 'Sync failed',
+      cache_cleared: 'Cache cleared',
+      sync_enabled: 'Enabled',
+      sync_disabled: 'Disabled',
+      never_synced: 'Not cached yet',
+      last_synced: 'Cached'
     },
     de: {
       accounts_title: 'GOATPlayer TV',
@@ -433,7 +447,21 @@
       removed: 'Entfernt',
       hide_hidden_categories: 'Ausgeblendete verbergen',
       in_list: 'In Liste',
-      add: 'Hinzufügen'
+      add: 'Hinzufügen',
+      sync: 'Aktualisieren',
+      sync_modal_title: 'Playlist & EPG aktualisieren',
+      sync_now: 'Aktualisieren',
+      sync_all: 'Alles aktualisieren',
+      clear_cache: 'Cache leeren',
+      epg_guide: 'EPG-Daten',
+      syncing: 'Synchronisiere...',
+      sync_done: 'Aktualisiert',
+      sync_failed: 'Fehler beim Laden',
+      cache_cleared: 'Cache geleert',
+      sync_enabled: 'Aktiv',
+      sync_disabled: 'Aus',
+      never_synced: 'Noch nicht geladen',
+      last_synced: 'Zwischengespeichert'
     }
   };
 

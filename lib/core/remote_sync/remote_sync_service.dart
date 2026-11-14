@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,9 +10,10 @@ import '../database/daos/account_dao.dart';
 import '../database/daos/category_dao.dart';
 import '../database/daos/stream_dao.dart';
 import '../database/daos/epg_dao.dart';
+import '../network/xtream_client.dart';
 import 'zero_knowledge_crypto.dart';
 
-enum RemoteSyncEventType { accountAdded, accountUpdated, accountDeleted }
+enum RemoteSyncEventType { accountAdded, accountUpdated, accountDeleted, error }
 
 class RemoteSyncEvent {
   final RemoteSyncEventType type;
@@ -99,6 +101,113 @@ class RemoteSyncService {
       u = u.substring(0, u.length - 1);
     }
     return u;
+  }
+
+  bool get _isGermanLocale =>
+      (_prefs.getString('app_locale') ?? 'de') == 'de';
+
+  /// Validates connectivity and auth/M3U format without downloading categories or streams.
+  Future<({String serverUrl, String username, String password, int? expDate, int? maxConnections, bool isTrial})>
+      _validateAccountConnection({
+    required String serverUrl,
+    required String username,
+    required String password,
+  }) async {
+    var effectiveServer = serverUrl.trim();
+    var effectiveUser = username.trim();
+    var effectivePass = password.trim();
+
+    if (effectiveUser.isEmpty || effectivePass.isEmpty) {
+      final parsedXtream = XtreamClient.tryParseXtreamFromM3uUrl(effectiveServer);
+      if (parsedXtream != null) {
+        effectiveServer = parsedXtream.serverUrl;
+        effectiveUser = parsedXtream.username;
+        effectivePass = parsedXtream.password;
+      }
+    }
+
+    final isM3u = effectiveUser.isEmpty && effectivePass.isEmpty;
+    if (isM3u) {
+      final uri = Uri.tryParse(effectiveServer);
+      if (uri == null || !uri.hasScheme || uri.host.isEmpty || (uri.scheme != 'http' && uri.scheme != 'https')) {
+        throw const FormatException('Invalid URL');
+      }
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 12),
+        receiveTimeout: const Duration(seconds: 12),
+      ));
+      final resp = await dio.get<String>(effectiveServer);
+      final body = resp.data ?? '';
+      if (!body.contains('#EXTM3U') && !body.contains('#EXTINF')) {
+        throw Exception('Invalid M3U playlist format');
+      }
+      return (
+        serverUrl: effectiveServer,
+        username: '',
+        password: '',
+        expDate: null,
+        maxConnections: null,
+        isTrial: false,
+      );
+    }
+
+    final client = XtreamClient(
+      Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 12),
+        receiveTimeout: const Duration(seconds: 15),
+      )),
+      baseUrl: effectiveServer,
+      username: effectiveUser,
+      password: effectivePass,
+    );
+    final authData = await client.authenticate();
+    final userInfo = authData['user_info'];
+    final isAuthOk = userInfo is Map && (userInfo['auth'] == 1 || userInfo['auth'] == '1');
+    if (!isAuthOk) {
+      throw Exception('Authentication failed: invalid credentials or inactive account');
+    }
+    final meta = AccountDao.parseXtreamUserInfo(userInfo);
+    return (
+      serverUrl: effectiveServer,
+      username: effectiveUser,
+      password: effectivePass,
+      expDate: meta.expDate,
+      maxConnections: meta.maxConnections,
+      isTrial: meta.isTrial,
+    );
+  }
+
+  Future<void> _clearSyncActionAndEmitError(
+    String deviceId,
+    String actionId,
+    StreamController<RemoteSyncEvent> controller,
+    Object error, {
+    required bool isM3u,
+  }) async {
+    final friendlyMessage = XtreamClient.formatUserFriendlyError(
+      error,
+      isDe: _isGermanLocale,
+      isM3u: isM3u,
+    );
+    try {
+      await _client.from('remote_devices').update({
+        'sync_action': {
+          'action': 'error',
+          'action_id': actionId,
+          'error_message': friendlyMessage,
+          'timestamp': DateTime.now().toUtc().millisecondsSinceEpoch,
+        },
+        'status': 'connected',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('device_id', deviceId);
+    } catch (_) {}
+
+    if (!controller.isClosed) {
+      controller.add(RemoteSyncEvent(
+        type: RemoteSyncEventType.error,
+        message: friendlyMessage,
+      ));
+    }
   }
 
   /// Removes any existing duplicate accounts that have identical serverUrl and username
@@ -241,6 +350,9 @@ class RemoteSyncService {
           }
 
           final action = syncAction['action']?.toString();
+          if (action == 'error') {
+            return;
+          }
           final actionTimestamp = syncAction['timestamp']?.toString() ?? '';
           final actionId = syncAction['action_id']?.toString() ?? '${action}_$actionTimestamp';
 
@@ -253,12 +365,35 @@ class RemoteSyncService {
           }
 
           if (action == 'add') {
-            final serverUrl = syncAction['server_url']?.toString().trim() ?? '';
-            final username = syncAction['username']?.toString().trim() ?? '';
-            final password = syncAction['password']?.toString().trim() ?? '';
+            var serverUrl = syncAction['server_url']?.toString().trim() ?? '';
+            var username = syncAction['username']?.toString().trim() ?? '';
+            var password = syncAction['password']?.toString().trim() ?? '';
             final playlistName = syncAction['playlist_name']?.toString();
+            final actionIsM3u = syncAction['type']?.toString() == 'm3u' ||
+                (username.isEmpty && password.isEmpty);
 
             if (serverUrl.isNotEmpty) {
+              late final ({String serverUrl, String username, String password, int? expDate, int? maxConnections, bool isTrial}) validated;
+              try {
+                validated = await _validateAccountConnection(
+                  serverUrl: serverUrl,
+                  username: username,
+                  password: password,
+                );
+                serverUrl = validated.serverUrl;
+                username = validated.username;
+                password = validated.password;
+              } catch (e) {
+                await _clearSyncActionAndEmitError(
+                  deviceId,
+                  actionId,
+                  controller,
+                  e,
+                  isM3u: actionIsM3u && XtreamClient.tryParseXtreamFromM3uUrl(serverUrl) == null,
+                );
+                return;
+              }
+
               // Deduplication: check if account with same server and username already exists
               final existingAccounts = await _accountDao.getAllAccounts();
               final existing = existingAccounts.where((a) =>
@@ -280,6 +415,9 @@ class RemoteSyncService {
                   serverUrl: serverUrl,
                   username: username,
                   password: password,
+                  expDate: drift.Value(validated.expDate ?? existing.expDate),
+                  maxConnections: drift.Value(validated.maxConnections ?? existing.maxConnections),
+                  isTrial: validated.isTrial,
                 );
                 await _accountDao.updateAccount(updated);
                 if (credentialsChanged) {
@@ -304,6 +442,9 @@ class RemoteSyncService {
                     serverUrl: serverUrl,
                     username: username,
                     password: password,
+                    expDate: drift.Value(validated.expDate),
+                    maxConnections: drift.Value(validated.maxConnections),
+                    isTrial: drift.Value(validated.isTrial),
                   ),
                 );
                 accountResult = await _accountDao.getAccountById(accountId);
@@ -346,13 +487,13 @@ class RemoteSyncService {
                 final playlistName = (playlistNameRaw != null && playlistNameRaw.isNotEmpty)
                     ? playlistNameRaw
                     : existing.playlistName;
-                final serverUrl = (serverUrlRaw != null && serverUrlRaw.isNotEmpty)
+                var serverUrl = (serverUrlRaw != null && serverUrlRaw.isNotEmpty)
                     ? serverUrlRaw
                     : existing.serverUrl;
-                final username = (usernameRaw != null && usernameRaw.isNotEmpty)
+                var username = (usernameRaw != null && usernameRaw.isNotEmpty)
                     ? usernameRaw
                     : existing.username;
-                final password = (passwordRaw != null && passwordRaw.isNotEmpty)
+                var password = (passwordRaw != null && passwordRaw.isNotEmpty)
                     ? passwordRaw
                     : existing.password;
 
@@ -360,11 +501,39 @@ class RemoteSyncService {
                     username != existing.username ||
                     password != existing.password;
 
+                ({String serverUrl, String username, String password, int? expDate, int? maxConnections, bool isTrial})? validated;
+                if (credentialsChanged) {
+                  final editIsM3u = syncAction['type']?.toString() == 'm3u' ||
+                      (username.isEmpty && password.isEmpty);
+                  try {
+                    validated = await _validateAccountConnection(
+                      serverUrl: serverUrl,
+                      username: username,
+                      password: password,
+                    );
+                    serverUrl = validated.serverUrl;
+                    username = validated.username;
+                    password = validated.password;
+                  } catch (e) {
+                    await _clearSyncActionAndEmitError(
+                      deviceId,
+                      actionId,
+                      controller,
+                      e,
+                      isM3u: editIsM3u && XtreamClient.tryParseXtreamFromM3uUrl(serverUrl) == null,
+                    );
+                    return;
+                  }
+                }
+
                 final updated = existing.copyWith(
                   playlistName: drift.Value(playlistName),
                   serverUrl: serverUrl,
                   username: username,
                   password: password,
+                  expDate: drift.Value(validated != null ? validated.expDate : existing.expDate),
+                  maxConnections: drift.Value(validated != null ? validated.maxConnections : existing.maxConnections),
+                  isTrial: validated != null ? validated.isTrial : existing.isTrial,
                 );
 
                 await _accountDao.updateAccount(updated);

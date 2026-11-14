@@ -12,6 +12,7 @@ import '../../../core/player/playback_controller.dart';
 import '../../../core/player/widgets/stream_quality_badge.dart';
 import '../../../core/utils/channel_name_cleaner.dart';
 import '../../../core/utils/live_stream_matcher.dart';
+import '../../../core/widgets/tv_remote_scope.dart';
 import '../../../main.dart';
 import '../../dashboard/favorites_provider.dart';
 import '../epg_controller.dart';
@@ -534,6 +535,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
               return KeyEventResult.handled;
             } else if (widget.isFullWidth) {
               if (widget.onBack != null) {
+                TvRemoteScope.markBackHandled();
                 widget.onBack!();
               }
               return KeyEventResult.handled;
@@ -1222,6 +1224,7 @@ class _CustomLiveControlsState extends ConsumerState<CustomLiveControls> {
             if (DateTime.now().millisecondsSinceEpoch - _lastTvSubMenuKeyMs < 450) {
               return KeyEventResult.handled;
             }
+            TvRemoteScope.markBackHandled();
             widget.onBack?.call();
             return KeyEventResult.handled;
           }

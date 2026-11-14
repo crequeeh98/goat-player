@@ -105,9 +105,22 @@ final liveTvControllerProvider = Provider<LiveTvController>((ref) {
 });
 
 class LiveTvController {
+  static const String allLiveSyncKey = '__all_live__';
+  static const int _categorySyncCooldownMs = 10 * 60 * 1000;
   final Ref _ref;
-  
+  final Map<String, int> _categorySyncedAtMs = {};
+  final Map<String, Future<void>> _inFlightCategorySyncs = {};
+
   LiveTvController(this._ref);
+
+  void clearCategorySyncCooldown([int? accountId]) {
+    if (accountId == null) {
+      _categorySyncedAtMs.clear();
+    } else {
+      final prefix = '${accountId}_';
+      _categorySyncedAtMs.removeWhere((key, _) => key.startsWith(prefix));
+    }
+  }
 
   Future<void> syncLiveCategories({bool force = false, bool rethrowOnError = false}) async {
     final client = _ref.read(xtreamClientProvider);
@@ -148,34 +161,52 @@ class LiveTvController {
     }
   }
 
-  Future<void> syncLiveStreams(String categoryId) async {
+  Future<void> syncLiveStreams(String categoryId, {bool force = false}) async {
     final client = _ref.read(xtreamClientProvider);
     final account = _ref.read(activeAccountProvider);
     if (client == null || account == null || account.username.isEmpty || account.serverUrl.contains('.m3u')) return;
-    
-    _ref.read(syncingCategoriesProvider.notifier).add(categoryId);
-    try {
-      final rawStreams = await client.getLiveStreams(categoryId: categoryId);
-      final dao = _ref.read(streamDaoProvider);
-      
-      final companions = rawStreams.map((s) {
-        return StreamsCompanion.insert(
-          accountId: account.id,
-          categoryId: s['category_id'].toString(),
-          streamId: s['stream_id'].toString(),
-          epgChannelId: s['epg_channel_id'] != null ? Value(s['epg_channel_id'].toString()) : const Value.absent(),
-          name: TitleSanitizer.sanitizeLiveTvChannel(s['name']?.toString() ?? 'Unknown'),
-          streamType: 'live',
-          streamIcon: s['stream_icon'] != null ? Value(s['stream_icon'].toString()) : const Value.absent(),
-        );
-      }).toList();
-      
-      await dao.replaceStreamsByCategory(account.id, categoryId, companions);
-    } catch (e) {
-      debugPrint('Failed to sync live streams: $e');
-    } finally {
-      _ref.read(syncingCategoriesProvider.notifier).remove(categoryId);
+
+    final dao = _ref.read(streamDaoProvider);
+    final key = '${account.id}_live_$categoryId';
+    if (!force) {
+      final inFlight = _inFlightCategorySyncs[key];
+      if (inFlight != null) {
+        return inFlight;
+      }
+      final lastMs = _categorySyncedAtMs[key] ?? 0;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (nowMs - lastMs < _categorySyncCooldownMs) {
+        final existingCount = await dao.countStreamsByCategory(account.id, categoryId);
+        if (existingCount > 0) {
+          return;
+        }
+      }
     }
+
+    final future = () async {
+      _ref.read(syncingCategoriesProvider.notifier).add(categoryId);
+      try {
+        final rawStreams = await client.getLiveStreams(categoryId: categoryId);
+        final payload = {
+          'accountId': account.id,
+          'fallbackCategoryId': categoryId,
+          'streams': rawStreams,
+        };
+        final companions = rawStreams.length > 150
+            ? await compute(_mapLiveStreams, payload)
+            : _mapLiveStreams(payload);
+
+        await dao.replaceStreamsByCategory(account.id, categoryId, companions);
+        _categorySyncedAtMs[key] = DateTime.now().millisecondsSinceEpoch;
+      } catch (e) {
+        debugPrint('Failed to sync live streams: $e');
+      } finally {
+        _ref.read(syncingCategoriesProvider.notifier).remove(categoryId);
+        _inFlightCategorySyncs.remove(key);
+      }
+    }();
+    _inFlightCategorySyncs[key] = future;
+    return future;
   }
 
   bool _isSyncingAll = false;
@@ -194,8 +225,12 @@ class LiveTvController {
       debugPrint('Live streams were synced recently (${(nowMs - lastSync) ~/ (60 * 1000)}m ago). Skipping full sync.');
       return;
     }
+    if (force) {
+      clearCategorySyncCooldown(account.id);
+    }
 
     _isSyncingAll = true;
+    _ref.read(syncingCategoriesProvider.notifier).add(allLiveSyncKey);
     try {
       if (isM3u) {
         debugPrint('Syncing M3U playlist from ${account.serverUrl}...');
@@ -244,6 +279,9 @@ class LiveTvController {
         await catDao.replaceCategories(account.id, 'live', catCompanions);
         await streamDao.replaceStreamsByType(account.id, 'live', streamCompanions);
         await prefs.setInt('last_sync_all_live_${account.id}', nowMs);
+        if (streamCompanions.isNotEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 120));
+        }
         debugPrint('Finished syncing M3U playlist (${streamCompanions.length} channels, ${catCompanions.length} categories).');
         return;
       }
@@ -260,13 +298,23 @@ class LiveTvController {
       final companions = await compute(_mapLiveStreams, {'accountId': account.id, 'streams': rawStreams});
       
       await dao.replaceStreamsByType(account.id, 'live', companions);
+      final syncedAtMs = DateTime.now().millisecondsSinceEpoch;
+      for (final item in companions) {
+        if (item.categoryId.present) {
+          _categorySyncedAtMs['${account.id}_live_${item.categoryId.value}'] = syncedAtMs;
+        }
+      }
       await prefs.setInt('last_sync_all_live_${account.id}', nowMs);
+      if (companions.isNotEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+      }
       debugPrint('Finished syncing ALL Live streams.');
     } catch (e) {
       debugPrint('Failed to sync all live streams: $e');
       if (rethrowOnError) rethrow;
     } finally {
       _isSyncingAll = false;
+      _ref.read(syncingCategoriesProvider.notifier).remove(allLiveSyncKey);
     }
   }
 }
@@ -274,19 +322,20 @@ class LiveTvController {
 // Top-level function for compute
 List<StreamsCompanion> _mapLiveStreams(Map<String, dynamic> data) {
   final int accountId = data['accountId'];
+  final String fallbackCategoryId = data['fallbackCategoryId']?.toString() ?? 'unknown';
   final List<dynamic> rawStreams = data['streams'];
   return rawStreams.map((s) {
     return StreamsCompanion.insert(
       accountId: accountId,
       streamId: s['stream_id']?.toString() ?? 'unknown',
-      epgChannelId: s['epg_channel_id'] != null && s['epg_channel_id'].toString().isNotEmpty 
-          ? Value(s['epg_channel_id'].toString()) 
+      epgChannelId: s['epg_channel_id'] != null && s['epg_channel_id'].toString().isNotEmpty
+          ? Value(s['epg_channel_id'].toString())
           : const Value.absent(),
       name: TitleSanitizer.sanitizeLiveTvChannel(s['name']?.toString() ?? 'Unknown'),
       streamType: 'live',
-      categoryId: s['category_id']?.toString() ?? 'unknown',
-      streamIcon: s['stream_icon'] != null && s['stream_icon'].toString().isNotEmpty 
-          ? Value(s['stream_icon'].toString()) 
+      categoryId: (s['category_id'] ?? fallbackCategoryId).toString(),
+      streamIcon: s['stream_icon'] != null && s['stream_icon'].toString().isNotEmpty
+          ? Value(s['stream_icon'].toString())
           : const Value.absent(),
     );
   }).toList();

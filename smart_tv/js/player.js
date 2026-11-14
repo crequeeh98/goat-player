@@ -2336,65 +2336,126 @@
     }, duration || 4000);
   };
 
-  function calcEpgItemTiming(item) {
-    if (!item) return { durationMin: 0, remainingMin: 0, percent: 0, durationLabel: '', remainingLabel: '' };
-    var now = new Date();
-    var nowSec = Math.floor(now.getTime() / 1000);
+  function parseEpgDateNaive(s) {
+    if (!s || typeof s !== 'string') return null;
+    var m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      return Math.floor(new Date(
+        parseInt(m[1], 10),
+        parseInt(m[2], 10) - 1,
+        parseInt(m[3], 10),
+        parseInt(m[4], 10),
+        parseInt(m[5], 10),
+        m[6] ? parseInt(m[6], 10) : 0
+      ).getTime() / 1000);
+    }
+    var ms = Date.parse(s);
+    return isNaN(ms) ? null : Math.floor(ms / 1000);
+  }
 
-    var durMin = 0;
-    if (item.start_timestamp && item.stop_timestamp) {
-      var dSec = Number(item.stop_timestamp) - Number(item.start_timestamp);
-      if (dSec > 0) durMin = Math.round(dSec / 60);
+  function getEpgRangeSec(item) {
+    if (!item) return null;
+    // Always prefer numeric Unix timestamps (UTC epoch) to avoid local-timezone drift on naive server strings
+    var sSec = Number(item.start_timestamp);
+    var eSec = Number(item.stop_timestamp);
+    if (isFinite(sSec) && isFinite(eSec) && sSec > 0 && eSec > sSec) {
+      return { startSec: sSec, stopSec: eSec };
+    }
+    var ps = parseEpgDateNaive(item.start);
+    var pe = parseEpgDateNaive(item.end || item.stop);
+    if (ps !== null && pe !== null && pe > ps) {
+      return { startSec: ps, stopSec: pe };
+    }
+    return null;
+  }
+  window.getEpgRangeSec = getEpgRangeSec;
+
+  function formatEpgClock(item, isEnd) {
+    if (!item) return '--:--';
+    var rng = getEpgRangeSec(item);
+    if (rng) {
+      var ts = isEnd ? rng.stopSec : rng.startSec;
+      var d = new Date(ts * 1000);
+      if (!isNaN(d.getTime())) {
+        var hh = d.getHours();
+        var mm = d.getMinutes();
+        return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+      }
+    }
+    var raw = isEnd ? (item.end || item.stop) : item.start;
+    return (raw && typeof raw === 'string' && raw.length >= 16) ? raw.substring(11, 16) : '--:--';
+  }
+  window.formatEpgClock = formatEpgClock;
+
+  function pickActiveEpgPrograms(listings) {
+    if (!listings || !listings.length) return { current: null, next: null, activeIndex: -1 };
+    var nowSec = Math.floor(Date.now() / 1000);
+    var current = null;
+    var next = null;
+    var activeIndex = -1;
+
+    for (var i = 0; i < listings.length; i++) {
+      var it = listings[i];
+      if (!it) continue;
+      var rng = getEpgRangeSec(it);
+      if (rng) {
+        if (nowSec >= rng.startSec && nowSec < rng.stopSec) {
+          current = it;
+          activeIndex = i;
+          if (i + 1 < listings.length) next = listings[i + 1];
+          break;
+        }
+        if (rng.startSec > nowSec && !next) {
+          next = it;
+        }
+      } else if (Number(it.now_playing) === 1) {
+        current = it;
+        activeIndex = i;
+        if (i + 1 < listings.length) next = listings[i + 1];
+        break;
+      }
     }
 
+    return { current: current, next: next, activeIndex: activeIndex };
+  }
+  window.pickActiveEpgPrograms = pickActiveEpgPrograms;
+
+  function calcEpgItemTiming(item) {
+    if (!item) return { durationMin: 0, remainingMin: 0, percent: 0, isLive: false, durationLabel: '', remainingLabel: '' };
+    var nowSec = Math.floor(Date.now() / 1000);
+    var rng = getEpgRangeSec(item);
+    var durMin = 0;
     var remMin = 0;
     var pct = 0;
+    var isLive = false;
 
-    function parseDate(s) {
-      if (!s || typeof s !== 'string') return null;
-      var m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
-      if (m) {
-        return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), parseInt(m[4], 10), parseInt(m[5], 10), m[6] ? parseInt(m[6], 10) : 0);
-      }
-      return null;
-    }
-
-    var dStart = parseDate(item.start);
-    var dEnd = parseDate(item.end);
-
-    if (dStart && dEnd) {
-      var totalMs = dEnd.getTime() - dStart.getTime();
-      if (totalMs > 0) {
-        durMin = Math.round(totalMs / 60000);
-        var elapsedMs = now.getTime() - dStart.getTime();
-        var leftMs = dEnd.getTime() - now.getTime();
-        remMin = Math.max(0, Math.round(leftMs / 60000));
-        pct = Math.max(0, Math.min(100, Math.round((elapsedMs / totalMs) * 100)));
-      }
-    } else if (item.start_timestamp && item.stop_timestamp) {
-      var sSec = Number(item.start_timestamp);
-      var eSec = Number(item.stop_timestamp);
-      var tot = eSec - sSec;
+    if (rng) {
+      var tot = rng.stopSec - rng.startSec;
       if (tot > 0) {
         durMin = Math.round(tot / 60);
-        if (nowSec >= sSec && nowSec <= eSec) {
-          remMin = Math.max(0, Math.round((eSec - nowSec) / 60));
-          pct = Math.max(0, Math.min(100, Math.round(((nowSec - sSec) / tot) * 100)));
+        if (nowSec >= rng.startSec && nowSec < rng.stopSec) {
+          isLive = true;
+          remMin = Math.max(1, Math.ceil((rng.stopSec - nowSec) / 60));
+          pct = Math.max(0, Math.min(100, Math.round(((nowSec - rng.startSec) / tot) * 100)));
+        } else if (nowSec >= rng.stopSec) {
+          remMin = 0;
+          pct = 100;
         } else {
-          remMin = durMin;
+          remMin = 0;
           pct = 0;
         }
       }
     }
 
     var isDe = window.TVI18n && window.TVI18n.getLanguage() === 'de';
-    var remLabel = remMin > 0 ? (isDe ? ('noch ' + remMin + ' min') : (remMin + ' min left')) : (durMin > 0 ? (durMin + ' min') : '');
+    var remLabel = isLive ? (isDe ? ('noch ' + remMin + ' min') : (remMin + ' min left')) : '';
     var durLabel = durMin > 0 ? (durMin + ' min') : '';
 
     return {
       durationMin: durMin,
       remainingMin: remMin,
       percent: pct,
+      isLive: isLive,
       remainingLabel: remLabel,
       durationLabel: durLabel
     };
@@ -2425,21 +2486,25 @@
       return;
     }
 
-    var cur = listings[0];
+    var picked = pickActiveEpgPrograms(listings);
+    var cur = picked.current;
     if (cur) {
-      var sTime = cur.start ? cur.start.substring(11, 16) : '--:--';
-      if (curTimeEl) curTimeEl.textContent = sTime;
+      if (curTimeEl) curTimeEl.textContent = formatEpgClock(cur, false);
       if (curTitleEl) curTitleEl.textContent = cur.title || 'Live Program';
 
       var curTiming = calcEpgItemTiming(cur);
       if (curDurEl) curDurEl.textContent = curTiming.remainingLabel || curTiming.durationLabel;
       if (fillEl) fillEl.style.width = curTiming.percent + '%';
+    } else {
+      if (curTimeEl) curTimeEl.textContent = '--:--';
+      if (curTitleEl) curTitleEl.textContent = noEpg;
+      if (curDurEl) curDurEl.textContent = '';
+      if (fillEl) fillEl.style.width = '0%';
     }
 
-    var next = listings[1];
+    var next = picked.next;
     if (next) {
-      var nTime = next.start ? next.start.substring(11, 16) : '--:--';
-      if (nextTimeEl) nextTimeEl.textContent = nTime;
+      if (nextTimeEl) nextTimeEl.textContent = formatEpgClock(next, false);
       if (nextTitleEl) nextTitleEl.textContent = next.title || '--';
 
       var nextTiming = calcEpgItemTiming(next);

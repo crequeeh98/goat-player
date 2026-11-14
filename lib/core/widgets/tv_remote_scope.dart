@@ -27,6 +27,18 @@ class TvRemoteScope extends ConsumerStatefulWidget {
   });
 
   static bool _isExitDialogOpen = false;
+  static int _lastExternalBackMs = 0;
+
+  /// Marks a Back/Escape action as just handled (e.g. exiting fullscreen or
+  /// popping a player route) so trailing Android PopScope/KeyUp events do not
+  /// immediately open the root Exit dialog.
+  static void markBackHandled() {
+    _lastExternalBackMs = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  static bool wasBackRecentlyHandled([int windowMs = 750]) {
+    return DateTime.now().millisecondsSinceEpoch - _lastExternalBackMs < windowMs;
+  }
 
   static Future<bool> showTvExitDialog(BuildContext context) async {
     if (_isExitDialogOpen) return false;
@@ -153,9 +165,10 @@ class _TvRemoteScopeState extends ConsumerState<TvRemoteScope> {
         if (event is KeyUpEvent) return KeyEventResult.handled;
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-        // Debounce back key to prevent double trigger if TV sends both KeyDown and KeyUp
+        // Debounce back key to prevent double trigger if TV sends both KeyDown and KeyUp,
+        // or if a child fullscreen/player view just closed via Back.
         final now = DateTime.now().millisecondsSinceEpoch;
-        if (now - _lastBackTriggerTime < 450) {
+        if (now - _lastBackTriggerTime < 450 || TvRemoteScope.wasBackRecentlyHandled(750)) {
           return KeyEventResult.handled;
         }
         _lastBackTriggerTime = now;

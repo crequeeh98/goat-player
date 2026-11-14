@@ -15,6 +15,7 @@ import '../../core/player/track_language_matcher.dart';
 import '../../core/player/track_preference_service.dart';
 import '../../core/utils/vod_title_cleaner.dart';
 import '../../core/widgets/tv_focusable.dart';
+import '../../core/widgets/tv_remote_scope.dart';
 import '../vod_series/widgets/in_player_episode_drawer.dart';
 
 class VodPlayerScreen extends ConsumerStatefulWidget {
@@ -799,6 +800,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
   void _handleMinimize() {
     if (_isClosing) return;
+    TvRemoteScope.markBackHandled();
     if (GoatPlatform.isTv || GoatPlatform.isMobile) {
       _handleClose();
       return;
@@ -832,6 +834,7 @@ class _VodPlayerScreenState extends ConsumerState<VodPlayerScreen> {
 
   void _handleClose() {
     if (_isClosing) return;
+    TvRemoteScope.markBackHandled();
     _restoreVolume();
     _saveCurrentProgress();
     

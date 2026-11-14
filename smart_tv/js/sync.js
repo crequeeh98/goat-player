@@ -165,6 +165,41 @@
     });
   }
 
+  function patchDeviceSyncState(deviceId, payload) {
+    deviceId = deviceId || getDeviceId();
+    return fetch(SUPABASE_URL + '/rest/v1/remote_devices?device_id=eq.' + encodeURIComponent(deviceId), {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    }).catch(function() {});
+  }
+
+  function acknowledgeSync(deviceId) {
+    return patchDeviceSyncState(deviceId, {
+      sync_action: null,
+      status: 'connected',
+      playlists: getLocalPlaylists(),
+      updated_at: new Date().toISOString()
+    });
+  }
+
+  function reportSyncError(deviceId, actionId, errorMessage) {
+    return patchDeviceSyncState(deviceId, {
+      sync_action: {
+        action: 'error',
+        action_id: actionId || ('err_' + Date.now()),
+        error_message: errorMessage || 'Connection failed',
+        timestamp: new Date().toISOString()
+      },
+      status: 'connected',
+      updated_at: new Date().toISOString()
+    });
+  }
+
   function pushPlaylists(deviceId) {
     deviceId = deviceId || getDeviceId();
     return fetch(SUPABASE_URL + '/rest/v1/remote_devices?device_id=eq.' + encodeURIComponent(deviceId), {
@@ -213,17 +248,28 @@
           decryptPromise.then(function(actionObj) {
             if (!actionObj || typeof actionObj !== 'object') return;
             var actionType = actionObj.action;
+            if (actionType === 'error') return;
             var actionId = actionObj.action_id || (actionType + '_' + (actionObj.timestamp || Date.now()));
 
             if (_processedActionIds[actionId]) return;
             _processedActionIds[actionId] = true;
 
+            var deferredAck = false;
+            var ackFn = function(errMessage) {
+              if (errMessage) {
+                return reportSyncError(deviceId, actionId, errMessage);
+              }
+              return acknowledgeSync(deviceId);
+            };
+
             // Perform local action FIRST so getLocalPlaylists() is updated before acknowledging
           if (actionType === 'add') {
             if (onEvent) {
+              deferredAck = true;
               var isM3u = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
               onEvent({
                 type: 'accountAdded',
+                ack: ackFn,
                 account: {
                   id: actionObj.id || undefined,
                   type: isM3u ? 'm3u' : undefined,
@@ -249,11 +295,16 @@
               });
 
               var updatedAcc = null;
+              var credentialsChanged = false;
               if (targetAcc) {
                 var newServerUrl = (actionObj.server_url && actionObj.server_url.trim().length > 0) ? actionObj.server_url.trim() : targetAcc.serverUrl;
-                var newUsername = (actionObj.username && actionObj.username.trim().length > 0) ? actionObj.username.trim() : targetAcc.username;
-                var newPassword = (actionObj.password && actionObj.password.trim().length > 0) ? actionObj.password.trim() : targetAcc.password;
+                var newUsername = (actionObj.username && actionObj.username.trim().length > 0) ? actionObj.username.trim() : (targetAcc.username || '');
+                var newPassword = (actionObj.password && actionObj.password.trim().length > 0) ? actionObj.password.trim() : (targetAcc.password || '');
                 var newName = (actionObj.playlist_name && actionObj.playlist_name.trim().length > 0) ? actionObj.playlist_name.trim() : (targetAcc.name || targetAcc.username);
+
+                credentialsChanged = (newServerUrl !== targetAcc.serverUrl) ||
+                  (newUsername !== (targetAcc.username || '')) ||
+                  (newPassword !== (targetAcc.password || ''));
 
                 var isM3u = false;
                 if (actionObj.type === 'm3u') {
@@ -282,10 +333,13 @@
                   syncMovies: syncMovies,
                   syncSeries: syncSeries
                 });
-                window.TVStorage.saveAccount(updatedAcc);
+                if (!credentialsChanged) {
+                  window.TVStorage.saveAccount(updatedAcc);
+                }
               } else if (actionObj.id) {
+                credentialsChanged = true;
                 var isM3uNew = actionObj.type === 'm3u' || (!actionObj.username && !actionObj.password) || (actionObj.server_url && (actionObj.server_url.indexOf('.m3u') !== -1 || actionObj.server_url.indexOf('.m3u8') !== -1));
-                updatedAcc = window.TVStorage.saveAccount({
+                updatedAcc = {
                   id: actionObj.id,
                   type: isM3uNew ? 'm3u' : undefined,
                   serverUrl: actionObj.server_url || '',
@@ -295,9 +349,16 @@
                   syncLiveTv: actionObj.sync_live_tv !== undefined ? !!actionObj.sync_live_tv : (actionObj.syncLiveTv !== undefined ? !!actionObj.syncLiveTv : true),
                   syncMovies: actionObj.sync_movies !== undefined ? !!actionObj.sync_movies : (actionObj.syncMovies !== undefined ? !!actionObj.syncMovies : true),
                   syncSeries: actionObj.sync_series !== undefined ? !!actionObj.sync_series : (actionObj.syncSeries !== undefined ? !!actionObj.syncSeries : true)
-                });
+                };
               }
-              if (onEvent) onEvent({ type: 'accountUpdated', account: updatedAcc });
+              if (onEvent) {
+                if (targetAcc && !credentialsChanged) {
+                  onEvent({ type: 'accountUpdated', account: updatedAcc, credentialsChanged: false });
+                } else if (updatedAcc) {
+                  deferredAck = true;
+                  onEvent({ type: 'accountUpdated', account: updatedAcc, targetAcc: targetAcc, credentialsChanged: true, isNew: !targetAcc, ack: ackFn });
+                }
+              }
             }
           } else if (actionType === 'delete') {
             if (window.TVStorage) {
@@ -320,21 +381,9 @@
             }
           }
 
-          // Acknowledge receipt in Supabase AND sync updated playlists array
-          fetch(SUPABASE_URL + '/rest/v1/remote_devices?device_id=eq.' + encodeURIComponent(deviceId), {
-            method: 'PATCH',
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              sync_action: null,
-              status: 'connected',
-              playlists: getLocalPlaylists(),
-              updated_at: new Date().toISOString()
-            })
-          }).catch(function() {});
+          if (!deferredAck) {
+            acknowledgeSync(deviceId);
+          }
           }); // end decryptPromise.then
         }
         // 2. Fallback: legacy status === 'linked' with flat credentials
