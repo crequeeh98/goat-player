@@ -1,4 +1,4 @@
-// smart_tv/js/updater.js - In-App OTA Updater for Samsung Tizen & LG webOS
+// smart_tv/js/updater.js - Universal In-App OTA Updater v2 for Samsung Tizen & LG webOS
 (function() {
   'use strict';
 
@@ -7,13 +7,12 @@
     ? window.TVBootloader.getBaseVersion()
     : APP_VERSION;
   var GITHUB_REPO = 'crequeeh98/goat-player';
-  var OTA_STORAGE_KEY = 'goat_tv_ota_bundle';
 
   var _pendingUpdate = null;
   var _cachedReleaseNotes = null;
   var _isUpdating = false;
 
-  var FALLBACK_CHANGELOG_2_1_3 = [
+  var FALLBACK_CHANGELOG = [
     '### 🇩🇪 Änderungen & Neuerungen (v2.1.3)',
     '- **Smart TV UI/UX Overhaul & webOS 6.5 Kompatibilität**:',
     '  - *Moderne 10-Foot Oberfläche*: Scharfe SVG-Vektor-Icons (`window.TVIcons`), kompaktes 1-Spalten Account-/Login-Layout und D-Pad-optimierter Markdown-Changelog.',
@@ -40,13 +39,6 @@
       }
       if (window.TVBootloader && typeof window.TVBootloader.getActiveVersion === 'function') {
         return window.TVBootloader.getActiveVersion();
-      }
-      var saved = localStorage.getItem(OTA_STORAGE_KEY);
-      if (saved) {
-        var otaBundle = JSON.parse(saved);
-        if (otaBundle && otaBundle.version) {
-          return otaBundle.version;
-        }
       }
     } catch (_) {}
     return CURRENT_VERSION;
@@ -79,11 +71,8 @@
 
   function formatInlineMarkdown(text) {
     var escaped = escapeHtml(text);
-    // Inline code: `code`
     escaped = escaped.replace(/`([^`]+)`/g, '<code class="changelog-code">$1</code>');
-    // Bold: **text**
     escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#FFFFFF;font-weight:700;">$1</strong>');
-    // Italic: *text*
     escaped = escaped.replace(/\*([^*]+)\*/g, '<em style="color:rgba(255,255,255,0.9);">$1</em>');
     return escaped;
   }
@@ -122,7 +111,6 @@
       var endEnOnly = nextHEn ? startEnOnly + nextHEn.index : normalized.length;
       section = normalized.substring(startEnOnly, endEnOnly);
     } else {
-      // Split by separator '---' if present
       var parts = normalized.split(/\n---+\n|\n---+\s*$/);
       if (parts.length >= 2) {
         section = isGerman ? parts[0] : parts[1];
@@ -131,9 +119,7 @@
       }
     }
 
-    // Clean leading language header line / markdown markers
     section = section.replace(/^(?:[\r\n\s]|---+|#{1,4}\s*(?:🇩🇪|🇬🇧|🇺🇸|[^\n]*))+/i, '').trim();
-    // Also remove any remaining trailing separator
     section = section.replace(/\n---+\s*$/, '').trim();
     return section;
   }
@@ -152,14 +138,12 @@
         continue;
       }
 
-      // Headers (### or ## or #)
       if (/^#{1,4}\s+/.test(trimmed)) {
         var headerText = trimmed.replace(/^#{1,4}\s+/, '');
         html += '<div class="changelog-h3">' + formatInlineMarkdown(headerText) + '</div>';
         continue;
       }
 
-      // Sub-bullets (indented with 2+ spaces or tab followed by - or *)
       var isSubBullet = /^(\s{2,}|\t)[-*•]\s+/.test(line);
       var isBullet = isSubBullet || /^[-*•]\s+/.test(trimmed);
 
@@ -170,14 +154,62 @@
         continue;
       }
 
-      // Normal paragraph
       html += '<div class="changelog-p">' + formatInlineMarkdown(trimmed) + '</div>';
     }
 
     return html;
   }
 
-  function checkForUpdates() {
+  function resolveUpdateFromManifest(manifest, latestTag, releaseBody, customBaseUrl) {
+    if (!manifest || !manifest.version) return null;
+    var tvVersion = String(manifest.version).replace(/^v/, '');
+    var tag = latestTag || manifest.tag || ('v' + tvVersion);
+    var activeVer = getActiveVersion();
+    var currentProtocol = (window.TVBootloader && window.TVBootloader.OTA_PROTOCOL) ? window.TVBootloader.OTA_PROTOCOL : 1;
+    var minProtocol = manifest.minBootloaderProtocol || 1;
+    var requiresNative = minProtocol > currentProtocol;
+
+    var baseUrl = customBaseUrl || ('https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + tag + '/');
+
+    if (isNewer(activeVer, tvVersion)) {
+      _pendingUpdate = {
+        version: tvVersion,
+        tag: tag,
+        baseUrl: baseUrl,
+        manifest: manifest,
+        requiresNativePackage: requiresNative,
+        body: releaseBody || manifest.releaseNotes || ''
+      };
+      showUpdateModal(activeVer, tvVersion, _pendingUpdate.body, false);
+      return _pendingUpdate;
+    }
+    return {
+      version: tvVersion,
+      tag: tag,
+      body: releaseBody || '',
+      hasUpdate: false
+    };
+  }
+
+  function checkForUpdates(customBaseUrl) {
+    var overrideBase = customBaseUrl || window.__GOAT_OTA_BASE_URL__ || null;
+    if (overrideBase) {
+      if (overrideBase.charAt(overrideBase.length - 1) !== '/') overrideBase += '/';
+      var customManifestUrl = overrideBase + 'smart_tv/manifest.json?t=' + Date.now();
+      return fetch(customManifestUrl)
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function(manifest) {
+          return resolveUpdateFromManifest(manifest, manifest && manifest.tag, manifest && manifest.releaseNotes, overrideBase);
+        })
+        .catch(function(err) {
+          console.warn('[TVUpdater] Custom OTA check failed:', err.message);
+          return null;
+        });
+    }
+
     var url = 'https://api.github.com/repos/' + GITHUB_REPO + '/releases/latest';
 
     return fetch(url, { headers: { 'Accept': 'application/vnd.github.v3+json' } })
@@ -194,7 +226,6 @@
           _cachedReleaseNotes = data.body;
         }
 
-        // Fetch manifest.json to inspect the Smart TV specific version
         var rawBaseUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + latestTag + '/';
         var manifestUrl = rawBaseUrl + 'smart_tv/manifest.json?t=' + Date.now();
 
@@ -204,30 +235,30 @@
             return null;
           })
           .then(function(manifest) {
-            var tvVersion = (manifest && manifest.version) ? manifest.version : latestTag.replace(/^v/, '');
-            var activeVer = getActiveVersion();
-
-            if (isNewer(activeVer, tvVersion)) {
-              _pendingUpdate = {
-                version: tvVersion,
-                tag: latestTag,
-                body: data.body || '',
-                assets: data.assets || []
-              };
-              showUpdateModal(activeVer, tvVersion, _pendingUpdate.body, false);
-              return _pendingUpdate;
+            if (!manifest) {
+              manifest = { version: latestTag.replace(/^v/, ''), tag: latestTag };
             }
-            return {
-              version: tvVersion,
-              tag: latestTag,
-              body: data.body || '',
-              hasUpdate: false
-            };
+            return resolveUpdateFromManifest(manifest, latestTag, data.body || '', rawBaseUrl);
           });
       })
       .catch(function(err) {
-        console.log('[TVUpdater] Check skipped / offline:', err.message);
-        return null;
+        // Fallback directly to raw main manifest if GitHub API is rate-limited (HTTP 403/429)
+        var fallbackManifestUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/main/smart_tv/manifest.json?t=' + Date.now();
+        return fetch(fallbackManifestUrl)
+          .then(function(fRes) {
+            if (!fRes.ok) throw err;
+            return fRes.json();
+          })
+          .then(function(manifest) {
+            if (!manifest || !manifest.version) return null;
+            var tag = manifest.tag || ('v' + String(manifest.version).replace(/^v/, ''));
+            var rawBaseUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + tag + '/';
+            return resolveUpdateFromManifest(manifest, tag, manifest.releaseNotes || '', rawBaseUrl);
+          })
+          .catch(function() {
+            console.log('[TVUpdater] Check skipped / offline:', err.message);
+            return null;
+          });
       });
   }
 
@@ -252,6 +283,8 @@
     var isDe = (window.TVI18n && typeof TVI18n.getLanguage === 'function')
       ? (TVI18n.getLanguage() === 'de')
       : false;
+
+    var requiresNative = !isUpToDateMode && _pendingUpdate && _pendingUpdate.requiresNativePackage;
 
     // 1. Badge Icon
     var badgeIcon = document.getElementById('update-badge-icon');
@@ -290,15 +323,21 @@
     // 4. Description
     var descEl = modal.querySelector('.update-desc');
     if (descEl) {
-      descEl.textContent = isUpToDateMode
-        ? (isDe ? 'Du nutzt die aktuellste Version von GOATPlayer TV.' : 'You are using the latest version of GOATPlayer TV.')
-        : (isDe ? 'Eine neue Version von GOATPlayer TV ist bereit zur Installation.' : 'A new version of GOATPlayer TV is ready to install.');
+      if (isUpToDateMode) {
+        descEl.textContent = isDe ? 'Du nutzt die aktuellste Version von GOATPlayer TV.' : 'You are using the latest version of GOATPlayer TV.';
+      } else if (requiresNative) {
+        descEl.textContent = isDe
+          ? 'Dieses System-Update erfordert einmalig eine Paket-Neuinstallation (.ipk / .wgt).'
+          : 'This system update requires a one-time package installation (.ipk / .wgt).';
+      } else {
+        descEl.textContent = isDe ? 'Eine neue Version von GOATPlayer TV ist bereit zur Installation.' : 'A new version of GOATPlayer TV is ready to install.';
+      }
     }
 
     // 5. Changelog Box with localized markdown
     var changelogBox = document.getElementById('update-changelog-box');
     if (changelogBox) {
-      var rawChangelog = changelog || (isUpToDateMode ? FALLBACK_CHANGELOG_2_1_3 : 'Performance improvements and bug fixes.');
+      var rawChangelog = changelog || (isUpToDateMode ? FALLBACK_CHANGELOG : 'Performance improvements and bug fixes.');
       var localizedNotes = extractLocalizedChangelog(rawChangelog, isDe);
       changelogBox.innerHTML = renderMarkdownChangelogHtml(localizedNotes);
       changelogBox.scrollTop = 0;
@@ -313,7 +352,7 @@
     var laterBtn = document.getElementById('update-later-btn');
 
     if (confirmBtn) {
-      if (isUpToDateMode) {
+      if (isUpToDateMode || requiresNative) {
         confirmBtn.style.display = 'none';
       } else {
         confirmBtn.style.display = '';
@@ -328,7 +367,7 @@
     if (laterBtn) {
       laterBtn.style.display = '';
       laterBtn.disabled = false;
-      var laterLabel = isUpToDateMode
+      var laterLabel = (isUpToDateMode || requiresNative)
         ? (isDe ? 'Schließen' : 'Close')
         : (isDe ? 'Später' : 'Later');
       var laterSpan = laterBtn.querySelector('#update-later-text') || laterBtn.querySelector('span');
@@ -338,7 +377,7 @@
 
     // 8. Open modal
     if (window.TVApp && typeof window.TVApp.openModal === 'function') {
-      window.TVApp.openModal(modal, isUpToDateMode ? laterBtn : confirmBtn);
+      window.TVApp.openModal(modal, (isUpToDateMode || requiresNative) ? laterBtn : confirmBtn);
     } else {
       modal.classList.add('active');
     }
@@ -361,7 +400,7 @@
         }
         nav.pushBackHandler(modal._updateBackHandler);
       }
-      var targetFocus = isUpToDateMode ? laterBtn : (confirmBtn || laterBtn);
+      var targetFocus = (isUpToDateMode || requiresNative) ? laterBtn : (confirmBtn || laterBtn);
       if (targetFocus && typeof nav.setFocus === 'function') {
         nav.setFocus(targetFocus);
         setTimeout(function() {
@@ -381,11 +420,9 @@
       return;
     }
 
-    // Instant Mode B display using cached release notes or embedded fallback
-    var notesToUse = _cachedReleaseNotes || FALLBACK_CHANGELOG_2_1_3;
+    var notesToUse = _cachedReleaseNotes || FALLBACK_CHANGELOG;
     showUpdateModal(activeVer, activeVer, notesToUse, true);
 
-    // If we haven't fetched from GitHub yet, check in background
     if (!_cachedReleaseNotes) {
       checkForUpdates().then(function(updateResult) {
         if (updateResult && updateResult.body) {
@@ -420,26 +457,148 @@
     }
   }
 
-  function getSha256(str) {
-    if (window.TVBootloader && typeof window.TVBootloader.computeSha256 === 'function') {
-      return Promise.resolve(window.TVBootloader.computeSha256(str));
-    }
-    if (window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
-      return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-        .then(function(buf) {
-          var hex = '';
-          var bytes = new Uint8Array(buf);
-          for (var i = 0; i < bytes.length; i++) {
-            hex += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
-          }
-          return hex.toLowerCase();
+  function computeSha256Promise(input, isBinaryBytes) {
+    return new Promise(function(resolve, reject) {
+      if (window.TVBootloader && typeof window.TVBootloader.computeSha256Async === 'function') {
+        window.TVBootloader.computeSha256Async(input, !!isBinaryBytes, function(err, hash) {
+          if (err || !hash) reject(err || new Error('SHA-256 computation failed'));
+          else resolve(hash.toLowerCase());
         });
+        return;
+      }
+      if (!isBinaryBytes && window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
+        window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(input)))
+          .then(function(buf) {
+            var hex = '';
+            var bytes = new Uint8Array(buf);
+            for (var i = 0; i < bytes.length; i++) {
+              hex += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+            }
+            resolve(hex.toLowerCase());
+          })
+          .catch(reject);
+        return;
+      }
+      if (!isBinaryBytes && window.TVBootloader && typeof window.TVBootloader.computeSha256 === 'function') {
+        resolve(window.TVBootloader.computeSha256(String(input)));
+        return;
+      }
+      reject(new Error('No cryptographic SHA-256 engine available'));
+    });
+  }
+
+  function bytesToBase64DataUri(bytes, mimeType) {
+    var binary = '';
+    var chunkSize = 8192;
+    for (var i = 0; i < bytes.length; i += chunkSize) {
+      var slice = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, slice);
     }
-    return Promise.reject(new Error('No cryptographic SHA-256 engine available'));
+    return 'data:' + (mimeType || 'image/png') + ';base64,' + btoa(binary);
+  }
+
+  function buildDownloadPlanFromManifest(manifest) {
+    var plan = [];
+    if (!manifest) return plan;
+
+    if (manifest.html && manifest.html.name && manifest.html.sha256) {
+      plan.push({
+        name: manifest.html.name,
+        path: manifest.html.path || 'smart_tv/index.html',
+        sha256: manifest.html.sha256,
+        kind: 'html'
+      });
+    }
+
+    var styles = manifest.styles || [];
+    if (styles.length === 0 && manifest.files && manifest.files['style.css']) {
+      styles = [{ name: 'style.css', path: 'smart_tv/css/style.css', sha256: manifest.files['style.css'] }];
+    }
+    for (var i = 0; i < styles.length; i++) {
+      if (styles[i] && styles[i].name && styles[i].sha256) {
+        plan.push({
+          name: styles[i].name,
+          path: styles[i].path || ('smart_tv/css/' + styles[i].name),
+          sha256: styles[i].sha256,
+          kind: 'style'
+        });
+      }
+    }
+
+    var vendors = manifest.vendorScripts || [];
+    for (var v = 0; v < vendors.length; v++) {
+      if (vendors[v] && vendors[v].name && vendors[v].sha256) {
+        plan.push({
+          name: vendors[v].name,
+          path: vendors[v].path || ('smart_tv/js/' + vendors[v].name),
+          sha256: vendors[v].sha256,
+          kind: 'vendor'
+        });
+      }
+    }
+
+    var scripts = manifest.scripts || [];
+    if (scripts.length === 0 && manifest.files) {
+      var legacyNames = [
+        'icons.js', 'i18n.js', 'm3u.js', 'storage.js', 'api.js',
+        'sync.js', 'spatial_nav.js', 'virtual_list.js', 'diagnostics.js',
+        'subtitles.js', 'player.js', 'updater.js', 'app.js'
+      ];
+      for (var l = 0; l < legacyNames.length; l++) {
+        var ln = legacyNames[l];
+        if (manifest.files[ln]) {
+          plan.push({
+            name: ln,
+            path: 'smart_tv/js/' + ln,
+            sha256: manifest.files[ln],
+            kind: 'script'
+          });
+        }
+      }
+    } else {
+      for (var s = 0; s < scripts.length; s++) {
+        if (scripts[s] && scripts[s].name && scripts[s].sha256) {
+          plan.push({
+            name: scripts[s].name,
+            path: scripts[s].path || ('smart_tv/js/' + scripts[s].name),
+            sha256: scripts[s].sha256,
+            kind: 'script'
+          });
+        }
+      }
+    }
+
+    var assets = manifest.assets || [];
+    for (var a = 0; a < assets.length; a++) {
+      if (assets[a] && assets[a].name && assets[a].sha256) {
+        plan.push({
+          name: assets[a].name,
+          path: assets[a].path || ('smart_tv/' + assets[a].name),
+          sha256: assets[a].sha256,
+          mime: assets[a].mime || 'image/png',
+          kind: 'asset'
+        });
+      }
+    }
+
+    return plan;
+  }
+
+  function validateJsSyntax(code, fileName) {
+    try {
+      // Dry-compile without executing to catch syntax errors before saving
+      new Function(code);
+    } catch (syntaxErr) {
+      throw new Error('Syntax error in ' + fileName + ': ' + (syntaxErr.message || String(syntaxErr)));
+    }
   }
 
   function startOtaUpdate() {
     if (_isUpdating || !_pendingUpdate) return;
+    if (!window.TVBootloader || !window.TVBootloader.otaVault) {
+      console.error('[TVUpdater] TVBootloader.otaVault not available');
+      return;
+    }
     _isUpdating = true;
 
     var progressRow = document.getElementById('update-progress-row');
@@ -447,43 +606,32 @@
     var progressText = document.getElementById('update-progress-text');
     var confirmBtn = document.getElementById('update-now-btn') || document.getElementById('update-confirm-btn');
     var confirmText = confirmBtn ? (confirmBtn.querySelector('#update-confirm-text') || confirmBtn.querySelector('span')) : null;
+    var isDe = (window.TVI18n && typeof TVI18n.getLanguage === 'function') ? (TVI18n.getLanguage() === 'de') : false;
 
     if (progressRow) progressRow.style.display = 'block';
+    if (progressFill) progressFill.style.width = '2%';
+    if (progressText) {
+      progressText.style.color = '';
+      progressText.textContent = isDe ? 'Manifest wird geprüft...' : 'Verifying manifest...';
+    }
     if (confirmBtn) confirmBtn.disabled = true;
 
-    var lang = (window.TVI18n && typeof TVI18n.t === 'function') ? TVI18n.t('updating') : 'Updating...';
+    var lang = (window.TVI18n && typeof TVI18n.t === 'function') ? TVI18n.t('updating') : (isDe ? 'Aktualisiere...' : 'Updating...');
     if (confirmText) confirmText.textContent = lang;
 
-    var filesToUpdate = [
-      { name: 'style.css', path: 'smart_tv/css/style.css' },
-      { name: 'icons.js', path: 'smart_tv/js/icons.js' },
-      { name: 'i18n.js', path: 'smart_tv/js/i18n.js' },
-      { name: 'm3u.js', path: 'smart_tv/js/m3u.js' },
-      { name: 'storage.js', path: 'smart_tv/js/storage.js' },
-      { name: 'api.js', path: 'smart_tv/js/api.js' },
-      { name: 'sync.js', path: 'smart_tv/js/sync.js' },
-      { name: 'spatial_nav.js', path: 'smart_tv/js/spatial_nav.js' },
-      { name: 'virtual_list.js', path: 'smart_tv/js/virtual_list.js' },
-      { name: 'diagnostics.js', path: 'smart_tv/js/diagnostics.js' },
-      { name: 'subtitles.js', path: 'smart_tv/js/subtitles.js' },
-      { name: 'player.js', path: 'smart_tv/js/player.js' },
-      { name: 'updater.js', path: 'smart_tv/js/updater.js' },
-      { name: 'app.js', path: 'smart_tv/js/app.js' }
-    ];
-
-    var total = filesToUpdate.length;
-    var completed = 0;
-    var downloadedBundle = {
-      version: _pendingUpdate.version,
-      updatedAt: Date.now(),
-      hashes: {},
-      files: {}
-    };
-
-    var rawBaseUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + _pendingUpdate.tag + '/';
+    var rawBaseUrl = _pendingUpdate.baseUrl || ('https://raw.githubusercontent.com/' + GITHUB_REPO + '/' + _pendingUpdate.tag + '/');
     var manifestUrl = rawBaseUrl + 'smart_tv/manifest.json?t=' + Date.now();
 
-    if (progressText) progressText.textContent = 'Verifying manifest...';
+    function handleUpdateFailure(err) {
+      console.error('[TVUpdater] OTA update failed:', err);
+      if (progressText) {
+        progressText.textContent = (isDe ? 'Fehler: ' : 'Error: ') + (err && err.message ? err.message : String(err));
+        progressText.style.color = '#ef4444';
+      }
+      _isUpdating = false;
+      if (confirmBtn) confirmBtn.disabled = false;
+      if (confirmText) confirmText.textContent = isDe ? 'Erneut versuchen' : 'Retry';
+    }
 
     fetch(manifestUrl)
       .then(function(res) {
@@ -491,129 +639,175 @@
         return res.json();
       })
       .then(function(manifest) {
-        if (!manifest || !manifest.files) {
-          throw new Error('Invalid manifest format');
+        var filesToUpdate = buildDownloadPlanFromManifest(manifest);
+        if (!filesToUpdate.length) {
+          throw new Error('Invalid or empty manifest');
         }
-        downloadedBundle.hashes = manifest.files;
 
-        function fetchNext(index) {
-          if (index >= total) {
-            finishUpdate(downloadedBundle);
+        var vault = window.TVBootloader.otaVault;
+        vault.prepareStagingSlot(manifest, function(prepErr, stagingSlot) {
+          if (prepErr || !stagingSlot) {
+            handleUpdateFailure(prepErr || new Error('Failed to prepare staging slot'));
             return;
           }
 
-          var fileInfo = filesToUpdate[index];
-          var fileUrl = rawBaseUrl + fileInfo.path + '?t=' + Date.now();
-          var expectedHash = (manifest.files[fileInfo.name] || '').toLowerCase();
+          var total = filesToUpdate.length;
+          var completed = 0;
 
-          if (!expectedHash || expectedHash.length !== 64) {
-            throw new Error('Missing expected hash for ' + fileInfo.name);
+          function stepProgress(fileName, skipped) {
+            completed++;
+            var pct = Math.min(95, Math.round((completed / total) * 95));
+            if (progressFill) progressFill.style.width = pct + '%';
+            if (progressText) {
+              progressText.textContent = pct + '% (' + fileName + (skipped ? ' ✓' : '') + ')';
+            }
           }
 
-          fetch(fileUrl)
-            .then(function(res) {
-              if (!res.ok) throw new Error('Download failed: ' + fileInfo.name);
-              return res.text();
-            })
-            .then(function(content) {
-              if (!content || content.length < 50 || (content.length < 100 && content.indexOf('404') !== -1)) {
-                throw new Error('Invalid content for ' + fileInfo.name);
-              }
-
-              // Normalize CRLF to LF so OS line ending differences never cause hash mismatches
-              var normalized = content.replace(/\r\n/g, '\n');
-
-              return getSha256(normalized).then(function(actualHash) {
-                if (actualHash !== expectedHash) {
-                  throw new Error('Integrity check failed for ' + fileInfo.name + ' (hash mismatch)');
-                }
-                downloadedBundle.files[fileInfo.name] = normalized;
-                completed++;
-                var pct = Math.round((completed / total) * 100);
-                if (progressFill) progressFill.style.width = pct + '%';
-                if (progressText) progressText.textContent = pct + '% (' + fileInfo.name + ')';
-                fetchNext(index + 1);
-              });
-            })
-            .catch(function(err) {
-              console.error('[TVUpdater] Update failed on ' + fileInfo.name + ':', err);
+          function fetchAndStageNext(index) {
+            if (index >= total) {
               if (progressText) {
-                progressText.textContent = 'Fehler: ' + err.message;
-                progressText.style.color = '#ef4444';
+                progressText.textContent = isDe ? 'Installation wird überprüft...' : 'Verifying installation...';
               }
-              _isUpdating = false;
-              if (confirmBtn) confirmBtn.disabled = false;
-              if (confirmText) confirmText.textContent = 'Erneut versuchen';
-            });
-        }
+              vault.verifyAndActivateSlot(stagingSlot, manifest, function(actErr) {
+                if (actErr) {
+                  handleUpdateFailure(actErr);
+                  return;
+                }
+                if (progressFill) progressFill.style.width = '100%';
+                var successMsg = (window.TVI18n && typeof TVI18n.t === 'function')
+                  ? TVI18n.t('update_success')
+                  : (isDe ? 'Update erfolgreich! Neustart...' : 'Update completed! Reloading...');
+                if (progressText) {
+                  progressText.textContent = successMsg;
+                  progressText.style.color = '#22c55e';
+                }
+                setTimeout(function() {
+                  window.location.reload();
+                }, 1000);
+              });
+              return;
+            }
 
-        fetchNext(0);
+            var fileInfo = filesToUpdate[index];
+            var expectedHash = String(fileInfo.sha256 || '').toLowerCase();
+            if (!expectedHash || expectedHash.length !== 64) {
+              handleUpdateFailure(new Error('Missing expected SHA-256 for ' + fileInfo.name));
+              return;
+            }
+
+            // Delta check: if factory file on disk already has the exact same SHA-256, reference factory directly
+            var factoryHash = (window.TVBootloader && typeof window.TVBootloader.getFactoryHash === 'function')
+              ? window.TVBootloader.getFactoryHash(fileInfo.name)
+              : null;
+
+            if (factoryHash && factoryHash === expectedHash) {
+              vault.saveStagingFile(stagingSlot, {
+                name: fileInfo.name,
+                sha256: expectedHash,
+                source: 'factory',
+                mime: fileInfo.mime || '',
+                content: null
+              }, function(saveErr) {
+                if (saveErr) {
+                  handleUpdateFailure(saveErr);
+                  return;
+                }
+                stepProgress(fileInfo.name, true);
+                fetchAndStageNext(index + 1);
+              });
+              return;
+            }
+
+            var fileUrl = rawBaseUrl + fileInfo.path + '?t=' + Date.now();
+
+            if (fileInfo.kind === 'asset') {
+              fetch(fileUrl)
+                .then(function(res) {
+                  if (!res.ok) throw new Error('Asset download failed: ' + fileInfo.name);
+                  return res.arrayBuffer();
+                })
+                .then(function(buf) {
+                  var bytes = new Uint8Array(buf);
+                  if (!bytes || bytes.length < 16) {
+                    throw new Error('Invalid binary asset: ' + fileInfo.name);
+                  }
+                  return computeSha256Promise(bytes, true).then(function(actualHash) {
+                    if (actualHash !== expectedHash) {
+                      throw new Error('Integrity check failed for ' + fileInfo.name + ' (hash mismatch)');
+                    }
+                    var dataUri = bytesToBase64DataUri(bytes, fileInfo.mime || 'image/png');
+                    bytes = null;
+                    return new Promise(function(resolve, reject) {
+                      vault.saveStagingFile(stagingSlot, {
+                        name: fileInfo.name,
+                        sha256: actualHash,
+                        source: 'ota',
+                        mime: fileInfo.mime || 'image/png',
+                        content: dataUri
+                      }, function(err) {
+                        dataUri = null;
+                        if (err) reject(err);
+                        else resolve();
+                      });
+                    });
+                  });
+                })
+                .then(function() {
+                  stepProgress(fileInfo.name, false);
+                  fetchAndStageNext(index + 1);
+                })
+                .catch(handleUpdateFailure);
+              return;
+            }
+
+            // Text file (html, style, vendor, script)
+            fetch(fileUrl)
+              .then(function(res) {
+                if (!res.ok) throw new Error('Download failed: ' + fileInfo.name);
+                return res.text();
+              })
+              .then(function(content) {
+                if (!content || content.length < 20) {
+                  throw new Error('Invalid content for ' + fileInfo.name);
+                }
+                var normalized = content.replace(/\r\n/g, '\n');
+                content = null;
+
+                return computeSha256Promise(normalized, false).then(function(actualHash) {
+                  if (actualHash !== expectedHash) {
+                    throw new Error('Integrity check failed for ' + fileInfo.name + ' (hash mismatch)');
+                  }
+                  if (fileInfo.kind === 'script' || fileInfo.kind === 'vendor') {
+                    validateJsSyntax(normalized, fileInfo.name);
+                  }
+                  return new Promise(function(resolve, reject) {
+                    vault.saveStagingFile(stagingSlot, {
+                      name: fileInfo.name,
+                      sha256: actualHash,
+                      source: 'ota',
+                      content: normalized
+                    }, function(err) {
+                      normalized = null; // Free RAM immediately after write
+                      if (err) reject(err);
+                      else resolve();
+                    });
+                  });
+                });
+              })
+              .then(function() {
+                stepProgress(fileInfo.name, false);
+                fetchAndStageNext(index + 1);
+              })
+              .catch(handleUpdateFailure);
+          }
+
+          fetchAndStageNext(0);
+        });
       })
-      .catch(function(err) {
-        console.error('[TVUpdater] Manifest verification failed:', err);
-        if (progressText) {
-          progressText.textContent = 'Fehler: ' + err.message;
-          progressText.style.color = '#ef4444';
-        }
-        _isUpdating = false;
-        if (confirmBtn) confirmBtn.disabled = false;
-        if (confirmText) confirmText.textContent = 'Erneut versuchen';
-      });
-  }
-
-  function finishUpdate(bundle) {
-    try {
-      localStorage.setItem(OTA_STORAGE_KEY, JSON.stringify(bundle));
-      var successMsg = (window.TVI18n && typeof TVI18n.t === 'function')
-        ? TVI18n.t('update_success')
-        : 'Update completed! Reloading...';
-
-      var progressText = document.getElementById('update-progress-text');
-      if (progressText) {
-        progressText.textContent = successMsg;
-        progressText.style.color = '#22c55e';
-      }
-
-      setTimeout(function() {
-        window.location.reload();
-      }, 1200);
-    } catch (e) {
-      console.error('[TVUpdater] Failed to store update bundle:', e);
-      _isUpdating = false;
-    }
-  }
-
-  function applyCachedOtaBundle() {
-    // If the dynamic bootloader is active, the OTA bundle was already booted before updater.js
-    if (window.TVBootloader) return;
-
-    try {
-      var saved = localStorage.getItem(OTA_STORAGE_KEY);
-      if (!saved) return;
-
-      var bundle = JSON.parse(saved);
-      if (!bundle || !bundle.version || !isNewer(CURRENT_VERSION, bundle.version)) {
-        localStorage.removeItem(OTA_STORAGE_KEY);
-        return;
-      }
-
-      if (!bundle.files) return;
-
-      if (bundle.files['style.css']) {
-        var styleEl = document.getElementById('goat-ota-style') || document.createElement('style');
-        styleEl.id = 'goat-ota-style';
-        styleEl.textContent = bundle.files['style.css'];
-        document.head.appendChild(styleEl);
-      }
-    } catch (e) {
-      console.warn('[TVUpdater] Error applying cached bundle, reverting to factory:', e);
-      localStorage.removeItem(OTA_STORAGE_KEY);
-    }
+      .catch(handleUpdateFailure);
   }
 
   function init() {
-    applyCachedOtaBundle();
-
     var closeBtn = document.getElementById('update-close-btn');
     var laterBtn = document.getElementById('update-later-btn');
     var confirmBtn = document.getElementById('update-now-btn') || document.getElementById('update-confirm-btn');
@@ -622,7 +816,6 @@
     if (laterBtn) laterBtn.addEventListener('click', closeUpdateModal);
     if (confirmBtn) confirmBtn.addEventListener('click', startOtaUpdate);
 
-    // Auto-bind #accounts-version-badge to open changelog modal
     var verBadge = document.getElementById('accounts-version-badge');
     if (verBadge) {
       verBadge.addEventListener('click', function() {
@@ -630,13 +823,15 @@
       });
     }
 
-    // Run update check in background 5s after boot (after splash and screen settle)
-    setTimeout(checkForUpdates, 5000);
+    setTimeout(function() {
+      checkForUpdates();
+    }, 5000);
   }
 
   window.TVUpdater = {
     init: init,
     checkForUpdates: checkForUpdates,
+    startOtaUpdate: startOtaUpdate,
     openChangelogModal: openChangelogModal,
     showUpdateModal: showUpdateModal,
     extractLocalizedChangelog: extractLocalizedChangelog,
@@ -644,7 +839,7 @@
     getVersion: getActiveVersion,
     getActiveVersion: getActiveVersion,
     APP_VERSION: APP_VERSION,
-    FALLBACK_CHANGELOG: FALLBACK_CHANGELOG_2_1_3
+    FALLBACK_CHANGELOG: FALLBACK_CHANGELOG
   };
 
   if (document.readyState === 'loading') {

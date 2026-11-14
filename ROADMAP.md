@@ -28,8 +28,8 @@ Current Release: **`v2.1.3`** (Flutter Desktop/Mobile/Fire TV, Web Pairing Porta
 ---
 
 ## 🔄 Phase 2: Smart TV OTA Full-Parity (Zero Re-Install)
-- [ ] **Dynamic DOM & Manifest Bootloader**: Support dynamic JS DOM creation / `index.html` body swap and dynamic script loading from `manifest.json` inside `bootloader.js` / `updater.js` so new modals, buttons, and UI layouts ship via In-App OTA without reinstalling `.ipk`/`.wgt`.
-- [ ] **In-App Assets & Storage Headroom**: Deliver in-app logos/icons as SVG or cached data-URIs and add IndexedDB OTA bundle fallback beyond the ~5 MB `localStorage` limit.
+- [x] **Dynamic DOM & Manifest v2 Bootloader (`bootloader.js` / `updater.js` / `generate_tv_manifest.js`)**: Schema v2 auto-discovery manifest (`html`, `styles`, `vendorScripts`, `scripts`, `assets`) with embedded `FACTORY_HASHES` delta-skipping, full `index.html` DOM body swap, ghost-free CSS replacement with relative `url()` rewriting, `new Function()` JS syntax pre-check, post-write read-back verification, post-boot global/DOM invariant checks, and deterministic `DOMContentLoaded`/`load` callback flushing.
+- [x] **In-App Assets, Per-File IndexedDB Vault & Dual-Slot A/B Rollback (`goat_tv_ota_v2`)**: Per-file IndexedDB storage (`slot_a` / `slot_b` with compact `localStorage` fallback and automatic v1 `goat_tv_ota_bundle` cleanup), binary SHA-256 verified Data-URI asset resolution (`window.TVAssets`), immediate heap release after write/eval for low-RAM TVs, and automatic rollback to last healthy OTA slot (`markBootHealthy()`) before falling back to factory.
 - *(Note: TV OS launcher icon, app title, OS-reported package version, and system privileges remain fixed at the `.ipk`/`.wgt` package layer.)*
 
 ---

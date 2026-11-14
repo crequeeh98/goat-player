@@ -425,6 +425,13 @@
     }
   }
 
+  function resolveAssetUrl(relPath) {
+    if (window.TVAssets && typeof window.TVAssets.resolve === 'function') {
+      return window.TVAssets.resolve(relPath);
+    }
+    return relPath;
+  }
+
   function init() {
     var isTizen = !!(window.tizen || (navigator.userAgent && /Tizen/i.test(navigator.userAgent)));
     if (isTizen && document.body) {
@@ -486,6 +493,10 @@
           });
         }, 300);
       }, 2200);
+    }
+
+    if (window.TVBootloader && typeof window.TVBootloader.markBootHealthy === 'function') {
+      window.TVBootloader.markBootHealthy();
     }
   }
 
@@ -2926,12 +2937,13 @@
         var isFav = activeAccount ? window.TVStorage.isFavorite(activeAccount.id, ch.stream_id, 'live') : false;
         var cleanName = ch.name ? ch.name.replace(/^\[.*?\]\s*/, '') : 'Channel';
         var safeStreamId = escapeHtml(ch.stream_id);
-        var safeChIcon = sanitizeImgUrl(ch.stream_icon) || 'assets/logo.png';
+        var defaultLogo = resolveAssetUrl('assets/logo.png');
+        var safeChIcon = sanitizeImgUrl(ch.stream_icon) || defaultLogo;
 
         item.innerHTML = 
           '<div class="channel-menu-left">' +
             '<span class="channel-menu-num">' + (idx + 1) + '</span>' +
-            '<img class="channel-menu-logo" src="' + safeChIcon + '" onerror="this.src=\'assets/logo.png\'" />' +
+            '<img class="channel-menu-logo" src="' + safeChIcon + '" onerror="this.src=\'' + defaultLogo + '\'" />' +
             '<span class="channel-menu-name">' + escapeHtml(cleanName) + '</span>' +
             '<span class="channel-menu-epg" id="cm-epg-' + safeStreamId + '">--</span>' +
           '</div>' +
@@ -4174,7 +4186,7 @@
           }
         }
         var pct = (dur > 100) ? Math.min(99, Math.max(0, Math.round((item.position / dur) * 100))) : 0;
-        var poster = sanitizeImgUrl(item.posterUrl) || 'assets/logo.png';
+        var poster = sanitizeImgUrl(item.posterUrl) || resolveAssetUrl('assets/logo.png');
 
         var cwCloseIcon = (window.TVIcons && window.TVIcons.close) ? window.TVIcons.close : '✕';
         var cwPlayIcon = (window.TVIcons && window.TVIcons.play) ? window.TVIcons.play : '▶';
@@ -4317,7 +4329,7 @@
         var sPill = 'S' + String(sNum).padStart(2, '0') + ' E' + String(eNum).padStart(2, '0');
         var dur = parseDurationSecs(item.duration);
         var pct = (item.isAdvanced || dur <= 100) ? 0 : Math.min(99, Math.max(0, Math.round((item.position / dur) * 100)));
-        var poster = sanitizeImgUrl(item.posterUrl) || 'assets/logo.png';
+        var poster = sanitizeImgUrl(item.posterUrl) || resolveAssetUrl('assets/logo.png');
 
         var sCwCloseIcon = (window.TVIcons && window.TVIcons.close) ? window.TVIcons.close : '✕';
         var sCwPlayIcon = (window.TVIcons && window.TVIcons.play) ? window.TVIcons.play : '▶';
@@ -4563,7 +4575,7 @@
 
     var durEl = document.getElementById('movie-detail-duration');
     if (durEl) durEl.textContent = '';
-    if (posterEl) posterEl.src = sanitizeRawUrl(movie.stream_icon) || 'assets/logo.png';
+    if (posterEl) posterEl.src = sanitizeRawUrl(movie.stream_icon) || resolveAssetUrl('assets/logo.png');
     if (titleEl) titleEl.textContent = movie.name || 'Movie';
     if (yearEl) yearEl.textContent = movie.year || 'VOD';
     var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
@@ -5188,7 +5200,7 @@
       }
     }
 
-    if (posterEl) posterEl.src = sanitizeRawUrl(series.cover) || 'assets/logo.png';
+    if (posterEl) posterEl.src = sanitizeRawUrl(series.cover) || resolveAssetUrl('assets/logo.png');
     if (titleEl) titleEl.textContent = series.name || 'Series';
     var starFilledSvg = (window.TVIcons && window.TVIcons.starFilled) ? window.TVIcons.starFilled : '★';
     var starOutlineSvg = (window.TVIcons && window.TVIcons.starOutline) ? window.TVIcons.starOutline : '☆';
@@ -6322,10 +6334,11 @@
         var parsedRating = m.rating ? parseFloat(m.rating) : NaN;
         var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
         var year = m.year || (m.release_date ? m.release_date.substring(0, 4) : null);
-        var iconUrl = sanitizeImgUrl(m.stream_icon) || 'assets/logo.png';
+        var defaultLogo = resolveAssetUrl('assets/logo.png');
+        var iconUrl = sanitizeImgUrl(m.stream_icon) || defaultLogo;
         row.innerHTML = 
           '<div class="search-row-left">' +
-            '<img class="search-row-thumb" src="' + iconUrl + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />' +
+            '<img class="search-row-thumb" src="' + iconUrl + '" loading="lazy" onerror="this.src=\'' + defaultLogo + '\'" />' +
             '<div class="search-row-info">' +
               '<span class="search-row-title">' + escapeHtml(m.name || 'Movie') + '</span>' +
               '<div class="search-row-meta">' +
@@ -6377,10 +6390,11 @@
         row.className = 'search-result-row focusable';
         var parsedRating = s.rating ? parseFloat(s.rating) : NaN;
         var rating = !isNaN(parsedRating) ? parsedRating.toFixed(1) : null;
-        var iconUrl = sanitizeImgUrl(s.cover || s.stream_icon) || 'assets/logo.png';
+        var defaultLogo = resolveAssetUrl('assets/logo.png');
+        var iconUrl = sanitizeImgUrl(s.cover || s.stream_icon) || defaultLogo;
         row.innerHTML = 
           '<div class="search-row-left">' +
-            '<img class="search-row-thumb" src="' + iconUrl + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />' +
+            '<img class="search-row-thumb" src="' + iconUrl + '" loading="lazy" onerror="this.src=\'' + defaultLogo + '\'" />' +
             '<div class="search-row-info">' +
               '<span class="search-row-title">' + escapeHtml(s.name || 'Series') + '</span>' +
               '<div class="search-row-meta">' +

@@ -16,6 +16,12 @@ if (Test-Path $WgtPath) {
     Remove-Item -Force $WgtPath
 }
 
+Write-Host "`nGenerating Smart TV SHA-256 Manifest & Factory Hashes..." -ForegroundColor Cyan
+& node "tool/generate_tv_manifest.js"
+if ($LASTEXITCODE -ne 0) {
+    throw "generate_tv_manifest.js failed with exit code $LASTEXITCODE"
+}
+
 Write-Host "`nPackaging smart_tv directory into Tizen .wgt package..." -ForegroundColor Yellow
 
 $tizenCmd = Get-Command "tizen" -ErrorAction SilentlyContinue

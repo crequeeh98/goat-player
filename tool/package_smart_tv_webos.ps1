@@ -14,6 +14,12 @@ if (-not (Test-Path $OutputDir)) {
 # Clean stale ipk files
 Get-ChildItem -Path $OutputDir -Filter "*.ipk" -ErrorAction SilentlyContinue | Remove-Item -Force
 
+Write-Host "`nGenerating Smart TV SHA-256 Manifest & Factory Hashes..." -ForegroundColor Cyan
+& node "tool/generate_tv_manifest.js"
+if ($LASTEXITCODE -ne 0) {
+    throw "generate_tv_manifest.js failed with exit code $LASTEXITCODE"
+}
+
 Write-Host "`nPackaging smart_tv directory into webOS IPK..." -ForegroundColor Yellow
 
 $aresPackageCmd = Get-Command "ares-package" -ErrorAction SilentlyContinue
