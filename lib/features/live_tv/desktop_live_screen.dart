@@ -10,7 +10,6 @@ import 'epg_controller.dart';
 import 'widgets/video_preview.dart';
 import 'widgets/epg_timeline.dart';
 import 'widgets/channel_icon.dart';
-import 'widgets/tv_smart_iptv_overlays.dart';
 import 'live_tv_controller.dart';
 import '../dashboard/favorites_provider.dart';
 import '../dashboard/dashboard_state.dart';
