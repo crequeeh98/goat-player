@@ -26,8 +26,8 @@ GOATPlayer implements a dual-stack system architecture designed to deliver maxim
         | - Overlays: tv_smart_iptv_overlay |                     | - Navigation: spatial_nav.js      |
         | - Remote: TvRemoteScope, TvFocus  |                     | - Video Engine: HTML5 + Hls.js    |
         | - Engine: media_kit (libmpv)      |                     | - Demuxer: TVContainerProber     |
-        | - Database: Drift (SQLite WAL)    |                     | - Storage: storage.js (Sandboxed) |
-        | - Sync: RemoteSyncService (Crypto)|                     | - Sync: sync.js (Web Crypto API)  |
+        | - Database: Drift (SQLite WAL+FTS)|                     | - Storage: storage.js + IDB SWR   |
+        | - Sync: RemoteSyncService (Crypto)|                     | - Boot/OTA: bootloader.js v2      |
         | - Network: Dio + Xtream Client    |                     | - Network: Native fetch() API     |
         +-----------------+-----------------+                     +-----------------+-----------------+
                           |                                                         |
@@ -58,9 +58,10 @@ The native Flutter stack targets **Windows Desktop**, **Android Mobile / Tablets
   - Multi-track audio and external subtitle demuxing with automatic language normalization (`TrackLanguageMatcher`).
   - Native aspect ratio letterboxing (`BoxFit.contain`).
 - **Database Layer (`lib/core/database/`)**:
-  - **Drift (SQLite)** compiled in Write-Ahead Logging (`WAL`) mode.
+  - **Drift (SQLite)** compiled in Write-Ahead Logging (`WAL`) mode (`schemaVersion => 12`).
+  - **Full-Text Search (`streams_fts`)**: SQLite FTS5 virtual table (`unicode61 remove_diacritics 2`) kept synced via triggers (`streams_fts_ai`/`ad`/`au`) for sub-millisecond stream lookup, paired with paged `LIMIT`/`OFFSET` category queries and incremental delta upserts.
   - **At-Rest Password Encryption**: All account passwords stored in Drift SQLite are encrypted via AES-GCM (`enc:v1:`) using PBKDF2 device-derived keys (`SecurityVault`), with automatic zero-breakage migration of legacy plaintext rows.
-  - Asynchronous isolate-based transactions preventing frame drops during background synchronization of 20,000+ streams.
+  - Asynchronous isolate-based transactions preventing frame drops during background synchronization of 20,000+ streams, plus a 10-minute category sync cooldown.
   - Modular DAOs: `StreamDao`, `AccountDao`, `CategoryPreferenceDao`, `CustomListDao`, `EpgDao`, and `PlaybackProgressDao`.
 - **Remote Pairing Service (`lib/core/remote_sync/`)**:
   - `RemoteSyncService` connects to Supabase Realtime via secure WebSocket channels.
@@ -87,11 +88,13 @@ The Smart TV stack targets **Samsung Tizen (2018+)** and **LG webOS (4.0+)**.
 - **Subtitles & Audio Engine (`smart_tv/js/subtitles.js`)**:
   - On-demand WebVTT and SRT subtitle parser with timestamp cue caching (`track.cues`).
   - Active cue renderer synchronized to HTML5 `timeupdate` events, rendering formatted subtitles in `#player-subtitle-overlay`.
-- **Fault-Tolerant Sandboxed Storage (`smart_tv/js/storage.js`)**:
+- **Fault-Tolerant Sandboxed Storage & SWR Cache (`smart_tv/js/storage.js`)**:
   - Wraps `window.localStorage` with an automatic in-memory fallback (`_memStore`) to guarantee uninterrupted operation in sandboxed widget environments (`file://` protocol) where local storage access throws `SecurityError`.
+  - **IndexedDB SWR Cache (`TVIdbCache`, `goat_tv_cache_v1`)**: Stale-While-Revalidate cache for categories and streams paired with manual Sync scopes and slim `goat_snap_*` metadata snapshots for Favorites & Custom Lists.
   - **At-Rest Storage Encryption**: Account credentials stored in LocalStorage are encrypted via Web Crypto AES-GCM (`enc:v1:`).
-- **OTA Bootloader & Code Integrity (`smart_tv/js/bootloader.js` & `updater.js`)**:
-  - Dynamic in-app updates executing cached scripts with strict SHA-256 integrity verification against manifest digests before execution.
+- **Universal OTA v2 Bootloader & Integrity (`smart_tv/js/bootloader.js` & `updater.js`)**:
+  - Auto-discovery Schema v2 `manifest.json` with embedded `FACTORY_HASHES` delta skipping (`tool/generate_tv_manifest.js`).
+  - Dual-slot IndexedDB vault (`goat_tv_ota_v2`, `slot_a`/`slot_b` + `localStorage` fallback) supporting full `index.html` DOM swap, ghost-free CSS replacement, new JS modules (`new Function()` pre-check + deferred `DOMContentLoaded`/`load` flush), SHA-256 verified binary `TVAssets` resolution, and automatic A/B crash rollback (`bootedHealthy` / `markBootHealthy()`).
 
 ---
 

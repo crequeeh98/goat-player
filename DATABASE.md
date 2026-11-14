@@ -8,9 +8,9 @@ GOATPlayer uses a high-performance dual-database architecture tailored to its ta
 
 ## 1. Flutter Client Database: Drift (SQLite)
 
-Located in `lib/core/database/`, Drift provides compile-time type safety, asynchronous query streams, and isolate-based background transactions.
+Located in `lib/core/database/`, Drift (`schemaVersion => 12`, WAL mode) provides compile-time type safety, asynchronous query streams, and isolate-based background transactions.
 
-### 1.1 Core Tables Schema
+### 1.1 Core Tables Schema & FTS5 Index
 
 #### 1. `Accounts` Table (`lib/core/database/tables.dart`)
 Stores IPTV provider credentials and playlist configurations.
@@ -117,9 +117,9 @@ Maps stream items into user custom lists with custom ordering.
 ### 1.2 Data Access Objects (DAOs)
 
 1. **`StreamDao` (`lib/core/database/daos/stream_dao.dart`)**:
-   - Manages batch stream ingestion via SQLite transactions.
-   - Implements fast indexed queries by `accountId`, `categoryId`, and `streamType`.
-   - Handles global search queries with prefix and substring matching.
+   - Manages incremental delta upserts and batch stream ingestion via SQLite transactions.
+   - Implements fast indexed queries and paged `LIMIT`/`OFFSET` reads by `accountId`, `categoryId`, and `streamType`.
+   - Powers global search via the `streams_fts` SQLite FTS5 virtual table (`unicode61 remove_diacritics 2`, auto-synced via `streams_fts_ai`/`ad`/`au` triggers).
 2. **`AccountDao` (`lib/core/database/daos/account_dao.dart`)**:
    - Manages account creation, credential updates, and playlist deletion with cascading cleanup.
 3. **`CategoryPreferenceDao` (`lib/core/database/daos/category_preference_dao.dart`)**:
@@ -150,8 +150,11 @@ On low-powered Smart TVs (Samsung Tizen & LG webOS), the application uses an abs
 | `goat_accounts` | JSON Array | Array of configured IPTV accounts (passwords encrypted via Web Crypto AES-GCM `enc:v1:`) |
 | `goat_active_account` | String | ID of currently selected active account |
 | `goat_favs_<accountId>` | JSON Array | Array of pinned favorite stream IDs |
+| `goat_snap_<accountId>_<type>` | JSON Object | Slim metadata snapshots (`live`/`movie`/`series`) for fast Favorites & Custom Lists rendering |
 | `goat_progress_<accountId>` | JSON Object | Map of `streamId` to progress objects `{ position, duration, completed, lastWatched }` |
 | `goat_settings` | JSON Object | Audio/subtitle language preferences and UI settings |
+| `goat_tv_cache_v1` (`kv` store) | IndexedDB (`TVIdbCache`) | Stale-While-Revalidate cache for synced category/stream payloads |
+| `goat_tv_ota_v2` (`files` / `meta`) | IndexedDB (`TVBootloader`) | Dual-slot (`slot_a`/`slot_b`) OTA v2 bundle storage with `bootedHealthy` rollback and compact `localStorage` fallback (`goat_tv_ota_v2_meta`, `goat_tv_ota_v2_file:`) |
 
 ### 2.2 Sandboxed In-Memory Fallback
 
